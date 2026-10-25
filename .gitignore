@@ -1,0 +1,28 @@
+# LeadEngine .gitignore
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# App data & artifacts
+data/*.db
+data/*.db-journal
+data/lighthouse/
+data/screenshots/
+output/
+logs/
+.env
+
+# Playwright & browser caches
+.playwright/
+ms-playwright/
+
+# OS specific
+Thumbs.db
+Desktop.ini
+.DS_Store
+node_modules

@@ -1,0 +1,82 @@
+# Scoring rules and weights for LeadEngine
+# Produces normalized 0-100 score across 4 pillars:
+# Website Opportunity (0-55), SEO Opportunity (0-20), Vertical Opportunity (0-15), Contactability (0-10)
+
+weights:
+  website:
+    no_website: 40
+    unreachable: 35
+    no_https: 15
+    no_viewport: 20
+    performance_under_40: 20
+    performance_under_60: 12
+    performance_under_75: 5
+    no_clear_cta: 6
+    no_contact_page: 5
+    no_detectable_analytics: 3
+
+  seo:
+    seo_under_50: 18
+    seo_under_65: 12
+    seo_under_80: 5
+    missing_title: 5
+    missing_meta_description: 4
+    missing_h1: 3
+    missing_canonical: 2
+    no_structured_data: 6
+    no_vertical_schema: 5
+
+  vertical:
+    restaurant:
+      pdf_only_menu: 8
+      no_reservations: 10
+      no_online_ordering: 5
+      no_restaurant_schema: 5
+    hospitality:
+      no_booking_engine: 12
+      no_hotel_schema: 5
+      weak_room_info: 5
+    real_estate:
+      no_property_search: 10
+      weak_lead_form: 8
+      no_local_landing_pages: 6
+      no_real_estate_schema: 5
+
+  contactability:
+    valid_public_email: 5
+    business_phone: 3
+    contact_form: 2
+    business_social: 2
+
+caps:
+  website_max: 55
+  seo_max: 20
+  vertical_max: 15
+  contactability_max: 10
+
+tiers:
+  a_plus:
+    min: 80
+    max: 100
+    label: "A+"
+  a:
+    min: 65
+    max: 79
+    label: "A"
+  b:
+    min: 50
+    max: 64
+    label: "B"
+  c:
+    min: 35
+    max: 49
+    label: "C"
+  d:
+    min: 0
+    max: 34
+    label: "D"
+
+default_export_tiers:
+  - "A+"
+  - "A"
+  - "B"

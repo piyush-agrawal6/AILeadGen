@@ -1,0 +1,138 @@
+restaurant:
+  display_name: Restaurants & Bars
+  aliases:
+    - restaurant
+    - restaurants
+    - cafe
+    - cafes
+    - bar
+    - bars
+    - pub
+    - pubs
+    - dining
+    - food
+  overture_categories:
+    - restaurant
+    - cafe
+    - bar
+    - pub
+    - bakery
+    - bistro
+    - diner
+  osm_tags:
+    - key: amenity
+      values: [restaurant, cafe, bar, pub]
+  exclude_keywords:
+    - "mcdonald"
+    - "burger king"
+    - "starbucks"
+    - "subway"
+    - "domino's"
+    - "dominos"
+    - "pizza hut"
+    - "kfc"
+    - "taco bell"
+    - "wendy's"
+    - "wendys"
+    - "chipotle"
+    - "dunkin"
+    - "panera"
+    - "popeyes"
+    - "chick-fil-a"
+    - "panda express"
+    - "sonic drive-in"
+    - "applebee's"
+    - "chili's"
+    - "olive garden"
+    - "buffalo wild wings"
+    - "denny's"
+    - "ihop"
+    - "jack in the box"
+    - "arby's"
+    - "five guys"
+    - "dairy queen"
+
+hospitality:
+  display_name: Hotels & Hospitality
+  aliases:
+    - hotel
+    - hotels
+    - resort
+    - resorts
+    - guest house
+    - guesthouse
+    - hospitality
+    - lodging
+    - motel
+    - hostel
+    - bnb
+    - bed and breakfast
+  overture_categories:
+    - hotel
+    - resort
+    - guest_house
+    - motel
+    - hostel
+    - bed_and_breakfast
+    - lodging
+  osm_tags:
+    - key: tourism
+      values: [hotel, guest_house, resort, hostel, motel]
+  exclude_keywords:
+    - "marriott"
+    - "hilton"
+    - "hyatt"
+    - "holiday inn"
+    - "best western"
+    - "sheraton"
+    - "wyndham"
+    - "travelodge"
+    - "motel 6"
+    - "ibis"
+    - "radisson"
+    - "accor"
+    - "comfort inn"
+    - "hampton inn"
+    - "courtyard by marriott"
+    - "fairfield inn"
+    - "super 8"
+    - "days inn"
+    - "la quinta"
+    - "four seasons"
+    - "ritz carlton"
+
+real_estate:
+  display_name: Real Estate & Property
+  aliases:
+    - real_estate
+    - real estate
+    - realtor
+    - realtors
+    - property_management
+    - property management
+    - estate_agent
+  overture_categories:
+    - real_estate_agency
+    - property_management
+    - real_estate_agent
+    - real_estate_service
+  osm_tags:
+    - key: office
+      values: [estate_agent, property_management]
+  exclude_keywords:
+    - "re/max"
+    - "remax"
+    - "century 21"
+    - "keller williams"
+    - "coldwell banker"
+    - "compass"
+    - "berkshire hathaway"
+    - "cbre"
+    - "jll"
+    - "cushman & wakefield"
+    - "marcus & millichap"
+    - "colliers"
+    - "sotheby's international realty"
+    - "sothebys"
+    - "redfin"
+    - "zillow"
