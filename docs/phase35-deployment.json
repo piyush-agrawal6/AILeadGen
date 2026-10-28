@@ -1,0 +1,39 @@
+{
+  "api": {
+    "revision": "projects/querryside/locations/asia-south1/services/leadengine-api/revisions/leadengine-api-00006-znl",
+    "traffic": [
+      {
+        "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_REVISION",
+        "revision": "leadengine-api-00006-znl",
+        "percent": 100
+      }
+    ],
+    "scaling": {
+      "maxInstanceCount": 2
+    },
+    "service_account": "leadengine-api-sa@querryside.iam.gserviceaccount.com",
+    "resources": {
+      "limits": {
+        "cpu": "1",
+        "memory": "1Gi"
+      },
+      "cpuIdle": true,
+      "startupCpuBoost": true
+    },
+    "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:phase35-20261026-092619"
+  },
+  "worker": {
+    "service_account": "leadengine-worker-sa@querryside.iam.gserviceaccount.com",
+    "resources": {
+      "limits": {
+        "cpu": "1",
+        "memory": "2Gi"
+      }
+    },
+    "parallelism": 1,
+    "task_count": 1,
+    "max_retries": 1,
+    "timeout": "10800s",
+    "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:phase35-20261026-092619"
+  }
+}

@@ -1,0 +1,9 @@
+# Public social enrichment
+
+Discovery reuses sampled website HTML (JSON-LD sameAs, header/footer/navigation, contact/about links), plus ingested OSM/Overture social fields and source tags. Eight platforms are normalized using exact host and profile-path rules. Share, login, individual LinkedIn, post and video URLs are excluded. Each canonical prospect profile retains discovery provenance and observation-specific source records.
+
+Activity is supporting context, never a score or rejection rule. RECENT means a reliably dated public post within 30 days; ACTIVE within 90 days; STALE requires an explicit older post. UNKNOWN covers missing dates, restrictions, robots denial, timeouts and exhausted budgets. A dated post must explicitly identify the same profile as its author. Generic page dates are ignored. Mixed active/unknown profiles yield PARTIAL presence; all unknown remains UNKNOWN. NONE means no profiles found in sampled sources, not proof none exist.
+
+Defaults: discovery/activity enabled, concurrency 2 businesses, at most 4 HTTP requests per business including robots, 8 seconds per request, 600 KB response limit. Redirects are not followed by activity checks, preserving the hard request budget. Requests use the configured crawler identity and public-network transport. No sessions, credentials, scraping services or access-control bypasses are used. X and LinkedIn activity remain UNKNOWN without approved evidence. Official X and Meta adapters are explicit extension points and disabled without configured clients.
+
+Metrics are stored per observation: seconds, requests, discovered profiles, verified statuses and unknown count. The summary must be interpreted with the observation date. UNKNOWN remains neutral in workspace and client reports; only reliably supported activity is used in client report narrative.

@@ -1,0 +1,113 @@
+{
+  "configuration": {
+    "cities": [
+      "London, United Kingdom",
+      "Manchester, United Kingdom"
+    ],
+    "verticals": [
+      "hospitality"
+    ],
+    "opportunities": [
+      "WEBSITE",
+      "SEO",
+      "SECURITY"
+    ],
+    "quality": "balanced",
+    "business_scales": [
+      "LOCAL",
+      "SMALL_GROUP",
+      "MID_MARKET",
+      "REGIONAL"
+    ],
+    "results": "new",
+    "target": 200,
+    "lighthouse_enabled": true,
+    "social_enrichment_enabled": true,
+    "social_activity_enabled": true,
+    "request_id": "4bfcc8ed-f0b1-4165-a70a-0083fe766ad9"
+  },
+  "campaign": {
+    "id": "4bfcc8ed-f0b1-4165-a70a-0083fe766ad9",
+    "created_by": "planebyte@gmail.com",
+    "status": "QUEUED",
+    "created_at": "2026-10-26T15:13:52.293440+00:00",
+    "started_at": null,
+    "completed_at": null,
+    "target_total": 200,
+    "cancellation_requested": 0,
+    "runs": [
+      {
+        "id": 1,
+        "market": "London, United Kingdom",
+        "vertical": "hospitality",
+        "target": 100,
+        "status": "QUEUED",
+        "raw_found": 0,
+        "qualified": 0,
+        "exported": 0,
+        "started_at": "2026-10-26 15:13:51.091199+00",
+        "finished_at": null,
+        "error_message": null
+      },
+      {
+        "id": 2,
+        "market": "Manchester, United Kingdom",
+        "vertical": "hospitality",
+        "target": 100,
+        "status": "QUEUED",
+        "raw_found": 0,
+        "qualified": 0,
+        "exported": 0,
+        "started_at": "2026-10-26 15:13:51.091199+00",
+        "finished_at": null,
+        "error_message": null
+      }
+    ],
+    "configuration": {
+      "cities": [
+        "London, United Kingdom",
+        "Manchester, United Kingdom"
+      ],
+      "verticals": [
+        "hospitality"
+      ],
+      "opportunities": [
+        "WEBSITE",
+        "SEO",
+        "SECURITY"
+      ],
+      "quality": "balanced",
+      "business_scales": [
+        "LOCAL",
+        "SMALL_GROUP",
+        "MID_MARKET",
+        "REGIONAL"
+      ],
+      "social_enrichment_enabled": true,
+      "social_activity_enabled": true,
+      "results": "new",
+      "target": 200,
+      "lighthouse_enabled": true,
+      "fixture": false,
+      "request_id": "4bfcc8ed-f0b1-4165-a70a-0083fe766ad9"
+    },
+    "counters": {
+      "raw_found": 0,
+      "qualified": 0,
+      "exported": 0
+    },
+    "progress": {
+      "completed": 0,
+      "running": 0,
+      "queued": 2,
+      "failed": 0,
+      "cancelled": 0
+    },
+    "opportunities": {
+      "website": 0,
+      "seo": 0,
+      "security": 0
+    }
+  },
+  "checked_at": "2026-10-26T15:14:18.431Z"
+}

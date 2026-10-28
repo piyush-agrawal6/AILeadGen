@@ -1,0 +1,7 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: [build, -f, deploy/Dockerfile.api, -t, '${_IMAGE}', .]
+images: ['${_IMAGE}']
+logsBucket: gs://querryside-leadengine-build-logs
+options:
+  logging: GCS_ONLY

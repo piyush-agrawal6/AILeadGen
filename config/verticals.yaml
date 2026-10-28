@@ -1,138 +1,480 @@
 restaurant:
   display_name: Restaurants & Bars
   aliases:
-    - restaurant
-    - restaurants
-    - cafe
-    - cafes
-    - bar
-    - bars
-    - pub
-    - pubs
-    - dining
-    - food
+  - restaurant
+  - restaurants
+  - cafe
+  - cafes
+  - bar
+  - bars
+  - pub
+  - pubs
+  - dining
+  - food
   overture_categories:
+  - restaurant
+  - cafe
+  - bar
+  - pub
+  - bakery
+  - bistro
+  - diner
+  osm_tags:
+  - key: amenity
+    values:
     - restaurant
     - cafe
     - bar
     - pub
-    - bakery
-    - bistro
-    - diner
-  osm_tags:
-    - key: amenity
-      values: [restaurant, cafe, bar, pub]
   exclude_keywords:
-    - "mcdonald"
-    - "burger king"
-    - "starbucks"
-    - "subway"
-    - "domino's"
-    - "dominos"
-    - "pizza hut"
-    - "kfc"
-    - "taco bell"
-    - "wendy's"
-    - "wendys"
-    - "chipotle"
-    - "dunkin"
-    - "panera"
-    - "popeyes"
-    - "chick-fil-a"
-    - "panda express"
-    - "sonic drive-in"
-    - "applebee's"
-    - "chili's"
-    - "olive garden"
-    - "buffalo wild wings"
-    - "denny's"
-    - "ihop"
-    - "jack in the box"
-    - "arby's"
-    - "five guys"
-    - "dairy queen"
-
+  - mcdonald
+  - burger king
+  - starbucks
+  - subway
+  - domino's
+  - dominos
+  - pizza hut
+  - kfc
+  - taco bell
+  - wendy's
+  - wendys
+  - chipotle
+  - dunkin
+  - panera
+  - popeyes
+  - chick-fil-a
+  - panda express
+  - sonic drive-in
+  - applebee's
+  - chili's
+  - olive garden
+  - buffalo wild wings
+  - denny's
+  - ihop
+  - jack in the box
+  - arby's
+  - five guys
+  - dairy queen
+  positive_name_signals:
+  - restaurant
+  - cafe
+  - bistro
+  negative_name_signals: []
+  negative_categories: []
+  schema_types:
+  - Restaurant
+  - LocalBusiness
+  audit_ctas:
+  - reserve
+  - order now
 hospitality:
   display_name: Hotels & Hospitality
   aliases:
-    - hotel
-    - hotels
-    - resort
-    - resorts
-    - guest house
-    - guesthouse
-    - hospitality
-    - lodging
-    - motel
-    - hostel
-    - bnb
-    - bed and breakfast
+  - hotel
+  - hotels
+  - resort
+  - resorts
+  - guest house
+  - guesthouse
+  - hospitality
+  - lodging
+  - motel
+  - hostel
+  - bnb
+  - bed and breakfast
   overture_categories:
-    - hotel
-    - resort
-    - guest_house
-    - motel
-    - hostel
-    - bed_and_breakfast
-    - lodging
+  - hotel
+  - resort
+  - guest_house
+  - motel
+  - hostel
+  - bed_and_breakfast
+  - lodging
   osm_tags:
-    - key: tourism
-      values: [hotel, guest_house, resort, hostel, motel]
+  - key: tourism
+    values:
+    - hotel
+    - guest_house
+    - resort
+    - hostel
+    - motel
   exclude_keywords:
-    - "marriott"
-    - "hilton"
-    - "hyatt"
-    - "holiday inn"
-    - "best western"
-    - "sheraton"
-    - "wyndham"
-    - "travelodge"
-    - "motel 6"
-    - "ibis"
-    - "radisson"
-    - "accor"
-    - "comfort inn"
-    - "hampton inn"
-    - "courtyard by marriott"
-    - "fairfield inn"
-    - "super 8"
-    - "days inn"
-    - "la quinta"
-    - "four seasons"
-    - "ritz carlton"
-
+  - marriott
+  - hilton
+  - hyatt
+  - holiday inn
+  - best western
+  - sheraton
+  - wyndham
+  - travelodge
+  - motel 6
+  - ibis
+  - radisson
+  - accor
+  - comfort inn
+  - hampton inn
+  - courtyard by marriott
+  - fairfield inn
+  - super 8
+  - days inn
+  - la quinta
+  - four seasons
+  - ritz carlton
+  positive_name_signals:
+  - hotel
+  - resort
+  - guest house
+  negative_name_signals: []
+  negative_categories: []
+  schema_types:
+  - Hotel
+  - LodgingBusiness
+  audit_ctas:
+  - book now
+  - check availability
+  audit_rules:
+  - code: ROOM_PAGES_NOT_OBSERVED
+    keywords:
+    - rooms
+    - suites
+    - accommodation
+    points: 5
 real_estate:
   display_name: Real Estate & Property
   aliases:
-    - real_estate
-    - real estate
-    - realtor
-    - realtors
-    - property_management
-    - property management
-    - estate_agent
+  - real_estate
+  - real estate
+  - realtor
+  - realtors
+  - property_management
+  - property management
+  - estate_agent
   overture_categories:
-    - real_estate_agency
-    - property_management
-    - real_estate_agent
-    - real_estate_service
+  - real_estate_agency
+  - property_management
+  - real_estate_agent
+  - real_estate_service
+  - property_developer
+  - real_estate_broker
   osm_tags:
-    - key: office
-      values: [estate_agent, property_management]
+  - key: office
+    values:
+    - estate_agent
+    - property_management
   exclude_keywords:
-    - "re/max"
-    - "remax"
-    - "century 21"
-    - "keller williams"
-    - "coldwell banker"
-    - "compass"
-    - "berkshire hathaway"
-    - "cbre"
-    - "jll"
-    - "cushman & wakefield"
-    - "marcus & millichap"
-    - "colliers"
-    - "sotheby's international realty"
-    - "sothebys"
-    - "redfin"
-    - "zillow"
+  - re/max
+  - remax
+  - century 21
+  - keller williams
+  - coldwell banker
+  - compass
+  - berkshire hathaway
+  - cbre
+  - jll
+  - cushman & wakefield
+  - marcus & millichap
+  - colliers
+  - sotheby's international realty
+  - sothebys
+  - redfin
+  - zillow
+  positive_name_signals:
+  - real estate
+  - property management
+  - realty
+  negative_name_signals: []
+  negative_categories: []
+  schema_types:
+  - RealEstateAgent
+  - LocalBusiness
+  audit_ctas:
+  - enquire
+  - inquire
+  - valuation
+  - contact
+  audit_rules:
+  - code: PROPERTY_PAGES_NOT_OBSERVED
+    keywords:
+    - properties
+    - listings
+    - property-search
+    - management
+    points: 5
+home_services:
+  display_name: Home Services
+  aliases:
+  - home services
+  - hvac
+  - plumbing
+  - roofing
+  - electrical
+  - general contractors
+  overture_categories:
+  - hvac_service
+  - plumbing
+  - roofing
+  - electrician
+  - building_contractor
+  osm_tags:
+  - key: craft
+    values:
+    - hvac
+    - plumber
+    - roofer
+    - electrician
+    - builder
+  positive_name_signals:
+  - hvac
+  - plumbing
+  - roofing
+  - electrical
+  - contractor
+  negative_name_signals:
+  - supply
+  - wholesale
+  - training
+  negative_categories:
+  - restaurant
+  - hotel
+  - supermarket
+  - school
+  - retail
+  schema_types:
+  - LocalBusiness
+  - HomeAndConstructionBusiness
+  - HVACBusiness
+  - Plumber
+  - RoofingContractor
+  - Electrician
+  audit_ctas:
+  - request service
+  - get a quote
+  - emergency
+  - call now
+  exclude_keywords:
+  - mr rooter
+  - mister sparky
+  - roto-rooter
+  - one hour heating
+  - benjamin franklin plumbing
+  - mr electric
+  - servpro
+  audit_rules:
+  - code: SERVICE_PAGES_NOT_OBSERVED
+    keywords:
+    - service
+    - repair
+    - installation
+    points: 5
+  - code: SERVICE_AREA_NOT_OBSERVED
+    keywords:
+    - service-area
+    - areas-we-serve
+    - coverage
+    - locations
+    points: 5
+dentists:
+  display_name: Dentists
+  aliases:
+  - dentist
+  - dental
+  overture_categories:
+  - dental_clinic
+  osm_tags:
+  - key: amenity
+    values:
+    - dentist
+  positive_name_signals:
+  - dental
+  - dentist
+  - orthodontic
+  negative_name_signals:
+  - laboratory
+  - supply
+  - school
+  negative_categories:
+  - restaurant
+  - hotel
+  - supermarket
+  - school
+  - retail
+  schema_types:
+  - Dentist
+  - LocalBusiness
+  audit_ctas:
+  - appointment
+  - book now
+  - schedule
+  exclude_keywords:
+  - aspen dental
+  - heartland dental
+  - dental care alliance
+  - bupa dental
+  audit_rules:
+  - code: TREATMENT_PAGES_NOT_OBSERVED
+    keywords:
+    - treatment
+    - service
+    - dental-care
+    points: 5
+  - code: LOCATION_PAGE_NOT_OBSERVED
+    keywords:
+    - location
+    - directions
+    - find-us
+    points: 4
+auto_repair:
+  display_name: Auto Repair
+  aliases:
+  - auto repair
+  - mechanic
+  overture_categories:
+  - automotive_repair
+  osm_tags:
+  - key: shop
+    values:
+    - car_repair
+  positive_name_signals:
+  - auto repair
+  - automotive
+  - garage
+  - mechanic
+  negative_name_signals:
+  - dealer
+  - car wash
+  - rental
+  negative_categories:
+  - restaurant
+  - hotel
+  - supermarket
+  - school
+  - retail
+  schema_types:
+  - AutomotiveBusiness
+  - AutoRepair
+  - LocalBusiness
+  audit_ctas:
+  - appointment
+  - schedule service
+  - book now
+  exclude_keywords:
+  - firestone complete auto care
+  - meineke
+  - jiffy lube
+  - pep boys
+  - valvoline instant oil change
+  audit_rules:
+  - code: REPAIR_SERVICE_PAGES_NOT_OBSERVED
+    keywords:
+    - repair
+    - service
+    - maintenance
+    points: 5
+  - code: LOCATION_PAGE_NOT_OBSERVED
+    keywords:
+    - location
+    - directions
+    - find-us
+    points: 4
+legal:
+  display_name: Legal
+  aliases:
+  - law firm
+  - lawyer
+  - attorney
+  overture_categories:
+  - attorney_or_law_firm
+  osm_tags:
+  - key: office
+    values:
+    - lawyer
+  positive_name_signals:
+  - law
+  - attorney
+  - solicitor
+  negative_name_signals:
+  - school
+  - association
+  - court
+  negative_categories:
+  - restaurant
+  - hotel
+  - supermarket
+  - school
+  - retail
+  schema_types:
+  - LegalService
+  - Attorney
+  - LocalBusiness
+  audit_ctas:
+  - consultation
+  - contact us
+  - case evaluation
+  exclude_keywords:
+  - dla piper
+  - dentons
+  - baker mckenzie
+  - clifford chance
+  audit_rules:
+  - code: PRACTICE_AREAS_NOT_OBSERVED
+    keywords:
+    - practice
+    - legal-services
+    - expertise
+    points: 5
+  - code: LOCATION_PAGE_NOT_OBSERVED
+    keywords:
+    - location
+    - office
+    - directions
+    points: 4
+veterinary:
+  display_name: Veterinary
+  aliases:
+  - vet
+  - veterinarian
+  - animal hospital
+  overture_categories:
+  - veterinary_care
+  osm_tags:
+  - key: amenity
+    values:
+    - veterinary
+  positive_name_signals:
+  - veterinary
+  - animal hospital
+  - vet
+  negative_name_signals:
+  - pet store
+  - grooming
+  - supply
+  negative_categories:
+  - restaurant
+  - hotel
+  - supermarket
+  - school
+  - retail
+  schema_types:
+  - VeterinaryCare
+  - LocalBusiness
+  audit_ctas:
+  - appointment
+  - emergency
+  - book now
+  exclude_keywords:
+  - vca animal hospitals
+  - banfield pet hospital
+  - bluepearl pet hospital
+  audit_rules:
+  - code: VETERINARY_SERVICE_PAGES_NOT_OBSERVED
+    keywords:
+    - service
+    - care
+    - treatment
+    points: 5
+  - code: LOCATION_PAGE_NOT_OBSERVED
+    keywords:
+    - location
+    - directions
+    - find-us
+    points: 4

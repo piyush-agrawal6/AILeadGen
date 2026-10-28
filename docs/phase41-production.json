@@ -1,0 +1,13 @@
+{
+  "dashboard_deployment": "dpl_FEwb4mB3EM2YD1GmH8k7Evi2fh9G",
+  "url": "https://leads.planebyte.com",
+  "tracking_base_url": "https://leads.planebyte.com/t",
+  "smtp": "READY",
+  "imap": "READY",
+  "send_mode": "test",
+  "live_approved": false,
+  "live_messages_sent": 0,
+  "dns_modified": false,
+  "secrets_rotated": false,
+  "first_live_send_performed": false
+}

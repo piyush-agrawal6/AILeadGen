@@ -1,0 +1,192 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+@layer base {
+  :root {
+    --background: 40.00 25.00% 90.59%;
+    --foreground: 150.00 6.25% 6.27%;
+    --card: 37.50 33.33% 95.29%;
+    --card-foreground: 150.00 6.25% 6.27%;
+    --primary: 15.80 100.00% 56.08%;
+    --primary-foreground: 150.00 6.25% 6.27%;
+    --secondary: 46.15 16.88% 84.90%;
+    --secondary-foreground: 150.00 6.25% 6.27%;
+    --muted: 41.54 18.84% 86.47%;
+    --muted-foreground: 75.00 4.26% 36.86%;
+    --accent: 42.86 19.44% 85.88%;
+    --accent-foreground: 150.00 6.25% 6.27%;
+    --destructive: 5.76 58.14% 42.16%;
+    --destructive-foreground: 0.00 0.00% 100.00%;
+    --border: 55.00 11.11% 78.82%;
+    --input: 65.45 9.09% 76.27%;
+    --ring: 15.80 100.00% 56.08%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 150.00 6.25% 6.27%;
+    --foreground: 40.00 25.00% 90.59%;
+    --card: 120.00 6.12% 9.61%;
+    --card-foreground: 40.00 25.00% 90.59%;
+    --primary: 15.80 100.00% 56.08%;
+    --primary-foreground: 150.00 6.25% 6.27%;
+    --secondary: 120.00 6.45% 12.16%;
+    --secondary-foreground: 40.00 25.00% 90.59%;
+    --muted: 120.00 6.45% 12.16%;
+    --muted-foreground: 77.14 3.52% 60.98%;
+    --accent: 100.00 11.11% 15.88%;
+    --accent-foreground: 40.00 25.00% 90.59%;
+    --destructive: 6.39 50.83% 47.06%;
+    --destructive-foreground: 40.00 25.00% 90.59%;
+    --border: 96.00 4.50% 21.76%;
+    --input: 90.00 7.58% 25.88%;
+    --ring: 15.80 100.00% 56.08%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .control { @apply rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring; min-height: 38px; }
+  .field-label { @apply block text-xs font-medium text-muted-foreground; }
+}
+button, summary { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+input[type="checkbox"], input[type="radio"] { accent-color: hsl(var(--primary)); }
+:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
+table { font-variant-numeric: tabular-nums; }
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Phase 3.5: compact semantic controls, shared in the workspace and dossier. */
+.status-pill,.status-control { display:inline-flex; align-items:center; gap:7px; border:1px solid transparent; border-radius:999px; padding:5px 10px; font-size:11px; font-weight:500; white-space:nowrap; line-height:18px; }
+.status-control { padding:3px 9px; min-width:118px; }
+.status-control select { min-width:82px; max-width:125px; border:0; background:transparent; color:inherit; padding:3px 0; font-size:11px; outline-offset:2px; cursor:pointer; }
+.status-control option { background:hsl(var(--card)); color:hsl(var(--foreground)); }
+.status-dot { width:6px; height:6px; flex-shrink:0; border-radius:50%; background:currentColor; }
+.status-new { color:#245caa; background:#eff6ff; border-color:#d8e8ff; }
+.status-shortlisted { color:#076a59; background:#eaf8f3; border-color:#ccecdf; }
+.status-contacted { color:#1759a6; background:#edf4ff; border-color:#dbe8ff; }
+.status-replied { color:#6940ab; background:#f4eeff; border-color:#e7dcfa; }
+.status-won { color:#176d38; background:#eaf7ed; border-color:#d2ebd8; }
+.status-muted { color:#606b7c; background:#f2f4f7; border-color:#e5e9ef; }
+.status-danger,.status-lost { color:#ac3540; background:#fff0f1; border-color:#f5dce0; }
+.score-chip { display:inline-flex; align-items:center; justify-content:center; min-width:32px; padding:5px 6px; border-radius:5px; font-size:12px; line-height:17px; font-weight:650; font-variant-numeric:tabular-nums; }
+.score-value { display:inline-flex; align-items:baseline; padding:6px 10px; border-radius:6px; font-size:28px; line-height:1.25; font-weight:600; font-variant-numeric:tabular-nums; }
+.score-low { color:#b93641; background:#fff0f1; }
+.score-moderate { color:#9a6410; background:#fff5df; }
+.score-good { color:#8b6514; background:#fff7dc; }
+.score-strong { color:#08775d; background:#e5f7ef; }
+.score-unassessed { color:hsl(var(--muted-foreground)); background:hsl(var(--muted)); }
+.filter-overlay { position:fixed; inset:0; z-index:60; background:rgb(15 25 45 / .08); animation:filter-appear .12s ease-out; }
+.filter-panel { position:fixed; z-index:61; right:24px; top:80px; width:min(480px,calc(100vw - 32px)); max-height:calc(100dvh - 104px); overflow-y:auto; border:1px solid hsl(var(--border)); border-radius:10px; background:hsl(var(--card)); box-shadow:0 18px 64px rgb(25 47 80 / .14),0 2px 8px rgb(25 47 80 / .04); animation:filter-appear .12s ease-out; outline:none; }
+.filter-count { display:grid; place-items:center; min-width:18px; height:18px; border-radius:999px; background:#e8f0ff; color:#2863bd; font-size:10px; }
+@keyframes filter-appear { from {opacity:0; transform:translateY(-4px);} to {opacity:1; transform:translateY(0);} }
+.lead-table { width:100%; min-width:1120px; border-collapse:collapse; font-size:12px; }
+.lead-table th { padding:13px 12px; border-bottom:1px solid hsl(var(--border)); background:hsl(var(--muted) / .28); color:hsl(var(--muted-foreground)); font-size:10px; font-weight:500; text-align:left; }
+.lead-table td { padding:13px 12px; border-bottom:1px solid hsl(var(--border)); vertical-align:middle; }
+.lead-table tbody tr:last-child td { border-bottom:0; }
+.lead-table tbody tr:hover { background:hsl(var(--muted) / .25); }
+.lead-table .business-cell { min-width:290px; max-width:355px; }
+.lead-table .contact-line { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:5px; font-size:10px; color:hsl(var(--muted-foreground)); }
+.lead-table .contact-line a { display:inline-flex; align-items:center; gap:4px; overflow-wrap:anywhere; }
+.lead-table .contact-line a:hover { color:hsl(var(--primary)); }
+.pdf-download { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; border:1px solid hsl(var(--border)); border-radius:6px; background:hsl(var(--card)); padding:8px 10px; font-size:11px; font-weight:500; color:#235caa; box-shadow:0 1px 2px rgb(20 40 70 / .03); }
+.pdf-download:hover { border-color:#b9cfee; background:#f4f8ff; }
+.report-cell { display:flex; align-items:center; gap:6px; }
+.report-cell button { white-space:nowrap; }
+.report-regenerate { display:flex; padding:5px; border-radius:4px; color:hsl(var(--muted-foreground)); }
+.report-regenerate:hover { background:hsl(var(--muted)); color:hsl(var(--primary)); }
+.opportunity-card { border:1px solid hsl(var(--border)); border-radius:9px; background:hsl(var(--card)); padding:17px; }
+.opportunity-website { --opportunity-color:#2473dc; --opportunity-bg:#eef5ff; }
+.opportunity-seo { --opportunity-color:#07836c; --opportunity-bg:#eaf8f3; }
+.opportunity-security { --opportunity-color:#6852be; --opportunity-bg:#f3f0ff; }
+.opportunity-icon { display:grid; place-items:center; width:34px; height:34px; border-radius:7px; color:var(--opportunity-color); background:var(--opportunity-bg); }
+.scan-choice { transition:background .12s,border-color .12s; }
+.scan-choice:hover { background:hsl(var(--muted) / .5); }
+.scan-choice[data-selected="true"] { border-color:#9fc8f0; background:#eef6ff; }
+.scan-choice[data-selected="true"] .choice-label { color:#195b9d; font-weight:550; }
+.dark .status-new,.dark .status-contacted { color:#9fc5ff; background:#14243a; border-color:#233b5d; }
+.dark .status-shortlisted { color:#91d8bf; background:#132c26; border-color:#23473b; }
+.dark .status-replied { color:#c9b3f0; background:#2b203b; border-color:#47335e; }
+.dark .status-won { color:#a1ddb0; background:#172e20; border-color:#2c4935; }
+.dark .status-muted { color:#aab1bf; background:#23262d; border-color:#323640; }
+.dark .status-danger,.dark .status-lost { color:#efa4ad; background:#342026; border-color:#54313b; }
+.dark .score-low { color:#f4a9b0; background:#352129; }
+.dark .score-moderate { color:#e7c18a; background:#342b1e; }
+.dark .score-good { color:#e5d18c; background:#312e1f; }
+.dark .score-strong { color:#99d8bc; background:#172e26; }
+.dark .pdf-download { color:#a7c6ee; }
+.dark .pdf-download:hover { background:#1b2839; border-color:#345375; }
+.dark .filter-overlay { background:rgb(0 0 0 / .35); }
+.dark .filter-count { background:#20334e; color:#adcaf5; }
+.dark .opportunity-website { --opportunity-color:#9bc1f5; --opportunity-bg:#192d47; }
+.dark .opportunity-seo { --opportunity-color:#99d8c3; --opportunity-bg:#16372d; }
+.dark .opportunity-security { --opportunity-color:#c0b1ee; --opportunity-bg:#2b2343; }
+.dark .scan-choice[data-selected="true"] { background:#192d3c; border-color:#3d607a; }
+.dark .scan-choice[data-selected="true"] .choice-label { color:#abd1ee; }
+@media(max-width:640px) { .filter-panel { inset:0 0 0 auto; width:min(100vw,440px); max-height:100dvh; border-radius:0; } }
+@media(prefers-reduced-motion:reduce) { .filter-panel,.filter-overlay { animation:none; } }
+
+@font-face { font-family:'PlaneByte Sans'; src:url('/fonts/planebyte-sans-regular.woff2') format('woff2'); font-weight:100 499; font-display:swap; }
+@font-face { font-family:'PlaneByte Sans'; src:url('/fonts/planebyte-sans-medium.woff2') format('woff2'); font-weight:500 649; font-display:swap; }
+@font-face { font-family:'PlaneByte Sans'; src:url('/fonts/planebyte-sans-bold.woff2') format('woff2'); font-weight:650 900; font-display:swap; }
+body { font-family:'PlaneByte Sans',Arial,sans-serif; }
+.opportunity-choice[data-selected="true"] { color:var(--opportunity-color); background:var(--opportunity-bg); border-color:var(--opportunity-color); }
+.dossier-panel { border:1px solid hsl(var(--border)); border-radius:9px; background:hsl(var(--card)); padding:20px; box-shadow:0 2px 12px rgb(30 60 90 / .025); }
+.dossier-panel h2 { font-size:13px; font-weight:650; margin-bottom:16px; }
+
+/* PlaneByte brand: Signal Orange, Graphite and technical olive. */
+.brand-filter-chip { color:#9F310D; background:#F5DDCF; border-color:#E4BEA5; }
+.contact-high { color:#4A6038; }
+.pdf-download { color:#AD3309; }
+.pdf-download:hover { background:#F7E2D5; border-color:#C57648; }
+.filter-count { color:#A9340D; background:#F6DFD0; }
+.opportunity-website { --opportunity-color:#AB3309; --opportunity-bg:#F4DDCF; }
+.opportunity-seo { --opportunity-color:#4A5341; --opportunity-bg:#E0E4D8; }
+.opportunity-security { --opportunity-color:#59634F; --opportunity-bg:#E6E9DF; }
+.scan-choice[data-selected="true"] { background:#F1DFD1; border-color:#C97F56; }
+.scan-choice[data-selected="true"] .choice-label { color:#98350F; }
+html:not(.dark) .text-primary { color:#AD3309; }
+.dark .brand-filter-chip { color:#FFAB86; background:#332117; border-color:#68412A; }
+.dark .contact-high { color:#B5C69E; }
+.dark .pdf-download { color:#FFAB86; }
+.dark .pdf-download:hover { background:#332117; border-color:#74452D; }
+.dark .filter-count { color:#FFAB86; background:#3B271C; }
+.dark .opportunity-website { --opportunity-color:#FF8A59; --opportunity-bg:#332117; }
+.dark .opportunity-seo { --opportunity-color:#E1DCCB; --opportunity-bg:#2B2C25; }
+.dark .opportunity-security { --opportunity-color:#B8C7A5; --opportunity-bg:#252D20; }
+.dark .scan-choice[data-selected="true"] { background:#302319; border-color:#94502E; }
+.dark .scan-choice[data-selected="true"] .choice-label { color:#FFAB86; }
+.dark .status-new,.dark .status-contacted { color:#FFAB86; background:#332117; border-color:#67412B; }
+.dark .status-shortlisted,.dark .status-won { color:#B7C9A2; background:#232A1D; border-color:#3B4732; }
+.dark .status-replied { color:#D5CEB1; background:#2D2C22; border-color:#4B4935; }
+.dark .status-muted { color:#A9ACA0; background:#252823; border-color:#3C4136; }
+.dark .status-danger,.dark .status-lost { color:#F4AAA1; background:#35221E; border-color:#614039; }
+.dark .score-low { color:#F0A49F; background:#31211F; }
+.dark .score-moderate { color:#F0B38F; background:#31261C; }
+.dark .score-good { color:#D6CA95; background:#2D2A1E; }
+.dark .score-strong { color:#B8C9A4; background:#222B1F; }

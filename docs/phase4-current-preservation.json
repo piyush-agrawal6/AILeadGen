@@ -1,0 +1,38 @@
+{
+  "checked_at": "2026-10-26T19:11:12.339930+00:00",
+  "schema": 7,
+  "counts": {
+    "scan_campaigns": 1,
+    "pipeline_runs": 2,
+    "prospects": 1250,
+    "businesses": 1927,
+    "opportunity_scores": 800,
+    "client_reports": 5,
+    "prospect_notes": 0,
+    "social_profiles": 742
+  },
+  "runs": [
+    {
+      "id": 1,
+      "market": "London, United Kingdom",
+      "vertical": "hospitality",
+      "status": "COMPLETED",
+      "qualified": 378,
+      "exported": 100
+    },
+    {
+      "id": 2,
+      "market": "Manchester, United Kingdom",
+      "vertical": "hospitality",
+      "status": "COMPLETED",
+      "qualified": 367,
+      "exported": 100
+    }
+  ],
+  "checks": {
+    "discovery_counts_unchanged": true,
+    "completed_scans_unchanged": true,
+    "previous_reports_retained": true
+  },
+  "read_only": true
+}

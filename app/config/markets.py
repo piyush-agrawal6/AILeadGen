@@ -3,7 +3,7 @@ import logging
 import time
 from pathlib import Path
 from typing import Dict, Optional, Tuple
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import httpx
 
 from app.config.settings import get_settings
@@ -12,10 +12,10 @@ logger = logging.getLogger("leadengine.markets")
 
 
 class BoundingBox(BaseModel):
-    min_lat: float
-    min_lon: float
-    max_lat: float
-    max_lon: float
+    min_lat: float = Field(ge=-90,le=90,allow_inf_nan=False)
+    min_lon: float = Field(ge=-180,le=180,allow_inf_nan=False)
+    max_lat: float = Field(ge=-90,le=90,allow_inf_nan=False)
+    max_lon: float = Field(ge=-180,le=180,allow_inf_nan=False)
 
     def to_tuple(self) -> Tuple[float, float, float, float]:
         return (self.min_lat, self.min_lon, self.max_lat, self.max_lon)

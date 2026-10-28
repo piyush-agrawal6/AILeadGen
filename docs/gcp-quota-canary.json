@@ -1,0 +1,101 @@
+{
+  "apiVersion": "run.googleapis.com/v1",
+  "kind": "Execution",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "590.0.1",
+      "run.googleapis.com/creator": "taavaraastrology@gmail.com",
+      "run.googleapis.com/execution-environment": "gen2",
+      "run.googleapis.com/lastModifier": "taavaraastrology@gmail.com",
+      "run.googleapis.com/operation-id": "8cfe95b4-0d68-42f5-aed4-228ad883c4de"
+    },
+    "creationTimestamp": "2026-10-25T16:42:20.942641Z",
+    "generation": 1,
+    "labels": {
+      "client.knative.dev/nonce": "biq_kil_vus",
+      "cloud.googleapis.com/location": "asia-south1",
+      "run.googleapis.com/job": "leadengine-quota-canary",
+      "run.googleapis.com/jobGeneration": "1",
+      "run.googleapis.com/jobResourceVersion": "1792946536818219",
+      "run.googleapis.com/jobUid": "14e747b8-ad8f-4ccc-bdcb-89373c145cb0",
+      "run.googleapis.com/satisfiesPzs": "true"
+    },
+    "name": "leadengine-quota-canary-zk27p",
+    "namespace": "248535449008",
+    "ownerReferences": [
+      {
+        "apiVersion": "serving.knative.dev/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Job",
+        "name": "leadengine-quota-canary",
+        "uid": "14e747b8-ad8f-4ccc-bdcb-89373c145cb0"
+      }
+    ],
+    "resourceVersion": "AAZerOaAWMk",
+    "selfLink": "/apis/run.googleapis.com/v1/namespaces/248535449008/executions/leadengine-quota-canary-zk27p",
+    "uid": "33fa8c33-215b-4596-9752-578af7b1df37"
+  },
+  "spec": {
+    "parallelism": 1,
+    "taskCount": 1,
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "args": [
+              "--version"
+            ],
+            "command": [
+              "python"
+            ],
+            "image": "mirror.gcr.io/library/python@sha256:e8a38829209aea82774882e5157e1f7c3e8c8393ff53a697b3580896e57f345c",
+            "resources": {
+              "limits": {
+                "cpu": "1",
+                "memory": "2Gi"
+              }
+            }
+          }
+        ],
+        "maxRetries": 0,
+        "serviceAccountName": "leadengine-worker-sa@querryside.iam.gserviceaccount.com",
+        "timeoutSeconds": "60"
+      }
+    }
+  },
+  "status": {
+    "completionTime": "2026-10-25T16:42:33.588378Z",
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-10-25T16:42:33.588378Z",
+        "message": "Execution completed successfully in 7.22s.",
+        "status": "True",
+        "type": "Completed"
+      },
+      {
+        "lastTransitionTime": "2026-10-25T16:42:24.985992Z",
+        "message": "Provisioned imported containers.",
+        "status": "True",
+        "type": "ResourcesAvailable"
+      },
+      {
+        "lastTransitionTime": "2026-10-25T16:42:29.207285Z",
+        "message": "Started deployed execution in 4.22s.",
+        "status": "True",
+        "type": "Started"
+      },
+      {
+        "lastTransitionTime": "2026-10-25T16:42:24.830867Z",
+        "message": "Imported container image in 3.89s.",
+        "status": "True",
+        "type": "ContainerReady"
+      }
+    ],
+    "logUri": "https://console.cloud.google.com/logs/viewer?project=querryside&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22leadengine-quota-canary%22%0Aresource.labels.location%3D%22asia-south1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22leadengine-quota-canary-zk27p%22",
+    "observedGeneration": 1,
+    "startTime": "2026-10-25T16:42:26.360485Z",
+    "succeededCount": 1
+  }
+}

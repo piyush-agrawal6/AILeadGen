@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 import httpx
 
 from app.config.settings import get_settings
+from app.utils.http import SafeAsyncClient
+from urllib.robotparser import RobotFileParser
 from app.enrichment.contacts import ExtractedContacts, extract_contacts_from_html
 from app.enrichment.social import extract_social_links
 from app.utils.urls import extract_domain, extract_hostname, is_safe_url, sanitize_url
@@ -35,6 +37,9 @@ class CrawlResult:
         self.menu_is_pdf: bool = False
         self.has_robots_txt: bool = False
         self.has_sitemap: bool = False
+        self.page_statuses: Dict[str, int] = {}
+        self.final_urls: Dict[str, str] = {}
+        self.redirect_counts: Dict[str, int] = {}
 
 
 class WebsiteCrawler:
@@ -70,36 +75,40 @@ class WebsiteCrawler:
             "Accept-Language": "en-US,en;q=0.9",
         }
 
-        async with httpx.AsyncClient(
+        async with SafeAsyncClient(
             timeout=httpx.Timeout(self.page_timeout, connect=3.0),
             follow_redirects=True,
-            verify=False,
+            max_bytes=self.max_response_bytes,
         ) as client:
             parsed_base = urlparse(clean_start)
             base_origin = f"{parsed_base.scheme}://{parsed_base.netloc}"
 
             # Fast robots & sitemap probe with short 2s timeout
+            robots = RobotFileParser()
             async def check_meta_files():
                 try:
-                    r_resp = await client.get(urljoin(base_origin, "/robots.txt"), timeout=2.5)
+                    r_resp = await client.get(urljoin(base_origin, "/robots.txt"), timeout=2.5, allowed_host=start_host)
                     if r_resp.status_code == 200 and "user-agent" in r_resp.text.lower():
                         result.has_robots_txt = True
+                        robots.parse(r_resp.text.splitlines())
                 except Exception:
                     pass
                 try:
-                    s_resp = await client.get(urljoin(base_origin, "/sitemap.xml"), timeout=2.5)
+                    s_resp = await client.get(urljoin(base_origin, "/sitemap.xml"), timeout=2.5, allowed_host=start_host)
                     if s_resp.status_code == 200 and ("<urlset" in s_resp.text.lower() or "<sitemapindex" in s_resp.text.lower()):
                         result.has_sitemap = True
                 except Exception:
                     pass
 
-            asyncio.create_task(check_meta_files())
+            await check_meta_files()
 
             while to_visit and result.pages_crawled < self.max_pages:
                 if time.time() - start_time > self.max_duration:
                     break
 
                 current_url = to_visit.pop(0)
+                if result.has_robots_txt and not robots.can_fetch(settings.crawler_user_agent, current_url):
+                    continue
                 norm_curr = current_url.split("#")[0].rstrip("/")
                 if norm_curr in visited_urls:
                     continue
@@ -113,7 +122,10 @@ class WebsiteCrawler:
                     if not is_safe_url(current_url):
                         continue
                     try:
-                        resp = await client.get(current_url, headers=headers)
+                        resp = await client.get(current_url, headers=headers, allowed_host=start_host)
+                        result.page_statuses[current_url] = resp.status_code
+                        result.final_urls[current_url] = str(resp.url)
+                        result.redirect_counts[current_url] = len(resp.history)
                         if resp.status_code == 200:
                             ct = resp.headers.get("content-type", "").lower()
                             if "text/html" in ct or "application/xhtml" in ct or not ct:

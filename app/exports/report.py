@@ -1,6 +1,9 @@
 from pathlib import Path
 from typing import List, Optional
 from app.database.models import Business, Finding, LeadScore, LighthouseResult, WebsiteProfile
+from html import escape
+from app.utils.urls import is_safe_url
+from app.exports.phase3 import FIELDS, metadata_values
 
 REPORTS_DIR = Path("output/reports")
 
@@ -16,6 +19,14 @@ def generate_html_report(
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     safe_name = "".join(c if c.isalnum() else "_" for c in business.name.lower())[:30]
     out_file = REPORTS_DIR / f"{business.id}_{safe_name}.html"
+    # Reports can be downloaded and opened outside the application CSP.
+    if business.website and not is_safe_url(business.website):
+        business = business.model_copy(update={"website":None})
+    def escaped(model):
+        return model.model_copy(update={key:escape(value, quote=True) for key,value in model.model_dump().items() if isinstance(value,str)}) if model else None
+    business, profile = escaped(business), escaped(profile)
+    findings = [escaped(finding) for finding in findings]
+    score = escaped(score)
 
     tier_colors = {
         "A+": "#16a34a",
@@ -290,6 +301,8 @@ def generate_html_report(
 </html>
 """
 
+    opportunity_html = "<section class='container'><div class='card'><h2>Service opportunities & team workflow</h2><p>Higher opportunity scores indicate stronger service opportunities. Unassessed values are shown as —.</p><dl>" + "".join(f"<div style='margin:12px 0'><dt>{escape(name)}</dt><dd>{escape(str(value)) if value is not None else '—'}</dd></div>" for name,value in zip(FIELDS,metadata_values(score))) + "</dl></div></section>"
+    html_content = html_content.replace("</body>",opportunity_html+"</body>")
     with open(out_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 

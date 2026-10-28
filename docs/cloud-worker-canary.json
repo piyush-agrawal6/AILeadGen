@@ -1,0 +1,22 @@
+[
+  {
+    "name": "PostgreSQL",
+    "status": "ready",
+    "details": "Configured database is reachable."
+  },
+  {
+    "name": "R2",
+    "status": "ready",
+    "details": "Bucket is reachable using server credentials; public-access policy is not inferred from this check."
+  },
+  {
+    "name": "Cloud Worker Configuration",
+    "status": "ready",
+    "details": "Job exists. Actual execution and image pulling require a canary."
+  },
+  {
+    "name": "Canary",
+    "status": "ready",
+    "details": "Worker canary completed."
+  }
+]

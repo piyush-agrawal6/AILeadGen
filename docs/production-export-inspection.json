@@ -1,0 +1,45 @@
+{
+  "csv": {
+    "rows": 5,
+    "opportunity_and_workflow_columns": [
+      "Website Opportunity",
+      "SEO Opportunity",
+      "Security Opportunity",
+      "Primary Opportunity",
+      "Secondary Opportunity",
+      "Business Scale",
+      "Contactability",
+      "Lead Status",
+      "Assigned User",
+      "First Seen",
+      "Last Seen"
+    ],
+    "business_names": [
+      "Serenity Dental",
+      "Buda Kids Teeth",
+      "Hill Country Dentists",
+      "A Summer Smile",
+      "Smile Designs"
+    ]
+  },
+  "xlsx": {
+    "sheets": [
+      "HOT LEADS",
+      "A LEADS",
+      "B LEADS",
+      "NO WEBSITE",
+      "WEBSITE REDESIGN",
+      "SEO OPPORTUNITIES",
+      "ALL QUALIFIED",
+      "ALL DISCOVERED",
+      "REJECTED",
+      "RUN SUMMARY"
+    ],
+    "phase3_headers_present": true
+  },
+  "html": {
+    "service_opportunities_present": true,
+    "no_scripts": true,
+    "bytes": 24567
+  }
+}

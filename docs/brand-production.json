@@ -1,0 +1,104 @@
+{
+  "checks": {
+    "public_logo": true,
+    "private_reports_protected": true,
+    "dark_palette_and_logo": true,
+    "previous_version_preserved": true,
+    "orange_actions": true
+  },
+  "reports": {
+    "reachable": {
+      "id": "97a25c4f-d623-40b6-be08-56a8c0dfbdcf",
+      "prospect_id": "9bcbb708-a84d-4030-baa6-92b704937753",
+      "business_id": 3953,
+      "created_at": "2026-10-26T11:53:06.452376+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 3,
+      "status": "READY",
+      "bytes": 1298434,
+      "sha256": "9fee4dc3a5e69b40c00fc0efc85fde448dddcce098e5f0b79cf9871f43a43d16",
+      "downloaded": true
+    },
+    "unreachable": {
+      "id": "293288cf-c64b-454c-9c65-9e14e2e4354d",
+      "prospect_id": "b1415a35-2124-403b-9e59-70eee47cff9a",
+      "business_id": 3918,
+      "created_at": "2026-10-26T11:53:24.911529+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 2,
+      "status": "READY",
+      "bytes": 1279417,
+      "sha256": "d560a4911ccbaed25a8158961f44b1c163b753a16b06b15c0f0b8d7d541a80d3",
+      "downloaded": true
+    },
+    "no-website": {
+      "id": "614d341f-147f-45ea-b13d-37b5990c4bd0",
+      "prospect_id": "ab569082-e64e-4b59-8524-3bf91f066514",
+      "business_id": 5446,
+      "created_at": "2026-10-26T11:53:43.137230+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 2,
+      "status": "READY",
+      "bytes": 1279172,
+      "sha256": "f198bc0fb958806cca0f061571913e0600549e880159b353f4ca4f17e6eb045f",
+      "downloaded": true
+    }
+  },
+  "hosted_health": {
+    "environment": "production",
+    "checks": [
+      {
+        "name": "FastAPI",
+        "status": "ready",
+        "details": "Authenticated API request succeeded."
+      },
+      {
+        "name": "Application database",
+        "status": "ready",
+        "details": "PostgreSQL"
+      },
+      {
+        "name": "PostgreSQL",
+        "status": "ready",
+        "details": "Configured database is reachable."
+      },
+      {
+        "name": "R2",
+        "status": "ready",
+        "details": "Bucket is reachable using server credentials; public-access policy is not inferred from this check."
+      },
+      {
+        "name": "Cloud Worker Configuration",
+        "status": "ready",
+        "details": "Job exists. Actual execution and image pulling require a canary."
+      },
+      {
+        "name": "Canary",
+        "status": "ready",
+        "details": "Verified completed worker execution leadengine-worker-gwx7p."
+      },
+      {
+        "name": "Lighthouse",
+        "status": "ready",
+        "details": "Verified in the completed worker canary."
+      },
+      {
+        "name": "Overture",
+        "status": "ready",
+        "details": "Endpoint returned HTTP 200."
+      },
+      {
+        "name": "Nominatim",
+        "status": "ready",
+        "details": "Endpoint returned HTTP 200."
+      },
+      {
+        "name": "OpenStreetMap",
+        "status": "warning",
+        "details": "Configured endpoint and one fallback mirror did not respond successfully; discovery retains bounded mirror fallback."
+      }
+    ]
+  },
+  "browser_errors": [],
+  "checked_at": "2026-10-26T11:55:47.996Z"
+}

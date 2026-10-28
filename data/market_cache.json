@@ -1,0 +1,18 @@
+{
+  "test city, tx, usa": {
+    "query": "Test City, TX, USA",
+    "city": "Kilgore",
+    "state": "Texas",
+    "country": "United States",
+    "country_code": "US",
+    "bbox": {
+      "min_lat": 32.4114959,
+      "min_lon": -94.8160935,
+      "max_lat": 32.4115959,
+      "max_lon": -94.8159935
+    },
+    "center_lat": 32.4115459,
+    "center_lon": -94.8160435,
+    "cached": false
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "PlaneByte",
+  "website": "https://planebyte.com",
+  "contact_email": "contact@planebyte.com",
+  "phone": "",
+  "show_pricing": false,
+  "branding": "User-provided PB logo and Signal Orange / Deep Graphite palette, October 2026",
+  "score_targets": {
+    "WEBSITE": 90,
+    "SEO": 100,
+    "SECURITY": 100
+  },
+  "logo_sha256": "796ea2ca7441658269ab1855bd43d98f3cd63e34c0198efb986c9b2a96ab8871"
+}

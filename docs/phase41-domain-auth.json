@@ -1,0 +1,12 @@
+{
+  "domain": "planebyte.com",
+  "source": "Owner reviewed Hostinger Domain Settings",
+  "spf": "OWNER_REVIEWED_HEALTHY",
+  "dkim": "OWNER_REVIEWED_VERIFIED",
+  "dmarc": "OWNER_REVIEWED_HEALTHY",
+  "mx": "OWNER_REVIEWED_HEALTHY",
+  "review_date": "2026-10-27",
+  "explanation": "Owner reports green verified DKIM under Keep your emails out of the spam folder (DKIM record), and healthy SPF, DMARC and MX. No selector guessed and no DNS changed.",
+  "dns_changed": false,
+  "live_activation_authorized": false
+}

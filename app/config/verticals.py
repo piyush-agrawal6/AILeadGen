@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple, Any
 import yaml
 from pydantic import BaseModel, Field
 
@@ -16,6 +16,12 @@ class VerticalDefinition(BaseModel):
     overture_categories: List[str] = Field(default_factory=list)
     osm_tags: List[OSMTag] = Field(default_factory=list)
     exclude_keywords: List[str] = Field(default_factory=list)
+    positive_name_signals: List[str] = Field(default_factory=list)
+    negative_name_signals: List[str] = Field(default_factory=list)
+    negative_categories: List[str] = Field(default_factory=list)
+    schema_types: List[str] = Field(default_factory=list)
+    audit_ctas: List[str] = Field(default_factory=list)
+    audit_rules: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class VerticalManager:
@@ -44,6 +50,7 @@ class VerticalManager:
                         overture_categories=val.get("overture_categories", []),
                         osm_tags=[OSMTag(**t) for t in val.get("osm_tags", [])],
                         exclude_keywords=[kw.lower() for kw in val.get("exclude_keywords", [])],
+                        **{field: val.get(field, []) for field in ["positive_name_signals", "negative_name_signals", "negative_categories", "schema_types", "audit_ctas", "audit_rules"]},
                     )
                     self.verticals[key] = v_def
                     self.alias_map[key.lower()] = key
@@ -104,6 +111,34 @@ class VerticalManager:
             if clean_d.endswith("." + cd):
                 return True
         return False
+
+    def check_chain(
+        self,
+        name: str,
+        domain: Optional[str],
+        vertical_key: Optional[str] = None,
+        domain_frequency: int = 1,
+    ) -> Tuple[bool, Optional[str], float]:
+        """Check if a business is a chain/franchise, returning (is_chain, chain_reason, chain_confidence)."""
+        if domain and self.is_chain_domain(domain):
+            return True, f"Known franchise domain '{domain}'", 0.99
+
+        if domain and domain_frequency > self.max_domain_occurrences:
+            return True, f"High domain frequency ({domain_frequency} locations in scan)", 0.90
+
+        if name:
+            clean_name = name.lower()
+            if vertical_key and vertical_key in self.verticals:
+                for kw in self.verticals[vertical_key].exclude_keywords:
+                    if kw in clean_name:
+                        return True, f"Brand name matches chain keyword '{kw}'", 0.95
+            for v in self.verticals.values():
+                for kw in v.exclude_keywords:
+                    if kw in clean_name:
+                        return True, f"Brand name matches chain keyword '{kw}'", 0.95
+
+        return False, None, 0.0
+
 
 
 _vertical_manager_instance: Optional[VerticalManager] = None

@@ -1,0 +1,35 @@
+import {test,expect} from '@playwright/test';
+import {encode} from 'next-auth/jwt';
+import fs from 'node:fs/promises';
+test('sales workspace, reviewed email, reply and suppression remain usable',async({page,context})=>{
+ const token=await encode({token:{sub:'founder@leadengine.example',email:'founder@leadengine.example'},secret:'brand-local-preview-secret-not-for-production-123456789',salt:'authjs.session-token',maxAge:900});await context.addCookies([{name:'authjs.session-token',value:token,url:'http://127.0.0.1:13001',httpOnly:true,sameSite:'Lax'}]);
+ let status='NEW',sent=false,replied=false,scheduled=false;const lists:{id:string;name:string;member_count:number}[]=[];
+ const business={id:1,name:'Sales workflow QA',vertical:'hospitality',city:'London',country:'United Kingdom',website:'https://qa.example',public_email:'public@qa.example',prospect_id:'qa-prospect',phone:'+442000000000'};
+ const opportunity={website_opportunity_score:76,seo_opportunity_score:65,security_opportunity_score:45,primary_opportunity:'WEBSITE',secondary_opportunity:'SEO',contactability_level:'HIGH',evidence:{WEBSITE:[],SEO:[],SECURITY:[]}};
+ await page.route('**/api/**',async route=>{const path=new URL(route.request().url()).pathname,method=route.request().method();let data:unknown={};
+  if(path==='/api/email/activity-summary')data={counts:[],templates:[],automated_signals:0};
+  else if(path==='/api/intelligence/leads')data={items:[{...business,...opportunity,lead_status:status}],total:1,page:1,page_size:25,total_pages:1};
+  else if(path==='/api/intelligence/overview')data={total_leads:1,statuses:[{lead_status:status,count:1}]};
+  else if(path==='/api/sales/views'||path==='/api/markets/presets'||path==='/api/verticals'||path==='/api/campaigns')data=[];
+  else if(path==='/api/sales/lists'){if(method==='POST')lists.push({id:'qa-list',name:route.request().postDataJSON().name,member_count:0});data=method==='GET'?lists:{id:'qa-list'};}
+  else if(path==='/api/sales/outreach')data={items:[{...business,...opportunity,lead_status:status,commercial_fit:'HIGH',unread_replies:replied?1:0,ready_report_id:'qa-report'}],counts:{ready:status==='READY_TO_CONTACT'?1:0,today:scheduled?1:0,overdue:0,replied:replied?1:0,meeting:0,proposal:0},total:1,total_pages:1};
+  else if(path==='/api/leads/1/workspace'||path==='/api/leads/1/workflow'){if(method==='PATCH')status=route.request().postDataJSON().lead_status;data={id:'qa-prospect',lead_status:status,assigned_to:null,first_seen_at:'2026-10-26',last_seen_at:'2026-10-26',times_discovered:1,business_scale:'LOCAL',notes:[],opportunity};}
+  else if(path==='/api/leads/1')data={business,profile:null,lighthouse:null,findings:[],contacts:[]};
+  else if(path==='/api/sales/leads/1')data={suppressed:status==='DO_NOT_CONTACT',currency:'GBP',followups:scheduled?[{id:'qa-followup',due_at:new Date(Date.now()+86400000).toISOString(),status:'OPEN'}]:[],lists:[],threads:sent?[{id:'qa-thread',subject:'A factual website review',last_message_at:new Date().toISOString()}]:[],activities:sent?[{id:'qa-activity',event_type:replied?'REPLY_DETECTED':'EMAIL_SENT',event_at:new Date().toISOString(),actor_user_id:'QA',metadata:{test_mode:true}}]:[]};
+  else if(path==='/api/sales/leads/1/followups'){scheduled=true;data={id:'qa-followup'};}
+  else if(path==='/api/users')data=[];
+  else if(path==='/api/client-reports')data={items:[{id:'qa-report',version:1,status:'READY'}]};
+  else if(path==='/api/email/leads/1/compose')data={recipients:['public@qa.example'],reports:[{id:'qa-report',version:1}],templates:[{id:'website',name:'Website redesign',rendered_subject:'A factual website review',rendered_body:'Hello, a recorded observation could be useful to review.'}],suppressed:status==='DO_NOT_CONTACT',test_mode:true,from_address:'rajendra@planebyte.com',effective_test_recipient:'controlled@example.com'};
+  else if(path==='/api/email/leads/1/preview')data={...route.request().postDataJSON(),preview_token:'a'.repeat(64),from_address:'rajendra@planebyte.com',to_address:'controlled@example.com',intended_to:'public@qa.example',test_mode:true};
+  else if(path==='/api/email/leads/1/send'){expect(route.request().postDataJSON().confirmation).toBe('SEND');sent=true;status='CONTACTED';data={id:'qa-message',status:'SENT',test_mode:true};}
+  else if(path==='/api/email/sync'){replied=true;status='REPLIED';data={received:1};}
+  else if(path==='/api/email/account')data={display_name:'PlaneByte',email_address:'rajendra@planebyte.com',status:'CONNECTED',send_mode:'test',test_recipient:'controlled@example.com',sync_interval_minutes:10,max_per_hour:10,max_per_day:30};
+  await route.fulfill({json:data});
+ });
+ await fs.mkdir('../output/qa-phase4',{recursive:true});
+ await page.goto('/outreach');await expect(page.getByRole('heading',{name:'Outreach',exact:true})).toBeVisible();await page.getByLabel('New list name').fill('High priority');await page.getByRole('button',{name:'Create list',exact:true}).click();await expect(page.getByRole('link',{name:/High priority/})).toBeVisible();
+ await page.goto('/leads/1');await page.getByRole('combobox',{name:'Lead status for Sales workflow QA'}).selectOption('READY_TO_CONTACT');await page.getByRole('button',{name:'3 days',exact:true}).click();await expect(page.getByRole('button',{name:'Complete',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Compose email',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('TEST MODE');await page.getByLabel('Email template').selectOption('website');await page.getByRole('button',{name:'Preview email',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('To: controlled@example.com');await page.screenshot({path:'../output/qa-phase4/composer-preview.png'});await page.getByRole('button',{name:'Confirm Send',exact:true}).click();await expect(page.getByRole('status')).toContainText('Sent to the controlled test mailbox');await page.keyboard.press('Escape');await expect(page.getByText('Email Sent',{exact:false}).first()).toBeVisible();
+ await page.goto('/settings/email');await page.getByRole('button',{name:'Sync replies now',exact:true}).click();await page.goto('/leads/1');await expect(page.getByRole('combobox',{name:'Lead status for Sales workflow QA'})).toHaveValue('REPLIED');await page.getByRole('combobox',{name:'Lead status for Sales workflow QA'}).selectOption('DO_NOT_CONTACT');await expect(page.getByText('This prospect is marked Do Not Contact.',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Compose email',exact:true})).toHaveCount(0);await page.screenshot({path:'../output/qa-phase4/suppression.png'});
+ for(const [width,height] of [[1366,768],[1440,900],[1920,1080],[390,844]]){await page.setViewportSize({width,height});await page.goto('/outreach');await expect(page.getByRole('heading',{name:'Outreach',exact:true})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:`../output/qa-phase4/outreach-${width}.png`});}
+});

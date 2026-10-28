@@ -1,0 +1,26 @@
+{
+  "reachable": {
+    "pages": 6,
+    "bytes": 46993,
+    "sha256": "76f1f3497fa24c5ebd5bb1d1ab254be080daab41ead589604608dec3f0bd6a0b",
+    "brand_and_contact": true,
+    "internal_data_excluded": true,
+    "all_pages_rasterized_and_visually_reviewed": true
+  },
+  "unreachable": {
+    "pages": 3,
+    "bytes": 39312,
+    "sha256": "839a08cdc125235041f41074b181fa4567a40e54acd0270d00dd3556cfe9d202",
+    "brand_and_contact": true,
+    "internal_data_excluded": true,
+    "all_pages_rasterized_and_visually_reviewed": true
+  },
+  "no-website": {
+    "pages": 3,
+    "bytes": 38868,
+    "sha256": "3efb223fcf56a6cc810f955dbfb6f85f415ab7adf2e9bf1be729b38f7a5548c5",
+    "brand_and_contact": true,
+    "internal_data_excluded": true,
+    "all_pages_rasterized_and_visually_reviewed": true
+  }
+}

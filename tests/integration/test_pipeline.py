@@ -19,7 +19,7 @@ def test_sqlite_migrations_and_repositories(tmp_path):
     conn = get_connection(db_path)
     try:
         applied = run_migrations(conn)
-        assert applied == 1
+        assert applied >= 2
 
         biz_repo = BusinessRepository(conn)
         b = Business(

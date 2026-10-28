@@ -29,6 +29,7 @@ class ContactType(str, Enum):
 
 class Business(BaseModel):
     id: Optional[int] = None
+    run_id: Optional[int] = None
     external_overture_id: Optional[str] = None
     external_osm_id: Optional[str] = None
 
@@ -66,7 +67,18 @@ class Business(BaseModel):
     source_confidence: float = 0.5
     operating_status: Optional[str] = "active"
 
+    source_category: Optional[str] = None
+    source_tags: Optional[str] = None
+    vertical_validation_status: str = "VALID"  # VALID, UNCERTAIN, INVALID
+    vertical_validation_reason: Optional[str] = None
+    vertical_validation_confidence: float = 1.0
+
     is_chain: bool = False
+    chain_reason: Optional[str] = None
+    chain_confidence: float = 0.0
+
+    website_status: Optional[str] = None  # NO_WEBSITE, REACHABLE, UNREACHABLE
+
     is_duplicate: bool = False
     is_rejected: bool = False
     rejection_reason: Optional[str] = None
@@ -223,3 +235,17 @@ class PipelineRun(BaseModel):
 
     output_file: Optional[str] = None
     error_message: Optional[str] = None
+    run_configuration: Optional[Dict[str, Any]] = None
+    cancelled_at: Optional[str] = None
+
+
+class PipelineRunEvent(BaseModel):
+    id: Optional[int] = None
+    run_id: int
+    timestamp: Optional[str] = None
+    stage: str
+    event_type: str
+    message: str
+    completed: int = 0
+    total: int = 0
+    metadata_json: Optional[str] = None

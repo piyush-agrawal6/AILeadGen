@@ -1,0 +1,20 @@
+{
+  "assessed_businesses": 40,
+  "social_profiles": 60,
+  "verified_activity": 0,
+  "unknown_activity": 60,
+  "unknown_rate": 1.0,
+  "social_requests": 52,
+  "requests_per_assessed_business": 1.3,
+  "aggregate_business_social_seconds": 143.71,
+  "maximum_requests_per_business": 4,
+  "business_scales": {
+    "REGIONAL": 1,
+    "LOCAL": 39
+  },
+  "qualified_scales": {},
+  "captures_ready": 2,
+  "captures_unavailable": 2,
+  "false_stale_without_evidence": 0,
+  "social_stage_wall_seconds": 133.891
+}

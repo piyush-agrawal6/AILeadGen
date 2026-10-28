@@ -81,6 +81,13 @@ def is_safe_url(url: str, check_dns: bool = False) -> bool:
     hostname = parsed.hostname
     if not hostname:
         return False
+    if parsed.username or parsed.password:
+        return False
+    try:
+        if parsed.port not in (None, 80, 443):
+            return False
+    except ValueError:
+        return False
 
     hostname_lower = hostname.lower()
     if hostname_lower in ("localhost", "127.0.0.1", "::1", "0.0.0.0", "169.254.169.254"):

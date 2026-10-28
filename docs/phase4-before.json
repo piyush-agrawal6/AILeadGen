@@ -1,0 +1,47 @@
+{
+  "counts": {
+    "scan_campaigns": 1,
+    "pipeline_runs": 2,
+    "prospects": 1250,
+    "businesses": 1927,
+    "opportunity_scores": 800,
+    "client_reports": 0,
+    "prospect_notes": 0,
+    "social_profiles": 742
+  },
+  "statuses": [
+    {
+      "lead_status": "NEW",
+      "count": 1250
+    }
+  ],
+  "runs": [
+    {
+      "id": 1,
+      "market": "London, United Kingdom",
+      "vertical": "hospitality",
+      "status": "COMPLETED",
+      "qualified": 378,
+      "exported": 100
+    },
+    {
+      "id": 2,
+      "market": "Manchester, United Kingdom",
+      "vertical": "hospitality",
+      "status": "COMPLETED",
+      "qualified": 367,
+      "exported": 100
+    }
+  ],
+  "schema": 6,
+  "data_hashes": {
+    "scan_campaigns": "29a824f9696003b83ba95edf7035baec10e68c838d6eb5e8f05240d38c966593",
+    "pipeline_runs": "84282f127d58d9b8b26d6a2d3681615f1b0258653485028392e993fb2b23c657",
+    "prospects": "30d2b61e68862c06456455daa1cfde08c057646da8ba0faf8e96e5a3bb9e4e34",
+    "businesses": "bd60154bbfe598d6189b692eb34cdb30b26d51e9584f5d3461c6df302e665ffc",
+    "opportunity_scores": "2754d81945bd8eb791bc76052563deafb6c008f21a3268cf8ee566cc2a44bad3",
+    "client_reports": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "prospect_notes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "social_profiles": "4c31a105d4d8fd7edb50223e6cbfde0e4418da01b776c33d32a2cc2f7d2f5ec3"
+  }
+}

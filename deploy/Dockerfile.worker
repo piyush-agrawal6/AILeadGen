@@ -1,0 +1,17 @@
+FROM node:24-bookworm-slim AS node
+FROM python:3.12-slim-bookworm
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 APP_ENV=production CHROME_PATH=/usr/bin/chromium DUCKDB_EXTENSION_DIRECTORY=/opt/duckdb_extensions
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && apt-get update && apt-get install -y --no-install-recommends chromium ca-certificates fonts-liberation && rm -rf /var/lib/apt/lists/*
+WORKDIR /opt/leadengine
+COPY requirements.lock package.json package-lock.json ./
+RUN pip install --no-cache-dir -r requirements.lock && npm ci --omit=dev && useradd --uid 10001 --create-home leadengine
+RUN python -c "import duckdb; c=duckdb.connect(); c.execute(\"SET extension_directory='/opt/duckdb_extensions'; INSTALL httpfs\")"
+COPY --chown=10001:10001 app ./app
+COPY --chown=10001:10001 config ./config
+COPY --chown=10001:10001 scripts ./scripts
+COPY --chown=10001:10001 lead_engine.py ./
+RUN mkdir -p data output logs && chown -R 10001:10001 data output logs
+USER 10001
+CMD ["python","-m","app.worker"]

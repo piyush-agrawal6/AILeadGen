@@ -1,0 +1,51 @@
+{
+  "targets": [
+    {
+      "kind": "campaign",
+      "id": "f181c4cf-398b-4463-a767-320f302f26b2"
+    },
+    {
+      "kind": "scan",
+      "id": 42
+    },
+    {
+      "kind": "lead",
+      "id": 7112
+    },
+    {
+      "kind": "scan",
+      "id": 43
+    },
+    {
+      "kind": "scan",
+      "id": 44
+    }
+  ],
+  "business_ids": [
+    7110,
+    7111,
+    7112,
+    7113
+  ],
+  "run_ids": [
+    41,
+    42,
+    43,
+    44
+  ],
+  "object_keys": [
+    "campaigns/f181c4cf-398b-4463-a767-320f302f26b2/qa-41.csv",
+    "campaigns/f181c4cf-398b-4463-a767-320f302f26b2/qa-42.csv",
+    "campaigns/f181c4cf-398b-4463-a767-320f302f26b2/qa-43.csv",
+    "campaigns/f181c4cf-398b-4463-a767-320f302f26b2/qa-44.csv"
+  ],
+  "campaign_ids": [
+    "f181c4cf-398b-4463-a767-320f302f26b2"
+  ],
+  "prospect_ids": [
+    "1b236edc-d944-4d8b-b29d-e50c3c32f46b",
+    "1b236edc-d944-4d8b-b29d-e50c3c32f46b",
+    "f2ad90d9-64fb-4843-b203-1fc13fab3afd",
+    "f2ad90d9-64fb-4843-b203-1fc13fab3afd"
+  ]
+}

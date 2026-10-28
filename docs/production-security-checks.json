@@ -1,0 +1,11 @@
+{
+  "health": true,
+  "unsigned_rejected": true,
+  "signed_allowed": true,
+  "cors_not_granted": true,
+  "replay_rejected": true,
+  "unapproved_actor_rejected": true,
+  "invalid_signature_rejected": true,
+  "production_docs_disabled": true,
+  "oversized_request_rejected": true
+}

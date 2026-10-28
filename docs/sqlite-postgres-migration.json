@@ -1,0 +1,90 @@
+{
+  "users": {
+    "source": 0,
+    "target": 0,
+    "verified": true
+  },
+  "scan_campaigns": {
+    "source": 0,
+    "target": 0,
+    "verified": true
+  },
+  "prospects": {
+    "source": 0,
+    "target": 1514,
+    "verified": true
+  },
+  "business_identities": {
+    "source": 0,
+    "target": 5208,
+    "verified": true
+  },
+  "pipeline_runs": {
+    "source": 24,
+    "target": 24,
+    "verified": true
+  },
+  "businesses": {
+    "source": 3520,
+    "target": 3520,
+    "verified": true
+  },
+  "website_profiles": {
+    "source": 166,
+    "target": 166,
+    "verified": true
+  },
+  "contacts": {
+    "source": 374,
+    "target": 374,
+    "verified": true
+  },
+  "lighthouse_results": {
+    "source": 9,
+    "target": 9,
+    "verified": true
+  },
+  "findings": {
+    "source": 512,
+    "target": 512,
+    "verified": true
+  },
+  "lead_scores": {
+    "source": 181,
+    "target": 181,
+    "verified": true
+  },
+  "pipeline_run_events": {
+    "source": 87,
+    "target": 87,
+    "verified": true
+  },
+  "prospect_observations": {
+    "source": 0,
+    "target": 1246,
+    "verified": true
+  },
+  "prospect_notes": {
+    "source": 0,
+    "target": 0,
+    "verified": true
+  },
+  "opportunity_scores": {
+    "source": 0,
+    "target": 0,
+    "verified": true
+  },
+  "artifact_objects": {
+    "source": 5,
+    "target": 35,
+    "verified": true
+  },
+  "shared_settings": {
+    "source": 1,
+    "target": 1,
+    "verified": true
+  },
+  "historical_executions": {
+    "marked_interrupted": 1
+  }
+}

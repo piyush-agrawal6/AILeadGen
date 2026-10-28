@@ -1,0 +1,10 @@
+{
+  "schema": 5,
+  "counts": {
+    "scan_campaigns": 5,
+    "pipeline_runs": 34,
+    "businesses": 7109,
+    "prospects": 3020,
+    "client_reports": 11
+  }
+}

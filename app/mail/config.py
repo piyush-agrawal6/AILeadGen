@@ -1,0 +1,36 @@
+"""Server-only mailbox settings. Never serialize this object to an API response."""
+from pydantic import Field,SecretStr
+from pydantic_settings import BaseSettings,SettingsConfigDict
+
+class MailSettings(BaseSettings):
+    model_config=SettingsConfigDict(env_file='.env',env_file_encoding='utf-8',extra='ignore',hide_input_in_errors=True)
+    provider:str=Field('hostinger',alias='EMAIL_PROVIDER')
+    mode:str=Field('test',alias='EMAIL_SEND_MODE')
+    test_recipient:str=Field('',alias='EMAIL_TEST_RECIPIENT',repr=False)
+    from_name:str=Field('PlaneByte',alias='MAIL_FROM_NAME')
+    from_address:str=Field('rajendra@planebyte.com',alias='MAIL_FROM_ADDRESS')
+    username:str=Field('rajendra@planebyte.com',alias='MAIL_USERNAME')
+    password:SecretStr=Field(SecretStr(''),alias='MAIL_PASSWORD',repr=False)
+    smtp_host:str=Field('smtp.hostinger.com',alias='MAIL_SMTP_HOST')
+    smtp_port:int=Field(465,alias='MAIL_SMTP_PORT')
+    smtp_secure:bool=Field(True,alias='MAIL_SMTP_SECURE')
+    imap_host:str=Field('imap.hostinger.com',alias='MAIL_IMAP_HOST')
+    imap_port:int=Field(993,alias='MAIL_IMAP_PORT')
+    imap_secure:bool=Field(True,alias='MAIL_IMAP_SECURE')
+    sync_enabled:bool=Field(True,alias='EMAIL_SYNC_ENABLED')
+    sync_interval:int=Field(10,ge=5,le=60,alias='EMAIL_SYNC_INTERVAL_MINUTES')
+    initial_days:int=Field(30,ge=1,le=90,alias='EMAIL_INITIAL_SYNC_DAYS')
+    max_hour:int=Field(10,ge=1,le=30,alias='MAX_EMAILS_PER_HOUR')
+    max_day:int=Field(30,ge=1,le=100,alias='MAX_EMAILS_PER_DAY')
+    followup_days:int=Field(3,ge=1,le=30,alias='DEFAULT_FOLLOWUP_DAYS')
+    signature_name:str=Field('',alias='MAIL_SIGNATURE_NAME')
+    signature_role:str=Field('',alias='MAIL_SIGNATURE_ROLE')
+    website:str=Field('https://planebyte.com',alias='PLANEBYTE_WEBSITE')
+    company:str=Field('PlaneByte',alias='PLANEBYTE_COMPANY_NAME')
+    gmail_enabled:bool=Field(False,alias='GMAIL_ENABLED')
+    sending_enabled:bool=Field(True,alias='EMAIL_SENDING_ENABLED')
+    tracking_base_url:str=Field('https://leads.planebyte.com/t',alias='EMAIL_TRACKING_BASE_URL')
+    soft_bounce_threshold:int=Field(3,ge=1,le=10,alias='EMAIL_SOFT_BOUNCE_THRESHOLD')
+    live_approved:bool=Field(False,alias='EMAIL_LIVE_APPROVED')
+
+def mail_settings():return MailSettings()

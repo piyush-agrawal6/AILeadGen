@@ -1,0 +1,4 @@
+{
+  "api": "asia-south1-docker.pkg.dev/querryside/leadengine/api:phase4-validated-20261027-004340",
+  "worker": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:phase4-validated-20261027-004340"
+}

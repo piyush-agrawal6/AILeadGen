@@ -1,0 +1,17 @@
+{
+  "legacy_exports": {
+    "csv": {
+      "status": 200,
+      "bytes": 2974
+    },
+    "xlsx": {
+      "status": 200,
+      "bytes": 54461
+    }
+  },
+  "reports_visible": 4,
+  "detail_existing_pdf_visible": true,
+  "scan_options_visible": true,
+  "browser_errors": [],
+  "checked_at": "2026-10-26T04:24:43.033Z"
+}

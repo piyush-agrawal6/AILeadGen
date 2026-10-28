@@ -1,0 +1,29 @@
+{
+  "api_revision": "leadengine-api-00010-tvl",
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "leadengine-api-00010-tvl"
+    }
+  ],
+  "api_concurrency": 20,
+  "api_limits": {
+    "limits": {
+      "cpu": "1",
+      "memory": "1Gi"
+    }
+  },
+  "api_scaling": {
+    "autoscaling.knative.dev/maxScale": "2"
+  },
+  "worker_task_count": 1,
+  "worker_parallelism": 1,
+  "worker_limits": {
+    "limits": {
+      "cpu": "1",
+      "memory": "2Gi"
+    }
+  },
+  "worker_image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:phase36-validated-20261026-200408",
+  "max_active_scans": "2"
+}

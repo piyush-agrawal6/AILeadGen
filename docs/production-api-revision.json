@@ -1,0 +1,17 @@
+{
+  "spec": {
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:20261026-003801"
+          }
+        ],
+        "serviceAccountName": "leadengine-api-sa@querryside.iam.gserviceaccount.com"
+      }
+    }
+  },
+  "status": {
+    "latestReadyRevisionName": "leadengine-api-00005-72b"
+  }
+}

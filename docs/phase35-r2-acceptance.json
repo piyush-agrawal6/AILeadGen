@@ -1,0 +1,45 @@
+{
+  "objects": [
+    {
+      "report_id": "fb9a464d-c3db-4b42-a990-7c2590a61a0b",
+      "version": 1,
+      "business_id": 3953,
+      "r2_pdf_mime": true,
+      "private_cache_control": true,
+      "bytes": 46993,
+      "sha256": "76f1f3497fa24c5ebd5bb1d1ab254be080daab41ead589604608dec3f0bd6a0b"
+    },
+    {
+      "report_id": "19dffd3d-b168-497a-8bad-1b1b87072159",
+      "version": 1,
+      "business_id": 3918,
+      "r2_pdf_mime": true,
+      "private_cache_control": true,
+      "bytes": 39312,
+      "sha256": "839a08cdc125235041f41074b181fa4567a40e54acd0270d00dd3556cfe9d202"
+    },
+    {
+      "report_id": "9212a038-2781-4d73-9519-1b44e8a28725",
+      "version": 1,
+      "business_id": 5446,
+      "r2_pdf_mime": true,
+      "private_cache_control": true,
+      "bytes": 38868,
+      "sha256": "3efb223fcf56a6cc810f955dbfb6f85f415ab7adf2e9bf1be729b38f7a5548c5"
+    },
+    {
+      "report_id": "63e9045c-a682-4372-97fd-76d6c3a18193",
+      "version": 2,
+      "business_id": 3953,
+      "r2_pdf_mime": true,
+      "private_cache_control": true,
+      "bytes": 46993,
+      "sha256": "55933f845dbf0a0fb2c523b9f03b8aa24e15568b480374a38a3a9cee0705b85e"
+    }
+  ],
+  "signed_same_object_get": 200,
+  "unsigned_same_object_get": 400,
+  "unsigned_error_code": "InvalidArgument",
+  "public_r2_dev_disabled": "Previously confirmed by user; account settings not inferred from S3 credentials.",
+  "no_public_custom_domain": "Previously confirmed by user."
+}

@@ -2,6 +2,7 @@ import csv
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from app.database.models import Business, Finding, LeadScore, LighthouseResult, WebsiteProfile
+from app.exports.phase3 import FIELDS, metadata_values, safe_cell
 
 COLUMNS = [
     "Rank",
@@ -54,7 +55,7 @@ def export_leads_to_csv(
 
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(COLUMNS)
+        writer.writerow(COLUMNS + FIELDS)
 
         for rank, item in enumerate(leads, start=1):
             business, score, profile, lh, findings = item
@@ -120,6 +121,6 @@ def export_leads_to_csv(
                 f"{business.source_confidence:.2f}",
                 score.calculated_at or business.updated_at or "",
             ]
-            writer.writerow(row)
+            writer.writerow([safe_cell(value) for value in row + metadata_values(score)])
 
     return output_path

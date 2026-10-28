@@ -1,23 +1,18 @@
 from app.database.models import Business
-from app.normalization.domains import normalize_domain, clean_website_url
+from app.normalization.domains import (
+    classify_social_platform,
+    clean_website_url,
+    is_social_platform_domain,
+    normalize_domain,
+)
 from app.normalization.phones import normalize_phone
-from app.utils.text import normalize_business_name, clean_text
+from app.utils.text import clean_text, normalize_business_name
 
 
 def normalize_business(b: Business) -> Business:
     """Normalize a Business instance fields for deduplication and consistent storage."""
     b.name = clean_text(b.name)
     b.normalized_name = normalize_business_name(b.name)
-
-    SOCIAL_DOMAINS = {
-        "facebook.com": "facebook",
-        "instagram.com": "instagram",
-        "twitter.com": "x_url",
-        "x.com": "x_url",
-        "linkedin.com": "linkedin",
-        "tiktok.com": "tiktok",
-        "youtube.com": "youtube",
-    }
 
     if b.website:
         b.website = clean_website_url(b.website)
@@ -26,10 +21,10 @@ def normalize_business(b: Business) -> Business:
         b.domain = normalize_domain(b.domain)
 
     # Check if the website is actually a social media profile
-    if b.domain and b.domain in SOCIAL_DOMAINS:
-        attr = SOCIAL_DOMAINS[b.domain]
-        if hasattr(b, attr) and not getattr(b, attr) and b.website:
-            setattr(b, attr, b.website)
+    social_key = classify_social_platform(b.website or b.domain)
+    if social_key:
+        if hasattr(b, social_key) and not getattr(b, social_key) and b.website:
+            setattr(b, social_key, b.website)
         b.website = None
         b.domain = None
 

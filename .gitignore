@@ -15,7 +15,19 @@ data/lighthouse/
 data/screenshots/
 output/
 logs/
+data/backups/
+data/artifacts/
+data/e2e/
 .env
+.env.*
+!.env.example
+.next/
+*.tsbuildinfo
+playwright-report/
+test-results/
+deploy/api-url.txt
+deploy/images.json
+dashboard/.vercel/
 
 # Playwright & browser caches
 .playwright/

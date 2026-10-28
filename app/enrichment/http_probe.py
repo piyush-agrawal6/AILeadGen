@@ -1,9 +1,11 @@
 import asyncio
 import logging
+import ssl
 from typing import Optional
 from urllib.parse import urlparse
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from app.utils.http import SafeAsyncClient
 
 from app.config.settings import get_settings
 from app.utils.urls import is_safe_url, sanitize_url
@@ -21,6 +23,10 @@ class ProbeResult(BaseModel):
     content_type: Optional[str] = None
     html_content: Optional[str] = None
     error: Optional[str] = None
+    response_headers: dict[str, str] = Field(default_factory=dict)
+    cookies: list[str] = Field(default_factory=list)
+    certificate_valid: Optional[bool] = None
+    http_redirects_https: Optional[bool] = None
 
 
 async def probe_website(
@@ -55,13 +61,14 @@ async def probe_website(
         targets_to_try.append("http://" + clean_url[8:])
 
     last_error = None
+    invalid_certificate = False
     for target in targets_to_try:
         try:
-            async with httpx.AsyncClient(
+            async with SafeAsyncClient(
                 timeout=httpx.Timeout(timeout_seconds, connect=5.0),
                 follow_redirects=True,
                 max_redirects=5,
-                verify=False,  # Still check https_enabled based on scheme
+                max_bytes=max_response_bytes,
             ) as client:
                 resp = await client.get(target, headers=headers)
                 
@@ -86,6 +93,13 @@ async def probe_website(
                 redirect_count = len(resp.history)
 
                 reachable = resp.status_code < 400
+                http_redirects_https = None
+                if reachable and is_https:
+                    try:
+                        http_response = await client.get("http://" + str(resp.url).split("://", 1)[1], headers=headers)
+                        http_redirects_https = str(http_response.url).startswith("https://")
+                    except Exception:
+                        pass
 
                 return ProbeResult(
                     requested_url=url,
@@ -97,12 +111,22 @@ async def probe_website(
                     content_type=content_type,
                     html_content=html_text if reachable else None,
                     error=None if reachable else f"HTTP_{resp.status_code}",
+                    response_headers=dict(resp.headers),
+                    cookies=resp.headers.get_list("set-cookie"),
+                    certificate_valid=True if is_https else False if invalid_certificate else None,
+                    http_redirects_https=http_redirects_https,
                 )
         except httpx.ConnectTimeout:
             last_error = "CONNECT_TIMEOUT"
         except httpx.ReadTimeout:
             last_error = "READ_TIMEOUT"
-        except httpx.ConnectError:
+        except httpx.ConnectError as exc:
+            cause = exc
+            for _ in range(8):
+                if isinstance(cause,ssl.SSLCertVerificationError):
+                    invalid_certificate = True
+                cause = getattr(cause,"__cause__",None)
+                if cause is None:break
             last_error = "CONNECT_ERROR"
         except Exception as e:
             last_error = f"PROBE_FAILED: {str(e)[:50]}"
@@ -111,4 +135,5 @@ async def probe_website(
         requested_url=url,
         reachable=False,
         error=last_error or "SITE_UNREACHABLE",
+        certificate_valid=False if invalid_certificate else None,
     )

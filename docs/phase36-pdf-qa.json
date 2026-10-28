@@ -1,0 +1,30 @@
+{
+  "reachable": {
+    "pages": 9,
+    "bytes": 2478941,
+    "mid_market_fixture": false,
+    "stored_screenshot_embedded": true,
+    "all_pages_rasterized_and_visually_reviewed": true
+  },
+  "mid-market": {
+    "pages": 11,
+    "bytes": 1308043,
+    "mid_market_fixture": true,
+    "stored_screenshot_embedded": false,
+    "all_pages_rasterized_and_visually_reviewed": true
+  },
+  "no-website": {
+    "pages": 5,
+    "bytes": 1282781,
+    "mid_market_fixture": false,
+    "stored_screenshot_embedded": false,
+    "all_pages_rasterized_and_visually_reviewed": true
+  },
+  "unreachable": {
+    "pages": 5,
+    "bytes": 1283022,
+    "mid_market_fixture": false,
+    "stored_screenshot_embedded": false,
+    "all_pages_rasterized_and_visually_reviewed": true
+  }
+}

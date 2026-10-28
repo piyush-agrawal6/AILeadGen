@@ -115,6 +115,8 @@ out center {limit};
                 normalized_name="",
                 vertical=vertical.key,
                 subcategory=subcategory,
+                source_category=subcategory,
+                source_tags=json.dumps(tags),
                 country=market.country,
                 country_code=market.country_code,
                 state=market.state,

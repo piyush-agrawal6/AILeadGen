@@ -1,0 +1,55 @@
+{
+  "environment": "production",
+  "checks": [
+    {
+      "name": "FastAPI",
+      "status": "ready",
+      "details": "Authenticated API request succeeded."
+    },
+    {
+      "name": "Application database",
+      "status": "ready",
+      "details": "PostgreSQL"
+    },
+    {
+      "name": "PostgreSQL",
+      "status": "ready",
+      "details": "Configured database is reachable."
+    },
+    {
+      "name": "R2",
+      "status": "ready",
+      "details": "Bucket is reachable using server credentials; public-access policy is not inferred from this check."
+    },
+    {
+      "name": "Cloud Worker Configuration",
+      "status": "ready",
+      "details": "Job exists. Actual execution and image pulling require a canary."
+    },
+    {
+      "name": "Canary",
+      "status": "unverified",
+      "details": "Not executed. Use --execute-canary after deployment approval."
+    },
+    {
+      "name": "Overture",
+      "status": "ready",
+      "details": "Endpoint returned HTTP 200."
+    },
+    {
+      "name": "OpenStreetMap",
+      "status": "warning",
+      "details": "Endpoint did not respond within the health-check timeout."
+    },
+    {
+      "name": "Nominatim",
+      "status": "ready",
+      "details": "Endpoint returned HTTP 200."
+    },
+    {
+      "name": "Lighthouse",
+      "status": "unverified",
+      "details": "Verified by worker canary in cloud mode."
+    }
+  ]
+}

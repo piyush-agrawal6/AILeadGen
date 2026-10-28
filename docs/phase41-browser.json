@@ -1,0 +1,19 @@
+{
+  "checks": {
+    "private_metrics_protected": true,
+    "public_pixel": true,
+    "test_mode_preserved": true,
+    "responsive_outreach": true,
+    "tracking_settings": true,
+    "prepared_draft_loaded_and_previewed": true,
+    "first_live_send_not_performed": true,
+    "browser_errors": []
+  },
+  "screenshots": [
+    "../output/qa-phase41/outreach-1366.png",
+    "../output/qa-phase41/outreach-1440.png",
+    "../output/qa-phase41/outreach-1920.png",
+    "../output/qa-phase41/outreach-390.png"
+  ],
+  "checked_at": "2026-10-26T20:12:07.577Z"
+}

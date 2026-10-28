@@ -1,0 +1,10 @@
+{
+  "businesses": 5689,
+  "prospects": 2125,
+  "scan_campaigns": 4,
+  "pipeline_runs": 31,
+  "prospect_notes": 1,
+  "artifact_objects": 56,
+  "opportunity_scores": 480,
+  "schema_version": 4
+}

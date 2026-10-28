@@ -1,0 +1,90 @@
+{
+  "campaign_id": "de923670-d006-46e9-b2a3-e6ad48489ac7",
+  "configuration": {
+    "cities": [
+      "Austin, Texas, United States"
+    ],
+    "verticals": [
+      "dentists"
+    ],
+    "target": 5,
+    "opportunities": [
+      "WEBSITE",
+      "SEO",
+      "SECURITY"
+    ],
+    "quality": "maximum_volume",
+    "results": "include_previous",
+    "lighthouse_enabled": true,
+    "request_id": "de923670-d006-46e9-b2a3-e6ad48489ac7"
+  },
+  "created_at": "2026-10-25T17:23:11.309658+00:00",
+  "internal_signed_api": true,
+  "google_oauth_verified": false,
+  "latest_campaign": {
+    "id": "de923670-d006-46e9-b2a3-e6ad48489ac7",
+    "created_by": "planebyte@gmail.com",
+    "status": "RUNNING",
+    "created_at": "2026-10-25T17:23:11.309658+00:00",
+    "started_at": null,
+    "completed_at": null,
+    "target_total": 5,
+    "cancellation_requested": 0,
+    "runs": [
+      {
+        "id": 25,
+        "market": "Austin, Texas, United States",
+        "vertical": "dentists",
+        "target": 5,
+        "status": "RUNNING",
+        "raw_found": 0,
+        "qualified": 0,
+        "exported": 0,
+        "started_at": "2026-10-25 17:23:10.369882+00",
+        "finished_at": null,
+        "error_message": null
+      }
+    ],
+    "configuration": {
+      "cities": [
+        "Austin, Texas, United States"
+      ],
+      "verticals": [
+        "dentists"
+      ],
+      "opportunities": [
+        "WEBSITE",
+        "SEO",
+        "SECURITY"
+      ],
+      "quality": "maximum_volume",
+      "business_scales": [
+        "LOCAL",
+        "SMALL_GROUP"
+      ],
+      "results": "include_previous",
+      "target": 5,
+      "lighthouse_enabled": true,
+      "fixture": false,
+      "request_id": "de923670-d006-46e9-b2a3-e6ad48489ac7"
+    },
+    "counters": {
+      "raw_found": 0,
+      "qualified": 0,
+      "exported": 0
+    },
+    "progress": {
+      "completed": 0,
+      "running": 1,
+      "queued": 0,
+      "failed": 0,
+      "cancelled": 0
+    },
+    "opportunities": {
+      "website": 0,
+      "seo": 0,
+      "security": 0
+    }
+  },
+  "checked_at": "2026-10-25T17:26:55Z"
+}

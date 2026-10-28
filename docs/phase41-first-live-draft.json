@@ -1,0 +1,26 @@
+{
+  "business_id": 509,
+  "business_name": "Skylark motel",
+  "commercial_fit": "HIGH",
+  "lead_url": "https://leads.planebyte.com/leads/509",
+  "draft_id": "9c41a7e5-9566-4db6-b938-4b4e529ce834",
+  "recipient_source": "Existing persisted public business contact",
+  "status": "READY_TO_CONTACT",
+  "send_mode": "test",
+  "live_approved": false,
+  "sent": false,
+  "owner_action": "Review intelligence and saved draft. Only after explicit live activation manually press Send Live Email.",
+  "draft": {
+    "to_address": "skylarkhouse@gmail.com",
+    "subject": "A practical website review for Skylark motel",
+    "body_text": "Hello Skylark team,\n\nI am reaching out from PlaneByte. In our recent review of the pages available to our scan, we did not observe a mobile viewport declaration or homepage title and description metadata. These are practical areas to check as part of a clearer mobile experience and booking journey.\n\nI have attached a short review of the recorded findings for your consideration. Would a brief conversation about the most useful next steps be helpful?\n\nCo-Founder (Software & Cyber Secutiry Engineer)\nPlaneByte\nhttps://planebyte.com\nrajendra@planebyte.com",
+    "report_id": "8347829d-7d02-45df-ab2f-aeda5188e97d",
+    "thread_id": null,
+    "followup_days": 3,
+    "override_declined": false,
+    "track_opens": true,
+    "track_clicks": true,
+    "template_id": "website",
+    "message_type": "FIRST_CONTACT"
+  }
+}

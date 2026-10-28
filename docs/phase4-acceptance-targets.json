@@ -1,0 +1,18 @@
+[
+  {
+    "id": 517,
+    "name": "Homestay Hotels",
+    "prospect_id": "6e81fd82-281b-4a15-8caf-0d7dd69dd829",
+    "lead_status": "NEW",
+    "assigned_to": null,
+    "run_id": 1
+  },
+  {
+    "id": 556,
+    "name": "Chancellors Hotel and Conference Centre",
+    "prospect_id": "65e176b6-fe0c-4a3c-afab-8dba7d0683f0",
+    "lead_status": "NEW",
+    "assigned_to": null,
+    "run_id": 2
+  }
+]

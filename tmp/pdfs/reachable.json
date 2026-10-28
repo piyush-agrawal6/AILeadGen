@@ -1,0 +1,425 @@
+{
+  "business": {
+    "name": "GK Dental",
+    "vertical": "Dentists",
+    "city": "Austin",
+    "country": "United States",
+    "website": "http://gkdentalpa.com/",
+    "phone": "+15123011505",
+    "email": "info@gkdentalpa.com"
+  },
+  "mode": "REACHABLE",
+  "created_at": "2026-10-26T04:00:00+00:00",
+  "brand": {
+    "name": "PlaneByte",
+    "product": "LeadEngine",
+    "website": "https://planebyte.com",
+    "contact_email": "contact@planebyte.com",
+    "phone": "",
+    "show_pricing": false,
+    "pricing": {}
+  },
+  "scores": {
+    "WEBSITE": 62,
+    "SEO": 97,
+    "SECURITY": 48
+  },
+  "primary": "SEO",
+  "evidence": {
+    "WEBSITE": [
+      {
+        "code": "VERY_POOR_PERFORMANCE",
+        "detail": "Observed Lighthouse mobile performance: 13.0.",
+        "points": 25
+      },
+      {
+        "code": "NO_PRIMARY_CTA",
+        "detail": "No vertical conversion CTA among observed links.",
+        "points": 15
+      },
+      {
+        "code": "TREATMENT_PAGES_NOT_OBSERVED",
+        "detail": "Relevant vertical feature not found among sampled navigation links.",
+        "points": 5
+      },
+      {
+        "code": "LOCATION_PAGE_NOT_OBSERVED",
+        "detail": "Relevant vertical feature not found among sampled navigation links.",
+        "points": 4
+      },
+      {
+        "code": "NO_PHONE_CTA",
+        "detail": "A public phone exists but no click-to-call link was observed.",
+        "points": 3
+      },
+      {
+        "code": "POOR_VERTICAL_CONVERSION_FLOW",
+        "detail": "Expected conversion paths: appointment, book now, schedule.",
+        "points": 10
+      }
+    ],
+    "SEO": [
+      {
+        "code": "POOR_PERFORMANCE",
+        "detail": "Observed Lighthouse mobile performance: 13.0.",
+        "points": 8
+      },
+      {
+        "code": "TITLE_LENGTH",
+        "detail": "Title length outside the configured 10–70 character range.",
+        "points": 4
+      },
+      {
+        "code": "MISSING_META_DESCRIPTION",
+        "detail": "Homepage meta description absent.",
+        "points": 10
+      },
+      {
+        "code": "MISSING_H1",
+        "detail": "No primary heading observed.",
+        "points": 8
+      },
+      {
+        "code": "MISSING_CANONICAL",
+        "detail": "No canonical link observed.",
+        "points": 5
+      },
+      {
+        "code": "ROBOTS_NOT_OBSERVED",
+        "detail": "robots.txt was not successfully observed; this does not establish an indexing error.",
+        "points": 3
+      },
+      {
+        "code": "SITEMAP_NOT_OBSERVED",
+        "detail": "sitemap.xml was not successfully observed.",
+        "points": 4
+      },
+      {
+        "code": "NO_STRUCTURED_DATA",
+        "detail": "No JSON-LD structured data observed.",
+        "points": 8
+      },
+      {
+        "code": "NO_VERTICAL_SCHEMA",
+        "detail": "No relevant business schema type observed.",
+        "points": 6
+      },
+      {
+        "code": "NO_CONTACT_PAGE",
+        "detail": "No dedicated contact page observed.",
+        "points": 5
+      },
+      {
+        "code": "NO_CITY_REFERENCE",
+        "detail": "Source city not mentioned in observed page text.",
+        "points": 5
+      },
+      {
+        "code": "HOURS_NOT_OBSERVED",
+        "detail": "Business hours not observed in sampled HTML.",
+        "points": 3
+      },
+      {
+        "code": "NOINDEX",
+        "detail": "Explicit noindex directive observed. Intent requires owner confirmation.",
+        "points": 25
+      },
+      {
+        "code": "SPARSE_INTERNAL_LINKING",
+        "detail": "Few navigational links in observed HTML.",
+        "points": 3
+      }
+    ],
+    "SECURITY": [
+      {
+        "code": "NO_HSTS",
+        "detail": "strict-transport-security absent from the observed response.",
+        "points": 8
+      },
+      {
+        "code": "NO_CSP",
+        "detail": "content-security-policy absent from the observed response.",
+        "points": 12
+      },
+      {
+        "code": "NO_NOSNIFF",
+        "detail": "x-content-type-options absent from the observed response.",
+        "points": 5
+      },
+      {
+        "code": "NO_REFERRER_POLICY",
+        "detail": "referrer-policy absent from the observed response.",
+        "points": 4
+      },
+      {
+        "code": "NO_PERMISSIONS_POLICY",
+        "detail": "permissions-policy absent from the observed response.",
+        "points": 3
+      },
+      {
+        "code": "NO_FRAME_PROTECTION",
+        "detail": "No frame-ancestors or valid X-Frame-Options observed.",
+        "points": 8
+      },
+      {
+        "code": "COOKIE_NO_SECURE",
+        "detail": "A response cookie lacks Secure.",
+        "points": 5
+      },
+      {
+        "code": "COOKIE_NO_SAMESITE",
+        "detail": "A response cookie lacks SameSite.",
+        "points": 3
+      }
+    ]
+  },
+  "findings": [
+    {
+      "code": "VERY_POOR_PERFORMANCE",
+      "category": "WEBSITE",
+      "title": "Very Poor Performance",
+      "description": "Observed Lighthouse mobile performance: 13.0.",
+      "evidence": "Observed Lighthouse mobile performance: 13.0."
+    },
+    {
+      "code": "NOINDEX",
+      "category": "SEO",
+      "title": "Noindex",
+      "description": "Explicit noindex directive observed. Intent requires owner confirmation.",
+      "evidence": "Explicit noindex directive observed. Intent requires owner confirmation."
+    },
+    {
+      "code": "NO_PRIMARY_CTA",
+      "category": "WEBSITE",
+      "title": "No Primary Cta",
+      "description": "No vertical conversion CTA among observed links.",
+      "evidence": "No vertical conversion CTA among observed links."
+    },
+    {
+      "code": "NO_CSP",
+      "category": "SECURITY",
+      "title": "No Csp",
+      "description": "content-security-policy absent from the observed response.",
+      "evidence": "content-security-policy absent from the observed response."
+    },
+    {
+      "code": "POOR_VERTICAL_CONVERSION_FLOW",
+      "category": "WEBSITE",
+      "title": "Poor Vertical Conversion Flow",
+      "description": "Expected conversion paths: appointment, book now, schedule.",
+      "evidence": "Expected conversion paths: appointment, book now, schedule."
+    },
+    {
+      "code": "POOR_PERFORMANCE",
+      "category": "SEO",
+      "title": "Poor Performance",
+      "description": "Observed Lighthouse mobile performance: 13.0.",
+      "evidence": "Observed Lighthouse mobile performance: 13.0."
+    },
+    {
+      "code": "NO_HSTS",
+      "category": "SECURITY",
+      "title": "No Hsts",
+      "description": "strict-transport-security absent from the observed response.",
+      "evidence": "strict-transport-security absent from the observed response."
+    },
+    {
+      "code": "NO_FRAME_PROTECTION",
+      "category": "SECURITY",
+      "title": "No Frame Protection",
+      "description": "No frame-ancestors or valid X-Frame-Options observed.",
+      "evidence": "No frame-ancestors or valid X-Frame-Options observed."
+    },
+    {
+      "code": "NO_STRUCTURED_DATA",
+      "category": "SEO",
+      "title": "No Structured Data / Schema Found",
+      "description": "No JSON-LD structured data was detected on the homepage.",
+      "evidence": ""
+    },
+    {
+      "code": "WEAK_CTA",
+      "category": "WEBSITE",
+      "title": "No Clear Primary Call-To-Action",
+      "description": "No high-visibility call-to-action button (book, reserve, call, contact) was detected on the homepage.",
+      "evidence": ""
+    },
+    {
+      "code": "NO_VERTICAL_SCHEMA",
+      "category": "SEO",
+      "title": "No Vertical Schema",
+      "description": "No relevant business schema type observed.",
+      "evidence": "No relevant business schema type observed."
+    },
+    {
+      "code": "NO_CONTACT_PAGE",
+      "category": "WEBSITE",
+      "title": "No Dedicated Contact Page",
+      "description": "No dedicated contact or enquiry page was detected on the site.",
+      "evidence": ""
+    },
+    {
+      "code": "TREATMENT_PAGES_NOT_OBSERVED",
+      "category": "WEBSITE",
+      "title": "Treatment Pages Not Observed",
+      "description": "Relevant vertical feature not found among sampled navigation links.",
+      "evidence": "Relevant vertical feature not found among sampled navigation links."
+    },
+    {
+      "code": "NO_CITY_REFERENCE",
+      "category": "SEO",
+      "title": "No City Reference",
+      "description": "Source city not mentioned in observed page text.",
+      "evidence": "Source city not mentioned in observed page text."
+    },
+    {
+      "code": "NO_NOSNIFF",
+      "category": "SECURITY",
+      "title": "No Nosniff",
+      "description": "x-content-type-options absent from the observed response.",
+      "evidence": "x-content-type-options absent from the observed response."
+    },
+    {
+      "code": "COOKIE_NO_SECURE",
+      "category": "SECURITY",
+      "title": "Cookie No Secure",
+      "description": "A response cookie lacks Secure.",
+      "evidence": "A response cookie lacks Secure."
+    },
+    {
+      "code": "MISSING_META_DESCRIPTION",
+      "category": "SEO",
+      "title": "Missing Meta Description",
+      "description": "The website does not provide a meta description for search engine result snippets.",
+      "evidence": ""
+    },
+    {
+      "code": "LOCATION_PAGE_NOT_OBSERVED",
+      "category": "WEBSITE",
+      "title": "Location Page Not Observed",
+      "description": "Relevant vertical feature not found among sampled navigation links.",
+      "evidence": "Relevant vertical feature not found among sampled navigation links."
+    },
+    {
+      "code": "TITLE_LENGTH",
+      "category": "SEO",
+      "title": "Title Length",
+      "description": "Title length outside the configured 10–70 character range.",
+      "evidence": "Title length outside the configured 10–70 character range."
+    },
+    {
+      "code": "SITEMAP_NOT_OBSERVED",
+      "category": "SEO",
+      "title": "Sitemap Not Observed",
+      "description": "sitemap.xml was not successfully observed.",
+      "evidence": "sitemap.xml was not successfully observed."
+    },
+    {
+      "code": "NO_REFERRER_POLICY",
+      "category": "SECURITY",
+      "title": "No Referrer Policy",
+      "description": "referrer-policy absent from the observed response.",
+      "evidence": "referrer-policy absent from the observed response."
+    },
+    {
+      "code": "SHORT_TITLE",
+      "category": "SEO",
+      "title": "HTML Title Too Short",
+      "description": "Page title is only 4 characters ('HOME'), missing descriptive keywords.",
+      "evidence": "HOME"
+    },
+    {
+      "code": "MISSING_H1",
+      "category": "SEO",
+      "title": "Missing H1 Heading",
+      "description": "No primary <h1> heading element was found on the homepage.",
+      "evidence": ""
+    },
+    {
+      "code": "NO_DETECTABLE_ANALYTICS",
+      "category": "WEBSITE",
+      "title": "No Detectable Analytics Implementation",
+      "description": "No commonly detectable analytics implementation was found during the crawl.",
+      "evidence": ""
+    },
+    {
+      "code": "NO_PHONE_CTA",
+      "category": "WEBSITE",
+      "title": "No Phone Cta",
+      "description": "A public phone exists but no click-to-call link was observed.",
+      "evidence": "A public phone exists but no click-to-call link was observed."
+    },
+    {
+      "code": "ROBOTS_NOT_OBSERVED",
+      "category": "SEO",
+      "title": "Robots Not Observed",
+      "description": "robots.txt was not successfully observed; this does not establish an indexing error.",
+      "evidence": "robots.txt was not successfully observed; this does not establish an indexing error."
+    },
+    {
+      "code": "HOURS_NOT_OBSERVED",
+      "category": "SEO",
+      "title": "Hours Not Observed",
+      "description": "Business hours not observed in sampled HTML.",
+      "evidence": "Business hours not observed in sampled HTML."
+    },
+    {
+      "code": "SPARSE_INTERNAL_LINKING",
+      "category": "SEO",
+      "title": "Sparse Internal Linking",
+      "description": "Few navigational links in observed HTML.",
+      "evidence": "Few navigational links in observed HTML."
+    },
+    {
+      "code": "NO_PERMISSIONS_POLICY",
+      "category": "SECURITY",
+      "title": "No Permissions Policy",
+      "description": "permissions-policy absent from the observed response.",
+      "evidence": "permissions-policy absent from the observed response."
+    },
+    {
+      "code": "COOKIE_NO_SAMESITE",
+      "category": "SECURITY",
+      "title": "Cookie No Samesite",
+      "description": "A response cookie lacks SameSite.",
+      "evidence": "A response cookie lacks SameSite."
+    },
+    {
+      "code": "MISSING_CANONICAL",
+      "category": "SEO",
+      "title": "Missing Canonical URL Tag",
+      "description": "No rel='canonical' tag found to prevent duplicate indexing.",
+      "evidence": ""
+    }
+  ],
+  "website": {
+    "reachable": true,
+    "https_enabled": true,
+    "has_viewport": true,
+    "has_contact_page": false,
+    "has_booking": false,
+    "has_phone_on_site": false,
+    "has_email_on_site": false,
+    "page_count_crawled": 1,
+    "has_robots_txt": false,
+    "has_sitemap": false,
+    "has_schema": false,
+    "has_h1": false,
+    "h1_count": 0,
+    "http_status": 200,
+    "html_title": "HOME",
+    "meta_description": "",
+    "canonical_url": "",
+    "technologies": [],
+    "schema_types": []
+  },
+  "lighthouse": {
+    "performance_score": 13.0,
+    "seo_score": 75.0,
+    "accessibility_score": 58.0,
+    "best_practices_score": 73.0,
+    "lcp_ms": 10897.1,
+    "cls": 0.294,
+    "tbt_ms": 2276.5
+  }
+}

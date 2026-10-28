@@ -1,0 +1,155 @@
+{
+  "checked_at": "2026-10-26T20:16:45.031802+00:00",
+  "tables": {
+    "scan_campaigns": {
+      "count": 1,
+      "missing_original_ids": [],
+      "baseline_count": 1,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "pipeline_runs": {
+      "count": 2,
+      "missing_original_ids": [],
+      "baseline_count": 2,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "prospects": {
+      "count": 1250,
+      "missing_original_ids": [],
+      "baseline_count": 1250,
+      "original_ids_retained": true,
+      "original_fields_unchanged": false
+    },
+    "businesses": {
+      "count": 1927,
+      "missing_original_ids": [],
+      "baseline_count": 1927,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "opportunity_scores": {
+      "count": 800,
+      "missing_original_ids": [],
+      "baseline_count": 800,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "client_reports": {
+      "count": 8,
+      "missing_original_ids": [],
+      "baseline_count": 5,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "prospect_notes": {
+      "count": 0,
+      "missing_original_ids": [],
+      "baseline_count": 0,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "social_profiles": {
+      "count": 742,
+      "missing_original_ids": [],
+      "baseline_count": 742,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "activities": {
+      "count": 1298,
+      "missing_original_ids": [],
+      "baseline_count": 1273,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "followups": {
+      "count": 2,
+      "missing_original_ids": [],
+      "baseline_count": 1,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "lead_lists": {
+      "count": 0,
+      "missing_original_ids": [
+        "41a23d9e-be31-479e-a445-ec6cb32ec998"
+      ],
+      "baseline_count": 1,
+      "original_ids_retained": false,
+      "original_fields_unchanged": false
+    },
+    "saved_views": {
+      "count": 1,
+      "missing_original_ids": [],
+      "baseline_count": 1,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "email_accounts": {
+      "count": 1,
+      "missing_original_ids": [],
+      "baseline_count": 1,
+      "original_ids_retained": true,
+      "original_fields_unchanged": false
+    },
+    "email_threads": {
+      "count": 3,
+      "missing_original_ids": [],
+      "baseline_count": 1,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "email_messages": {
+      "count": 6,
+      "missing_original_ids": [],
+      "baseline_count": 2,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    },
+    "email_templates": {
+      "count": 11,
+      "missing_original_ids": [],
+      "baseline_count": 11,
+      "original_ids_retained": true,
+      "original_fields_unchanged": true
+    }
+  },
+  "read_only": true,
+  "concurrent_list_removals": [
+    {
+      "list_id": "41a23d9e-be31-479e-a445-ec6cb32ec998",
+      "events": [
+        {
+          "event_at": "2026-10-26T19:39:27.793434+00:00",
+          "actor_user_id": null,
+          "metadata_json": "{\"list_id\": \"41a23d9e-be31-479e-a445-ec6cb32ec998\"}"
+        }
+      ],
+      "source": "Existing authenticated list-delete route; predates Phase 4.1 migration; migration contains no lead-list deletion."
+    }
+  ],
+  "schema": 8,
+  "runs": [
+    {
+      "id": 1,
+      "status": "COMPLETED",
+      "market": "London, United Kingdom",
+      "vertical": "hospitality"
+    },
+    {
+      "id": 2,
+      "status": "COMPLETED",
+      "market": "Manchester, United Kingdom",
+      "vertical": "hospitality"
+    }
+  ],
+  "all_original_rows_retained": false,
+  "checks": {
+    "all_original_leads_scans_reports_mail_retained": true,
+    "only_missing_rows_are_accounted_list_removals": true,
+    "immutable_original_fields_preserved": true,
+    "original_scans_unchanged": true
+  }
+}

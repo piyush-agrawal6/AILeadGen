@@ -1,98 +1,109 @@
-# Known major national and multinational chain domains
-# LeadEngine filters these out to focus on independent businesses and local groups.
-
 domains:
-  # Fast food / Restaurant chains
-  - mcdonalds.com
-  - burgerking.com
-  - starbucks.com
-  - subway.com
-  - dominos.com
-  - pizzahut.com
-  - kfc.com
-  - tacobell.com
-  - wendys.com
-  - chipotle.com
-  - dunkindonuts.com
-  - dunkin.com
-  - panerabread.com
-  - popeyes.com
-  - chick-fil-a.com
-  - pandaexpress.com
-  - sonicdrivein.com
-  - applebees.com
-  - chilis.com
-  - olivegarden.com
-  - buffalowildwings.com
-  - dennys.com
-  - ihop.com
-  - jackinthebox.com
-  - arbys.com
-  - fiveguys.com
-  - dairyqueen.com
-  - hardees.com
-  - carlsjr.com
-  - outback.com
-  - redlobster.com
-  - texasroadhouse.com
-  - cheesecakefactory.com
-  - culvers.com
-  - wingstop.com
-  - canes.com
-  - raisingcanes.com
-  - costa.co.uk
-  - greggs.co.uk
-  - nandos.co.uk
-  - wetherspoon.co.uk
-  - wagamama.com
-  - pret.com
-  - pizzaexpress.com
-
-  # Hospitality / Hotel chains
-  - marriott.com
-  - hilton.com
-  - hyatt.com
-  - ihg.com
-  - holidayinn.com
-  - bestwestern.com
-  - wyndhamhotels.com
-  - accor.com
-  - all.accor.com
-  - choicehotels.com
-  - radissonhotels.com
-  - motel6.com
-  - travelodge.co.uk
-  - premierinn.com
-  - fourseasons.com
-  - ritzcarlton.com
-  - omnihotels.com
-  - extendedstayamerica.com
-  - loewshotels.com
-  - sonesta.com
-
-  # Real estate chains
-  - remax.com
-  - century21.com
-  - kw.com
-  - coldwellbanker.com
-  - compass.com
-  - bhhs.com
-  - berkshirehathawayhs.com
-  - cbre.com
-  - jll.com
-  - cushmanwakefield.com
-  - marcusmillichap.com
-  - colliers.com
-  - sothebysrealty.com
-  - redfin.com
-  - zillow.com
-  - trulia.com
-  - realtor.com
-  - rightmove.co.uk
-  - zoopla.co.uk
-  - savills.com
-  - knightfrank.com
-  - foxtons.co.uk
-
+- accor.com
+- all.accor.com
+- applebees.com
+- arbys.com
+- aspendental.com
+- bakermckenzie.com
+- banfield.com
+- benjaminfranklinplumbing.com
+- berkshirehathawayhs.com
+- bestwestern.com
+- bhhs.com
+- bluepearlvet.com
+- buffalowildwings.com
+- burgerking.com
+- canes.com
+- carlsjr.com
+- cbre.com
+- century21.com
+- cheesecakefactory.com
+- chick-fil-a.com
+- chilis.com
+- chipotle.com
+- choicehotels.com
+- cliffordchance.com
+- coldwellbanker.com
+- colliers.com
+- compass.com
+- costa.co.uk
+- culvers.com
+- cushmanwakefield.com
+- dairyqueen.com
+- dennys.com
+- dentalcarealliance.net
+- dentons.com
+- dlapiper.com
+- dominos.com
+- dunkin.com
+- dunkindonuts.com
+- extendedstayamerica.com
+- fiveguys.com
+- fourseasons.com
+- foxtons.co.uk
+- greggs.co.uk
+- hardees.com
+- heartlanddental.com
+- hilton.com
+- holidayinn.com
+- hyatt.com
+- ihg.com
+- ihop.com
+- jackinthebox.com
+- jiffylube.com
+- jll.com
+- kfc.com
+- knightfrank.com
+- kw.com
+- loewshotels.com
+- marcusmillichap.com
+- marriott.com
+- mcdonalds.com
+- meineke.com
+- mistersparky.com
+- motel6.com
+- mrelectric.com
+- mrrooter.com
+- nandos.co.uk
+- olivegarden.com
+- omnihotels.com
+- onehourheatandair.com
+- outback.com
+- pandaexpress.com
+- panerabread.com
+- pepboys.com
+- pizzaexpress.com
+- pizzahut.com
+- popeyes.com
+- premierinn.com
+- pret.com
+- radissonhotels.com
+- raisingcanes.com
+- realtor.com
+- redfin.com
+- redlobster.com
+- remax.com
+- rightmove.co.uk
+- ritzcarlton.com
+- rotorooter.com
+- savills.com
+- servpro.com
+- sonesta.com
+- sonicdrivein.com
+- sothebysrealty.com
+- starbucks.com
+- subway.com
+- tacobell.com
+- texasroadhouse.com
+- travelodge.co.uk
+- trulia.com
+- vcahospitals.com
+- wagamama.com
+- wendys.com
+- wetherspoon.co.uk
+- wingstop.com
+- wyndhamhotels.com
+- zillow.com
+- zoopla.co.uk
 thresholds:
-  max_domain_occurrences: 4 # Same domain appearing > 4 times in discovery is considered a multi-location chain
+  max_domain_occurrences: 4

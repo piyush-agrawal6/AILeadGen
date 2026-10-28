@@ -1,0 +1,9 @@
+# PlaneByte client reports V2
+
+Reports preserve the supplied orange logo and Graphite/Signal Orange palette. Client content and metadata use PlaneByte only. Website and SEO show stored Lighthouse current scores; security uses seven explicitly known equal-weight public configuration checks. Proposed targets and arithmetic gains are goals, not guaranteed results. Missing data never becomes a score.
+
+Reachable-site reports add Current digital presence, a scan-time public homepage image when available, factual observations and three recorded improvement priorities. Each priority explains finding, evidence, significance and recommendation, with qualitative impact/effort context. Technical detail remains available. A relevant roadmap, tangible deliverables, qualitative outcomes and configurable included-services offer conclude the report. Social discussion appears only when activity has reliable evidence. No-site/unreachable reports adapt their scope and do not invent SEO or security findings.
+
+Capture runs only for the final scan shortlist, after a reachable robots-permitted crawl. An anonymous Chromium context requests a public homepage through the hardened public-network proxy, with 20-second process, 80-request and 2 MB image bounds. Password forms and known account/login/admin paths are excluded. Images are private artifacts associated with the observation/run. PDF jobs read the stored artifact and never visit the website. Old report snapshots and versions remain immutable.
+
+Offer defaults are configured through REPORT_OFFER_ENABLED, REPORT_OFFER_TITLE, REPORT_OFFER_SUBTITLE, REPORT_OFFER_INCLUDE_SEO_FOUNDATION, REPORT_OFFER_INCLUDE_SECURITY_HARDENING and REPORT_OFFER_INCLUDE_POST_LAUNCH_AUDIT. No prices or fictitious savings are printed. Included services are subject to written project scope and eligibility.

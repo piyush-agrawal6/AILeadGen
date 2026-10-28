@@ -1,4 +1,10 @@
-# LeadEngine — Zero-Cost B2B Lead Discovery & Qualification Engine
+# LeadEngine — shared lead intelligence
+
+Phase 3 adds a Google-authenticated dashboard, shared PostgreSQL prospects and workflow, multi-city/vertical campaigns, separate website/SEO/passive security opportunities, private R2 artifacts and bounded Cloud Run workers. Desktop SQLite operation remains available. Public discovery sources require no paid lead-data API; cloud hosting and storage may incur charges.
+
+Start with [deployment and local setup](docs/DEPLOYMENT.md), [architecture](docs/PHASE_3_ARCHITECTURE.md), [security](docs/SECURITY.md), [modernization audit](docs/PHASE_3_AUDIT.md), [quota evidence](docs/GCP_QUOTA_REPORT.md) and the [Phase 3 report](docs/PHASE_3_REPORT.md).
+
+The sections below preserve the original engine reference. Their local-only architecture and zero recurring hosting cost description apply to the original desktop mode; production uses the shared cloud architecture above.
 
 **LeadEngine** is an internal, local-first B2B prospecting and intelligence engine that discovers legitimate public businesses in target geographic markets, audits their technical infrastructure and SEO, scores their sales potential, and produces ranked prospect lists for digital agency outreach (web development, redesign, local SEO, technical SEO, and conversion optimization).
 
@@ -17,126 +23,62 @@ Operates with **$0 in recurring software or API costs**:
 ## Architecture Overview
 
 ```text
-Market Query ("Austin, Texas, USA")
-        ↓
-Market Resolution (Offline Curated Cache & Nominatim)
-        ↓
-Business Discovery (Overture Maps Places via DuckDB & OpenStreetMap via Overpass)
-        ↓
-Data Normalization & Deduplication (Strong domain/phone + fuzzy nearby dedupe)
-        ↓
-Franchise & National Chain Filtering
-        ↓
-Website Reachability & SSRF Safety Probing
-        ↓
-Multi-Page Crawler (Public contacts, social accounts, booking links, menus)
-        ↓
-Zero-Browser Technical & SEO Audit (HTTPS, viewport, title, meta desc, schema.org)
-        ↓
-Local Lighthouse Deep Audit (Performance, Core Web Vitals, SEO, Accessibility)
-        ↓
-Deterministic Lead Opportunity Scoring (0–100) & Tier Assignment (A+, A, B, C, D)
-        ↓
-Automated Service Classification & Sales Angle Generation
-        ↓
-Multi-Tab Excel (.xlsx) & CSV (.csv) Export
+┌────────────────────────────────────────────────────────────────────────┐
+│                        NEXT.JS ADMIN DASHBOARD                         │
+│   (App Router, TypeScript Strict, Tailwind CSS, TanStack Query/Table)  │
+│  • Overview KPIs & Charts        • Live Scan Monitor & SSE Logs        │
+│  • Lead Explorer & Filters       • Lead Intelligence Dossier & Report  │
+│  • Scan Launcher & Presets       • System Doctor Diagnostics & Settings│
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ HTTP / JSON & SSE (Port 8787)
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                         FASTAPI BACKEND LAYER                          │
+│   (Uvicorn, REST Endpoints, Background Scan Manager, Event Streaming)  │
+│  • /api/dashboard    • /api/scans       • /api/leads    • /api/markets │
+│  • /api/verticals    • /api/reports     • /api/settings • /api/system  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ In-Process Pipeline Invocation
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                    LEADENGINE PYTHON CORE PIPELINE                     │
+│  1. Market Resolution (Offline Curated Cache & Nominatim Geocoding)    │
+│  2. Business Discovery (Overture Maps GeoParquet & OpenStreetMap)      │
+│  3. Normalization & Deduplication (Haversine 300m + RapidFuzz 85%)     │
+│  4. Data Quality Hardening & Deterministic Vertical Validation         │
+│  5. Social Re-routing (Social URLs -> NO_WEBSITE opportunities)        │
+│  6. Multi-Page Crawler (Emails, Phones, Socials, Booking & Menus)      │
+│  7. Zero-Browser Technical & SEO Audit (HTTPS, Mobile, Schema.org)     │
+│  8. Local Headless Lighthouse Deep Audit (Core Web Vitals & Perf)      │
+│  9. Opportunity Scoring (0-100), Tiering (A+, A, B, C, D) & Angles     │
+│ 10. Multi-Tab Excel (.xlsx), CRM-Ready CSV & Responsive HTML Reports   │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                         ┌──────────▼──────────┐
+                         │   SQLite DB (WAL)   │
+                         │ data/lead_engine.db │
+                         └─────────────────────┘
 ```
 
 ---
 
-## Requirements
+## Quick Start: Launching the Web UI
 
-- **Python**: 3.12+ (64-bit)
-- **Node.js**: v18+ (used for local Lighthouse CLI)
-- **Chrome / Edge / Chromium**: Standard Google Chrome or Microsoft Edge installed on system
-- **Operating System**: Windows 10/11, macOS, or Linux
-
----
-
-## Installation & Setup
-
-### Windows (Automated PowerShell Setup)
-
-Run the included automated setup script in PowerShell:
+To launch both the **FastAPI backend** (port `8787`) and the **Next.js Admin Dashboard** (port `3000`) simultaneously with unified process lifecycle management:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\setup_windows.ps1
+python lead_engine.py ui
 ```
 
-Or step-by-step:
+Or for live frontend hot-reloading development:
 
 ```powershell
-# 1. Create and activate virtual environment
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-
-# 2. Upgrade pip and install Python dependencies
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-
-# 3. Install Playwright Chromium
-python -m playwright install chromium
-
-# 4. Install local Lighthouse CLI via npm
-npm install lighthouse
-
-# 5. Run system diagnostics
-python lead_engine.py doctor
+powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1
 ```
 
-### macOS / Linux
+- **Dashboard UI**: [http://localhost:3000](http://localhost:3000)
+- **Interactive API Documentation**: [http://127.0.0.1:8787/docs](http://127.0.0.1:8787/docs)
+- **API Health Check**: [http://127.0.0.1:8787/api/health](http://127.0.0.1:8787/api/health)
 
-```bash
-# 1. Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# 2. Upgrade pip and install Python dependencies
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-
-# 3. Install Playwright Chromium
-python -m playwright install chromium
-
-# 4. Install local Lighthouse CLI via npm
-npm install lighthouse
-
-# 5. Run system diagnostics
-python lead_engine.py doctor
-```
-
----
-
-## Running LeadEngine
-
-### 1. Run a Prospecting Scan
-
-Discover and qualify the best 250 restaurant prospects in Austin, Texas:
-
-```bash
-python lead_engine.py run \
-  --market "Austin, Texas, USA" \
-  --vertical restaurant \
-  --target 250
-```
-
-### Options & Flags:
-- `--market, -m`: Target geographic market name (e.g. `"Austin, Texas, USA"`, `"Miami, Florida, USA"`, `"London, UK"`).
-- `--vertical, -v`: Business vertical (`restaurant`, `hospitality`, `real_estate`).
-- `--target, -t`: Target number of **qualified leads** to produce (default: `250`).
-- `--include-chains`: Include national franchise chains (disabled by default to focus on independent businesses).
-- `--no-lighthouse`: Skip deep Lighthouse Web Vitals audits for ultra-fast scanning.
-- `--verbose, -v`: Enable detailed debug logging.
-
-### 2. Fast Smoke Test (10 Leads)
-
-```bash
-python lead_engine.py run \
-  --market "Austin, Texas, USA" \
-  --vertical restaurant \
-  --target 10 \
-  --no-lighthouse
-```
+Press `Ctrl+C` in the terminal to gracefully terminate both servers.
 
 ---
 
@@ -144,8 +86,10 @@ python lead_engine.py run \
 
 | Command | Description | Example |
 | :--- | :--- | :--- |
+| `ui` | Launch FastAPI backend + Next.js Admin Dashboard with unified shutdown | `python lead_engine.py ui` |
+| `api` | Run standalone FastAPI REST and SSE application server | `python lead_engine.py api --port 8787` |
 | `doctor` | Verify environment, database, browsers, and data connectivity | `python lead_engine.py doctor` |
-| `run` | Execute discovery, audit, scoring, and exports | `python lead_engine.py run -m "Austin, TX" -v restaurant -t 50` |
+| `run` | Execute discovery, audit, scoring, and exports via CLI | `python lead_engine.py run -m "Austin, TX" -v restaurant -t 50` |
 | `markets` | List offline curated markets and cached bounding boxes | `python lead_engine.py markets` |
 | `verticals` | List configured business niches, categories, and OSM tags | `python lead_engine.py verticals` |
 | `inspect` | Print terminal card with full findings and score breakdown for a lead | `python lead_engine.py inspect --business-id 42` |
@@ -227,3 +171,12 @@ All rules and constants are externalized in `config/`:
 - **Respectful Crawling**: Max 8 pages per site, bounded concurrency (default 4 concurrent sites), robots-aware headers, 3MB body limits, and per-domain throttling.
 - **SSRF Protection**: Prohibits private networks (`10.0.0.0/8`, `192.168.0.0/16`, `127.0.0.1`, `169.254.169.254`) and non-HTTP protocols.
 - **Public Contacts Only**: Collects only publicly published business contact details (`info@`, `hello@`, contact forms). Never manufactures or guesses employee emails.
+# Phase 3.5 workspace and client reports
+
+LeadEngine includes an editable lead workspace, accessible draft/apply filters, semantic opportunity/status colors, and versioned PlaneByte client PDFs. Open a lead or its Report column to generate a PDF from stored evidence; the reports library separates PDFs from campaign CSV/XLSX exports. See [Phase 3.5 report](docs/PHASE_3_5_REPORT.md) and [deployment instructions](docs/DEPLOYMENT.md). The accepted Phase 3 cloud architecture and Google account allowlist are retained.
+
+
+
+## Phase 3.6 workspace and reports
+
+Public social profiles, versioned mid-market targeting, commercial-fit filters, private scan-time website captures and PlaneByte client report V2 are described in [the delivery report](docs/PHASE_3_6_REPORT.md). Campaigns, scans and leads support scoped permanent deletion; see [deletion behavior](docs/PERMANENT_DELETION.md).

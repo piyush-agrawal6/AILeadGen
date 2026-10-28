@@ -1,0 +1,44 @@
+[
+  {
+    "object_key": "campaigns/7336e422-0fca-4ef9-bacd-ac6ef0ecfd86/runs/29/leads.xlsx",
+    "kind": "xlsx",
+    "run_id": 29,
+    "business_id": null,
+    "verified_bytes": 54461
+  },
+  {
+    "object_key": "campaigns/7336e422-0fca-4ef9-bacd-ac6ef0ecfd86/runs/29/leads.csv",
+    "kind": "csv",
+    "run_id": 29,
+    "business_id": null,
+    "verified_bytes": 2974
+  },
+  {
+    "object_key": "audits/29/3924/lighthouse.json",
+    "kind": "lighthouse",
+    "run_id": 29,
+    "business_id": 3924,
+    "verified_bytes": 660195
+  },
+  {
+    "object_key": "audits/29/3953/lighthouse.json",
+    "kind": "lighthouse",
+    "run_id": 29,
+    "business_id": 3953,
+    "verified_bytes": 634046
+  },
+  {
+    "object_key": "audits/29/3923/lighthouse.json",
+    "kind": "lighthouse",
+    "run_id": 29,
+    "business_id": 3923,
+    "verified_bytes": 616537
+  },
+  {
+    "object_key": "prospects/3953/reports/report.html",
+    "kind": "html",
+    "run_id": null,
+    "business_id": 3953,
+    "verified_bytes": 24567
+  }
+]

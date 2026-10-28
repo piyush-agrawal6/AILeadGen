@@ -1,3 +1,4 @@
+from app.database.phase41_schema import PHASE41_SQL
 import logging
 import sqlite3
 from typing import List
@@ -5,6 +6,10 @@ from typing import List
 from app.database.connection import get_connection
 
 logger = logging.getLogger("leadengine.migrations")
+from app.database.phase3_schema import PHASE3_SQL
+from app.database.phase35_schema import PHASE35_SQL,apply_phase35
+from app.database.phase36_schema import PHASE36_SQL
+from app.database.phase4_schema import PHASE4_SQL,apply_phase4
 
 MIGRATIONS: List[str] = [
     # Migration 1: Initial schema
@@ -243,7 +248,51 @@ MIGRATIONS: List[str] = [
         output_file TEXT,
         error_message TEXT
     );
+    """,
+    # Migration 2: Phase 2 Quality Hardening & Real-Time Pipeline Events
     """
+    ALTER TABLE businesses ADD COLUMN source_category TEXT;
+    ALTER TABLE businesses ADD COLUMN source_tags_json TEXT;
+    ALTER TABLE businesses ADD COLUMN vertical_validation_status TEXT DEFAULT 'VALID';
+    ALTER TABLE businesses ADD COLUMN vertical_validation_reason TEXT;
+    ALTER TABLE businesses ADD COLUMN vertical_validation_confidence REAL DEFAULT 1.0;
+    ALTER TABLE businesses ADD COLUMN chain_reason TEXT;
+    ALTER TABLE businesses ADD COLUMN chain_confidence REAL DEFAULT 0.0;
+    ALTER TABLE businesses ADD COLUMN website_status TEXT;
+
+    CREATE INDEX IF NOT EXISTS idx_businesses_vert_val ON businesses(vertical_validation_status);
+    CREATE INDEX IF NOT EXISTS idx_businesses_web_status ON businesses(website_status);
+
+    ALTER TABLE pipeline_runs ADD COLUMN run_configuration_json TEXT;
+    ALTER TABLE pipeline_runs ADD COLUMN cancelled_at TIMESTAMP;
+
+    CREATE TABLE IF NOT EXISTS pipeline_run_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        run_id INTEGER NOT NULL,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        stage TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        completed INTEGER DEFAULT 0,
+        total INTEGER DEFAULT 0,
+        metadata_json TEXT,
+
+        FOREIGN KEY (run_id) REFERENCES pipeline_runs(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_pipeline_events_run_id ON pipeline_run_events(run_id);
+    CREATE INDEX IF NOT EXISTS idx_pipeline_events_time ON pipeline_run_events(timestamp);
+    """,
+    # Migration 3: Add run_id to businesses and additional indexes for query optimization
+    """
+    ALTER TABLE businesses ADD COLUMN run_id INTEGER;
+
+    CREATE INDEX IF NOT EXISTS idx_businesses_run_id ON businesses(run_id);
+    CREATE INDEX IF NOT EXISTS idx_businesses_city ON businesses(city);
+    CREATE INDEX IF NOT EXISTS idx_businesses_state ON businesses(state);
+    CREATE INDEX IF NOT EXISTS idx_businesses_country ON businesses(country);
+    """
+    , PHASE3_SQL,PHASE35_SQL,PHASE36_SQL,PHASE4_SQL,PHASE41_SQL
 ]
 
 
@@ -255,6 +304,9 @@ def run_migrations(conn: sqlite3.Connection = None) -> int:
         close_when_done = True
 
     try:
+        postgres = getattr(conn, "backend", None) == "postgres"
+        if postgres:
+            conn.execute("SELECT pg_advisory_xact_lock(691944301)")
         # Check current version
         conn.execute(
             """
@@ -271,13 +323,38 @@ def run_migrations(conn: sqlite3.Connection = None) -> int:
         for i, migration_sql in enumerate(MIGRATIONS, start=1):
             if i > current_version:
                 logger.info(f"Applying database migration #{i}...")
-                conn.executescript(migration_sql)
+                if postgres:
+                    import re
+                    migration_sql = re.sub(r"INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY", migration_sql)
+                    # Historical models store ISO strings; TEXT avoids implicit timestamp casts.
+                    migration_sql = migration_sql.replace("TIMESTAMP DEFAULT CURRENT_TIMESTAMP", "TEXT DEFAULT (CURRENT_TIMESTAMP::text)")
+                if i==7:apply_phase4(conn,postgres)
+                elif i==5:apply_phase35(conn,postgres)
+                else:conn.executescript(migration_sql)
+                if i==8:
+                    from app.mail.tracking import backfill
+                    backfill(conn)
                 conn.execute("INSERT INTO schema_migrations (version) VALUES (?);", (i,))
-                conn.commit()
+                if not postgres:
+                    conn.commit()
                 applied_count += 1
                 logger.info(f"Migration #{i} applied successfully.")
 
+        conn.commit()
         return applied_count
     finally:
         if close_when_done:
+            conn.close()
+
+
+def verify_schema(conn=None,minimum_version=None):
+    """Production only checks schema version; migrations run explicitly at release."""
+    close = conn is None
+    conn = conn or get_connection()
+    try:
+        version = conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
+        if not (minimum_version or len(MIGRATIONS)) <= (version or 0) <= len(MIGRATIONS):
+            raise RuntimeError("Database schema is out of date; run the explicit migration command")
+    finally:
+        if close:
             conn.close()

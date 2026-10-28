@@ -1,0 +1,6 @@
+{
+  "signed_get_status": 200,
+  "unsigned_get_status": 400,
+  "private_access_verified": true,
+  "account_public_access_settings": "Previously confirmed by user: public r2.dev disabled; no public custom domain."
+}

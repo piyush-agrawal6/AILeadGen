@@ -1,0 +1,10 @@
+{
+  "send_mode": "test",
+  "schema": 8,
+  "revision": "leadengine-api-00017-7tx",
+  "live_approved": false,
+  "protected_configuration_preserved": true,
+  "secret_rotation": false,
+  "api_build": "8c1c6a63-fe9d-4a39-81b4-ad778d783691",
+  "worker_build": "96203252-23f2-42c6-b8d5-3cf79f02dbb3"
+}

@@ -1,0 +1,40 @@
+{
+  "checks": {
+    "smtp_accepted": true,
+    "test_redirect": true,
+    "pdf_attached": true,
+    "pixel_endpoint": true,
+    "duplicate_pixel_safe": true,
+    "stored_redirect": true,
+    "unsubscribe_confirmation": true,
+    "test_unsubscribe_post": true,
+    "scanner_labeled": true,
+    "deduplicated_open": true,
+    "test_optout_preserves_prospect": true,
+    "outbound_persisted": true,
+    "verified_reply": true,
+    "inbound_verified": true,
+    "reply_activity": true,
+    "reply_status_preserved": true,
+    "test_mode_retained": true
+  },
+  "idempotency_key": "4c765c98-b622-4d40-a960-ef0c049d2499",
+  "subject": "PlaneByte Phase 4.1 controlled tracking b3b6f7f3",
+  "sent": {
+    "id": "70171629-d829-41d3-a5ee-96193c674375",
+    "status": "SENT",
+    "thread_id": "8500697a-40b8-406b-87f7-68c4d8ad91df",
+    "test_mode": true,
+    "provider_message_id": "<179304557651.12832.1022754227920917561@planebyte.com>"
+  },
+  "sync": {
+    "received": 0,
+    "checked": 0,
+    "last_sync_at": "2026-10-26T20:18:26.884036+00:00"
+  },
+  "reply_acceptance": {
+    "verified_inbound_count": 1,
+    "normalized_reply_events": 1
+  },
+  "checked_at": "2026-10-26T20:18:55.064Z"
+}

@@ -1,0 +1,26 @@
+{
+  "reachable": {
+    "report_id": "97a25c4f-d623-40b6-be08-56a8c0dfbdcf",
+    "version": 3,
+    "pages": 6,
+    "bytes": 1298434,
+    "company_only_branding": true,
+    "current_scores_and_proposed_gains": true
+  },
+  "unreachable": {
+    "report_id": "293288cf-c64b-454c-9c65-9e14e2e4354d",
+    "version": 2,
+    "pages": 3,
+    "bytes": 1279417,
+    "company_only_branding": true,
+    "current_scores_and_proposed_gains": false
+  },
+  "no-website": {
+    "report_id": "614d341f-147f-45ea-b13d-37b5990c4bd0",
+    "version": 2,
+    "pages": 3,
+    "bytes": 1279172,
+    "company_only_branding": true,
+    "current_scores_and_proposed_gains": false
+  }
+}

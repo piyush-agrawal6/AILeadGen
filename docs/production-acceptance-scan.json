@@ -1,0 +1,1398 @@
+{
+  "campaign_id": "7336e422-0fca-4ef9-bacd-ac6ef0ecfd86",
+  "configuration": {
+    "cities": [
+      "Austin, United States"
+    ],
+    "verticals": [
+      "dentists"
+    ],
+    "opportunities": [
+      "WEBSITE",
+      "SEO",
+      "SECURITY"
+    ],
+    "quality": "balanced",
+    "business_scales": [
+      "LOCAL",
+      "SMALL_GROUP"
+    ],
+    "results": "include_previous",
+    "target": 5,
+    "lighthouse_enabled": true,
+    "fixture": false,
+    "request_id": "7336e422-0fca-4ef9-bacd-ac6ef0ecfd86"
+  },
+  "created_at": "2026-10-25T18:40:04.699723+00:00",
+  "created_via_authenticated_production_ui": true,
+  "google_oauth_verified_by_user": true,
+  "latest_campaign": {
+    "id": "7336e422-0fca-4ef9-bacd-ac6ef0ecfd86",
+    "created_by": "planebyte@gmail.com",
+    "status": "COMPLETED",
+    "created_at": "2026-10-25T18:40:04.699723+00:00",
+    "started_at": null,
+    "completed_at": "2026-10-25T19:05:14.961813+00:00",
+    "target_total": 5,
+    "cancellation_requested": 0,
+    "runs": [
+      {
+        "id": 29,
+        "market": "Austin, United States",
+        "vertical": "dentists",
+        "target": 5,
+        "status": "COMPLETED",
+        "raw_found": 198,
+        "qualified": 23,
+        "exported": 5,
+        "started_at": "2026-10-25 18:40:03.492837+00",
+        "finished_at": "2026-10-25T19:05:08.824030",
+        "error_message": null
+      }
+    ],
+    "configuration": {
+      "cities": [
+        "Austin, United States"
+      ],
+      "verticals": [
+        "dentists"
+      ],
+      "opportunities": [
+        "WEBSITE",
+        "SEO",
+        "SECURITY"
+      ],
+      "quality": "balanced",
+      "business_scales": [
+        "LOCAL",
+        "SMALL_GROUP"
+      ],
+      "results": "include_previous",
+      "target": 5,
+      "lighthouse_enabled": true,
+      "fixture": false,
+      "request_id": "7336e422-0fca-4ef9-bacd-ac6ef0ecfd86"
+    },
+    "counters": {
+      "raw_found": 198,
+      "qualified": 23,
+      "exported": 5
+    },
+    "progress": {
+      "completed": 1,
+      "running": 0,
+      "queued": 0,
+      "failed": 0,
+      "cancelled": 0
+    },
+    "opportunities": {
+      "website": 8,
+      "seo": 5,
+      "security": 17
+    }
+  },
+  "checked_at": "2026-10-25T19:06:09Z",
+  "results": {
+    "items": [
+      {
+        "id": 3936,
+        "name": "A Summer Smile",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "youraustintxdentist.com",
+        "website": "http://www.youraustintxdentist.com/",
+        "phone": "+15123821969",
+        "public_email": "info@youraustintxdentist.com",
+        "run_id": 29,
+        "prospect_id": "85b03a6f-2508-437f-b75d-b7a2fbba2671",
+        "website_opportunity_score": 85,
+        "seo_opportunity_score": null,
+        "security_opportunity_score": null,
+        "primary_opportunity": "WEBSITE",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:26:18.311618+00:00",
+        "last_seen_at": "2026-10-25T18:42:18.192802+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3934,
+        "name": "Serenity Dental",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "serenitydentalaustin.com",
+        "website": "https://serenitydentalaustin.com/",
+        "phone": "+15123875799",
+        "public_email": "info@serenitydentalaustin.com",
+        "run_id": 29,
+        "prospect_id": "01fa3a78-7d12-4289-b808-35e351fe89c2",
+        "website_opportunity_score": 85,
+        "seo_opportunity_score": null,
+        "security_opportunity_score": null,
+        "primary_opportunity": "WEBSITE",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:26:08.568983+00:00",
+        "last_seen_at": "2026-10-25T18:42:13.338171+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3925,
+        "name": "Hill Country Dentists",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "hillcountrydentists.com",
+        "website": "https://www.hillcountrydentists.com/?sc_cid=Facebook%3AO%3AGP%3A779%3ASocial%3AGeneral%3Ana&_vsrefdom=organic_social&y_source=1_MTEwMjk1My01NTktbG9jYXRpb24ud2Vic2l0ZQ%3D%3D",
+        "phone": "+15122634142",
+        "public_email": "hillcountrydentists@smilegeneration.com",
+        "run_id": 29,
+        "prospect_id": "eba74c08-0f72-4f94-8684-2ab9fb33ee75",
+        "website_opportunity_score": 85,
+        "seo_opportunity_score": null,
+        "security_opportunity_score": null,
+        "primary_opportunity": "WEBSITE",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:25:23.922329+00:00",
+        "last_seen_at": "2026-10-25T18:41:51.496782+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3918,
+        "name": "Buda Kids Teeth",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "budakidsteeth.com",
+        "website": "https://budakidsteeth.com/",
+        "phone": "(512) 295-7600",
+        "public_email": "info@budakidsteeth.com",
+        "run_id": 29,
+        "prospect_id": "b1415a35-2124-403b-9e59-70eee47cff9a",
+        "website_opportunity_score": 85,
+        "seo_opportunity_score": null,
+        "security_opportunity_score": null,
+        "primary_opportunity": "WEBSITE",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:24:47.941172+00:00",
+        "last_seen_at": "2026-10-25T18:41:32.354245+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "SMALL_GROUP",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3953,
+        "name": "GK Dental",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "gkdentalpa.com",
+        "website": "http://gkdentalpa.com/",
+        "phone": "+15123011505",
+        "public_email": "info@gkdentalpa.com",
+        "run_id": 29,
+        "prospect_id": "9bcbb708-a84d-4030-baa6-92b704937753",
+        "website_opportunity_score": 62,
+        "seo_opportunity_score": 97,
+        "security_opportunity_score": 48,
+        "primary_opportunity": "SEO",
+        "secondary_opportunity": "WEBSITE",
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:27:42.500601+00:00",
+        "last_seen_at": "2026-10-25T18:43:00.518646+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3924,
+        "name": "Smile Designs",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "smiledesignsbeecave.com",
+        "website": "http://www.smiledesignsbeecave.com/",
+        "phone": "+15122638332",
+        "public_email": "info@westlakesmiledesigns.com",
+        "run_id": 29,
+        "prospect_id": "d60e5e96-43c1-44e1-9348-f5682d3c684e",
+        "website_opportunity_score": 57,
+        "seo_opportunity_score": 73,
+        "security_opportunity_score": 48,
+        "primary_opportunity": "SEO",
+        "secondary_opportunity": "WEBSITE",
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:25:19.063338+00:00",
+        "last_seen_at": "2026-10-25T18:41:49.070990+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3923,
+        "name": "Oak Canyon Dentistry",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "oakcanyondentistry.com",
+        "website": "http://www.oakcanyondentistry.com/",
+        "phone": "+15122635566",
+        "public_email": "mary@oakcanyondentistry.com",
+        "run_id": 29,
+        "prospect_id": "02f059be-2fb8-4984-b931-29b0694944ff",
+        "website_opportunity_score": 52,
+        "seo_opportunity_score": 72,
+        "security_opportunity_score": 42,
+        "primary_opportunity": "SEO",
+        "secondary_opportunity": "WEBSITE",
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:25:14.201216+00:00",
+        "last_seen_at": "2026-10-25T18:41:46.644466+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3933,
+        "name": "Lake Pointe Dental",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "lakepointedental.com",
+        "website": "http://www.lakepointedental.com/",
+        "phone": "+15122637896",
+        "public_email": "lakepointedental@austin.rr.com",
+        "run_id": 29,
+        "prospect_id": "0de9f1cf-20cb-4e10-a68d-144497e29af9",
+        "website_opportunity_score": 32,
+        "seo_opportunity_score": 29,
+        "security_opportunity_score": 40,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:26:03.699840+00:00",
+        "last_seen_at": "2026-10-25T18:42:10.912855+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3950,
+        "name": "AK Dental of Austin",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "akdentalatx.com",
+        "website": "https://www.akdentalatx.com/",
+        "phone": "5126533008",
+        "public_email": null,
+        "run_id": 29,
+        "prospect_id": "beeaa736-c9d4-4e96-93bc-78c3d0e70387",
+        "website_opportunity_score": 25,
+        "seo_opportunity_score": 0,
+        "security_opportunity_score": 40,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "MEDIUM",
+        "first_seen_at": "2026-10-25T17:27:27.892356+00:00",
+        "last_seen_at": "2026-10-25T18:42:53.243520+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3931,
+        "name": "Bee Cave Orthodontics",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "beecaveortho.com",
+        "website": "https://www.beecaveortho.com/",
+        "phone": "+15123340444",
+        "public_email": "info@beecaveortho.com",
+        "run_id": 29,
+        "prospect_id": "3731de2b-ac2e-4fc9-8acb-2984de5a39b4",
+        "website_opportunity_score": 9,
+        "seo_opportunity_score": 9,
+        "security_opportunity_score": 40,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:25:53.959637+00:00",
+        "last_seen_at": "2026-10-25T18:42:06.060800+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3932,
+        "name": "Sage Dentistry",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "sagedentistryaustin.com",
+        "website": "http://www.sagedentistryaustin.com/",
+        "phone": "+15122638500",
+        "public_email": "info@sagedentistryaustin.com",
+        "run_id": 29,
+        "prospect_id": "2eea8fd6-1e0a-45d3-8602-899304ef498c",
+        "website_opportunity_score": 7,
+        "seo_opportunity_score": 23,
+        "security_opportunity_score": 40,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:25:58.831311+00:00",
+        "last_seen_at": "2026-10-25T18:42:08.487455+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3955,
+        "name": "Kessler Dental",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "512smile.com",
+        "website": "http://www.512smile.com/",
+        "phone": "+15122882823",
+        "public_email": "smile@512smile.com",
+        "run_id": 29,
+        "prospect_id": "e1775771-fd45-4195-8491-fee17cbcccab",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 61,
+        "security_opportunity_score": 33,
+        "primary_opportunity": "SEO",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:27:52.237517+00:00",
+        "last_seen_at": "2026-10-25T18:43:05.364556+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3954,
+        "name": "Oak Hill Dental",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "oakhilldentalatx.com",
+        "website": "http://www.oakhilldentalatx.com/",
+        "phone": "+15125515400",
+        "public_email": "frontoffice@oakhilldentalatx.com",
+        "run_id": 29,
+        "prospect_id": "f74f16fa-6926-4a3f-8bac-77a54523e53b",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 12,
+        "security_opportunity_score": 42,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:27:47.368386+00:00",
+        "last_seen_at": "2026-10-25T18:43:02.941785+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3951,
+        "name": "Glow Dental Co",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "glowdentalco.com",
+        "website": "https://glowdentalco.com/",
+        "phone": "+15124026586",
+        "public_email": "frontdesk@glowdentalco.com",
+        "run_id": 29,
+        "prospect_id": "25bb1ed3-fc66-4478-b135-94c260267e1f",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 10,
+        "security_opportunity_score": 42,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:27:32.763000+00:00",
+        "last_seen_at": "2026-10-25T18:42:55.667640+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3943,
+        "name": "The Ranch Orthodontics",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "theranchorthodontics.com",
+        "website": "http://www.theranchorthodontics.com/",
+        "phone": "+15124664947",
+        "public_email": "info@theranchorthodontics.com",
+        "run_id": 29,
+        "prospect_id": "b8b0061c-faba-4be7-9649-7a857080128b",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 52,
+        "security_opportunity_score": 23,
+        "primary_opportunity": "SEO",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:26:54.083486+00:00",
+        "last_seen_at": "2026-10-25T18:42:36.259630+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3942,
+        "name": "Quinlan Park Dental",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "quinlanparkdental.com",
+        "website": "http://www.quinlanparkdental.com/",
+        "phone": "+17372576712",
+        "public_email": "info@quinlanparkdental.com",
+        "run_id": 29,
+        "prospect_id": "ad0e4193-d226-4711-9441-914a64a0d425",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 12,
+        "security_opportunity_score": 42,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:26:49.168297+00:00",
+        "last_seen_at": "2026-10-25T18:42:33.830593+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3937,
+        "name": "Canvas Dental",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "canvasdental.com",
+        "website": "https://canvasdental.com/",
+        "phone": "+15126464505",
+        "public_email": "smile@canvasdental.com",
+        "run_id": 29,
+        "prospect_id": "e90af2f6-a776-4e0d-a8a3-f501eb5a052c",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 18,
+        "security_opportunity_score": 40,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:26:23.720290+00:00",
+        "last_seen_at": "2026-10-25T18:42:21.698410+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "SMALL_GROUP",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3929,
+        "name": "Bee Cave Smiles",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "beecavesmiles.com",
+        "website": "https://www.beecavesmiles.com/",
+        "phone": "+15124021955",
+        "public_email": "info@beecavesmiles.com",
+        "run_id": 29,
+        "prospect_id": "3a02236c-c414-4290-85db-87190219c022",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 27,
+        "security_opportunity_score": 48,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:25:44.219723+00:00",
+        "last_seen_at": "2026-10-25T18:42:01.207128+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3926,
+        "name": "Del Toro Orthodontics",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "austin-braces.com",
+        "website": "http://www.austin-braces.com/",
+        "phone": "+15124021501",
+        "public_email": "laketravisortho@gmail.com",
+        "run_id": 29,
+        "prospect_id": "88f5a730-a6b7-4c99-9919-f5d90f38c668",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 22,
+        "security_opportunity_score": 40,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:25:29.340691+00:00",
+        "last_seen_at": "2026-10-25T18:41:53.922593+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "SMALL_GROUP",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3922,
+        "name": "Toothbud Pediatric Dentistry",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "toothbudpediatricdentistry.com",
+        "website": "http://www.toothbudpediatricdentistry.com/first-visit.php",
+        "phone": "+15126059644",
+        "public_email": "toothbudaustin@gmail.com",
+        "run_id": 29,
+        "prospect_id": "cd0da31c-2da7-40ef-b9bb-63901aced722",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 31,
+        "security_opportunity_score": 42,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:25:08.245218+00:00",
+        "last_seen_at": "2026-10-25T18:41:43.409171+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3920,
+        "name": "Lake Travis Dentistry",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "laketravisdentistry.com",
+        "website": "http://www.laketravisdentistry.com/",
+        "phone": "+15123826985",
+        "public_email": "admin@laketravisdentistry.com",
+        "run_id": 29,
+        "prospect_id": "05c83d8c-eebb-4b1d-b560-153a665fe168",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 5,
+        "security_opportunity_score": 42,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:24:57.954718+00:00",
+        "last_seen_at": "2026-10-25T18:41:37.747021+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3919,
+        "name": "Michael B Tenbrook",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "laketravis.com",
+        "website": "https://laketravis.com/",
+        "phone": "(512) 267-2419",
+        "public_email": null,
+        "run_id": 29,
+        "prospect_id": "c469948e-65a6-48c1-a9bb-bae35eff3f5c",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 24,
+        "security_opportunity_score": 53,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "MEDIUM",
+        "first_seen_at": "2026-10-25T17:24:53.083131+00:00",
+        "last_seen_at": "2026-10-25T18:41:34.782661+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "LOCAL",
+        "lead_status": "NEW"
+      },
+      {
+        "id": 3917,
+        "name": "Moser Family & Cosmetic Dentistry",
+        "vertical": "dentists",
+        "city": "Austin",
+        "country": "United States",
+        "country_code": "US",
+        "domain": "moserdental.com",
+        "website": "https://www.moserdental.com/",
+        "phone": "(512) 765-9459",
+        "public_email": "info@moserdental.com",
+        "run_id": 29,
+        "prospect_id": "6f910bd3-ac2a-4f95-a608-61cca40ec92e",
+        "website_opportunity_score": 4,
+        "seo_opportunity_score": 18,
+        "security_opportunity_score": 40,
+        "primary_opportunity": "SECURITY",
+        "secondary_opportunity": null,
+        "contactability_level": "HIGH",
+        "first_seen_at": "2026-10-25T17:24:42.514757+00:00",
+        "last_seen_at": "2026-10-25T18:41:29.923258+00:00",
+        "times_discovered": 3,
+        "assigned_to": null,
+        "business_scale": "SMALL_GROUP",
+        "lead_status": "NEW"
+      }
+    ],
+    "total": 23,
+    "page": 1,
+    "page_size": 100,
+    "total_pages": 1
+  },
+  "ui_verification": {
+    "leads": [
+      {
+        "id": 3953,
+        "name": "GK Dental",
+        "city": "Austin",
+        "vertical": "dentists",
+        "website": "http://gkdentalpa.com/",
+        "contactability": "HIGH",
+        "business_scale": "LOCAL",
+        "first_seen": "2026-10-25T17:27:42.500601+00:00",
+        "last_seen": "2026-10-25T18:43:00.518646+00:00",
+        "scores": {
+          "business_id": 3953,
+          "run_id": 29,
+          "website_opportunity_score": 62,
+          "seo_opportunity_score": 97,
+          "security_opportunity_score": 48,
+          "primary_opportunity": "SEO",
+          "secondary_opportunity": "WEBSITE",
+          "contactability_level": "HIGH",
+          "scoring_version": "3.1.0",
+          "created_at": "2026-10-25T19:04:35.286356+00:00",
+          "evidence": {
+            "WEBSITE": [
+              {
+                "code": "VERY_POOR_PERFORMANCE",
+                "points": 25,
+                "detail": "Observed Lighthouse mobile performance: 13.0."
+              },
+              {
+                "code": "NO_PRIMARY_CTA",
+                "points": 15,
+                "detail": "No vertical conversion CTA among observed links."
+              },
+              {
+                "code": "TREATMENT_PAGES_NOT_OBSERVED",
+                "points": 5,
+                "detail": "Relevant vertical feature not found among sampled navigation links."
+              },
+              {
+                "code": "LOCATION_PAGE_NOT_OBSERVED",
+                "points": 4,
+                "detail": "Relevant vertical feature not found among sampled navigation links."
+              },
+              {
+                "code": "NO_PHONE_CTA",
+                "points": 3,
+                "detail": "A public phone exists but no click-to-call link was observed."
+              },
+              {
+                "code": "POOR_VERTICAL_CONVERSION_FLOW",
+                "points": 10,
+                "detail": "Expected conversion paths: appointment, book now, schedule."
+              }
+            ],
+            "SEO": [
+              {
+                "code": "POOR_PERFORMANCE",
+                "points": 8,
+                "detail": "Observed Lighthouse mobile performance: 13.0."
+              },
+              {
+                "code": "TITLE_LENGTH",
+                "points": 4,
+                "detail": "Title length outside the configured 10–70 character range."
+              },
+              {
+                "code": "MISSING_META_DESCRIPTION",
+                "points": 10,
+                "detail": "Homepage meta description absent."
+              },
+              {
+                "code": "MISSING_H1",
+                "points": 8,
+                "detail": "No primary heading observed."
+              },
+              {
+                "code": "MISSING_CANONICAL",
+                "points": 5,
+                "detail": "No canonical link observed."
+              },
+              {
+                "code": "ROBOTS_NOT_OBSERVED",
+                "points": 3,
+                "detail": "robots.txt was not successfully observed; this does not establish an indexing error."
+              },
+              {
+                "code": "SITEMAP_NOT_OBSERVED",
+                "points": 4,
+                "detail": "sitemap.xml was not successfully observed."
+              },
+              {
+                "code": "NO_STRUCTURED_DATA",
+                "points": 8,
+                "detail": "No JSON-LD structured data observed."
+              },
+              {
+                "code": "NO_VERTICAL_SCHEMA",
+                "points": 6,
+                "detail": "No relevant business schema type observed."
+              },
+              {
+                "code": "NO_CONTACT_PAGE",
+                "points": 5,
+                "detail": "No dedicated contact page observed."
+              },
+              {
+                "code": "NO_CITY_REFERENCE",
+                "points": 5,
+                "detail": "Source city not mentioned in observed page text."
+              },
+              {
+                "code": "HOURS_NOT_OBSERVED",
+                "points": 3,
+                "detail": "Business hours not observed in sampled HTML."
+              },
+              {
+                "code": "NOINDEX",
+                "points": 25,
+                "detail": "Explicit noindex directive observed. Intent requires owner confirmation."
+              },
+              {
+                "code": "SPARSE_INTERNAL_LINKING",
+                "points": 3,
+                "detail": "Few navigational links in observed HTML."
+              }
+            ],
+            "SECURITY": [
+              {
+                "code": "NO_HSTS",
+                "points": 8,
+                "detail": "strict-transport-security absent from the observed response."
+              },
+              {
+                "code": "NO_CSP",
+                "points": 12,
+                "detail": "content-security-policy absent from the observed response."
+              },
+              {
+                "code": "NO_NOSNIFF",
+                "points": 5,
+                "detail": "x-content-type-options absent from the observed response."
+              },
+              {
+                "code": "NO_REFERRER_POLICY",
+                "points": 4,
+                "detail": "referrer-policy absent from the observed response."
+              },
+              {
+                "code": "NO_PERMISSIONS_POLICY",
+                "points": 3,
+                "detail": "permissions-policy absent from the observed response."
+              },
+              {
+                "code": "NO_FRAME_PROTECTION",
+                "points": 8,
+                "detail": "No frame-ancestors or valid X-Frame-Options observed."
+              },
+              {
+                "code": "COOKIE_NO_SECURE",
+                "points": 5,
+                "detail": "A response cookie lacks Secure."
+              },
+              {
+                "code": "COOKIE_NO_SAMESITE",
+                "points": 3,
+                "detail": "A response cookie lacks SameSite."
+              }
+            ]
+          }
+        },
+        "notes": 1
+      },
+      {
+        "id": 3924,
+        "name": "Smile Designs",
+        "city": "Austin",
+        "vertical": "dentists",
+        "website": "http://www.smiledesignsbeecave.com/",
+        "contactability": "HIGH",
+        "business_scale": "LOCAL",
+        "first_seen": "2026-10-25T17:25:19.063338+00:00",
+        "last_seen": "2026-10-25T18:41:49.070990+00:00",
+        "scores": {
+          "business_id": 3924,
+          "run_id": 29,
+          "website_opportunity_score": 57,
+          "seo_opportunity_score": 73,
+          "security_opportunity_score": 48,
+          "primary_opportunity": "SEO",
+          "secondary_opportunity": "WEBSITE",
+          "contactability_level": "HIGH",
+          "scoring_version": "3.1.0",
+          "created_at": "2026-10-25T19:02:10.095319+00:00",
+          "evidence": {
+            "WEBSITE": [
+              {
+                "code": "NO_MOBILE_VIEWPORT",
+                "points": 20,
+                "detail": "No viewport declaration in observed HTML."
+              },
+              {
+                "code": "NO_PRIMARY_CTA",
+                "points": 15,
+                "detail": "No vertical conversion CTA among observed links."
+              },
+              {
+                "code": "TREATMENT_PAGES_NOT_OBSERVED",
+                "points": 5,
+                "detail": "Relevant vertical feature not found among sampled navigation links."
+              },
+              {
+                "code": "LOCATION_PAGE_NOT_OBSERVED",
+                "points": 4,
+                "detail": "Relevant vertical feature not found among sampled navigation links."
+              },
+              {
+                "code": "NO_PHONE_CTA",
+                "points": 3,
+                "detail": "A public phone exists but no click-to-call link was observed."
+              },
+              {
+                "code": "POOR_VERTICAL_CONVERSION_FLOW",
+                "points": 10,
+                "detail": "Expected conversion paths: appointment, book now, schedule."
+              }
+            ],
+            "SEO": [
+              {
+                "code": "NO_MOBILE_VIEWPORT",
+                "points": 8,
+                "detail": "Mobile viewport signal is absent."
+              },
+              {
+                "code": "MISSING_TITLE",
+                "points": 12,
+                "detail": "Homepage title absent."
+              },
+              {
+                "code": "MISSING_META_DESCRIPTION",
+                "points": 10,
+                "detail": "Homepage meta description absent."
+              },
+              {
+                "code": "MISSING_H1",
+                "points": 8,
+                "detail": "No primary heading observed."
+              },
+              {
+                "code": "MISSING_CANONICAL",
+                "points": 5,
+                "detail": "No canonical link observed."
+              },
+              {
+                "code": "NO_STRUCTURED_DATA",
+                "points": 8,
+                "detail": "No JSON-LD structured data observed."
+              },
+              {
+                "code": "NO_VERTICAL_SCHEMA",
+                "points": 6,
+                "detail": "No relevant business schema type observed."
+              },
+              {
+                "code": "NO_CONTACT_PAGE",
+                "points": 5,
+                "detail": "No dedicated contact page observed."
+              },
+              {
+                "code": "NO_CITY_REFERENCE",
+                "points": 5,
+                "detail": "Source city not mentioned in observed page text."
+              },
+              {
+                "code": "HOURS_NOT_OBSERVED",
+                "points": 3,
+                "detail": "Business hours not observed in sampled HTML."
+              },
+              {
+                "code": "SPARSE_INTERNAL_LINKING",
+                "points": 3,
+                "detail": "Few navigational links in observed HTML."
+              }
+            ],
+            "SECURITY": [
+              {
+                "code": "NO_HTTP_TO_HTTPS_REDIRECT",
+                "points": 8,
+                "detail": "The HTTP variant returned a final HTTP response instead of redirecting to HTTPS."
+              },
+              {
+                "code": "NO_HSTS",
+                "points": 8,
+                "detail": "strict-transport-security absent from the observed response."
+              },
+              {
+                "code": "NO_CSP",
+                "points": 12,
+                "detail": "content-security-policy absent from the observed response."
+              },
+              {
+                "code": "NO_NOSNIFF",
+                "points": 5,
+                "detail": "x-content-type-options absent from the observed response."
+              },
+              {
+                "code": "NO_REFERRER_POLICY",
+                "points": 4,
+                "detail": "referrer-policy absent from the observed response."
+              },
+              {
+                "code": "NO_PERMISSIONS_POLICY",
+                "points": 3,
+                "detail": "permissions-policy absent from the observed response."
+              },
+              {
+                "code": "NO_FRAME_PROTECTION",
+                "points": 8,
+                "detail": "No frame-ancestors or valid X-Frame-Options observed."
+              }
+            ]
+          }
+        },
+        "notes": 0
+      },
+      {
+        "id": 3923,
+        "name": "Oak Canyon Dentistry",
+        "city": "Austin",
+        "vertical": "dentists",
+        "website": "http://www.oakcanyondentistry.com/",
+        "contactability": "HIGH",
+        "business_scale": "LOCAL",
+        "first_seen": "2026-10-25T17:25:14.201216+00:00",
+        "last_seen": "2026-10-25T18:41:46.644466+00:00",
+        "scores": {
+          "business_id": 3923,
+          "run_id": 29,
+          "website_opportunity_score": 52,
+          "seo_opportunity_score": 72,
+          "security_opportunity_score": 42,
+          "primary_opportunity": "SEO",
+          "secondary_opportunity": "WEBSITE",
+          "contactability_level": "HIGH",
+          "scoring_version": "3.1.0",
+          "created_at": "2026-10-25T19:02:00.980529+00:00",
+          "evidence": {
+            "WEBSITE": [
+              {
+                "code": "POOR_PERFORMANCE",
+                "points": 15,
+                "detail": "Observed Lighthouse mobile performance: 55.0."
+              },
+              {
+                "code": "NO_PRIMARY_CTA",
+                "points": 15,
+                "detail": "No vertical conversion CTA among observed links."
+              },
+              {
+                "code": "TREATMENT_PAGES_NOT_OBSERVED",
+                "points": 5,
+                "detail": "Relevant vertical feature not found among sampled navigation links."
+              },
+              {
+                "code": "LOCATION_PAGE_NOT_OBSERVED",
+                "points": 4,
+                "detail": "Relevant vertical feature not found among sampled navigation links."
+              },
+              {
+                "code": "NO_PHONE_CTA",
+                "points": 3,
+                "detail": "A public phone exists but no click-to-call link was observed."
+              },
+              {
+                "code": "POOR_VERTICAL_CONVERSION_FLOW",
+                "points": 10,
+                "detail": "Expected conversion paths: appointment, book now, schedule."
+              }
+            ],
+            "SEO": [
+              {
+                "code": "POOR_PERFORMANCE",
+                "points": 8,
+                "detail": "Observed Lighthouse mobile performance: 55.0."
+              },
+              {
+                "code": "MISSING_TITLE",
+                "points": 12,
+                "detail": "Homepage title absent."
+              },
+              {
+                "code": "MISSING_META_DESCRIPTION",
+                "points": 10,
+                "detail": "Homepage meta description absent."
+              },
+              {
+                "code": "MISSING_CANONICAL",
+                "points": 5,
+                "detail": "No canonical link observed."
+              },
+              {
+                "code": "ROBOTS_NOT_OBSERVED",
+                "points": 3,
+                "detail": "robots.txt was not successfully observed; this does not establish an indexing error."
+              },
+              {
+                "code": "SITEMAP_NOT_OBSERVED",
+                "points": 4,
+                "detail": "sitemap.xml was not successfully observed."
+              },
+              {
+                "code": "NO_STRUCTURED_DATA",
+                "points": 8,
+                "detail": "No JSON-LD structured data observed."
+              },
+              {
+                "code": "NO_VERTICAL_SCHEMA",
+                "points": 6,
+                "detail": "No relevant business schema type observed."
+              },
+              {
+                "code": "NO_CONTACT_PAGE",
+                "points": 5,
+                "detail": "No dedicated contact page observed."
+              },
+              {
+                "code": "NO_CITY_REFERENCE",
+                "points": 5,
+                "detail": "Source city not mentioned in observed page text."
+              },
+              {
+                "code": "HOURS_NOT_OBSERVED",
+                "points": 3,
+                "detail": "Business hours not observed in sampled HTML."
+              },
+              {
+                "code": "SPARSE_INTERNAL_LINKING",
+                "points": 3,
+                "detail": "Few navigational links in observed HTML."
+              }
+            ],
+            "SECURITY": [
+              {
+                "code": "NO_HSTS",
+                "points": 8,
+                "detail": "strict-transport-security absent from the observed response."
+              },
+              {
+                "code": "NO_CSP",
+                "points": 12,
+                "detail": "content-security-policy absent from the observed response."
+              },
+              {
+                "code": "NO_NOSNIFF",
+                "points": 5,
+                "detail": "x-content-type-options absent from the observed response."
+              },
+              {
+                "code": "NO_REFERRER_POLICY",
+                "points": 4,
+                "detail": "referrer-policy absent from the observed response."
+              },
+              {
+                "code": "NO_PERMISSIONS_POLICY",
+                "points": 3,
+                "detail": "permissions-policy absent from the observed response."
+              },
+              {
+                "code": "NO_FRAME_PROTECTION",
+                "points": 8,
+                "detail": "No frame-ancestors or valid X-Frame-Options observed."
+              },
+              {
+                "code": "SERVER_VERSION_DISCLOSURE",
+                "points": 2,
+                "detail": "Server version disclosed in response headers."
+              }
+            ]
+          }
+        },
+        "notes": 0
+      },
+      {
+        "id": 3933,
+        "name": "Lake Pointe Dental",
+        "city": "Austin",
+        "vertical": "dentists",
+        "website": "http://www.lakepointedental.com/",
+        "contactability": "HIGH",
+        "business_scale": "LOCAL",
+        "first_seen": "2026-10-25T17:26:03.699840+00:00",
+        "last_seen": "2026-10-25T18:42:10.912855+00:00",
+        "scores": {
+          "business_id": 3933,
+          "run_id": 29,
+          "website_opportunity_score": 32,
+          "seo_opportunity_score": 29,
+          "security_opportunity_score": 40,
+          "primary_opportunity": "SECURITY",
+          "secondary_opportunity": null,
+          "contactability_level": "HIGH",
+          "scoring_version": "3.1.0",
+          "created_at": "2026-10-25T19:02:55.488220+00:00",
+          "evidence": {
+            "WEBSITE": [
+              {
+                "code": "NO_PRIMARY_CTA",
+                "points": 15,
+                "detail": "No vertical conversion CTA among observed links."
+              },
+              {
+                "code": "LOCATION_PAGE_NOT_OBSERVED",
+                "points": 4,
+                "detail": "Relevant vertical feature not found among sampled navigation links."
+              },
+              {
+                "code": "NO_PHONE_CTA",
+                "points": 3,
+                "detail": "A public phone exists but no click-to-call link was observed."
+              },
+              {
+                "code": "POOR_VERTICAL_CONVERSION_FLOW",
+                "points": 10,
+                "detail": "Expected conversion paths: appointment, book now, schedule."
+              }
+            ],
+            "SEO": [
+              {
+                "code": "MISSING_META_DESCRIPTION",
+                "points": 10,
+                "detail": "Homepage meta description absent."
+              },
+              {
+                "code": "NO_VERTICAL_SCHEMA",
+                "points": 6,
+                "detail": "No relevant business schema type observed."
+              },
+              {
+                "code": "NO_CONTACT_PAGE",
+                "points": 5,
+                "detail": "No dedicated contact page observed."
+              },
+              {
+                "code": "HOURS_NOT_OBSERVED",
+                "points": 3,
+                "detail": "Business hours not observed in sampled HTML."
+              },
+              {
+                "code": "LOW_IMAGE_ALT_COVERAGE",
+                "points": 5,
+                "detail": "Fewer than half of sampled images have nonempty alt attributes."
+              }
+            ],
+            "SECURITY": [
+              {
+                "code": "NO_HSTS",
+                "points": 8,
+                "detail": "strict-transport-security absent from the observed response."
+              },
+              {
+                "code": "NO_CSP",
+                "points": 12,
+                "detail": "content-security-policy absent from the observed response."
+              },
+              {
+                "code": "NO_NOSNIFF",
+                "points": 5,
+                "detail": "x-content-type-options absent from the observed response."
+              },
+              {
+                "code": "NO_REFERRER_POLICY",
+                "points": 4,
+                "detail": "referrer-policy absent from the observed response."
+              },
+              {
+                "code": "NO_PERMISSIONS_POLICY",
+                "points": 3,
+                "detail": "permissions-policy absent from the observed response."
+              },
+              {
+                "code": "NO_FRAME_PROTECTION",
+                "points": 8,
+                "detail": "No frame-ancestors or valid X-Frame-Options observed."
+              }
+            ]
+          }
+        },
+        "notes": 0
+      },
+      {
+        "id": 3931,
+        "name": "Bee Cave Orthodontics",
+        "city": "Austin",
+        "vertical": "dentists",
+        "website": "https://www.beecaveortho.com/",
+        "contactability": "HIGH",
+        "business_scale": "LOCAL",
+        "first_seen": "2026-10-25T17:25:53.959637+00:00",
+        "last_seen": "2026-10-25T18:42:06.060800+00:00",
+        "scores": {
+          "business_id": 3931,
+          "run_id": 29,
+          "website_opportunity_score": 9,
+          "seo_opportunity_score": 9,
+          "security_opportunity_score": 40,
+          "primary_opportunity": "SECURITY",
+          "secondary_opportunity": null,
+          "contactability_level": "HIGH",
+          "scoring_version": "3.1.0",
+          "created_at": "2026-10-25T19:02:45.394062+00:00",
+          "evidence": {
+            "WEBSITE": [
+              {
+                "code": "LOCATION_PAGE_NOT_OBSERVED",
+                "points": 4,
+                "detail": "Relevant vertical feature not found among sampled navigation links."
+              },
+              {
+                "code": "BROKEN_LINKS",
+                "points": 5,
+                "detail": "1 fetched internal links returned errors."
+              }
+            ],
+            "SEO": [
+              {
+                "code": "LOW_IMAGE_ALT_COVERAGE",
+                "points": 5,
+                "detail": "Fewer than half of sampled images have nonempty alt attributes."
+              },
+              {
+                "code": "BROKEN_INTERNAL_LINKS",
+                "points": 4,
+                "detail": "Observed failed internal URLs: https://beecaveortho.com/our-services"
+              }
+            ],
+            "SECURITY": [
+              {
+                "code": "NO_HSTS",
+                "points": 8,
+                "detail": "strict-transport-security absent from the observed response."
+              },
+              {
+                "code": "NO_CSP",
+                "points": 12,
+                "detail": "content-security-policy absent from the observed response."
+              },
+              {
+                "code": "NO_NOSNIFF",
+                "points": 5,
+                "detail": "x-content-type-options absent from the observed response."
+              },
+              {
+                "code": "NO_REFERRER_POLICY",
+                "points": 4,
+                "detail": "referrer-policy absent from the observed response."
+              },
+              {
+                "code": "NO_PERMISSIONS_POLICY",
+                "points": 3,
+                "detail": "permissions-policy absent from the observed response."
+              },
+              {
+                "code": "NO_FRAME_PROTECTION",
+                "points": 8,
+                "detail": "No frame-ancestors or valid X-Frame-Options observed."
+              }
+            ]
+          }
+        },
+        "notes": 0
+      }
+    ],
+    "workflow": true,
+    "assignment": true,
+    "notes": true,
+    "refresh_persistence": true,
+    "origin_rejection": true,
+    "downloads": {
+      "csv": {
+        "bytes": 2974,
+        "status": 200,
+        "contentType": "text/csv; charset=utf-8"
+      },
+      "xlsx": {
+        "bytes": 54461,
+        "status": 200,
+        "contentType": "application/octet-stream"
+      },
+      "html": {
+        "bytes": 24567,
+        "status": 200,
+        "contentType": "text/html; charset=utf-8"
+      }
+    },
+    "browser_errors": []
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "session_type": "Signed short-lived acceptance session; not proof of Google consent",
+  "oauth": {
+    "host": "accounts.google.com",
+    "redirect_uri_mismatch": true,
+    "invalid_client": false,
+    "google_login_form": true
+  },
+  "pages": [
+    {
+      "route": "/",
+      "status": 200,
+      "url": "/"
+    },
+    {
+      "route": "/scans/new",
+      "status": 200,
+      "url": "/scans/new"
+    },
+    {
+      "route": "/leads",
+      "status": 200,
+      "url": "/leads"
+    },
+    {
+      "route": "/settings",
+      "status": 200,
+      "url": "/settings"
+    },
+    {
+      "route": "/system",
+      "status": 200,
+      "url": "/system"
+    }
+  ],
+  "authenticated_bff_status": 200,
+  "browser_errors": []
+}

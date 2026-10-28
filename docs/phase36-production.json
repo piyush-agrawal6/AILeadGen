@@ -1,0 +1,256 @@
+{
+  "checks": {
+    "unauthenticated_protected": true,
+    "live_deletion_preview": true,
+    "default_mid_market": true,
+    "browser_errors": [],
+    "deleted_campaign_f181c4cf-398b-4463-a767-320f302f26b2": true,
+    "deleted_scan_42": true,
+    "deleted_lead_7112": true,
+    "deleted_scan_43": true,
+    "deleted_scan_44": true,
+    "previous_reports_unchanged": true
+  },
+  "reports": {
+    "reachable": {
+      "id": "b8183e40-0ec3-4a68-bbae-97ef42c0291b",
+      "prospect_id": "06f0843d-1262-47e6-bd0e-085c674d5246",
+      "business_id": 7307,
+      "created_at": "2026-10-26T14:52:01.410827+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 1,
+      "status": "READY"
+    },
+    "no-website": {
+      "id": "93519bcd-5f5f-461a-8dc2-f65795af9804",
+      "prospect_id": "ab569082-e64e-4b59-8524-3bf91f066514",
+      "business_id": 5446,
+      "created_at": "2026-10-26T13:20:15.416478+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 3,
+      "status": "READY"
+    },
+    "unreachable": {
+      "id": "276b0ff8-4ee9-4f7e-bafd-4ff2da4d8a99",
+      "prospect_id": "b1415a35-2124-403b-9e59-70eee47cff9a",
+      "business_id": 3918,
+      "created_at": "2026-10-26T13:20:32.419291+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 3,
+      "status": "READY"
+    }
+  },
+  "checked_at": "2026-10-26T14:55:38.518Z",
+  "health": {
+    "environment": "production",
+    "checks": [
+      {
+        "name": "FastAPI",
+        "status": "ready",
+        "details": "Authenticated API request succeeded."
+      },
+      {
+        "name": "Application database",
+        "status": "ready",
+        "details": "PostgreSQL"
+      },
+      {
+        "name": "PostgreSQL",
+        "status": "ready",
+        "details": "Configured database is reachable."
+      },
+      {
+        "name": "R2",
+        "status": "ready",
+        "details": "Bucket is reachable using server credentials; public-access policy is not inferred from this check."
+      },
+      {
+        "name": "Cloud Worker Configuration",
+        "status": "ready",
+        "details": "Job exists. Actual execution and image pulling require a canary."
+      },
+      {
+        "name": "Canary",
+        "status": "ready",
+        "details": "Verified completed worker execution leadengine-worker-g8p5j."
+      },
+      {
+        "name": "Lighthouse",
+        "status": "ready",
+        "details": "Verified in the completed worker canary."
+      },
+      {
+        "name": "Overture",
+        "status": "ready",
+        "details": "Endpoint returned HTTP 200."
+      },
+      {
+        "name": "Nominatim",
+        "status": "ready",
+        "details": "Endpoint returned HTTP 200."
+      },
+      {
+        "name": "OpenStreetMap",
+        "status": "warning",
+        "details": "Configured endpoint and one fallback mirror did not respond successfully; discovery retains bounded mirror fallback."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "id": "3938138a-748f-4828-b302-bff6722373d2",
+      "created_by": "planebyte@gmail.com",
+      "status": "QUEUED",
+      "created_at": "2026-10-26T13:08:56.256080+00:00",
+      "started_at": null,
+      "completed_at": null,
+      "target_total": 10,
+      "cancellation_requested": 0,
+      "runs": [
+        {
+          "id": 39,
+          "market": "London, United Kingdom",
+          "vertical": "dentists",
+          "target": 10,
+          "status": "QUEUED",
+          "raw_found": 0,
+          "qualified": 0,
+          "exported": 0,
+          "started_at": "2026-10-26 13:08:55.038384+00",
+          "finished_at": null,
+          "error_message": null
+        }
+      ],
+      "configuration": {
+        "cities": [
+          "London, United Kingdom"
+        ],
+        "verticals": [
+          "dentists"
+        ],
+        "opportunities": [
+          "WEBSITE",
+          "SEO",
+          "SECURITY"
+        ],
+        "quality": "balanced",
+        "business_scales": [
+          "SMALL_GROUP",
+          "MID_MARKET"
+        ],
+        "social_enrichment_enabled": true,
+        "social_activity_enabled": true,
+        "results": "all",
+        "target": 10,
+        "lighthouse_enabled": true,
+        "fixture": false,
+        "request_id": "3938138a-748f-4828-b302-bff6722373d2"
+      },
+      "counters": {
+        "raw_found": 0,
+        "qualified": 0,
+        "exported": 0
+      },
+      "progress": {
+        "completed": 0,
+        "running": 0,
+        "queued": 1,
+        "failed": 0,
+        "cancelled": 0
+      },
+      "opportunities": {
+        "website": 0,
+        "seo": 0,
+        "security": 0
+      }
+    }
+  ],
+  "campaign": {
+    "id": "a15e9d59-91b4-48ec-8a08-6985fb5c3e29",
+    "created_by": "planebyte@gmail.com",
+    "status": "COMPLETED",
+    "created_at": "2026-10-26T13:19:19.880234+00:00",
+    "started_at": null,
+    "completed_at": "2026-10-26T13:42:52.716342+00:00",
+    "target_total": 10,
+    "cancellation_requested": 0,
+    "runs": [
+      {
+        "id": 45,
+        "market": "London, United Kingdom",
+        "vertical": "dentists",
+        "target": 10,
+        "status": "COMPLETED",
+        "raw_found": 192,
+        "qualified": 0,
+        "exported": 0,
+        "started_at": "2026-10-26 13:19:18.666078+00",
+        "finished_at": "2026-10-26T13:42:46.282183",
+        "error_message": null
+      }
+    ],
+    "configuration": {
+      "cities": [
+        "London, United Kingdom"
+      ],
+      "verticals": [
+        "dentists"
+      ],
+      "opportunities": [
+        "WEBSITE",
+        "SEO",
+        "SECURITY"
+      ],
+      "quality": "balanced",
+      "business_scales": [
+        "SMALL_GROUP",
+        "MID_MARKET"
+      ],
+      "social_enrichment_enabled": true,
+      "social_activity_enabled": true,
+      "results": "all",
+      "target": 10,
+      "lighthouse_enabled": true,
+      "fixture": false,
+      "request_id": "a15e9d59-91b4-48ec-8a08-6985fb5c3e29"
+    },
+    "counters": {
+      "raw_found": 192,
+      "qualified": 0,
+      "exported": 0
+    },
+    "progress": {
+      "completed": 1,
+      "running": 0,
+      "queued": 0,
+      "failed": 0,
+      "cancelled": 0
+    },
+    "opportunities": {
+      "website": 20,
+      "seo": 6,
+      "security": 15
+    }
+  },
+  "validation_reports": {
+    "prior_reachable": {
+      "id": "9d80c4d4-d57d-4e17-ae9d-2f5ba7595324",
+      "prospect_id": "9bcbb708-a84d-4030-baa6-92b704937753",
+      "business_id": 3953,
+      "created_at": "2026-10-26T13:19:54.926683+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 4,
+      "status": "READY"
+    },
+    "prior_reachable_7308": {
+      "id": "e90b7a71-a63d-444a-bd41-3218ef685800",
+      "prospect_id": "1f94c3f9-a0f8-4ef1-9a38-6ca3510c9b1a",
+      "business_id": 7308,
+      "created_at": "2026-10-26T14:46:37.537610+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 1,
+      "status": "READY"
+    }
+  },
+  "scan_report_business_id": 7307
+}

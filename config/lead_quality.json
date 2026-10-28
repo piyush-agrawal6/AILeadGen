@@ -1,0 +1,17 @@
+{
+  "maximum_volume": {
+    "threshold": 25,
+    "contact_required": false,
+    "certain_vertical_required": false
+  },
+  "balanced": {
+    "threshold": 40,
+    "contact_required": false,
+    "certain_vertical_required": false
+  },
+  "high_intent": {
+    "threshold": 65,
+    "contact_required": true,
+    "certain_vertical_required": true
+  }
+}

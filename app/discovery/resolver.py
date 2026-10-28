@@ -33,7 +33,8 @@ class DiscoveryCoordinator:
         """
         settings = get_settings()
         multiplier = settings.discovery.raw_multiplier or 10
-        raw_target = max(target_leads * multiplier, 500)
+        raw_budget = min(settings.max_raw_businesses, getattr(self, "raw_limit", None) or settings.max_raw_businesses)
+        raw_target = min(max(target_leads * multiplier, 100), max(1, raw_budget // 2))
 
         # 1. Resolve market
         market = resolve_market(market_str)
@@ -54,15 +55,23 @@ class DiscoveryCoordinator:
         # Query OSM
         osm_businesses = self.osm_provider.search(market, vertical, limit=raw_target)
         raw_businesses.extend(osm_businesses)
+        raw_businesses = raw_businesses[:raw_budget]
 
         logger.info(f"Total raw businesses discovered: {len(raw_businesses)}")
 
         # 4. Deduplicate
         unique_businesses, duplicates = deduplicate_businesses(raw_businesses)
+        for d in duplicates:
+            d.is_duplicate = True
+            d.is_rejected = True
+            d.rejection_reason = "DUPLICATE"
+            d.processing_status = ProcessingStatus.REJECTED.value
+
         logger.info(f"After deduplication: {len(unique_businesses)} unique, {len(duplicates)} duplicates.")
 
         # 5. Chain and Relevance Filtering
-        # Count domain frequencies to catch regional/national multi-location groups
+        from app.qualification.vertical_validator import VerticalValidationStatus, VerticalValidator
+
         domain_counts = Counter(b.domain for b in unique_businesses if b.domain)
 
         candidates: List[Business] = []
@@ -71,30 +80,53 @@ class DiscoveryCoordinator:
         for b in unique_businesses:
             b.processing_status = ProcessingStatus.NORMALIZED.value
 
-            # Check if domain appears too many times in this scan
-            is_frequency_chain = False
-            if b.domain and domain_counts[b.domain] > self.vertical_mgr.max_domain_occurrences:
-                is_frequency_chain = True
-
-            # Check known chain domains
-            is_domain_chain = bool(b.domain and self.vertical_mgr.is_chain_domain(b.domain))
-
-            # Check known chain names
-            is_name_chain = self.vertical_mgr.is_chain_name(b.name, vertical.key)
-
-            if is_frequency_chain or is_domain_chain or is_name_chain:
-                b.is_chain = True
-                if not include_chains:
-                    b.is_rejected = True
-                    b.rejection_reason = "CHAIN_OR_FRANCHISE"
-                    b.processing_status = ProcessingStatus.REJECTED.value
-                    rejected.append(b)
-                    continue
-
             # Check if name is blank or invalid
             if not b.name or len(b.name.strip()) < 2:
                 b.is_rejected = True
                 b.rejection_reason = "INVALID_NAME"
+                b.processing_status = ProcessingStatus.REJECTED.value
+                rejected.append(b)
+                continue
+
+            # Check vertical validation
+            val_status, val_reason, val_conf = VerticalValidator.validate(b)
+            b.vertical_validation_status = val_status.value
+            b.vertical_validation_reason = val_reason
+            b.vertical_validation_confidence = val_conf
+
+            if val_status == VerticalValidationStatus.INVALID:
+                b.is_rejected = True
+                b.rejection_reason = "VERTICAL_MISMATCH"
+                b.processing_status = ProcessingStatus.REJECTED.value
+                rejected.append(b)
+                continue
+            elif val_status == VerticalValidationStatus.UNCERTAIN:
+                b.is_rejected = True
+                b.rejection_reason = "UNCERTAIN_NICHE"
+                b.processing_status = ProcessingStatus.REJECTED.value
+                rejected.append(b)
+                continue
+
+            # Check chain / franchise status
+            freq = domain_counts.get(b.domain, 1) if b.domain else 1
+            is_chain, chain_reason, chain_conf = self.vertical_mgr.check_chain(
+                name=b.name,
+                domain=b.domain,
+                vertical_key=vertical.key,
+                domain_frequency=freq,
+            )
+            b.is_chain = is_chain
+            if getattr(self,"phase3_scale",False) and chain_reason and chain_reason.startswith("High domain frequency"):
+                is_chain = False
+                b.is_chain = False
+                chain_reason = "Repeated domain observed; scale requires corroborating location/city evidence"
+                chain_conf = 0.5
+            b.chain_reason = chain_reason
+            b.chain_confidence = chain_conf
+
+            if is_chain and not include_chains:
+                b.is_rejected = True
+                b.rejection_reason = "CHAIN"
                 b.processing_status = ProcessingStatus.REJECTED.value
                 rejected.append(b)
                 continue

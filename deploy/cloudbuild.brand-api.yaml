@@ -1,0 +1,22 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: [build, -f, deploy/Dockerfile.api, -t, '${_IMAGE}', .]
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - run
+      - --rm
+      - -e
+      - APP_ENV=test
+      - -e
+      - PYTHONPATH=/opt/leadengine
+      - -v
+      - /workspace/deploy/brand-validation.zip:/validation.zip:ro
+      - --entrypoint
+      - python
+      - '${_IMAGE}'
+      - -c
+      - "import zipfile,subprocess,sys; zipfile.ZipFile('/validation.zip').extractall('/tmp/validation'); sys.exit(subprocess.run([sys.executable,'-m','pytest','/tmp/validation/tests','-q','-o','asyncio_mode=auto'],cwd='/opt/leadengine').returncode)"
+images: ['${_IMAGE}']
+logsBucket: gs://querryside-leadengine-build-logs
+options:
+  logging: GCS_ONLY

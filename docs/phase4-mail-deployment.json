@@ -1,0 +1,10 @@
+{
+  "provider": "hostinger",
+  "send_mode": "test",
+  "mailbox": "rajendra@planebyte.com",
+  "mailbox_secret_created": true,
+  "mailbox_secret_reused": false,
+  "platform_secrets_rotated": false,
+  "password_in_output": false,
+  "gmail_enabled": false
+}

@@ -1,0 +1,119 @@
+{
+  "reports": {
+    "reachable": {
+      "id": "fb9a464d-c3db-4b42-a990-7c2590a61a0b",
+      "prospect_id": "9bcbb708-a84d-4030-baa6-92b704937753",
+      "business_id": 3953,
+      "created_at": "2026-10-26T04:13:26.752820+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 1,
+      "status": "READY",
+      "bytes": 46993,
+      "sha256": "76f1f3497fa24c5ebd5bb1d1ab254be080daab41ead589604608dec3f0bd6a0b",
+      "downloaded": true
+    },
+    "unreachable": {
+      "id": "19dffd3d-b168-497a-8bad-1b1b87072159",
+      "prospect_id": "b1415a35-2124-403b-9e59-70eee47cff9a",
+      "business_id": 3918,
+      "created_at": "2026-10-26T04:14:16.469744+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 1,
+      "status": "READY",
+      "bytes": 39312,
+      "sha256": "839a08cdc125235041f41074b181fa4567a40e54acd0270d00dd3556cfe9d202",
+      "downloaded": true
+    },
+    "no-website": {
+      "id": "9212a038-2781-4d73-9519-1b44e8a28725",
+      "prospect_id": "ab569082-e64e-4b59-8524-3bf91f066514",
+      "business_id": 5446,
+      "created_at": "2026-10-26T04:14:34.806045+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 1,
+      "status": "READY",
+      "bytes": 38868,
+      "sha256": "3efb223fcf56a6cc810f955dbfb6f85f415ab7adf2e9bf1be729b38f7a5548c5",
+      "downloaded": true
+    },
+    "reachable-v2": {
+      "id": "63e9045c-a682-4372-97fd-76d6c3a18193",
+      "prospect_id": "9bcbb708-a84d-4030-baa6-92b704937753",
+      "business_id": 3953,
+      "created_at": "2026-10-26T04:14:52.928184+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 2,
+      "status": "READY",
+      "bytes": 46993,
+      "sha256": "55933f845dbf0a0fb2c523b9f03b8aa24e15568b480374a38a3a9cee0705b85e",
+      "downloaded": true
+    }
+  },
+  "checks": {
+    "unauthenticated_pdf_rejected": true,
+    "inline_lost_persists": true,
+    "workflow_restored": true,
+    "live_filter_escape_focus": true,
+    "version_preserved": true,
+    "old_version_unchanged": true,
+    "duplicate_location_tab_removed": true
+  },
+  "hosted_health": {
+    "environment": "production",
+    "checks": [
+      {
+        "name": "FastAPI",
+        "status": "ready",
+        "details": "Authenticated API request succeeded."
+      },
+      {
+        "name": "Application database",
+        "status": "ready",
+        "details": "PostgreSQL"
+      },
+      {
+        "name": "PostgreSQL",
+        "status": "ready",
+        "details": "Configured database is reachable."
+      },
+      {
+        "name": "R2",
+        "status": "ready",
+        "details": "Bucket is reachable using server credentials; public-access policy is not inferred from this check."
+      },
+      {
+        "name": "Cloud Worker Configuration",
+        "status": "ready",
+        "details": "Job exists. Actual execution and image pulling require a canary."
+      },
+      {
+        "name": "Canary",
+        "status": "ready",
+        "details": "Verified completed worker execution leadengine-worker-t67ft."
+      },
+      {
+        "name": "Lighthouse",
+        "status": "ready",
+        "details": "Verified in the completed worker canary."
+      },
+      {
+        "name": "Overture",
+        "status": "ready",
+        "details": "Endpoint returned HTTP 200."
+      },
+      {
+        "name": "Nominatim",
+        "status": "ready",
+        "details": "Endpoint returned HTTP 200."
+      },
+      {
+        "name": "OpenStreetMap",
+        "status": "warning",
+        "details": "Configured endpoint and one fallback mirror did not respond successfully; discovery retains bounded mirror fallback."
+      }
+    ]
+  },
+  "checked_at": "2026-10-26T04:16:48.296Z",
+  "session_type": "Short-lived signed acceptance session; Google login was separately confirmed by the user.",
+  "browser_errors": []
+}

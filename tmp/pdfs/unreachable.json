@@ -1,0 +1,77 @@
+{
+  "business": {
+    "name": "Buda Kids Teeth",
+    "vertical": "Dentists",
+    "city": "Austin",
+    "country": "United States",
+    "website": "https://budakidsteeth.com/",
+    "phone": "+15122957600",
+    "email": "info@budakidsteeth.com"
+  },
+  "mode": "UNREACHABLE",
+  "created_at": "2026-10-26T04:00:00+00:00",
+  "brand": {
+    "name": "PlaneByte",
+    "product": "LeadEngine",
+    "website": "https://planebyte.com",
+    "contact_email": "contact@planebyte.com",
+    "phone": "",
+    "show_pricing": false,
+    "pricing": {}
+  },
+  "scores": {
+    "WEBSITE": 85,
+    "SEO": null,
+    "SECURITY": null
+  },
+  "primary": "WEBSITE",
+  "evidence": {
+    "WEBSITE": [
+      {
+        "code": "UNREACHABLE_WEBSITE",
+        "detail": "The configured public website did not respond successfully.",
+        "points": 85
+      }
+    ],
+    "SEO": [],
+    "SECURITY": []
+  },
+  "findings": [
+    {
+      "code": "UNREACHABLE_WEBSITE",
+      "category": "WEBSITE",
+      "title": "Unreachable Website",
+      "description": "The configured public website did not respond successfully.",
+      "evidence": "The configured public website did not respond successfully."
+    },
+    {
+      "code": "SITE_UNREACHABLE",
+      "category": "WEBSITE",
+      "title": "Website Unreachable",
+      "description": "Configured business domain could not be loaded over HTTP/HTTPS.",
+      "evidence": ""
+    }
+  ],
+  "website": {
+    "reachable": false,
+    "https_enabled": false,
+    "has_viewport": false,
+    "has_contact_page": false,
+    "has_booking": false,
+    "has_phone_on_site": false,
+    "has_email_on_site": false,
+    "page_count_crawled": 0,
+    "has_robots_txt": false,
+    "has_sitemap": false,
+    "has_schema": false,
+    "has_h1": false,
+    "h1_count": 0,
+    "http_status": 403,
+    "html_title": "",
+    "meta_description": "",
+    "canonical_url": "",
+    "technologies": [],
+    "schema_types": []
+  },
+  "lighthouse": {}
+}

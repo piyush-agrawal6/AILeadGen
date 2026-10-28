@@ -6,6 +6,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from app.database.models import Business, Finding, LeadScore, LighthouseResult, PipelineRun, WebsiteProfile
+from app.exports.phase3 import FIELDS, metadata_values, safe_cell
 
 logger = logging.getLogger("leadengine.exports.excel")
 
@@ -62,6 +63,9 @@ COLUMNS = [
 ]
 
 
+COLUMNS.extend((name, 22, "left") for name in FIELDS)
+
+
 def _clean_val(val: Any) -> str:
     if val is None:
         return ""
@@ -100,7 +104,7 @@ def _format_lead_row(
         sources.append("OSM")
     source_str = " + ".join(sources) if sources else "Direct"
 
-    return [
+    row = [
         rank,
         score.total_score if score else "",
         score.tier if score else "",
@@ -131,6 +135,7 @@ def _format_lead_row(
         f"{business.source_confidence:.2f}",
         score.calculated_at if score and score.calculated_at else (business.updated_at or ""),
     ]
+    return [safe_cell(value) for value in row + metadata_values(score)]
 
 
 def _populate_sheet(ws: openpyxl.worksheet.worksheet.Worksheet, rows: List[List[Any]]) -> None:

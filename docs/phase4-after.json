@@ -1,0 +1,74 @@
+{
+  "counts": {
+    "scan_campaigns": 1,
+    "pipeline_runs": 2,
+    "prospects": 1250,
+    "businesses": 1927,
+    "opportunity_scores": 800,
+    "client_reports": 3,
+    "prospect_notes": 0,
+    "social_profiles": 742
+  },
+  "statuses": [
+    {
+      "lead_status": "NEW",
+      "count": 1250
+    }
+  ],
+  "runs": [
+    {
+      "id": 1,
+      "market": "London, United Kingdom",
+      "vertical": "hospitality",
+      "status": "COMPLETED",
+      "qualified": 378,
+      "exported": 100
+    },
+    {
+      "id": 2,
+      "market": "Manchester, United Kingdom",
+      "vertical": "hospitality",
+      "status": "COMPLETED",
+      "qualified": 367,
+      "exported": 100
+    }
+  ],
+  "schema": 7,
+  "data_hashes": {
+    "scan_campaigns": "29a824f9696003b83ba95edf7035baec10e68c838d6eb5e8f05240d38c966593",
+    "pipeline_runs": "84282f127d58d9b8b26d6a2d3681615f1b0258653485028392e993fb2b23c657",
+    "prospects": "30d2b61e68862c06456455daa1cfde08c057646da8ba0faf8e96e5a3bb9e4e34",
+    "businesses": "bd60154bbfe598d6189b692eb34cdb30b26d51e9584f5d3461c6df302e665ffc",
+    "opportunity_scores": "2754d81945bd8eb791bc76052563deafb6c008f21a3268cf8ee566cc2a44bad3",
+    "client_reports": "197efed1de3fbff90b39a3f85ea53a74e63b9d75e677adf63bd74e8ede006040",
+    "prospect_notes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "social_profiles": "4c31a105d4d8fd7edb50223e6cbfde0e4418da01b776c33d32a2cc2f7d2f5ec3"
+  },
+  "report_additions": [
+    {
+      "id": "20c3f265-cf4e-4ade-9f04-a671dfeb24b4",
+      "prospect_id": "94bd9341-2d8b-4bda-93fa-3f9d79890c8c",
+      "status": "READY",
+      "created_by": "planebyte@gmail.com",
+      "created_at": "2026-10-26T18:03:20.306673+00:00"
+    },
+    {
+      "id": "b9689c5a-262a-4cbe-8152-76e27ac76125",
+      "prospect_id": "a2b3fcf1-7434-4bef-aa02-3461c58b0d78",
+      "status": "READY",
+      "created_by": "planebyte@gmail.com",
+      "created_at": "2026-10-26T18:06:22.887421+00:00"
+    },
+    {
+      "id": "8347829d-7d02-45df-ab2f-aeda5188e97d",
+      "prospect_id": "d8d3e988-0356-463b-a41b-9c11bc1dd2fe",
+      "status": "READY",
+      "created_by": "planebyte@gmail.com",
+      "created_at": "2026-10-26T18:09:02.197487+00:00"
+    }
+  ],
+  "preserved_counts": false,
+  "existing_rows_identical": false,
+  "verified_concurrent_report_additions": true,
+  "original_data_preserved": true
+}

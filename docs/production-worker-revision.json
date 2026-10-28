@@ -1,0 +1,21 @@
+{
+  "metadata": {
+    "name": "leadengine-worker"
+  },
+  "spec": {
+    "template": {
+      "spec": {
+        "template": {
+          "spec": {
+            "containers": [
+              {
+                "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:20261026-000239"
+              }
+            ],
+            "serviceAccountName": "leadengine-worker-sa@querryside.iam.gserviceaccount.com"
+          }
+        }
+      }
+    }
+  }
+}

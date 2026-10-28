@@ -1,0 +1,14 @@
+{
+  "google_login": {
+    "account": "planebyte@gmail.com",
+    "fresh_private_window": true,
+    "dashboard_opens": true,
+    "evidence": "Explicit user confirmation in this chat; fresh callback log HTTP 302"
+  },
+  "r2_privacy": {
+    "r2_dev_disabled": true,
+    "public_custom_domain": false,
+    "evidence": "User inspected Cloudflare settings and confirmed in this chat"
+  },
+  "access_scope": "Only planebyte@gmail.com"
+}

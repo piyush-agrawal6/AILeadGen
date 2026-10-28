@@ -1,0 +1,342 @@
+[
+  {
+    "country": "United States",
+    "country_code": "US",
+    "cities": [
+      {
+        "id": "us-miami",
+        "display_name": "Miami",
+        "lookup_name": "Miami, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 1
+      },
+      {
+        "id": "us-fort-lauderdale",
+        "display_name": "Fort Lauderdale",
+        "lookup_name": "Fort Lauderdale, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 2
+      },
+      {
+        "id": "us-dallas",
+        "display_name": "Dallas",
+        "lookup_name": "Dallas, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 3
+      },
+      {
+        "id": "us-fort-worth",
+        "display_name": "Fort Worth",
+        "lookup_name": "Fort Worth, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 4
+      },
+      {
+        "id": "us-houston",
+        "display_name": "Houston",
+        "lookup_name": "Houston, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 5
+      },
+      {
+        "id": "us-atlanta",
+        "display_name": "Atlanta",
+        "lookup_name": "Atlanta, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 6
+      },
+      {
+        "id": "us-raleigh",
+        "display_name": "Raleigh",
+        "lookup_name": "Raleigh, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 7
+      },
+      {
+        "id": "us-charlotte",
+        "display_name": "Charlotte",
+        "lookup_name": "Charlotte, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 8
+      },
+      {
+        "id": "us-denver",
+        "display_name": "Denver",
+        "lookup_name": "Denver, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 9
+      },
+      {
+        "id": "us-nashville",
+        "display_name": "Nashville",
+        "lookup_name": "Nashville, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 10
+      },
+      {
+        "id": "us-austin",
+        "display_name": "Austin",
+        "lookup_name": "Austin, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 11
+      },
+      {
+        "id": "us-phoenix",
+        "display_name": "Phoenix",
+        "lookup_name": "Phoenix, United States",
+        "country": "United States",
+        "country_code": "US",
+        "priority": 12
+      }
+    ]
+  },
+  {
+    "country": "United Kingdom",
+    "country_code": "GB",
+    "cities": [
+      {
+        "id": "gb-london",
+        "display_name": "London",
+        "lookup_name": "London, United Kingdom",
+        "country": "United Kingdom",
+        "country_code": "GB",
+        "priority": 1
+      },
+      {
+        "id": "gb-manchester",
+        "display_name": "Manchester",
+        "lookup_name": "Manchester, United Kingdom",
+        "country": "United Kingdom",
+        "country_code": "GB",
+        "priority": 2
+      },
+      {
+        "id": "gb-birmingham",
+        "display_name": "Birmingham",
+        "lookup_name": "Birmingham, United Kingdom",
+        "country": "United Kingdom",
+        "country_code": "GB",
+        "priority": 3
+      },
+      {
+        "id": "gb-leeds",
+        "display_name": "Leeds",
+        "lookup_name": "Leeds, United Kingdom",
+        "country": "United Kingdom",
+        "country_code": "GB",
+        "priority": 4
+      },
+      {
+        "id": "gb-bristol",
+        "display_name": "Bristol",
+        "lookup_name": "Bristol, United Kingdom",
+        "country": "United Kingdom",
+        "country_code": "GB",
+        "priority": 5
+      },
+      {
+        "id": "gb-liverpool",
+        "display_name": "Liverpool",
+        "lookup_name": "Liverpool, United Kingdom",
+        "country": "United Kingdom",
+        "country_code": "GB",
+        "priority": 6
+      }
+    ]
+  },
+  {
+    "country": "Canada",
+    "country_code": "CA",
+    "cities": [
+      {
+        "id": "ca-toronto",
+        "display_name": "Toronto",
+        "lookup_name": "Toronto, Canada",
+        "country": "Canada",
+        "country_code": "CA",
+        "priority": 1
+      },
+      {
+        "id": "ca-vancouver",
+        "display_name": "Vancouver",
+        "lookup_name": "Vancouver, Canada",
+        "country": "Canada",
+        "country_code": "CA",
+        "priority": 2
+      },
+      {
+        "id": "ca-calgary",
+        "display_name": "Calgary",
+        "lookup_name": "Calgary, Canada",
+        "country": "Canada",
+        "country_code": "CA",
+        "priority": 3
+      },
+      {
+        "id": "ca-montreal",
+        "display_name": "Montreal",
+        "lookup_name": "Montreal, Canada",
+        "country": "Canada",
+        "country_code": "CA",
+        "priority": 4
+      },
+      {
+        "id": "ca-ottawa",
+        "display_name": "Ottawa",
+        "lookup_name": "Ottawa, Canada",
+        "country": "Canada",
+        "country_code": "CA",
+        "priority": 5
+      }
+    ]
+  },
+  {
+    "country": "Australia",
+    "country_code": "AU",
+    "cities": [
+      {
+        "id": "au-sydney",
+        "display_name": "Sydney",
+        "lookup_name": "Sydney, Australia",
+        "country": "Australia",
+        "country_code": "AU",
+        "priority": 1
+      },
+      {
+        "id": "au-melbourne",
+        "display_name": "Melbourne",
+        "lookup_name": "Melbourne, Australia",
+        "country": "Australia",
+        "country_code": "AU",
+        "priority": 2
+      },
+      {
+        "id": "au-brisbane",
+        "display_name": "Brisbane",
+        "lookup_name": "Brisbane, Australia",
+        "country": "Australia",
+        "country_code": "AU",
+        "priority": 3
+      },
+      {
+        "id": "au-perth",
+        "display_name": "Perth",
+        "lookup_name": "Perth, Australia",
+        "country": "Australia",
+        "country_code": "AU",
+        "priority": 4
+      },
+      {
+        "id": "au-adelaide",
+        "display_name": "Adelaide",
+        "lookup_name": "Adelaide, Australia",
+        "country": "Australia",
+        "country_code": "AU",
+        "priority": 5
+      }
+    ]
+  },
+  {
+    "country": "France",
+    "country_code": "FR",
+    "cities": [
+      {
+        "id": "fr-paris",
+        "display_name": "Paris",
+        "lookup_name": "Paris, France",
+        "country": "France",
+        "country_code": "FR",
+        "priority": 1
+      },
+      {
+        "id": "fr-lyon",
+        "display_name": "Lyon",
+        "lookup_name": "Lyon, France",
+        "country": "France",
+        "country_code": "FR",
+        "priority": 2
+      },
+      {
+        "id": "fr-nice",
+        "display_name": "Nice",
+        "lookup_name": "Nice, France",
+        "country": "France",
+        "country_code": "FR",
+        "priority": 3
+      },
+      {
+        "id": "fr-marseille",
+        "display_name": "Marseille",
+        "lookup_name": "Marseille, France",
+        "country": "France",
+        "country_code": "FR",
+        "priority": 4
+      },
+      {
+        "id": "fr-bordeaux",
+        "display_name": "Bordeaux",
+        "lookup_name": "Bordeaux, France",
+        "country": "France",
+        "country_code": "FR",
+        "priority": 5
+      }
+    ]
+  },
+  {
+    "country": "Germany",
+    "country_code": "DE",
+    "cities": [
+      {
+        "id": "de-berlin",
+        "display_name": "Berlin",
+        "lookup_name": "Berlin, Germany",
+        "country": "Germany",
+        "country_code": "DE",
+        "priority": 1
+      },
+      {
+        "id": "de-munich",
+        "display_name": "Munich",
+        "lookup_name": "Munich, Germany",
+        "country": "Germany",
+        "country_code": "DE",
+        "priority": 2
+      },
+      {
+        "id": "de-hamburg",
+        "display_name": "Hamburg",
+        "lookup_name": "Hamburg, Germany",
+        "country": "Germany",
+        "country_code": "DE",
+        "priority": 3
+      },
+      {
+        "id": "de-frankfurt",
+        "display_name": "Frankfurt",
+        "lookup_name": "Frankfurt, Germany",
+        "country": "Germany",
+        "country_code": "DE",
+        "priority": 4
+      },
+      {
+        "id": "de-cologne",
+        "display_name": "Cologne",
+        "lookup_name": "Cologne, Germany",
+        "country": "Germany",
+        "country_code": "DE",
+        "priority": 5
+      }
+    ]
+  }
+]

@@ -1,0 +1,71 @@
+{
+  "checks": {
+    "unauthenticated_email_protected": true,
+    "test_mode": true,
+    "both_real_scans_used": true,
+    "reports_ready": true,
+    "reply_detected": true,
+    "reply_status": true,
+    "message_persisted": true,
+    "imap_reply_persisted": true,
+    "reply_activity": true,
+    "controlled_flow_complete": true,
+    "production_visual_sizes": [
+      "1366x768",
+      "1440x900",
+      "1920x1080",
+      "390x844"
+    ],
+    "browser_errors": [],
+    "suppression_blocks_composer": true
+  },
+  "reports": {
+    "517": {
+      "id": "8baac883-a15a-401a-b357-68c408bdcf0f",
+      "prospect_id": "6e81fd82-281b-4a15-8caf-0d7dd69dd829",
+      "business_id": 517,
+      "created_at": "2026-10-26T18:55:52.708184+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 1,
+      "status": "READY"
+    },
+    "556": {
+      "id": "30428ade-aa56-4fcc-9e20-b896e4d33cd6",
+      "prospect_id": "65e176b6-fe0c-4a3c-afab-8dba7d0683f0",
+      "business_id": 556,
+      "created_at": "2026-10-26T18:56:13.225167+00:00",
+      "created_by": "planebyte@gmail.com",
+      "version": 1,
+      "status": "READY"
+    }
+  },
+  "provider_health": {
+    "smtp": "READY",
+    "imap": "READY"
+  },
+  "list": {
+    "id": "b45b6730-976e-4ab3-813d-5b3fc11b1ec1"
+  },
+  "view": {
+    "id": "b56a1c1b-1e6e-460b-820e-52d2e59c7daa"
+  },
+  "checked_at": "2026-10-26T20:13:18.196Z",
+  "subject": "PlaneByte Phase 4 controlled acceptance 69475034",
+  "sent": {
+    "id": "7fb34029-4d8e-4b0d-b98a-40abab8b2645",
+    "status": "SENT",
+    "thread_id": "c08c636b-0276-42e6-bb6b-f74e0d8a0cd3",
+    "test_mode": true,
+    "provider_message_id": "<179304130284.1.2691121983298927332@planebyte.com>"
+  },
+  "sync": {
+    "received": 0,
+    "checked": 0,
+    "last_sync_at": "2026-10-26T19:20:09.034948+00:00"
+  },
+  "reply_acceptance": {
+    "thread_id": "c08c636b-0276-42e6-bb6b-f74e0d8a0cd3",
+    "inbound_count": 1,
+    "status": "REPLIED"
+  }
+}

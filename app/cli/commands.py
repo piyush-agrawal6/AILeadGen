@@ -353,9 +353,116 @@ def stats_command():
     console.print(table)
 
 
+@app.command(name="api")
+def api_command(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Bind host for local server"),
+    port: int = typer.Option(8787, "--port", "-p", help="FastAPI backend port"),
+    reload: bool = typer.Option(True, "--reload", help="Enable live auto-reload"),
+):
+    """Launch the LeadEngine FastAPI application backend."""
+    run_migrations()
+    import uvicorn
+    console.print(f"[bold green]Starting LeadEngine API on http://{host}:{port}...[/bold green]")
+    uvicorn.run("app.api.server:app", host=host, port=port, reload=reload)
+
+
+@app.command(name="ui")
+def ui_command(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Bind host for local server"),
+    port: int = typer.Option(3000, "--port", "-p", help="Dashboard port"),
+    api_port: int = typer.Option(8787, "--api-port", help="FastAPI backend port"),
+    dev: bool = typer.Option(False, "--dev", help="Run dashboard in Next.js development mode"),
+):
+    """Launch the LeadEngine FastAPI backend and Next.js Admin Dashboard."""
+    import subprocess
+    import sys
+    import time
+    from pathlib import Path
+
+    run_migrations()
+
+    dashboard_dir = Path("dashboard").resolve()
+    next_build_dir = dashboard_dir / ".next"
+    node_modules_dir = dashboard_dir / "node_modules"
+
+    if not node_modules_dir.exists():
+        console.print("[bold red]Dashboard dependencies not found.[/bold red]")
+        console.print("\nRun:\n  [bold cyan]cd dashboard\n  npm install\n  npm run build[/bold cyan]\n")
+        raise typer.Exit(1)
+
+    if not dev and not next_build_dir.exists():
+        console.print("[bold yellow]Dashboard production build not found.[/bold yellow]")
+        console.print("Starting dashboard in development mode...\n")
+        dev = True
+
+    # 1. Start FastAPI backend
+    api_cmd = [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "app.api.server:app",
+        "--host",
+        host,
+        "--port",
+        str(api_port),
+    ]
+    api_proc = subprocess.Popen(api_cmd)
+
+    # 2. Start Next.js frontend
+    npm_cmd = "npm.cmd" if sys.platform == "win32" else "npm"
+    front_cmd = [npm_cmd, "run", "dev" if dev else "start"]
+    front_proc = subprocess.Popen(front_cmd, cwd=str(dashboard_dir))
+
+    time.sleep(2)
+
+    console.print("\n[bold cyan]==================================================[/bold cyan]")
+    console.print("[bold white] LeadEngine Admin Dashboard & API[/bold white]")
+    console.print("[bold cyan]==================================================[/bold cyan]\n")
+    console.print(f"API        [bold green]READY[/bold green] (http://{host}:{api_port})")
+    console.print(f"Dashboard  [bold green]READY[/bold green] (http://{host}:{port})")
+    console.print("Database   [bold green]READY[/bold green]\n")
+    console.print(f"Open:\n[bold cyan]http://{host}:{port}[/bold cyan]\n")
+    console.print("[dim]Press Ctrl+C to terminate both servers...[/dim]\n")
+
+    try:
+        while True:
+            time.sleep(1)
+            if api_proc.poll() is not None:
+                console.print("[bold red]API backend exited unexpectedly.[/bold red]")
+                break
+            if front_proc.poll() is not None:
+                console.print("[bold red]Dashboard frontend exited unexpectedly.[/bold red]")
+                break
+    except KeyboardInterrupt:
+        console.print("\n[bold yellow]Shutting down LeadEngine UI...[/bold yellow]")
+    finally:
+        if api_proc.poll() is None:
+            api_proc.terminate()
+            try:
+                api_proc.wait(timeout=3)
+            except Exception:
+                api_proc.kill()
+        if front_proc.poll() is None:
+            front_proc.terminate()
+            try:
+                front_proc.wait(timeout=3)
+            except Exception:
+                front_proc.kill()
+        console.print("[bold green]LeadEngine shutdown complete.[/bold green]")
+
+
+@app.command("cloud-doctor")
+def cloud_doctor(execute_canary: bool = False):
+    """Check PostgreSQL, R2, GCP job configuration and optionally execute a canary."""
+    from app.cloud_doctor import cloud_checks
+    import json
+    console.print_json(json.dumps(cloud_checks(execute_canary)))
+
+
 def main():
     app()
 
 
 if __name__ == "__main__":
     main()
+

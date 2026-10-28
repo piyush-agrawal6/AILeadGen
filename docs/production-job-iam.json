@@ -1,0 +1,19 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "serviceAccount:leadengine-api-sa@querryside.iam.gserviceaccount.com",
+        "serviceAccount:leadengine-worker-sa@querryside.iam.gserviceaccount.com"
+      ],
+      "role": "roles/run.jobsExecutorWithOverrides"
+    },
+    {
+      "members": [
+        "serviceAccount:leadengine-api-sa@querryside.iam.gserviceaccount.com"
+      ],
+      "role": "roles/run.viewer"
+    }
+  ],
+  "etag": "BwZerhd7lLU=",
+  "version": 1
+}

@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Optional
 from app.config.settings import get_settings
 from app.database.models import LighthouseResult
+from app.utils.urls import is_safe_url
+from app.utils.browser_proxy import public_browser_proxy
 
 logger = logging.getLogger("leadengine.audit.lighthouse")
 REPORTS_DIR = Path("data/lighthouse")
@@ -47,6 +49,8 @@ async def run_lighthouse_audit(
 ) -> Optional[LighthouseResult]:
     """Execute local Lighthouse CLI against target URL, parse metrics and scores, and save JSON report."""
     lh_bin = find_lighthouse_executable()
+    if not is_safe_url(target_url,check_dns=True):
+        return None
     if not lh_bin:
         logger.warning("Lighthouse executable not found. Skipping Lighthouse audit.")
         return None
@@ -67,21 +71,22 @@ async def run_lighthouse_audit(
 
     logger.info(f"Running Lighthouse for business #{business_id} ({target_url})...")
     try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
-        except asyncio.TimeoutError:
+        cli = Path("node_modules/lighthouse/cli/index.js")
+        if cli.is_file() and shutil.which("node"):
+            cmd = [shutil.which("node"),str(cli.resolve()),*cmd[1:]]
+        with public_browser_proxy() as proxy:
+            cmd = [value if not value.startswith("--chrome-flags=") else value+f" --proxy-server={proxy} --proxy-bypass-list=<-loopback> --disable-quic --force-webrtc-ip-handling-policy=disable_non_proxied_udp" for value in cmd]
+            proc = await asyncio.create_subprocess_exec(*cmd,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
             try:
-                proc.kill()
-            except Exception:
-                pass
-            logger.warning(f"Lighthouse audit timed out after {timeout_seconds}s for #{business_id}")
-            return None
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+            except (asyncio.TimeoutError,asyncio.CancelledError):
+                try:
+                    proc.kill()
+                    await proc.wait()
+                except Exception:
+                    pass
+                logger.warning(f"Lighthouse audit interrupted or timed out for #{business_id}")
+                return None
 
         if not report_file.exists():
             err_msg = stderr.decode("utf-8", errors="replace")[:200]

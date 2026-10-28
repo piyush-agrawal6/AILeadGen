@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "execution": "leadengine-worker-t67ft",
+  "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:phase35-20261026-092619",
+  "imports": true,
+  "environment": true,
+  "public_http_fetch": true,
+  "database_event_write_read_cleanup": true,
+  "duckdb": true,
+  "pdf_renderer": true,
+  "r2_write_read_delete": true,
+  "node": true,
+  "chromium": true,
+  "lighthouse": true,
+  "sources": [
+    {
+      "name": "Overture",
+      "status": "ready",
+      "details": "Endpoint returned HTTP 200."
+    },
+    {
+      "name": "OpenStreetMap",
+      "status": "warning",
+      "details": "Configured endpoint and one fallback mirror did not respond successfully; discovery retains bounded mirror fallback."
+    }
+  ]
+}

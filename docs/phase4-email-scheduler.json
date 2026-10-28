@@ -1,0 +1,9 @@
+{
+  "job": "leadengine-email-sync",
+  "interval_minutes": 10,
+  "worker": "leadengine-worker",
+  "maximum_execution_seconds": 180,
+  "outbound_sending": false,
+  "tracked_threads_only": true,
+  "uses_existing_identity": true
+}
