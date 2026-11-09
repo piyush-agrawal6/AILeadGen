@@ -1,0 +1,7 @@
+"use client";
+import {useEffect,useState} from "react";
+import {useQuery} from "@tanstack/react-query";
+import {request} from "@/lib/intelligence";
+import {initialPlan,type Plan} from "@/components/workflows/types";
+import {PlanForm} from "@/components/workflows/plan-form";
+export default function Defaults(){const q=useQuery({queryKey:['manual-defaults'],queryFn:()=>request<Plan|null>('/workflow/defaults')});const [plan,setPlan]=useState<Plan>(()=>({...initialPlan(),name:'Discovery defaults'})),[message,setMessage]=useState('');useEffect(()=>{if(q.data){const base=initialPlan();setPlan({...base,...Object.fromEntries(Object.entries(q.data).filter(([k])=>k in base)),kind:"SCAN",needs_owner_review:false})};},[q.data]);return <main className="mx-auto max-w-4xl space-y-6"><h1 className="text-3xl font-semibold">Discovery defaults</h1><p className="text-sm text-muted-foreground">Starting preferences for new manual runs. Saving defaults does not start a run or create a schedule.</p><PlanForm value={plan} onChange={setPlan}/><button className="control" onClick={async()=>{try{await request('/workflow/defaults',{method:'PUT',body:JSON.stringify({...plan,kind:'SCAN',name:'Discovery defaults'})});setMessage('Defaults saved. No run started.');}catch(e){setMessage(e instanceof Error?e.message:'Could not save defaults.');}}}>Save discovery defaults</button>{message&&<p role="status">{message}</p>}</main>;}

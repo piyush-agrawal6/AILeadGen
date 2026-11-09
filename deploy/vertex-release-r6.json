@@ -1,0 +1,45 @@
+{
+  "build": "9384b9c2-1118-407f-b828-8ea4f01ce60f",
+  "previous_revision": "leadengine-api-00099-rox",
+  "schema": 14,
+  "migrations_run": false,
+  "json_service_account_key_created": false,
+  "new_single_gemini_fallback_key_configured": true,
+  "experiment_activated": false,
+  "nonsecret_config": {
+    "AI_PRIMARY_PROVIDER": "vertex",
+    "VERTEX_AI_ENABLED": "true",
+    "VERTEX_AI_PROJECT_ID": "querryside",
+    "VERTEX_AI_LOCATION": "global",
+    "VERTEX_AI_MODEL": "gemini-3.6-flash",
+    "GEMINI_API_ENABLED": "true",
+    "AI_FALLBACK_ENABLED": "true",
+    "GEMINI_COPY_BATCH_SIZE": "40",
+    "GEMINI_MODEL": "gemini-3.6-flash"
+  },
+  "runtimes": {
+    "leadengine-api": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:vertex-20261102-r6",
+      "service_account": "leadengine-api-sa@querryside.iam.gserviceaccount.com",
+      "environment_preserved": true,
+      "no_execution_cancelled": true
+    },
+    "leadengine-worker": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:vertex-20261102-r6",
+      "service_account": "leadengine-worker-sa@querryside.iam.gserviceaccount.com",
+      "environment_preserved": true,
+      "no_execution_cancelled": true
+    },
+    "leadengine-acquisition": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/acquisition:vertex-20261102-r6",
+      "service_account": "leadengine-acquisition-sa@querryside.iam.gserviceaccount.com",
+      "environment_preserved": true,
+      "no_execution_cancelled": true
+    }
+  },
+  "staged_revision": "leadengine-api-00103-qep",
+  "staged_url": "https://vertex---leadengine-api-befca7xg4a-el.a.run.app",
+  "promoted_revision": "leadengine-api-00103-qep",
+  "settings_repair_build": "e49490fb-f63e-4dbd-afb2-b2f80b5b2819",
+  "settings_read_verified": true
+}

@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.api.dependencies import get_db
@@ -27,10 +27,10 @@ class ReportArtifactItem(BaseModel):
 
 
 @router.get("", response_model=List[ReportArtifactItem])
-def list_reports(conn: sqlite3.Connection = Depends(get_db)):
+def list_reports(request: Request, conn: sqlite3.Connection = Depends(get_db,scope='function')):
     """List completed prospecting runs with export artifacts."""
     run_repo = PipelineRunRepository(conn)
-    runs, _ = run_repo.list_runs(page=1, page_size=100)
+    runs, _ = run_repo.list_runs(page=1, page_size=100, organization=request.state.organization_id)
 
     results = []
     for r in runs:

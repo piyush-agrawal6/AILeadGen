@@ -1,0 +1,77 @@
+{
+  "verified_at": "2026-11-06T07:49:57.116272+00:00",
+  "scope": "Local Lead Engine prospecting separation",
+  "implementation_status": "LOCAL_ACCEPTANCE_PASSED",
+  "production_deployed": false,
+  "production_data_changed": false,
+  "production_infrastructure_changed": false,
+  "environment_or_oauth_modified": false,
+  "real_outreach_sent": false,
+  "third_party_security_testing": false,
+  "schema": 28,
+  "migration_added": false,
+  "backend": {
+    "passed": 624,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 1,
+    "skip_reason": "Explicit controlled live mail test not requested",
+    "junit": "data/artifacts/verification/stage27/prospecting-verified-backend.xml"
+  },
+  "postgres": {
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0,
+    "version": "16.15",
+    "transport": "isolated private Unix socket, no TCP listener",
+    "included_in_backend": true
+  },
+  "frontend_units": {
+    "passed": 89,
+    "failed": 0
+  },
+  "typescript": "PASS",
+  "production_frontend_build": "PASS",
+  "browsers": {
+    "workflow": {
+      "passed": 26,
+      "failed": 0,
+      "log": "data/artifacts/verification/stage27/prospecting-final-workflow-browser.log"
+    },
+    "workspace": {
+      "passed": 10,
+      "failed": 0,
+      "log": "data/artifacts/verification/stage27/prospecting-final-workspace-browser.log"
+    },
+    "auth": {
+      "passed": 3,
+      "failed": 0,
+      "log": "data/artifacts/verification/stage27/prospecting-final-auth-browser.log"
+    },
+    "signed_gateway": {
+      "passed": 1,
+      "failed": 0,
+      "log": "data/artifacts/verification/stage27/prospecting-preview-browser.log"
+    },
+    "customer_connections": {
+      "passed": 1,
+      "failed": 0,
+      "log": "data/artifacts/verification/stage27/prospecting-integrations-browser.log"
+    }
+  },
+  "browser_total": 41,
+  "local_preview": {
+    "url": "http://localhost:3000",
+    "login_http_status": 200,
+    "backend_health": "ok",
+    "provider_acquisition_enabled": false,
+    "email_sending_enabled": false,
+    "public_signup_enabled": false
+  },
+  "release_constraints": [
+    "No production deployment authorized or performed",
+    "Public signup remains disabled",
+    "Approved staging acceptance and exact locked crypto runtime remain broader release requirements"
+  ],
+  "pre_change_source_checkpoint": "data/backups/pre-prospecting-separation-20261106T064750Z/source.zip"
+}

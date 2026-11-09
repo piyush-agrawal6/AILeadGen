@@ -1,0 +1,179 @@
+{
+  "status": "PASSED",
+  "jobs": {
+    "sheets": "cda4451e-bf33-4621-92c0-667d3efb280f",
+    "csv": "dcbad0ab-9c9c-4bf6-aa8d-fec07cafb01f",
+    "xlsx": "c2ff2a32-a211-402f-9793-0a98b68d175b",
+    "firecrawl": "c6d73a83-ac92-4eba-af66-700535118a60",
+    "xlsx_ten": "21c56a5b-44cb-44dd-8fc3-e95249e3268b"
+  },
+  "no_outreach_authorized": true,
+  "no_prospect_mail_created": true,
+  "executions": {
+    "sheets": "leadengine-acquisition-dfstc",
+    "csv": "leadengine-acquisition-qjd7m",
+    "xlsx": "leadengine-acquisition-cw229",
+    "xlsx_ten": "leadengine-acquisition-ltdtn",
+    "firecrawl": "leadengine-acquisition-jvm42"
+  },
+  "results": {
+    "sheets": {
+      "job_id": "cda4451e-bf33-4621-92c0-667d3efb280f",
+      "campaign_id": "a3c7ebc2-0810-4afc-bffb-479f7a1d0bff",
+      "status": "COMPLETED",
+      "counts": {
+        "_intake_complete": 1,
+        "analysis_complete": 0,
+        "analysis_failed": 0,
+        "analysis_not_available": 10,
+        "analysis_partial": 0,
+        "analysis_pending": 0,
+        "analyzed": 0,
+        "candidates": 10,
+        "duplicates": 0,
+        "existing_businesses": 10,
+        "invalid_rows": 0,
+        "issues": 0,
+        "new_businesses": 0,
+        "qualified": 10,
+        "qualified_imported": 10,
+        "rows_read": 10,
+        "shortfall": 0,
+        "unique_businesses": 10,
+        "valid_rows": 10
+      },
+      "error_code": null,
+      "messages": 0,
+      "outreach_runs": 0
+    },
+    "csv": {
+      "job_id": "dcbad0ab-9c9c-4bf6-aa8d-fec07cafb01f",
+      "campaign_id": "b7c5732f-63f6-441b-a180-c3c005fae5ac",
+      "status": "COMPLETED",
+      "counts": {
+        "_intake_complete": 1,
+        "analysis_complete": 0,
+        "analysis_failed": 0,
+        "analysis_not_available": 3,
+        "analysis_partial": 0,
+        "analysis_pending": 0,
+        "analyzed": 0,
+        "candidates": 3,
+        "duplicates": 0,
+        "existing_businesses": 3,
+        "invalid_rows": 0,
+        "issues": 0,
+        "new_businesses": 0,
+        "qualified": 3,
+        "qualified_imported": 3,
+        "rows_read": 3,
+        "shortfall": 0,
+        "unique_businesses": 3,
+        "valid_rows": 3
+      },
+      "error_code": null,
+      "messages": 0,
+      "outreach_runs": 0
+    },
+    "xlsx": {
+      "job_id": "c2ff2a32-a211-402f-9793-0a98b68d175b",
+      "campaign_id": "44e47ea9-fabd-42c2-b672-41203e9f62e5",
+      "status": "COMPLETED",
+      "counts": {
+        "_intake_complete": 1,
+        "analysis_complete": 0,
+        "analysis_failed": 0,
+        "analysis_not_available": 3,
+        "analysis_partial": 0,
+        "analysis_pending": 0,
+        "analyzed": 0,
+        "candidates": 3,
+        "duplicates": 0,
+        "existing_businesses": 3,
+        "invalid_rows": 0,
+        "issues": 0,
+        "new_businesses": 0,
+        "qualified": 3,
+        "qualified_imported": 3,
+        "rows_read": 3,
+        "shortfall": 0,
+        "unique_businesses": 3,
+        "valid_rows": 3
+      },
+      "error_code": null,
+      "messages": 0,
+      "outreach_runs": 0
+    },
+    "firecrawl": {
+      "job_id": "c6d73a83-ac92-4eba-af66-700535118a60",
+      "campaign_id": "fd97c2d1-47ee-4627-a144-ec55ac0e2c75",
+      "status": "COMPLETED",
+      "counts": {
+        "analyzed": 5,
+        "businesses_found": 10,
+        "candidates": 5,
+        "duplicates": 0,
+        "emails_found": 8,
+        "existing_businesses": 1,
+        "issues": 5,
+        "new_businesses": 4,
+        "no_email": 3,
+        "qualified": 5,
+        "search_results": 30,
+        "shortfall": 0,
+        "unique_businesses": 5,
+        "websites_found": 10
+      },
+      "error_code": null,
+      "messages": 0,
+      "outreach_runs": 0
+    },
+    "xlsx_ten": {
+      "job_id": "21c56a5b-44cb-44dd-8fc3-e95249e3268b",
+      "campaign_id": "16878484-a9b2-4fde-a56a-74dfe03e7d5c",
+      "status": "COMPLETED",
+      "counts": {
+        "_intake_complete": 1,
+        "analysis_complete": 0,
+        "analysis_failed": 0,
+        "analysis_not_available": 10,
+        "analysis_partial": 0,
+        "analysis_pending": 0,
+        "analyzed": 0,
+        "candidates": 10,
+        "duplicates": 0,
+        "existing_businesses": 10,
+        "invalid_rows": 0,
+        "issues": 0,
+        "new_businesses": 0,
+        "qualified": 10,
+        "qualified_imported": 10,
+        "rows_read": 10,
+        "shortfall": 0,
+        "unique_businesses": 10,
+        "valid_rows": 10
+      },
+      "error_code": null,
+      "messages": 0,
+      "outreach_runs": 0
+    }
+  },
+  "prior_executions": {
+    "csv": "leadengine-acquisition-xt8gb",
+    "firecrawl": "leadengine-acquisition-jrxlm"
+  },
+  "attempt_history": {
+    "firecrawl": [
+      "leadengine-acquisition-wxmhv",
+      "leadengine-acquisition-96fn4"
+    ]
+  },
+  "recovery": {
+    "new_paid_requests_during_analysis_resume": 0,
+    "profiles": 5,
+    "opportunity_scores": 5,
+    "observations": 5,
+    "verified_public_email_contacts": 5,
+    "no_duplicate_observations": true
+  }
+}

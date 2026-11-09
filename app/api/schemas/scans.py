@@ -5,15 +5,15 @@ from pydantic import BaseModel, Field, ConfigDict
 class ScanSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
     exclude_chains: bool = True
-    lighthouse_enabled: bool = True
+    lighthouse_enabled: bool = Field(False,deprecated=True)
     overture_enabled: bool = True
     osm_enabled: bool = True
-    max_pages: Optional[int] = Field(default=8, ge=1, le=50)
+    max_pages: Optional[int] = Field(default=3, ge=1, le=50)
     page_timeout: Optional[int] = Field(default=15, ge=3, le=60)
     site_timeout: Optional[int] = Field(default=60, ge=10, le=300)
     http_concurrency: Optional[int] = Field(default=20, ge=1, le=100)
     crawler_concurrency: Optional[int] = Field(default=5, ge=1, le=20)
-    min_score: Optional[float] = Field(default=35.0, ge=0.0, le=100.0)
+    min_score: Optional[float] = Field(default=None, ge=0.0, le=100.0,deprecated=True)
 
 
 class ScanCreateRequest(BaseModel):

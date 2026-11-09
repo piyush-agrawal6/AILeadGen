@@ -1,0 +1,100 @@
+{
+  "original": {
+    "passed": 347,
+    "failed": 70,
+    "errors": 70,
+    "skipped": 15
+  },
+  "reproduced": {
+    "passed": 347,
+    "failed": 72,
+    "errors": 70,
+    "skipped": 15
+  },
+  "latest": {
+    "passed": 624,
+    "skipped": 1,
+    "failure": 0,
+    "error": 0
+  },
+  "original_items_reproduced": 140,
+  "frontend_unit_passed": 81,
+  "auth_browser_passed": 3,
+  "frontend_typecheck": "PASS",
+  "frontend_build": "PASS",
+  "production_changed": false,
+  "original_failures_and_errors_resolved": 140,
+  "workflow_browser": {
+    "passed": 26,
+    "failed": 0,
+    "not_run": 0,
+    "runner_errors": 0
+  },
+  "overall_status": "NOT_COMPLETE",
+  "previous_workflow_browser": {
+    "passed": 9,
+    "failed": 3,
+    "not_run": 14,
+    "runner_errors": 1,
+    "stopped_after_failures": 3
+  },
+  "latest_log": "data/artifacts/verification/stage27/integrations-full.log",
+  "workspace_browser": {
+    "passed": 8,
+    "failed": 0
+  },
+  "schema_version": 27,
+  "verification_pending": "New PlaneByte UI brief implementation, approved staging, exact locked cryptography runtime and remaining SaaS milestones",
+  "public_saas_status": "NOT_READY",
+  "blockers": [
+    "Approved staging and exact locked cryptography runtime",
+    "Public account admission and lifecycle",
+    "Live customer/provider acceptance of gated onboarding capabilities",
+    "Customer integrations and remaining SaaS phases"
+  ],
+  "local_preview": "http://localhost:3000, isolated data; real authentication; sends/providers disabled",
+  "local_environment_exception": "Python 3.12 local cryptography 48.0.1; pinned 50.0.2 failed to compile; lockfile not edited by this restore",
+  "stage22_previous": {
+    "passed": 547,
+    "skipped": 15,
+    "failure": 0,
+    "error": 0
+  },
+  "postgres": {
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0,
+    "included_in_full_suite": true,
+    "version": "16.15",
+    "transport": "private Unix socket; no TCP listener",
+    "production_access": false,
+    "backup_restore": "Schema 22 dump restored into a separate disposable schema, data checked before and after upgrade through schema 26"
+  },
+  "local_preview_auth_fix": "Root literal secret preserved in Next parent/child processes; no membership bypass",
+  "preview_browser": {
+    "passed": 1,
+    "failed": 0,
+    "mode": "development with real internal HMAC verification and disposable literal-dollar secrets"
+  },
+  "stage27_previous": {
+    "passed": 599,
+    "skipped": 1,
+    "failure": 0,
+    "error": 0
+  },
+  "customer_connections_browser": {
+    "passed": 1,
+    "failed": 0,
+    "live_google_requests": false
+  },
+  "previous_foundation_latest": {
+    "passed": 610,
+    "skipped": 1,
+    "failure": 0,
+    "error": 0
+  },
+  "current_prospecting_acceptance": "PLANEBYTE_PROSPECTING_ACCEPTANCE.json",
+  "current_schema": 28,
+  "current_browser_total": 41,
+  "current_frontend_units": 89
+}

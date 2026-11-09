@@ -48,18 +48,20 @@ class WebsiteCrawler:
         max_pages: int = 6,
         page_timeout: float = 6.0,
         max_duration: float = 30.0,
-        max_response_bytes: int = 2_000_000,
+        max_response_bytes: int = 500_000,
+        purpose: str = "COMPANY",
     ):
-        self.max_pages = max_pages
-        self.page_timeout = page_timeout
-        self.max_duration = max_duration
-        self.max_response_bytes = max_response_bytes
+        self.purpose=purpose
+        self.max_pages = min(3,max_pages) if purpose=="COMPANY" else max_pages
+        self.page_timeout = min(8,page_timeout) if purpose=="COMPANY" else page_timeout
+        self.max_duration = min(22,max_duration) if purpose=="COMPANY" else max_duration
+        self.max_response_bytes = min(500_000,max_response_bytes) if purpose=="COMPANY" else max_response_bytes
 
     async def crawl(self, start_url: str, initial_html: Optional[str] = None) -> CrawlResult:
         settings = get_settings()
         clean_start = sanitize_url(start_url)
         result = CrawlResult(start_url=clean_start or start_url)
-        if not clean_start or not is_safe_url(clean_start):
+        if not clean_start or not is_safe_url(clean_start,check_dns=False):
             return result
 
         start_time = time.time()
@@ -87,14 +89,15 @@ class WebsiteCrawler:
             robots = RobotFileParser()
             async def check_meta_files():
                 try:
-                    r_resp = await client.get(urljoin(base_origin, "/robots.txt"), timeout=2.5, allowed_host=start_host)
+                    r_resp = await client.get(urljoin(base_origin, "/robots.txt"), timeout=2.5, allowed_domain=base_domain)
                     if r_resp.status_code == 200 and "user-agent" in r_resp.text.lower():
                         result.has_robots_txt = True
                         robots.parse(r_resp.text.splitlines())
                 except Exception:
                     pass
+                if self.purpose=="COMPANY":return
                 try:
-                    s_resp = await client.get(urljoin(base_origin, "/sitemap.xml"), timeout=2.5, allowed_host=start_host)
+                    s_resp = await client.get(urljoin(base_origin, "/sitemap.xml"), timeout=2.5, allowed_domain=base_domain)
                     if s_resp.status_code == 200 and ("<urlset" in s_resp.text.lower() or "<sitemapindex" in s_resp.text.lower()):
                         result.has_sitemap = True
                 except Exception:
@@ -119,10 +122,10 @@ class WebsiteCrawler:
                 if current_url == clean_start and initial_html:
                     html = initial_html
                 else:
-                    if not is_safe_url(current_url):
+                    if not is_safe_url(current_url,check_dns=False):
                         continue
                     try:
-                        resp = await client.get(current_url, headers=headers, allowed_host=start_host)
+                        resp = await client.get(current_url, headers=headers, allowed_domain=base_domain)
                         result.page_statuses[current_url] = resp.status_code
                         result.final_urls[current_url] = str(resp.url)
                         result.redirect_counts[current_url] = len(resp.history)
@@ -191,7 +194,7 @@ class WebsiteCrawler:
                                     and len(to_visit) < 15
                                     and not any(link_norm.lower().endswith(ext) for ext in [".jpg", ".png", ".gif", ".zip", ".css", ".js"])
                                 ):
-                                    if any(kw in link_norm.lower() or kw in link_text for kw in PRIORITY_KEYWORDS):
+                                    if any(kw in link_norm.lower() or kw in link_text for kw in (("contact","about","services","products","team") if self.purpose=="COMPANY" else PRIORITY_KEYWORDS)):
                                         to_visit.append(link_norm)
                         except Exception:
                             pass

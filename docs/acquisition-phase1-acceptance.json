@@ -1,0 +1,170 @@
+{
+  "status": "DEPLOYED; FINAL_LIVE_ACCEPTANCE_PENDING",
+  "complete": false,
+  "deployment": {
+    "api_revision": "leadengine-api-00051-5b6",
+    "api_image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:source-policy-20261102-r13",
+    "source_image": "asia-south1-docker.pkg.dev/querryside/leadengine/acquisition:source-policy-20261102-r12",
+    "maps_image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:source-policy-20261102-r9",
+    "frontend_deployment": "dpl_762jcLAVUWCVfqwHeFkpPksJgAre",
+    "schema_version": 13,
+    "migrations_run_in_source_policy_rollout": false
+  },
+  "verification": {
+    "linux_backend": {
+      "passed": 403,
+      "skipped": 13,
+      "build": "0a6ee320-73b4-4d8c-b3ff-8b6af65bed02"
+    },
+    "frontend_unit_passed": 43,
+    "full_browser_passed": 23,
+    "latest_source_browser_passed": 6,
+    "strict_typescript": "PASSED",
+    "production_build": "PASSED",
+    "postgresql": "All original 11 cases covered across initial 6, corrected 4 and focused new-policy 1; additional no-email LIKE regression passed separately."
+  },
+  "controlled_sources": {
+    "sheets": {
+      "status": "COMPLETED",
+      "qualified": 10,
+      "analyzed": 0,
+      "messages": 0,
+      "outreach_runs": 0
+    },
+    "csv": {
+      "status": "COMPLETED",
+      "qualified": 3,
+      "analyzed": 0,
+      "messages": 0,
+      "outreach_runs": 0
+    },
+    "xlsx": {
+      "status": "COMPLETED",
+      "qualified": 3,
+      "analyzed": 0,
+      "messages": 0,
+      "outreach_runs": 0
+    },
+    "firecrawl": {
+      "status": "COMPLETED",
+      "qualified": 5,
+      "analyzed": 5,
+      "messages": 0,
+      "outreach_runs": 0
+    },
+    "xlsx_ten": {
+      "status": "COMPLETED",
+      "qualified": 10,
+      "analyzed": 0,
+      "messages": 0,
+      "outreach_runs": 0
+    }
+  },
+  "firecrawl_recovery": {
+    "new_paid_requests_during_analysis_resume": 0,
+    "profiles": 5,
+    "opportunity_scores": 5,
+    "observations": 5,
+    "verified_public_email_contacts": 5,
+    "no_duplicate_observations": true
+  },
+  "seattle": {
+    "status": "PASSED",
+    "scan_id": 27,
+    "discovered": 12,
+    "deep_audits": 3,
+    "qualified": 2,
+    "lighthouse_runs": 0,
+    "worker_runtime_seconds": 128.53,
+    "outreach_runs": 0
+  },
+  "progress_cache": {
+    "progress_read_cache": "PASSED",
+    "first": {
+      "path": "/api/acquisition/jobs/cda4451e-bf33-4621-92c0-667d3efb280f",
+      "status": 200,
+      "ms": 9861,
+      "cache": "MISS"
+    },
+    "repeat": {
+      "path": "/api/acquisition/jobs/cda4451e-bf33-4621-92c0-667d3efb280f",
+      "status": 200,
+      "ms": 1426,
+      "cache": "HIT"
+    },
+    "repeat_again": {
+      "path": "/api/acquisition/jobs/cda4451e-bf33-4621-92c0-667d3efb280f",
+      "status": 200,
+      "ms": 1360,
+      "cache": "HIT"
+    },
+    "qualified": 10,
+    "safety_decisions_cached": false
+  },
+  "feature_rollout": {
+    "ENABLE_AI_ACQUISITION": true,
+    "ENABLE_FIRECRAWL_ACQUISITION": true,
+    "ENABLE_LEAD_IMPORT": true,
+    "ENABLE_GOOGLE_SHEETS_IMPORT": true,
+    "source_flags_enabled_one_at_a_time": true,
+    "new_feature_activation_starts_no_scan_or_outreach_by_itself": true
+  },
+  "preservation": {
+    "original_owner_enabled_scan_mail_flags_preserved": true,
+    "max_hour": 50,
+    "max_day": 500,
+    "minimum_spacing_minutes": 1.2,
+    "daily_qualified_target": 500,
+    "daily_email_target": 500,
+    "followup_days": 3,
+    "timezone": "Asia/Kolkata",
+    "gmail_configuration_unchanged": true,
+    "no_existing_execution_cancelled": true,
+    "no_database_reset": true,
+    "worker_additions": "Two nonsecret source dispatch flags and acquisition-job-only invocation permission; no provider secret added to Maps/mail worker."
+  },
+  "last_verified_health": {
+    "api": "READY",
+    "database": "READY",
+    "redis": "READY",
+    "smtp": "READY",
+    "imap": "READY",
+    "reply_sync": "OBSERVED",
+    "scan_worker": "READY",
+    "acquisition_scheduler": "READY",
+    "outreach_scheduler": "READY",
+    "inbox_scheduler": "READY",
+    "tracking": "Not reaccepted in this acquisition phase; current events absent after earlier owner cleanup."
+  },
+  "pending": [
+    {
+      "check": "Production API upload/approve/worker completion",
+      "job_id": "ee17549f-2db6-4f80-ac3d-c0699754d661",
+      "campaign_id": "961be59d-28f2-42cb-b9f0-458ee137b6a4",
+      "observed": "Actual upload, AI mapping, repeat cache and approval passed; worker completion not yet observed."
+    },
+    {
+      "check": "Automatic once-only Firecrawl schedule without Run Now",
+      "schedule_id": "99a77399-f822-4b85-a6a0-55fc916c04e8",
+      "start_at": "2026-11-02T14:41:20.061649+00:00",
+      "observed": "Created enabled once-only with one-lead/four-page bounds; no outreach. Dispatch/completion not observed yet."
+    },
+    {
+      "check": "Reconcile controlled Run Now Firecrawl parent after scheduler flag repair",
+      "workflow_id": "18869f3c-c138-4087-b65b-c88f4507cb2c",
+      "observed": "Correct Firecrawl source job launched; parent previously NEEDS_REVIEW while source RUNNING before scheduler source flags added. Confirm terminal parent state; do not claim final schedule acceptance."
+    },
+    {
+      "check": "Final post-rollout live health, source flags, original limits and no-QA-email assertions",
+      "observed": "Earlier health/preservation passed; final read was not executed because automatic approval review failed."
+    }
+  ],
+  "tool_blocker": {
+    "type": "AUTOMATIC_APPROVAL_REVIEW_USAGE_LIMIT",
+    "blocked_action": "Read-only final production health/preservation smoke check",
+    "executed": false,
+    "reason": "Automatic approval review could not be completed because its usage limit was reached; not a determination that action is unsafe. Do not bypass. Resume after review availability is restored."
+  },
+  "qa_prospect_sending_authorized": false,
+  "no_completion_claim": true
+}

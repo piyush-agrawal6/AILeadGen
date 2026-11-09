@@ -1,0 +1,7 @@
+{
+  "method": "IMAP LIST SPECIAL-USE flags",
+  "all_select": "OK",
+  "sent_select": "OK",
+  "english_names_required": false,
+  "email_sent": false
+}

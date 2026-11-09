@@ -1,0 +1,17 @@
+{
+  "method": "Gmail-style simulated DSN fixtures; SMTP mocked",
+  "live_bounce_email_sent": false,
+  "external_or_random_recipient_contacted": false,
+  "owner_authorized_simulation_instead_of_live_bounce": true,
+  "tests": "tests/unit/test_gmail_bounces.py + tests/unit/test_phase41.py",
+  "passed": 42,
+  "coverage": [
+    "authenticated hard-bounce address suppression",
+    "duplicate DSN idempotency",
+    "manual-contact routing with phone retained",
+    "soft-bounce threshold",
+    "mailbox-full 5.2.2 remains soft",
+    "untrusted authentication cannot suppress addresses"
+  ],
+  "prospect_sending_enabled": false
+}

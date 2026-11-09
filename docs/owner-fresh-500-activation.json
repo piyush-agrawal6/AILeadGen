@@ -1,0 +1,14 @@
+{
+  "experiment_id": "planebyte-2026-11-02-06",
+  "status": "LIVE",
+  "send_approved": true,
+  "target_qualified_today": 500,
+  "portfolio_url": "https://planebyte.com/projects",
+  "activation_http": 200,
+  "schedulers_resumed": [
+    "leadengine-daily-acquisition",
+    "leadengine-hourly-outreach",
+    "leadengine-inbox-sync"
+  ],
+  "initial_dispatch_requested": true
+}

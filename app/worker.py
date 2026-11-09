@@ -32,9 +32,16 @@ def claim_run(conn, run_id, owner):
 
 
 def execute(run_id):
+    from app.platform.context import job_scope
+    with db_session() as scope_conn:
+        verify_schema(scope_conn)
+        with job_scope(scope_conn,'scan',run_id):
+            return _execute_owned(run_id)
+
+def _execute_owned(run_id):
     owner = str(uuid.uuid4())
     lock_connection = get_connection(session_bound=True)
-    verify_schema(lock_connection,minimum_version=4)
+    verify_schema(lock_connection)
     stop = threading.Event()
     def heartbeat():
         while not stop.wait(25):
@@ -70,23 +77,73 @@ def execute(run_id):
 
 
 if __name__ == "__main__":
+    customer_mailbox_id=os.environ.get('LEADENGINE_CUSTOMER_MAILBOX_ID','')
+    if customer_mailbox_id:
+        from app.mail.customer import sync_owned_account
+        if not customer_mailbox_id.startswith('gmail-'):raise SystemExit('A persisted customer Gmail account ID is required.')
+        account_id='gmail-'+str(uuid.UUID(customer_mailbox_id.removeprefix('gmail-')))
+        sync_owned_account(account_id)
+        raise SystemExit(0)
+    sheet_export_id=os.environ.get('LEADENGINE_SHEET_EXPORT_ID','')
+    if sheet_export_id:
+        from app.integrations.sheet_exports import execute as execute_sheet_export
+        asyncio.run(execute_sheet_export(str(uuid.UUID(sheet_export_id))))
+        raise SystemExit(0)
+    webhook_endpoint_id=os.environ.get('LEADENGINE_WEBHOOK_ENDPOINT_ID','')
+    if webhook_endpoint_id:
+        from app.webhooks.worker import execute as execute_webhook
+        execute_webhook(str(uuid.UUID(webhook_endpoint_id)),dispatch_token=os.environ.get('LEADENGINE_WEBHOOK_DISPATCH_TOKEN',''))
+        raise SystemExit(0)
+    mode=os.environ.get('LEADENGINE_AUTOMATION_MODE')
+    if mode:
+        if mode=='webhooks-dispatch':
+            from app.webhooks.service import enabled
+            enabled()
+        from app.workflows.health import record
+        record(mode,'RUNNING')
+        try:
+            from app.automation.service import acquisition_tick,outreach_tick
+            if mode=='inbox-sync':
+                from app.mail.service import sync_internal_mailbox
+                sync_internal_mailbox()
+                from app.workflows.service import dispatch
+                with db_session() as c:asyncio.run(dispatch(c))
+            elif mode in ('daily-acquisition','hourly-outreach','workflow-dispatch'):
+                from app.workflows.service import dispatch
+                with db_session() as c:
+                    verify_schema(c)
+                    asyncio.run(dispatch(c))
+            elif mode=='webhooks-dispatch':
+                from app.webhooks.dispatch import tick
+                asyncio.run(tick())
+            else:raise SystemExit('Unsupported automation mode')
+        except Exception as exc:
+            record(mode,'FAILED',type(exc).__name__)
+            raise
+        else:record(mode,'READY')
+        raise SystemExit(0)
     if os.environ.get('LEADENGINE_EMAIL_SYNC')=='1':
-        from app.mail.service import sync_mailbox
-        try:sync_mailbox()
+        from app.mail.service import sync_internal_mailbox
+        try:sync_internal_mailbox()
         except Exception:raise SystemExit('Bounded email sync could not complete; check provider health.') from None
         raise SystemExit(0)
     if os.environ.get("LEADENGINE_CANARY") == "1":
         from app.cloud_doctor import worker_canary
         worker_canary()
         raise SystemExit(0)
+    intelligence_job_id=os.environ.get('LEADENGINE_INTELLIGENCE_JOB_ID','')
+    if intelligence_job_id:
+        from app.intelligence.jobs import execute as execute_intelligence
+        execute_intelligence(str(uuid.UUID(intelligence_job_id)))
+        raise SystemExit(0)
+    profile_job_id=os.environ.get('LEADENGINE_PROFILE_DISCOVERY_ID','')
+    if profile_job_id:
+        from app.platform.company_discovery import execute as execute_profile
+        execute_profile(str(uuid.UUID(profile_job_id)))
+        raise SystemExit(0)
     report_id=os.environ.get('LEADENGINE_REPORT_ID','')
     if report_id:
-        from app.reports.service import execute_report
-        try:execute_report(str(uuid.UUID(report_id)))
-        finally:
-            from app.api.services.cloud_executor import dispatch_queued
-            dispatch_queued()
-        raise SystemExit(0)
+        raise SystemExit('Assessment jobs are excluded from Lead Engine; historical reports are preserved.')
     raw = os.environ.get("LEADENGINE_RUN_ID", "")
     if not raw.isdigit() or int(raw)<1:
         raise SystemExit("LEADENGINE_RUN_ID must be a positive run ID")

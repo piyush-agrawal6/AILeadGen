@@ -1,0 +1,30 @@
+{
+  "build": "6ce24269-4055-4757-b261-68332f766a79",
+  "schema_target": 15,
+  "runtimes": {
+    "leadengine-worker": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:contactable-20261105-r7",
+      "service_account": "leadengine-worker-sa@querryside.iam.gserviceaccount.com",
+      "email_provider_and_secret_configuration_preserved": true
+    },
+    "leadengine-acquisition": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/acquisition:contactable-20261105-r7",
+      "service_account": "leadengine-acquisition-sa@querryside.iam.gserviceaccount.com",
+      "email_provider_and_secret_configuration_preserved": true
+    },
+    "leadengine-api": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:contactable-20261105-r7",
+      "service_account": "leadengine-api-sa@querryside.iam.gserviceaccount.com",
+      "email_provider_and_secret_configuration_preserved": true
+    }
+  },
+  "nonsecret_config": {
+    "LEAD_QUALIFICATION_MODE": "CONTACTABLE_ONLY",
+    "ENABLE_PRE_OUTREACH_ANALYSIS": "false",
+    "AUTO_SCAN_ENABLED": "false"
+  },
+  "cleanup_performed": true,
+  "staged_revision": "leadengine-api-00114-soh",
+  "staged_url": "https://contactable---leadengine-api-befca7xg4a-el.a.run.app",
+  "promoted_revision": "leadengine-api-00114-soh"
+}

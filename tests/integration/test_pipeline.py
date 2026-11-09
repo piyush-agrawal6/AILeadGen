@@ -12,6 +12,7 @@ from app.database.repositories import (
 )
 from app.discovery.base import BaseDiscoveryProvider
 from app.pipeline.runner import PipelineRunner
+from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
 
 
 def test_sqlite_migrations_and_repositories(tmp_path):
@@ -42,7 +43,7 @@ def test_sqlite_migrations_and_repositories(tmp_path):
         # Test pipeline run repo
         run_repo = PipelineRunRepository(conn)
         pr = PipelineRun(market="Austin, TX", vertical="restaurant", target=50)
-        run_id = run_repo.create(pr)
+        run_id = run_repo.create(pr, organization=PLANEBYTE_ORGANIZATION_ID)
         assert run_id > 0
 
         fetched_run = run_repo.get_by_id(run_id)
@@ -101,7 +102,7 @@ class MockDiscoveryProvider(BaseDiscoveryProvider):
 
 
 @pytest.mark.asyncio
-async def test_pipeline_integration(monkeypatch, tmp_path):
+async def test_pipeline_integration(monkeypatch, tmp_path, request):
     # Mock discovery providers to be deterministic and fast
     mock_prov = MockDiscoveryProvider()
     from app.config.markets import resolve_market
@@ -116,17 +117,29 @@ async def test_pipeline_integration(monkeypatch, tmp_path):
         )
     )
 
+    from app.enrichment.crawler import CrawlResult
+    from app.enrichment.contacts import extract_contacts_from_html
+    async def crawl(self,url):
+        value=CrawlResult(url);html='<title>Austin Craft Coffee</title><p>Independent coffee shop in Austin.</p><a href="mailto:hello@austincraftcoffee.example">Email</a>'
+        value.pages_crawled=1;value.all_htmls={url:html};value.homepage_html=html;value.contacts=extract_contacts_from_html(html,url);return value
+    monkeypatch.setattr('app.enrichment.crawler.WebsiteCrawler.crawl',crawl)
+    monkeypatch.setattr('app.prospecting.intake.check_email_dns',lambda *args:('MX',True))
     test_db = tmp_path / "test_pipeline.db"
+    conn=get_connection(test_db);run_migrations(conn)
+    from app.platform.context import workspace_scope
+    actor=conn.execute('SELECT created_by_user_id FROM organizations WHERE id=?',(PLANEBYTE_ORGANIZATION_ID,)).fetchone()[0]
     test_out = tmp_path / "output"
     runner = PipelineRunner(db_path=test_db, output_dir=test_out)
-    run = await runner.run(
-        market="Austin, Texas, USA",
-        vertical="restaurant",
-        target=10,
-        enable_lighthouse=False,
-    )
+    with workspace_scope(conn,actor,PLANEBYTE_ORGANIZATION_ID):
+        run = await runner.run(
+            market="Austin, Texas, USA",
+            vertical="restaurant",
+            target=10,
+            enable_lighthouse=False,
+        )
+    conn.close()
 
     assert run.status == "COMPLETED"
-    assert run.qualified >= 1
+    assert run.qualified == 2
     assert run.output_file is not None
     assert Path(run.output_file).exists()

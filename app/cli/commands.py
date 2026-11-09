@@ -9,7 +9,6 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from app.audit.lighthouse import find_lighthouse_executable
 from app.cli.display import display_business_inspection
 from app.config.markets import CURATED_MARKETS, resolve_market
 from app.config.settings import get_settings
@@ -26,13 +25,12 @@ from app.database.repositories import (
 )
 from app.exports.csv_export import export_leads_to_csv
 from app.exports.excel_export import export_leads_to_excel
-from app.exports.report import generate_html_report
 from app.pipeline.runner import PipelineRunner
 from app.utils.logging import setup_logging
 
 app = typer.Typer(
     name="LeadEngine",
-    help="Zero-cost B2B lead discovery, technical auditing, and qualification engine.",
+    help="Workspace-based B2B prospect discovery and company intelligence.",
     add_completion=False,
 )
 console = Console(legacy_windows=False)
@@ -52,9 +50,9 @@ def run_command(
     vertical: str = typer.Option("restaurant", "--vertical", "-v", help="Industry vertical (e.g. restaurant, hospitality, real_estate)"),
     target: int = typer.Option(250, "--target", "-t", help="Target number of qualified leads to produce"),
     include_chains: bool = typer.Option(False, "--include-chains", help="Include national chain franchises"),
-    no_lighthouse: bool = typer.Option(False, "--no-lighthouse", help="Skip deep Lighthouse performance scans"),
+    no_lighthouse: bool = typer.Option(True, "--no-lighthouse", hidden=True),
 ):
-    """Run lead discovery, website auditing, and prospect qualification."""
+    """Run bounded prospect discovery and public company enrichment."""
     run_migrations()
     runner = PipelineRunner()
     asyncio.run(
@@ -63,7 +61,7 @@ def run_command(
             vertical=vertical,
             target=target,
             include_chains=include_chains,
-            enable_lighthouse=not no_lighthouse,
+            enable_lighthouse=False,
         )
     )
 
@@ -102,43 +100,6 @@ def doctor_command():
     except Exception as e:
         table.add_row("DuckDB Engine", "[bold red]✗[/bold red]", str(e)[:40])
         all_ok = False
-
-    # 4. Chrome / Edge
-    chrome_found = False
-    chrome_path = ""
-    for path in [
-        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-    ]:
-        if Path(path).exists():
-            chrome_found = True
-            chrome_path = path
-            break
-    if not chrome_found and shutil.which("google-chrome"):
-        chrome_found = True
-        chrome_path = shutil.which("google-chrome")
-
-    table.add_row(
-        "Chrome / Chromium",
-        "[bold green]✓[/bold green]" if chrome_found else "[bold yellow]![/bold yellow]",
-        chrome_path or "Not in default path (Playwright managed fallback)",
-    )
-
-    # 5. Lighthouse CLI
-    lh_bin = find_lighthouse_executable()
-    table.add_row(
-        "Lighthouse CLI",
-        "[bold green]✓[/bold green]" if lh_bin else "[bold yellow]![/bold yellow]",
-        lh_bin or "Not installed (Optional for deep Web Vitals)",
-    )
-
-    # 6. Playwright
-    try:
-        import playwright
-        table.add_row("Playwright Browser Layer", "[bold green]✓[/bold green]", "Ready")
-    except Exception as e:
-        table.add_row("Playwright Browser Layer", "[bold red]✗[/bold red]", str(e)[:40])
 
     # 7. Overture Maps S3 connectivity
     try:
@@ -218,21 +179,9 @@ def inspect_command(
 def report_command(
     business_id: int = typer.Option(..., "--business-id", "-b", help="Database ID of the business"),
 ):
-    """Generate a clean, standalone HTML audit report for a prospect."""
-    with db_session() as conn:
-        b = BusinessRepository(conn).get_by_id(business_id)
-        if not b:
-            console.print(f"[bold red]Business #{business_id} not found in database.[/bold red]")
-            raise typer.Exit(1)
-        score = LeadScoreRepository(conn).get_by_business_id(business_id)
-        if not score:
-            console.print(f"[bold red]Business #{business_id} has not been scored yet.[/bold red]")
-            raise typer.Exit(1)
-        profile = WebsiteProfileRepository(conn).get_by_business_id(business_id)
-        lh = None
-        findings = FindingRepository(conn).list_by_business_id(business_id)
-        report_path = generate_html_report(b, score, profile, lh, findings)
-        console.print(f"[bold green]HTML audit report generated successfully:[/bold green] [bold yellow]{report_path}[/bold yellow]")
+    """Assessment generation is excluded; historical files remain intact."""
+    console.print('[yellow]Assessment generation is excluded from Lead Engine. Historical files remain available in the authenticated workspace.[/yellow]')
+    raise typer.Exit(1)
 
 
 @app.command(name="resume")

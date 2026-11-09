@@ -3,5 +3,5 @@ export function googleAccountAllowed(profile: { email?: string | null; email_ver
 }
 
 export function isPublicBrandAsset(pathname:string):boolean {
-  return ['/logo.png','/fonts/planebyte-sans-regular.woff2','/fonts/planebyte-sans-medium.woff2','/fonts/planebyte-sans-bold.woff2'].includes(pathname);
+  return ['/logo.png','/brand/mark.svg','/brand/heysow-mark.svg','/fonts/planebyte-sans-regular.woff2','/fonts/planebyte-sans-medium.woff2','/fonts/planebyte-sans-bold.woff2'].includes(pathname);
 }

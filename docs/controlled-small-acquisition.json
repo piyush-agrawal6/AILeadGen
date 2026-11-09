@@ -1,0 +1,17 @@
+{
+  "run_id": 3,
+  "target": 5,
+  "mail_enabled": false,
+  "method": "existing manual scan API and production discovery pipeline",
+  "scan": {
+    "status": "COMPLETED",
+    "raw_found": 197,
+    "deduped": 134,
+    "filtered": 134,
+    "websites_processed": 40,
+    "qualified": 19,
+    "exported": 5,
+    "started_at": "2026-11-01 12:25:25.416745+00",
+    "finished_at": "2026-11-01 12:44:45.108809"
+  }
+}

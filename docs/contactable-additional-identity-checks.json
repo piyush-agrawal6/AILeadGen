@@ -1,0 +1,16 @@
+[
+  {
+    "business_id": 5586,
+    "previous_name": "Copy link",
+    "verified_name": null,
+    "quarantined": true,
+    "paid_provider_requests": 0
+  },
+  {
+    "business_id": 5587,
+    "previous_name": "Instagram photos for @oldlanddental",
+    "verified_name": "Oldland Dental Practice In Bristol",
+    "quarantined": false,
+    "paid_provider_requests": 0
+  }
+]

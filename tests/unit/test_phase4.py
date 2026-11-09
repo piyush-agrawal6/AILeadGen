@@ -15,14 +15,18 @@ from app.mail import service
 from app.mail.config import MailSettings
 from app.mail.providers import SendFailed,SendUncertain
 from app.mail.templates import seed,render
+from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
 
 @pytest.fixture
-def workspace(tmp_path,monkeypatch):
-    path=tmp_path/'phase4.db';c=get_connection(path);run_migrations(c)
-    run=PipelineRun(market='London',vertical='hospitality',target=5);PipelineRunRepository(c).create(run)
+def workspace(tmp_path,monkeypatch,request):
+    path=tmp_path/'phase4.db';c=get_connection(path);run_migrations(c);c.execute('UPDATE automation_controls SET email_paused=0');c.commit()
+    from tests.workspace_fixtures import bind_internal_workspace
+    bind_internal_workspace(c,request)
+    monkeypatch.setattr('app.platform.modules.legacy_enabled',lambda:True)  # Historical audit-template coverage only.
+    run=PipelineRun(market='London',vertical='hospitality',target=5);PipelineRunRepository(c).create(run, organization=PLANEBYTE_ORGANIZATION_ID)
     b=Business(name='Test hotel',normalized_name='test hotel',vertical='hospitality',run_id=run.id,city='London',website='https://hotel.example',domain='hotel.example',public_email='public@hotel.example',address='1 Test Street');BusinessRepository(c).insert(b)
-    repo=ProspectRepository(c);pid=repo.observe(b);repo.workflow(pid,'founder@example.com',lead_status='READY_TO_CONTACT');c.commit()
-    config=MailSettings(_env_file=None,EMAIL_SEND_MODE='test',EMAIL_TEST_RECIPIENT='controlled@example.com',MAIL_PASSWORD='unit-fixture-only',MAIL_FROM_ADDRESS='rajendra@planebyte.com')
+    repo=ProspectRepository(c);pid=repo.observe(b, organization=PLANEBYTE_ORGANIZATION_ID);repo.workflow(pid,'founder@example.com',lead_status='READY_TO_CONTACT');c.commit()
+    config=MailSettings(_env_file=None,EMAIL_PROVIDER='hostinger',EMAIL_SYNC_ENABLED=True,EMAIL_SENDING_ENABLED=True,EMAIL_SEND_MODE='test',EMAIL_TEST_RECIPIENT='controlled@example.com',MAIL_PASSWORD='unit-fixture-only',MAIL_FROM_ADDRESS='rajendra@planebyte.com')
     monkeypatch.setattr(service,'mail_settings',lambda:config);monkeypatch.setattr(service,'get_connection',lambda **kw:get_connection(path))
     mock=Mock();mock.send_message.return_value='accepted';monkeypatch.setattr(service,'provider',lambda:mock)
     yield c,b,pid,config,mock
@@ -37,14 +41,14 @@ def test_all_statuses_activity_and_suppression_survive_rediscovery(workspace):
     c,b,pid,_,_=workspace;repo=ProspectRepository(c)
     for status in STATUSES:repo.workflow(pid,'founder@example.com',lead_status=status)
     assert suppressed(c,pid)
-    duplicate=b.model_copy(update={'id':None});BusinessRepository(c).insert(duplicate);assert repo.observe(duplicate)==pid
+    duplicate=b.model_copy(update={'id':None});BusinessRepository(c).insert(duplicate);assert repo.observe(duplicate, organization=PLANEBYTE_ORGANIZATION_ID)==pid
     assert c.execute('SELECT lead_status FROM prospects WHERE id=?',(pid,)).fetchone()[0]=='DO_NOT_CONTACT'
     assert any(a['event_type']=='DO_NOT_CONTACT' for a in dossier(c,pid)['activities'])
     with pytest.raises(HTTPException):schedule(c,pid,'founder@example.com',now())
 
 def test_followups_lists_and_notes(workspace):
     c,_,pid,_,_=workspace;due=(datetime.now(timezone.utc)+timedelta(days=3)).isoformat();fid=schedule(c,pid,'founder@example.com',due)
-    c.execute('INSERT INTO lead_lists VALUES(?,?,?,?,?,?)',('test-list','Priority','','founder@example.com',now(),now()))
+    c.execute('INSERT INTO lead_lists(id,name,description,created_by,created_at,updated_at,organization_id) VALUES(?,?,?,?,?,?,?)',('test-list','Priority','','founder@example.com',now(),now(),PLANEBYTE_ORGANIZATION_ID))
     member(c,pid,'test-list','founder@example.com');member(c,pid,'test-list','founder@example.com')
     ProspectRepository(c).add_note(pid,'founder@example.com','Acceptance fixture')
     data=dossier(c,pid);assert len(data['lists'])==1 and data['followups'][0]['id']==fid

@@ -13,9 +13,9 @@ class ConfirmDeletion(BaseModel):
     preview_token:str=Field(pattern='^[0-9a-f]{64}$')
 
 @router.get('/{kind}/{identifier}/preview')
-def deletion_preview(kind:Kind,identifier:str,conn=Depends(get_db)):
-    return preview(conn,kind,identifier)
+def deletion_preview(kind:Kind,identifier:str,request:Request,conn=Depends(get_db,scope='function')):
+    return preview(conn,kind,identifier,organization=request.state.organization_id)
 
 @router.delete('/{kind}/{identifier}')
-def permanently_delete(kind:Kind,identifier:str,body:ConfirmDeletion,request:Request,conn=Depends(get_db)):
-    return delete(conn,kind,identifier,body.confirmation,body.preview_token,request.state.user_email)
+def permanently_delete(kind:Kind,identifier:str,body:ConfirmDeletion,request:Request,conn=Depends(get_db,scope='function')):
+    return delete(conn,kind,identifier,body.confirmation,body.preview_token,request.state.user_email,organization=request.state.organization_id)

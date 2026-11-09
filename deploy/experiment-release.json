@@ -1,0 +1,30 @@
+{
+  "build_id": "1ef3a6cb-7cd1-4ecc-b7d8-4b81985e5e7f",
+  "api_image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:experiment-20261102-r17",
+  "maps_image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:experiment-20261102-r17",
+  "source_image": "asia-south1-docker.pkg.dev/querryside/leadengine/acquisition:experiment-20261102-r17",
+  "previous_api_revision": "leadengine-api-00051-5b6",
+  "previous_maps_image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:source-policy-20261102-r9",
+  "previous_source_image": "asia-south1-docker.pkg.dev/querryside/leadengine/acquisition:source-policy-20261102-r12",
+  "schema_before": 13,
+  "backup": "/Users/planebyte/Documents/Projects/planebyte-leadgen/data/backups/experiment-schema13-20261102T152525Z.zip",
+  "rollback_schema": "experiment_rollback_20261102t152525z",
+  "experiment_activated": false,
+  "staged_api_revision": "leadengine-api-00099-rox",
+  "staged_url": "https://experiment---leadengine-api-befca7xg4a-el.a.run.app",
+  "leadengine-worker": {
+    "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:experiment-20261102-r17",
+    "existing_environment_preserved": true,
+    "resources_preserved": true,
+    "no_execution_cancelled": true
+  },
+  "leadengine-acquisition": {
+    "image": "asia-south1-docker.pkg.dev/querryside/leadengine/acquisition:experiment-20261102-r17",
+    "existing_environment_preserved": true,
+    "resources_preserved": true,
+    "no_execution_cancelled": true
+  },
+  "promoted_revision": "leadengine-api-00099-rox",
+  "schema_after": 14,
+  "existing_controls_preserved": true
+}

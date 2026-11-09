@@ -1,0 +1,19 @@
+{
+  "/api/health": {
+    "status": 200
+  },
+  "/api/email/intro-analytics": {
+    "status": 200
+  },
+  "/api/email/company-pdf/v1": {
+    "status": 200,
+    "exact_shared_asset": true
+  },
+  "/api/email/account": {
+    "status": 200
+  },
+  "/api/automation/summary": {
+    "status": 200,
+    "paused": true
+  }
+}

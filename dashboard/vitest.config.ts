@@ -6,7 +6,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: "./test-setup.ts",
-    exclude: ["e2e/**", "brand-e2e/**", "node_modules/**", ".next/**"],
+    exclude: ["gmail-e2e/**", "admission-e2e/**", "sheet-export-e2e/**", "developer-e2e/**", "e2e/**", "auth-e2e/**", "workspace-e2e/**", "preview-e2e/**", "integration-e2e/**", "brand-e2e/**", "node_modules/**", ".next/**"],
   },
   resolve: {
     alias: {

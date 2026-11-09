@@ -1,0 +1,18 @@
+{
+  "schema": 15,
+  "before": {
+    "prospects": 2125,
+    "email_messages": 33,
+    "scan_campaigns": 19,
+    "email_address_suppressions": 0,
+    "users": 1
+  },
+  "after": {
+    "prospects": 2125,
+    "email_messages": 33,
+    "scan_campaigns": 19,
+    "email_address_suppressions": 0,
+    "users": 1
+  },
+  "no_existing_rows_deleted": true
+}

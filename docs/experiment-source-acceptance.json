@@ -1,0 +1,38 @@
+{
+  "overture_run_id": "acad8b83-762f-4a55-ad16-8d79b9d5251d",
+  "configuration": {
+    "request_id": "9d0fc749-30f8-4a23-a4c7-7962ad6a46cf",
+    "name": "Owner QA \u00b7 Experiment Overture five-lead check",
+    "kind": "SCAN",
+    "scan_source": "OVERTURE",
+    "target": 5,
+    "countries": [
+      "United States"
+    ],
+    "cities": [
+      "Miami"
+    ],
+    "verticals": [
+      "hospitality"
+    ],
+    "max_candidates": 100,
+    "deep_audit_budget": 12,
+    "lighthouse_budget": 0,
+    "max_runtime_seconds": 600,
+    "qualification_mode": "BALANCED",
+    "rotate_locations": false,
+    "rotate_verticals": false,
+    "email_all_eligible": false
+  },
+  "no_outreach": true,
+  "status": "PASSED",
+  "scan_id": 47,
+  "qualified": 6,
+  "email_valid": 6,
+  "analyzed": 6,
+  "no_email_deep_analysis": 0,
+  "workflow_status": "COMPLETED",
+  "controlled_outbound_messages": 0,
+  "existing_firecrawl_five_job": "c6d73a83-ac92-4eba-af66-700535118a60",
+  "no_real_prospect_contacted": true
+}

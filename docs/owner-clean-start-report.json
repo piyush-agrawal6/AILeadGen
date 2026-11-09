@@ -1,0 +1,23 @@
+{
+  "business": {
+    "id": 2,
+    "prospect_id": "a0cda101-9f06-4337-8974-fb1f17d5bb8e",
+    "name": "Homestay Hotels"
+  },
+  "report": {
+    "id": "96200082-d2a1-417f-b444-f7deab91eb09",
+    "prospect_id": "a0cda101-9f06-4337-8974-fb1f17d5bb8e",
+    "business_id": 2,
+    "created_at": "2026-11-01T15:19:51.676959+00:00",
+    "created_by": "planebyte@gmail.com",
+    "version": 1,
+    "status": "QUEUED"
+  },
+  "status": "READY",
+  "path": "/Users/planebyte/Documents/Projects/planebyte-leadgen/output/pdf/PlaneByte digital review.pdf",
+  "size_bytes": 1305211,
+  "sha256": "3ac653031194b7b990b7571a1150c05d90848927003b67c570ac1b5354ba0b14",
+  "visual_review_passed": true,
+  "pages": 10,
+  "normal_production_generator": true
+}

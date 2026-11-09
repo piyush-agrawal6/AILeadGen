@@ -10,14 +10,14 @@ class CampaignCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     cities: list[str] = Field(min_length=1, max_length=10)
     verticals: list[str] = Field(min_length=1, max_length=8)
-    opportunities: list[Opportunity] = Field(default_factory=lambda: ["WEBSITE", "SEO", "SECURITY"], min_length=1, max_length=3)
+    opportunities: list[Opportunity] = Field(default_factory=list, max_length=3,deprecated=True)
     quality: Literal["maximum_volume", "balanced", "high_intent"] = "balanced"
     business_scales: list[Literal["LOCAL", "SMALL_GROUP", "MID_MARKET", "REGIONAL", "ENTERPRISE", "KNOWN_CHAIN"]] = Field(default_factory=lambda: ["LOCAL", "SMALL_GROUP","MID_MARKET"], min_length=1, max_length=6)
     social_enrichment_enabled: bool = True
     social_activity_enabled: bool = True
     results: Literal["new", "include_previous", "all"] = "new"
     target: int = Field(default=250, ge=5, le=1000)
-    lighthouse_enabled: bool = True
+    lighthouse_enabled: bool = Field(False,deprecated=True)
     fixture: bool = False
     request_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
 

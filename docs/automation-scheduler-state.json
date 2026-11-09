@@ -1,0 +1,329 @@
+{
+  "schedules": [
+    {
+      "name": "leadengine-email-sync",
+      "state": "PAUSED",
+      "schedule": "*/10 * * * *",
+      "last_attempt": null,
+      "status_code": -1
+    },
+    {
+      "name": "leadengine-hourly-outreach",
+      "state": "PAUSED",
+      "schedule": "* * * * *",
+      "last_attempt": "2026-11-01T11:58:33.530625Z",
+      "status_code": -1
+    },
+    {
+      "name": "leadengine-daily-acquisition",
+      "state": "PAUSED",
+      "schedule": "*/10 * * * *",
+      "last_attempt": "2026-11-01T11:58:26.933390Z",
+      "status_code": -1
+    },
+    {
+      "name": "leadengine-inbox-sync",
+      "state": "ENABLED",
+      "schedule": "*/5 * * * *",
+      "last_attempt": "2026-11-01T14:25:02.329738Z",
+      "status_code": 0
+    }
+  ],
+  "executions": [
+    {
+      "name": "leadengine-worker-wnzz7",
+      "created": "2026-11-01T14:25:02.388636Z",
+      "mode": "inbox-sync",
+      "succeeded": 0,
+      "failed": 0,
+      "conditions": [
+        {
+          "type": "Completed",
+          "status": "Unknown",
+          "reason": null
+        },
+        {
+          "type": "ResourcesAvailable",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "Started",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ContainerReady",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "Retry",
+          "status": "True",
+          "reason": "WaitingForOperation"
+        }
+      ]
+    },
+    {
+      "name": "leadengine-worker-h72k8",
+      "created": "2026-11-01T14:20:02.386839Z",
+      "mode": "inbox-sync",
+      "succeeded": 1,
+      "failed": 0,
+      "conditions": [
+        {
+          "type": "Completed",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ResourcesAvailable",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "Started",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ContainerReady",
+          "status": "True",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "name": "leadengine-worker-c6tds",
+      "created": "2026-11-01T14:15:02.459723Z",
+      "mode": "inbox-sync",
+      "succeeded": 1,
+      "failed": 0,
+      "conditions": [
+        {
+          "type": "Completed",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ResourcesAvailable",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "Started",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ContainerReady",
+          "status": "True",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "name": "leadengine-worker-v22x2",
+      "created": "2026-11-01T14:10:02.444918Z",
+      "mode": "inbox-sync",
+      "succeeded": 1,
+      "failed": 0,
+      "conditions": [
+        {
+          "type": "Completed",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ResourcesAvailable",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "Started",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ContainerReady",
+          "status": "True",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "name": "leadengine-worker-mn7jw",
+      "created": "2026-11-01T14:05:02.321580Z",
+      "mode": "inbox-sync",
+      "succeeded": 1,
+      "failed": 0,
+      "conditions": [
+        {
+          "type": "Completed",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ResourcesAvailable",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "Started",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ContainerReady",
+          "status": "True",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "name": "leadengine-worker-ckrxc",
+      "created": "2026-11-01T14:00:02.290829Z",
+      "mode": "inbox-sync",
+      "succeeded": 1,
+      "failed": 0,
+      "conditions": [
+        {
+          "type": "Completed",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ResourcesAvailable",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "Started",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ContainerReady",
+          "status": "True",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "name": "leadengine-worker-4h869",
+      "created": "2026-11-01T13:55:02.464351Z",
+      "mode": "inbox-sync",
+      "succeeded": 1,
+      "failed": 0,
+      "conditions": [
+        {
+          "type": "Completed",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ResourcesAvailable",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "Started",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ContainerReady",
+          "status": "True",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "name": "leadengine-worker-hpsqr",
+      "created": "2026-11-01T13:50:02.476083Z",
+      "mode": "inbox-sync",
+      "succeeded": 1,
+      "failed": 0,
+      "conditions": [
+        {
+          "type": "Completed",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ResourcesAvailable",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "Started",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ContainerReady",
+          "status": "True",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "name": "leadengine-worker-4strt",
+      "created": "2026-11-01T13:45:02.443871Z",
+      "mode": "inbox-sync",
+      "succeeded": 1,
+      "failed": 0,
+      "conditions": [
+        {
+          "type": "Completed",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ResourcesAvailable",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "Started",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ContainerReady",
+          "status": "True",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "name": "leadengine-worker-6smpk",
+      "created": "2026-11-01T13:40:02.525906Z",
+      "mode": "inbox-sync",
+      "succeeded": 1,
+      "failed": 0,
+      "conditions": [
+        {
+          "type": "Completed",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ResourcesAvailable",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "Started",
+          "status": "True",
+          "reason": null
+        },
+        {
+          "type": "ContainerReady",
+          "status": "True",
+          "reason": null
+        }
+      ]
+    }
+  ]
+}

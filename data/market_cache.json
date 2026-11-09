@@ -14,5 +14,36 @@
     "center_lat": 32.4115459,
     "center_lon": -94.8160435,
     "cached": false
+  },
+  "bristol, united kingdom": {
+    "query": "Bristol, United Kingdom",
+    "city": "City of Bristol",
+    "state": "England",
+    "country": "United Kingdom",
+    "country_code": "GB",
+    "bbox": {
+      "min_lat": 51.3416261,
+      "min_lon": -3.1178243,
+      "max_lat": 51.5444317,
+      "max_lon": -2.5104192
+    },
+    "center_lat": 51.4430141,
+    "center_lon": -2.5816622
+  },
+  "london, united kingdom": {
+    "query": "London, United Kingdom",
+    "city": "Greater London",
+    "state": "England",
+    "country": "United Kingdom",
+    "country_code": "GB",
+    "bbox": {
+      "min_lat": 51.2867601,
+      "min_lon": -0.5103751,
+      "max_lat": 51.6918741,
+      "max_lon": 0.3340155
+    },
+    "center_lat": 51.5074456,
+    "center_lon": -0.1277653,
+    "cached": false
   }
 }

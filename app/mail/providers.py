@@ -1,5 +1,5 @@
 """Verified Hostinger SMTP/IMAP only; no discovery, POP3 or credential logging."""
-import imaplib,smtplib,ssl,re,time
+import imaplib,smtplib,ssl,re,time,hashlib
 from datetime import datetime,timezone,timedelta
 from email import policy
 from email.parser import BytesParser
@@ -13,6 +13,53 @@ class EmailProvider(Protocol):
     def send_message(self,message):...
     def sync_messages(self,known_ids,cursor):...
     def health_check(self):...
+
+def parse_incoming(content,known_ids,automatic_refs=()):
+    """Shared bounded MIME parser; persist only messages linked to owned outbound IDs."""
+    if not isinstance(content,bytes) or len(content)>524288:return None
+    parsed=BytesParser(policy=policy.default).parsebytes(content)
+    refs=set(re.findall(r'<[^<>\s]+>',str(parsed.get('In-Reply-To',''))+' '+str(parsed.get('References',''))))
+    common={'message_id':str(parsed.get('Message-ID','')),'from':str(parsed.get('From','')),'to':str(parsed.get('To','')),
+        'date':str(parsed.get('Date','')),'authentication':str(parsed.get('Authentication-Results',''))}
+    if parsed.get_content_type()=='multipart/report' and parsed.get_param('report-type')=='delivery-status':
+        from app.mail.bounces import parse_dsn
+        dsn=parse_dsn(parsed)
+        return {**dsn,**common} if dsn and set(dsn['references']).intersection(known_ids) else None
+    if not refs.intersection(known_ids):return None
+    automatic=str(parsed.get('Auto-Submitted','no')).lower()!='no'
+    if automatic and not refs.intersection(set(automatic_refs)):return None
+    body=parsed.get_body(preferencelist=('plain','html')) if parsed.is_multipart() else parsed
+    text=''
+    if body:
+        try:text=body.get_content()
+        except Exception:text='Message text unavailable.'
+        if body.get_content_type()=='text/html':
+            soup=BeautifulSoup(text,'html.parser')
+            for node in soup(['script','style','iframe','object']):node.decompose()
+            text=soup.get_text(' ',strip=True)
+    return {**common,'subject':str(parsed.get('Subject',''))[:300],'references':list(refs),'in_reply_to':str(parsed.get('In-Reply-To','')),
+        'body_text':str(text)[:20000],'automatic':automatic}
+
+def special_use_folder(client,flag):
+    """Read server-assigned RFC 6154 flags; preserve IMAP UTF-7 wire names."""
+    status,rows=client.list()
+    if status!='OK':raise RuntimeError('IMAP_FOLDER_LIST_FAILED')
+    for item in (rows or [])[:1000]:
+        literal=None
+        if isinstance(item,tuple):raw,literal=item
+        else:raw=item
+        if not isinstance(raw,bytes) or len(raw)>8192:continue
+        match=re.fullmatch(rb'\((.*?)\)\s+(?:"(?:[^"\\]|\\.)*"|NIL)\s+(.+)',raw)
+        if not match or flag.lower().encode() not in match[1].lower().split():continue
+        name=match[2]
+        if literal is not None:
+            if not re.fullmatch(rb'\{[0-9]+\}',name) or len(literal)>4096:continue
+            name=b'"'+literal.replace(b'\\',b'\\\\').replace(b'"',b'\\"')+b'"'
+        if b'\r' in name or b'\n' in name or len(name)>4096:continue
+        if not (re.fullmatch(rb'"(?:[^"\\]|\\.)*"',name) or re.fullmatch(rb'[^ (){}%*"\\]+',name)):continue
+        try:return name.decode('ascii')
+        except UnicodeDecodeError:continue
+    raise RuntimeError('IMAP_SPECIAL_USE_UNAVAILABLE')
 
 class HostingerEmailProvider:
     def __init__(self,settings=None):
@@ -51,6 +98,14 @@ class HostingerEmailProvider:
             except Exception:result[name]='UNAVAILABLE'
         return result
     def send_message(self,message):
+        import os
+        from app.config.settings import get_settings
+        if get_settings().app_env=='development' and os.environ.get('HEYSOW_LOCAL_PREVIEW')=='true':
+            from email.utils import getaddresses
+            recipients=getaddresses(message.get_all('To',[]))
+            if (not self.settings.sending_enabled or self.settings.mode!='test' or not self.settings.test_recipient
+                or len(recipients)!=1 or recipients[0][1].lower()!=self.settings.test_recipient.lower()):
+                raise SendFailed('LOCAL_CONTROLLED_RECIPIENT_REQUIRED')
         try:client=self.smtp()
         except Exception:raise SendFailed('SMTP_CONNECTION_FAILED') from None
         try:
@@ -63,12 +118,16 @@ class HostingerEmailProvider:
             try:client.quit()
             except Exception:client.close()
         return str(message['Message-ID'])
+    def sync_mailbox(self,client):return 'INBOX'
+    def sent_mailbox(self,client):return special_use_folder(client,r'\Sent')
     def sync_messages(self,known_ids,cursor):
         client=self.imap();messages=[]
         try:
-            status,_=client.select('INBOX',readonly=True)
+            folder=self.sync_mailbox(client)
+            status,_=client.select(folder,readonly=True)
             if status!='OK':raise RuntimeError('IMAP_INBOX_UNAVAILABLE')
             validity=(client.response('UIDVALIDITY')[1] or [b''])[0].decode('ascii',errors='ignore')
+            if self.settings.provider=='gmail':validity=hashlib.sha256((folder+'|'+validity).encode()).hexdigest()
             last=cursor.get('last_uid',0) if cursor.get('uidvalidity')==validity else 0
             since=(datetime.now(timezone.utc)-timedelta(days=self.settings.initial_days)).strftime('%d-%b-%Y')
             status,data=client.uid('search',None,'SINCE',since)
@@ -91,35 +150,25 @@ class HostingerEmailProvider:
                 if status!='OK':raise RuntimeError('IMAP_BODY_FAILED')
                 content=b''.join(x[1] for x in parts if isinstance(x,tuple))
                 if len(content)>524288:continue
-                parsed=BytesParser(policy=policy.default).parsebytes(content)
-                if is_dsn:
-                    from app.mail.bounces import parse_dsn
-                    dsn=parse_dsn(parsed)
-                    if dsn:messages.append({**dsn,'message_id':str(parsed.get('Message-ID','')),'from':str(parsed.get('From','')),'to':str(parsed.get('To','')),'date':str(parsed.get('Date','')),'authentication':str(parsed.get('Authentication-Results',''))})
-                    continue
-                if str(parsed.get('Auto-Submitted','no')).lower()!='no':continue
-                body=parsed.get_body(preferencelist=('plain','html')) if parsed.is_multipart() else parsed
-                text=''
-                if body:
-                    try:text=body.get_content()
-                    except Exception:text='Message text unavailable.'
-                    if body.get_content_type()=='text/html':
-                        soup=BeautifulSoup(text,'html.parser')
-                        for node in soup(['script','style','iframe','object']):node.decompose()
-                        text=soup.get_text(' ',strip=True)
-                messages.append({'message_id':str(parsed.get('Message-ID','')),'from':str(parsed.get('From','')),'to':str(parsed.get('To','')),'subject':str(parsed.get('Subject',''))[:300],'references':list(refs),'in_reply_to':str(parsed.get('In-Reply-To','')),'body_text':str(text)[:20000],'date':str(parsed.get('Date','')),'authentication':str(parsed.get('Authentication-Results',''))})
+                incoming=parse_incoming(content,known_ids,cursor.get('experiment_auto_refs',[]))
+                if incoming:messages.append(incoming)
             return messages,{'uidvalidity':validity,'last_uid':last}
         finally:
             try:client.logout()
             except Exception:pass
 
-class GmailEmailProvider:
-    """Optional future OAuth adapter; never accepts mailbox passwords."""
-    def health_check(self):return {'status':'NOT_CONFIGURED','reason':'Optional Gmail OAuth is not enabled.'}
-    def send_message(self,message):raise SendFailed('GMAIL_NOT_CONFIGURED')
-    def sync_messages(self,known_ids,cursor):return [],cursor
+class GmailEmailProvider(HostingerEmailProvider):
+    """Gmail app-password TLS transport using the existing bounded sync/parser."""
+    def sync_mailbox(self,client):return special_use_folder(client,r'\All')
+    def __init__(self,settings=None):
+        self.settings=settings or mail_settings();s=self.settings
+        if (s.smtp_host,s.smtp_port,s.smtp_secure,s.imap_host,s.imap_port,s.imap_secure)!=('smtp.gmail.com',465,True,'imap.gmail.com',993,True):
+            raise ValueError('Gmail requires the configured implicit TLS endpoints.')
+        if not s.password.get_secret_value():raise ValueError('Mailbox secret is not configured.')
+        if s.username.lower()!=s.from_address.lower():raise ValueError('Gmail sender must match the authenticated mailbox.')
 
 def provider():
     settings=mail_settings()
-    if settings.provider!='hostinger':raise ValueError('Only the configured Hostinger provider is enabled.')
-    return HostingerEmailProvider(settings)
+    if settings.provider=='gmail':return GmailEmailProvider(settings)
+    if settings.provider=='hostinger':return HostingerEmailProvider(settings)
+    raise ValueError('Unsupported email provider')

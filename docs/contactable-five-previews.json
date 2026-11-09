@@ -1,0 +1,47 @@
+[
+  {
+    "template_id": "PB_INTRO_01",
+    "subject": "A quick introduction from PlaneByte",
+    "company": "Queen Square Dental Clinic",
+    "html_preview": true,
+    "text_preview": true,
+    "pdf_version": "v1",
+    "valid": true
+  },
+  {
+    "template_id": "PB_INTRO_02",
+    "subject": "Software, maintenance & technical support \u2014 PlaneByte",
+    "company": "Queen Square Dental Clinic",
+    "html_preview": true,
+    "text_preview": true,
+    "pdf_version": "v1",
+    "valid": true
+  },
+  {
+    "template_id": "PB_INTRO_03",
+    "subject": "Development + search visibility for Queen Square Dental Clinic",
+    "company": "Queen Square Dental Clinic",
+    "html_preview": true,
+    "text_preview": true,
+    "pdf_version": "v1",
+    "valid": true
+  },
+  {
+    "template_id": "PB_INTRO_04",
+    "subject": "Software engineering & cybersecurity \u2014 PlaneByte",
+    "company": "Queen Square Dental Clinic",
+    "html_preview": true,
+    "text_preview": true,
+    "pdf_version": "v1",
+    "valid": true
+  },
+  {
+    "template_id": "PB_INTRO_05",
+    "subject": "A technology partner for Queen Square Dental Clinic",
+    "company": "Queen Square Dental Clinic",
+    "html_preview": true,
+    "text_preview": true,
+    "pdf_version": "v1",
+    "valid": true
+  }
+]

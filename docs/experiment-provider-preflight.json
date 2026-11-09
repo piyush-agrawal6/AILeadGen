@@ -1,0 +1,14 @@
+{
+  "provider_preflight_at": "2026-11-02T15:31:52.717398+00:00",
+  "provider_sent_count": 0,
+  "untracked_sent_at": [],
+  "provider_capacity_verified": true,
+  "health": {
+    "smtp": "READY",
+    "imap": "READY"
+  },
+  "provider": "gmail",
+  "sender": "PlaneByte <planebyte@gmail.com>",
+  "published_ceiling": 500,
+  "no_quota_api": true
+}

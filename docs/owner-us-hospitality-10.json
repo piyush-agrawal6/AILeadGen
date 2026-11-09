@@ -1,0 +1,160 @@
+{
+  "request_id": "98f9181e-375a-44ab-ad33-a6c25abefd56",
+  "created_at": "2026-11-01T18:32:53.248705+00:00",
+  "owner_request": "Start now: one-time scan + outreach; 10 qualified leads; United States; hospitality",
+  "activation_approval_pending": false,
+  "owner_activation_approval": "Yes\u2014activate this one-time campaign",
+  "approval_received_at": "2026-11-01T18:32:53.249061+00:00",
+  "schedule_id": "2dbe293a-42d3-454f-a2ee-107a872a4bed",
+  "schedule_configuration": {
+    "name": "US Hospitality \u00b7 10 qualified \u00b7 Owner one-time",
+    "configuration": {
+      "request_id": "98f9181e-375a-44ab-ad33-a6c25abefd56",
+      "name": "US Hospitality \u00b7 10 qualified \u00b7 Owner one-time",
+      "kind": "COMBINED",
+      "target": 10,
+      "countries": [
+        "United States"
+      ],
+      "cities": [],
+      "verticals": [
+        "hospitality"
+      ],
+      "opportunities": [
+        "WEBSITE",
+        "SEO",
+        "SECURITY"
+      ],
+      "business_scales": [
+        "LOCAL",
+        "SMALL_GROUP",
+        "MID_MARKET"
+      ],
+      "commercial_fit": [
+        "HIGH",
+        "MEDIUM"
+      ],
+      "rotate_locations": true,
+      "rotate_verticals": true,
+      "campaign_id": null,
+      "pitch_types": [
+        "WEBSITE",
+        "SEO",
+        "SECURITY"
+      ],
+      "outreach_mode": "UNCONTACTED",
+      "confirm_recontact": false,
+      "email_all_eligible": true,
+      "needs_owner_review": false,
+      "minimum_score": 0,
+      "filters": {
+        "country": "",
+        "city": "",
+        "vertical": "",
+        "commercial_fit": "",
+        "opportunity": "",
+        "email_availability": "yes",
+        "discovered_from": "",
+        "discovered_to": ""
+      },
+      "max_hour": 5,
+      "max_day": 10,
+      "spacing_minutes": 12,
+      "window_start": "09:00",
+      "window_end": "17:00",
+      "recipient_timezone": true
+    },
+    "enabled": false,
+    "timezone": "America/New_York",
+    "frequency": "once",
+    "cron_expression": null,
+    "start_at": "2026-11-01T18:32:57.711701+00:00"
+  },
+  "activation": {
+    "worker": {
+      "settings": {
+        "AUTO_SCAN_ENABLED": "true",
+        "AUTO_EMAIL_ENABLED": "true",
+        "EMAIL_SENDING_ENABLED": "true",
+        "EMAIL_SEND_MODE": "production",
+        "EMAIL_LIVE_APPROVED": "true"
+      },
+      "gmail_secret_reference_preserved": true,
+      "other_environment_preserved": true
+    },
+    "api": {
+      "settings": {
+        "AUTO_SCAN_ENABLED": "true",
+        "AUTO_EMAIL_ENABLED": "true",
+        "EMAIL_SENDING_ENABLED": "true",
+        "EMAIL_SEND_MODE": "production",
+        "EMAIL_LIVE_APPROVED": "true"
+      },
+      "gmail_secret_reference_preserved": true,
+      "other_environment_preserved": true
+    }
+  },
+  "api_revision": "leadengine-api-00030-dtb",
+  "root_env_synchronized": true,
+  "dispatch_requested_at": "2026-11-01T18:37:20.278218+00:00",
+  "scheduler_triggered_at": "2026-11-01T18:37:31.592925+00:00",
+  "latest_execution": {
+    "schedule": {
+      "id": "2dbe293a-42d3-454f-a2ee-107a872a4bed",
+      "name": "US Hospitality \u00b7 10 qualified \u00b7 Owner one-time",
+      "enabled": 1,
+      "frequency": "once",
+      "next_run_at": null,
+      "last_run_at": "2026-11-01T18:37:44.697882+00:00"
+    },
+    "runs": [
+      {
+        "id": "b7c90303-948b-4fcb-a74e-c9b4260c905a",
+        "name": "US Hospitality \u00b7 10 qualified \u00b7 Owner one-time",
+        "kind": "COMBINED",
+        "status": "RUNNING",
+        "requested": 10,
+        "result_count": 0,
+        "scan_run_id": 3,
+        "campaign_id": "b7c90303-948b-4fcb-a74e-c9b4260c905a",
+        "error": null,
+        "created_at": "2026-11-01T18:37:46.422366+00:00"
+      }
+    ],
+    "scans": [
+      {
+        "id": 3,
+        "market": "Seattle, United States",
+        "vertical": "hospitality",
+        "status": "RUNNING",
+        "raw_found": 198,
+        "websites_processed": 0,
+        "qualified": 0,
+        "execution_name": "projects/querryside/locations/asia-south1/operations/c63528c9-8af5-4c3e-b1f4-b303a3734bf2",
+        "error_message": null,
+        "stage": {
+          "stage": "IDENTITY",
+          "message": "Saved 20 of 125 canonical observations"
+        }
+      }
+    ],
+    "controls": {
+      "scan_paused": 0,
+      "email_paused": 0,
+      "pause_reason": null
+    }
+  },
+  "run_id": "b7c90303-948b-4fcb-a74e-c9b4260c905a",
+  "gmail_health": {
+    "smtp": "READY",
+    "imap": "READY",
+    "test_email_sent": false,
+    "mac_ca_bundle": "certifi"
+  },
+  "monitor_url": "https://leads.planebyte.com/runs/b7c90303-948b-4fcb-a74e-c9b4260c905a",
+  "status": "STARTED",
+  "deployed_api_monitor_verified": {
+    "http": 200,
+    "workflow_status": "RUNNING"
+  }
+}

@@ -1,6 +1,6 @@
 import json,uuid
 from datetime import datetime,timezone
-from typing import Literal
+from typing import Literal,Annotated
 from zoneinfo import ZoneInfo,ZoneInfoNotFoundError
 from fastapi import APIRouter,Depends,HTTPException,Request,Query
 from pydantic import BaseModel,ConfigDict,Field,field_validator
@@ -26,9 +26,7 @@ class FollowupUpdate(Strict):
     due_at:str|None=Field(default=None,max_length=60)
     status:Literal['COMPLETED','CANCELED']|None=None
     _date=field_validator('due_at')(utc_date)
-class Named(Strict):
-    name:str=Field(min_length=1,max_length=100)
-    description:str=Field(default='',max_length=1000)
+from app.sales.collections import Named
 class Filters(Strict):
     search:str=Field(default='',max_length=200)
     country:str=Field(default='',max_length=100)
@@ -93,81 +91,124 @@ def assignment(value):
     if value and value not in get_settings().allowed_emails:raise HTTPException(422,'Choose an approved team member.')
 
 @router.get('/leads/{lead_id}')
-def lead_sales(lead_id:int,request:Request,conn=Depends(get_db)):
-    pid=require_prospect(conn,lead_id,request.state.user_email);return dossier(conn,pid)
+def lead_sales(lead_id:int,request:Request,conn=Depends(get_db,scope='function')):
+    organization=request.state.organization_id;pid=require_prospect(conn,lead_id,request.state.user_email,organization=organization);return dossier(conn,pid,organization=organization)
 
 @router.patch('/leads/{lead_id}')
-def update_deal(lead_id:int,body:Deal,request:Request,conn=Depends(get_db)):
-    pid=require_prospect(conn,lead_id,request.state.user_email);from app.sales.service import ensure;ensure(conn,pid)
+def update_deal(lead_id:int,body:Deal,request:Request,conn=Depends(get_db,scope='function')):
+    organization=request.state.organization_id;pid=require_prospect(conn,lead_id,request.state.user_email,organization=organization);from app.sales.service import ensure;ensure(conn,pid,organization)
     values=body.model_dump(exclude_unset=True)
-    if values:conn.execute('UPDATE prospect_sales SET '+','.join(k+'=?' for k in values)+' WHERE prospect_id=?',[*values.values(),pid])
-    if values.get('meeting_at'):activity(conn,pid,request.state.user_email,'MEETING_SCHEDULED',{'meeting_at':values['meeting_at']})
-    if values.get('proposal_at') or values.get('proposal_value') is not None:activity(conn,pid,request.state.user_email,'PROPOSAL_SET',values)
-    return dossier(conn,pid)
+    if values:conn.execute('UPDATE prospect_sales SET '+','.join(k+'=?' for k in values)+' WHERE prospect_id=? AND organization_id=?',[*values.values(),pid,organization])
+    if values.get('meeting_at'):activity(conn,pid,request.state.user_email,'MEETING_SCHEDULED',{'meeting_at':values['meeting_at']},organization=organization)
+    if values.get('proposal_at') or values.get('proposal_value') is not None:activity(conn,pid,request.state.user_email,'PROPOSAL_SET',values,organization=organization)
+    return dossier(conn,pid,organization=organization)
 
 @router.post('/leads/{lead_id}/followups',status_code=201)
-def add_followup(lead_id:int,body:Followup,request:Request,conn=Depends(get_db)):
-    pid=require_prospect(conn,lead_id,request.state.user_email);assignment(body.assigned_to)
-    return {'id':schedule(conn,pid,request.state.user_email,body.due_at,body.note,body.assigned_to)}
+def add_followup(lead_id:int,body:Followup,request:Request,conn=Depends(get_db,scope='function')):
+    organization=request.state.organization_id;pid=require_prospect(conn,lead_id,request.state.user_email,organization=organization);assignment(body.assigned_to)
+    return {'id':schedule(conn,pid,request.state.user_email,body.due_at,body.note,body.assigned_to,organization=organization)}
 
 @router.patch('/leads/{lead_id}/followups/{followup_id}')
-def change_followup(lead_id:int,followup_id:str,body:FollowupUpdate,request:Request,conn=Depends(get_db)):
-    pid=require_prospect(conn,lead_id,request.state.user_email)
-    if not conn.execute('SELECT 1 FROM followups WHERE id=? AND prospect_id=?',(followup_id,pid)).fetchone():raise HTTPException(404,'Follow-up not found.')
+def change_followup(lead_id:int,followup_id:str,body:FollowupUpdate,request:Request,conn=Depends(get_db,scope='function')):
+    organization=request.state.organization_id;pid=require_prospect(conn,lead_id,request.state.user_email,organization=organization)
+    if not conn.execute('SELECT 1 FROM followups WHERE id=? AND prospect_id=? AND organization_id=?',(followup_id,pid,organization)).fetchone():raise HTTPException(404,'Follow-up not found.')
     if body.due_at:
-        if suppressed(conn,pid):raise HTTPException(409,'This prospect is marked Do Not Contact.')
+        if suppressed(conn,pid,organization):raise HTTPException(409,'This prospect is marked Do Not Contact.')
         value=datetime.fromisoformat(body.due_at.replace('Z','+00:00'))
         if value.tzinfo is None:raise HTTPException(422,'Timezone required.')
-        conn.execute("UPDATE followups SET due_at=?,status='OPEN',completed_at=NULL WHERE id=?",(value.astimezone(timezone.utc).isoformat(),followup_id));activity(conn,pid,request.state.user_email,'FOLLOW_UP_CREATED',{'rescheduled':followup_id,'due_at':body.due_at})
+        conn.execute("UPDATE followups SET due_at=?,status='OPEN',completed_at=NULL WHERE id=? AND organization_id=?",(value.astimezone(timezone.utc).isoformat(),followup_id,organization));activity(conn,pid,request.state.user_email,'FOLLOW_UP_CREATED',{'rescheduled':followup_id,'due_at':body.due_at},organization=organization)
     if body.status:
-        conn.execute('UPDATE followups SET status=?,completed_at=? WHERE id=?',(body.status,now(),followup_id));activity(conn,pid,request.state.user_email,'FOLLOW_UP_COMPLETED',{'id':followup_id,'status':body.status})
-    return dossier(conn,pid)
+        conn.execute('UPDATE followups SET status=?,completed_at=? WHERE id=? AND organization_id=?',(body.status,now(),followup_id,organization));activity(conn,pid,request.state.user_email,'FOLLOW_UP_COMPLETED',{'id':followup_id,'status':body.status},organization=organization)
+    return dossier(conn,pid,organization=organization)
 
 @router.post('/leads/{lead_id}/unsuppress')
-def unsuppress(lead_id:int,request:Request,confirmation:str=Query(...,pattern='^ALLOW CONTACT$'),conn=Depends(get_db)):
-    pid=require_prospect(conn,lead_id,request.state.user_email);conn.execute('UPDATE prospect_sales SET suppressed_at=NULL,suppression_source=NULL WHERE prospect_id=?',(pid,));ProspectRepository(conn).workflow(pid,request.state.user_email,lead_status='NEW');activity(conn,pid,request.state.user_email,'SUPPRESSION_CLEARED');return dossier(conn,pid)
+def unsuppress(lead_id:int,request:Request,confirmation:str=Query(...,pattern='^ALLOW CONTACT$'),conn=Depends(get_db,scope='function')):
+    organization=request.state.organization_id;pid=require_prospect(conn,lead_id,request.state.user_email,organization=organization);conn.execute('UPDATE prospect_sales SET suppressed_at=NULL,suppression_source=NULL WHERE prospect_id=? AND organization_id=?',(pid,organization));ProspectRepository(conn).workflow(pid,request.state.user_email,lead_status='NEW',organization=organization);activity(conn,pid,request.state.user_email,'SUPPRESSION_CLEARED',organization=organization);return dossier(conn,pid,organization=organization)
 
 @router.get('/lists')
-def lists(conn=Depends(get_db)):return [dict(r) for r in conn.execute('SELECT l.*, (SELECT COUNT(*) FROM lead_list_members m WHERE m.list_id=l.id) AS member_count FROM lead_lists l ORDER BY l.name').fetchall()]
+def lists(request:Request,page:int|None=Query(None,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),search:str=Query('',max_length=200),archived:bool=False,conn=Depends(get_db,scope='function')):
+    from app.sales.collections import listing
+    result=listing(conn,search,page or 1,page_size if page else 100,archived)
+    return result if page else result['items']
 @router.post('/lists',status_code=201)
-def add_list(body:Named,request:Request,conn=Depends(get_db)):
-    key=str(uuid.uuid4());conn.execute('INSERT INTO lead_lists VALUES(?,?,?,?,?,?)',(key,body.name.strip(),body.description,request.state.user_email,now(),now()));return {'id':key}
+def add_list(body:Named,request:Request,conn=Depends(get_db,scope='function')):
+    from app.sales.collections import save
+    return save(conn,body)
 @router.delete('/lists/{list_id}')
-def remove_list(list_id:str,conn=Depends(get_db)):
-    for row in conn.execute('SELECT prospect_id FROM lead_list_members WHERE list_id=?',(list_id,)).fetchall():activity(conn,row[0],None,'LIST_REMOVED',{'list_id':list_id})
-    conn.execute('DELETE FROM lead_lists WHERE id=?',(list_id,));return {'deleted':True}
+def remove_list(list_id:str,request:Request,conn=Depends(get_db,scope='function')):
+    from app.sales.collections import get,archive
+    archive(conn,list_id,get(conn,list_id)['revision']);return {'archived':True,'history_retained':True}
+@router.get('/lists/{list_id}')
+def list_detail(list_id:str,page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),conn=Depends(get_db,scope='function')):
+    from app.sales.collections import detail
+    return detail(conn,list_id,page,page_size)
+@router.put('/lists/{list_id}')
+def edit_list(list_id:str,body:Named,conn=Depends(get_db,scope='function')):
+    from app.sales.collections import save
+    return save(conn,body,list_id)
+class ListRevision(Strict):revision:int=Field(ge=1)
+@router.post('/lists/{list_id}/archive')
+def archive_list(list_id:str,body:ListRevision,conn=Depends(get_db,scope='function')):
+    from app.sales.collections import archive
+    return archive(conn,list_id,body.revision)
+class ListCompanies(Strict):
+    business_ids:list[Annotated[int,Field(ge=1,le=9223372036854775807)]]=Field(min_length=1,max_length=100)
+@router.post('/lists/{list_id}/companies')
+def add_companies(list_id:str,body:ListCompanies,conn=Depends(get_db,scope='function')):
+    from app.sales.collections import change_members
+    return change_members(conn,list_id,body.business_ids)
+@router.delete('/lists/{list_id}/companies/{business_id}')
+def remove_company(list_id:str,business_id:int,conn=Depends(get_db,scope='function')):
+    from app.sales.collections import change_members
+    return change_members(conn,list_id,[business_id],True)
+@router.get('/lists/{list_id}/export.csv')
+def export_list(list_id:str,conn=Depends(get_db,scope='function')):
+    from app.sales.collections import detail
+    from fastapi.responses import Response
+    import csv,io
+    data=detail(conn,list_id,1,100)
+    if data['company_count']+data['contact_count']>5000:raise HTTPException(413,'This export exceeds the 5,000-record download budget. Export a smaller list.')
+    output=io.StringIO();writer=csv.writer(output);writer.writerow(['type','name','title','website','country','city','status'])
+    safe=lambda value: "'"+str(value) if str(value).lstrip().startswith(('=','+','-','@','\t','\r')) else str(value)
+    rows=detail(conn,list_id,1,5000)
+    if rows['company_count']+rows['contact_count']>5000:raise HTTPException(413,'This export exceeds the 5,000-record download budget. Export a smaller list.')
+    if len(rows['companies'])!=rows['company_count'] or len(rows['contacts'])!=rows['contact_count']:
+        raise HTTPException(409,'Some selected records are unavailable. Review the list before exporting.')
+    for item in rows['companies']:writer.writerow([safe(value or '') for value in ['company',item['name'],'',item['website'],item['country'],item['city'],item['lead_status']]])
+    for item in rows['contacts']:writer.writerow([safe(value or '') for value in ['contact',item['name'],item['role'],'','','',item['verification_state']]])
+    return Response(output.getvalue(),media_type='text/csv',headers={'Content-Disposition':'attachment; filename="company-contact-list.csv"','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'})
 @router.post('/leads/{lead_id}/lists/{list_id}')
-def add_member(lead_id:int,list_id:str,request:Request,conn=Depends(get_db)):
-    pid=require_prospect(conn,lead_id,request.state.user_email);member(conn,pid,list_id,request.state.user_email);return {'saved':True}
+def add_member(lead_id:int,list_id:str,request:Request,conn=Depends(get_db,scope='function')):
+    organization=request.state.organization_id;pid=require_prospect(conn,lead_id,request.state.user_email,organization=organization);member(conn,pid,list_id,request.state.user_email,organization=organization);return {'saved':True}
 @router.delete('/leads/{lead_id}/lists/{list_id}')
-def remove_member(lead_id:int,list_id:str,request:Request,conn=Depends(get_db)):
-    pid=require_prospect(conn,lead_id,request.state.user_email);member(conn,pid,list_id,request.state.user_email,True);return {'saved':True}
+def remove_member(lead_id:int,list_id:str,request:Request,conn=Depends(get_db,scope='function')):
+    organization=request.state.organization_id;pid=require_prospect(conn,lead_id,request.state.user_email,organization=organization);member(conn,pid,list_id,request.state.user_email,True,organization=organization);return {'saved':True}
 @router.get('/views')
-def views(conn=Depends(get_db)):return [{**dict(r),'filters':json.loads(r['filters_json'])} for r in conn.execute('SELECT * FROM saved_views ORDER BY name').fetchall()]
+def views(request:Request,conn=Depends(get_db,scope='function')):return [{**dict(r),'filters':json.loads(r['filters_json'])} for r in conn.execute('SELECT * FROM saved_views WHERE organization_id=? ORDER BY name',(request.state.organization_id,)).fetchall()]
 @router.post('/views',status_code=201)
-def add_view(body:View,request:Request,conn=Depends(get_db)):
-    key=str(uuid.uuid4());conn.execute('INSERT INTO saved_views VALUES(?,?,?,?,?,?)',(key,body.name.strip(),json.dumps(body.filters.model_dump()),request.state.user_email,now(),now()));return {'id':key}
+def add_view(body:View,request:Request,conn=Depends(get_db,scope='function')):
+    key=str(uuid.uuid4());conn.execute('INSERT INTO saved_views(id,name,filters_json,created_by,created_at,updated_at,organization_id) VALUES(?,?,?,?,?,?,?)',(key,body.name.strip(),json.dumps(body.filters.model_dump()),request.state.user_email,now(),now(),request.state.organization_id));return {'id':key}
 @router.delete('/views/{view_id}')
-def remove_view(view_id:str,conn=Depends(get_db)):conn.execute('DELETE FROM saved_views WHERE id=?',(view_id,));return {'deleted':True}
+def remove_view(view_id:str,request:Request,conn=Depends(get_db,scope='function')):conn.execute('DELETE FROM saved_views WHERE id=? AND organization_id=?',(view_id,request.state.organization_id));return {'deleted':True}
 
 @router.post('/bulk')
-def bulk(body:Bulk,request:Request,conn=Depends(get_db)):
-    actor=request.state.user_email;assignment(body.assigned_to);seen=set();results=[]
+def bulk(body:Bulk,request:Request,conn=Depends(get_db,scope='function')):
+    actor=request.state.user_email;organization=request.state.organization_id;assignment(body.assigned_to);seen=set();results=[]
     for bid in dict.fromkeys(body.lead_ids):
-        pid=require_prospect(conn,bid,actor)
+        pid=require_prospect(conn,bid,actor,organization=organization)
         if pid in seen:continue
         seen.add(pid)
         if body.action=='status':
             if not body.status:raise HTTPException(422,'Choose a status.')
-            ProspectRepository(conn).workflow(pid,actor,lead_status=body.status)
-        elif body.action=='assign':ProspectRepository(conn).workflow(pid,actor,assigned_to=body.assigned_to)
-        elif body.action=='list':member(conn,pid,body.list_id,actor)
+            ProspectRepository(conn).workflow(pid,actor,lead_status=body.status,organization=organization)
+        elif body.action=='assign':ProspectRepository(conn).workflow(pid,actor,assigned_to=body.assigned_to,organization=organization)
+        elif body.action=='list':member(conn,pid,body.list_id,actor,organization=organization)
         elif body.action=='followup':
             if not body.due_at:raise HTTPException(422,'Choose a follow-up date.')
-            schedule(conn,pid,actor,body.due_at,assigned_to=body.assigned_to)
+            schedule(conn,pid,actor,body.due_at,assigned_to=body.assigned_to,organization=organization)
         else:
             from app.reports.service import create_report
-            results.append(create_report(conn,bid,pid,actor))
+            results.append(create_report(conn,bid,pid,actor,organization=organization))
     conn.commit()
     if body.action=='pdf':
         from app.reports.service import launch_reports
@@ -175,7 +216,8 @@ def bulk(body:Bulk,request:Request,conn=Depends(get_db)):
     return {'updated':len(seen),'reports':results}
 
 @router.get('/outreach')
-def outreach(queue:Literal['ready','today','overdue','waiting','replied','meeting','proposal','won','lost','not_interested','do_not_contact']='ready',tz:str=Query('Asia/Kolkata',max_length=80),page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=100),conn=Depends(get_db)):
+def outreach(request:Request,queue:Literal['ready','today','overdue','waiting','replied','meeting','proposal','won','lost','not_interested','do_not_contact']='ready',tz:str=Query('Asia/Kolkata',max_length=80),page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=100),conn=Depends(get_db,scope='function')):
+    organization=request.state.organization_id
     try:zone=ZoneInfo(tz)
     except ZoneInfoNotFoundError:raise HTTPException(422,'Choose a valid timezone.')
     from datetime import timedelta
@@ -186,12 +228,12 @@ def outreach(queue:Literal['ready','today','overdue','waiting','replied','meetin
      s.last_contact_at,s.unread_replies,(SELECT MIN(due_at) FROM followups f WHERE f.prospect_id=p.id AND f.status='OPEN') AS next_followup,
      (SELECT id FROM client_reports r WHERE r.prospect_id=p.id AND r.status='READY' ORDER BY version DESC LIMIT 1) AS ready_report_id
      FROM businesses b JOIN latest l ON l.id=b.id JOIN prospects p ON p.id=b.prospect_id
-     LEFT JOIN opportunity_scores o ON o.business_id=b.id LEFT JOIN business_intelligence i ON i.business_id=b.id LEFT JOIN prospect_sales s ON s.prospect_id=p.id """
+     LEFT JOIN opportunity_scores o ON o.business_id=b.id LEFT JOIN business_intelligence i ON i.business_id=b.id LEFT JOIN prospect_sales s ON s.prospect_id=p.id AND s.organization_id=? """
     safe="p.lead_status<>'DO_NOT_CONTACT' AND s.suppressed_at IS NULL"
     due="EXISTS(SELECT 1 FROM followups f WHERE f.prospect_id=p.id AND f.status='OPEN' AND "
     rules={'ready':("p.lead_status='READY_TO_CONTACT'",[]),'today':(due+'f.due_at>=? AND f.due_at<?)',[start,end]),'overdue':(due+'f.due_at<?)',[now()]),'waiting':("p.lead_status IN ('CONTACTED','FOLLOW_UP')",[]),'replied':("p.lead_status='REPLIED'",[]),'meeting':("p.lead_status='MEETING'",[]),'proposal':("p.lead_status='PROPOSAL'",[]),'won':("p.lead_status='WON'",[]),'lost':("p.lead_status='LOST'",[]),'not_interested':("p.lead_status='NOT_INTERESTED'",[]),'do_not_contact':("(p.lead_status='DO_NOT_CONTACT' OR s.suppressed_at IS NOT NULL)",[])}
     def query_for(key):
-        clause,args=rules[key];return base+' WHERE '+('('+clause+')' if key=='do_not_contact' else safe+' AND ('+clause+')'),args
+        clause,args=rules[key];head=('('+clause+')' if key=='do_not_contact' else safe+' AND ('+clause+')');return base+' WHERE p.organization_id=? AND '+head,[organization,organization]+args
     counts={}
     for key in rules:
         sql,args=query_for(key);counts[key]=conn.execute('SELECT COUNT(*) FROM ('+sql+') q',args).fetchone()[0]

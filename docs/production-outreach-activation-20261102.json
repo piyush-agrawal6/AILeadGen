@@ -1,0 +1,147 @@
+{
+  "authorized_at": "2026-11-02T07:46:29.092537+00:00",
+  "owner_request": "Enable outbound/outreach in production deployment",
+  "resources": {
+    "leadengine-worker": {
+      "three_flags": true,
+      "revision": null,
+      "image_preserved": true,
+      "gmail_and_other_settings_preserved": true
+    },
+    "leadengine-api": {
+      "three_flags": true,
+      "revision": "leadengine-api-00035-g7j",
+      "image_preserved": true,
+      "gmail_and_other_settings_preserved": true
+    }
+  },
+  "new_campaigns_created": 0,
+  "new_user_schedules_created": 0,
+  "before": {
+    "today": {
+      "qualified": 0,
+      "sent": 0,
+      "replies": 0,
+      "bounces": 0,
+      "queued": 0,
+      "manual": 0
+    },
+    "controls": {
+      "id": 1,
+      "scan_paused": 1,
+      "email_paused": 1,
+      "pause_reason": "OWNER_FRESH_START",
+      "next_send_at": null,
+      "updated_at": "2026-11-02T06:18:32.826388+00:00"
+    },
+    "environment": {
+      "scan_enabled": false,
+      "auto_email_enabled": false,
+      "sending_enabled": false,
+      "daily_lead_target": 500,
+      "daily_email_target": 500,
+      "hourly_limit": 50,
+      "daily_limit": 500
+    },
+    "contact_counts": [],
+    "runs": [],
+    "queue": []
+  },
+  "after": {
+    "today": {
+      "qualified": 0,
+      "sent": 0,
+      "replies": 0,
+      "bounces": 0,
+      "queued": 0,
+      "manual": 0
+    },
+    "controls": {
+      "id": 1,
+      "scan_paused": 0,
+      "email_paused": 0,
+      "pause_reason": null,
+      "next_send_at": null,
+      "updated_at": "2026-11-02T07:47:13.757939+00:00"
+    },
+    "environment": {
+      "scan_enabled": true,
+      "auto_email_enabled": true,
+      "sending_enabled": true,
+      "daily_lead_target": 500,
+      "daily_email_target": 500,
+      "hourly_limit": 50,
+      "daily_limit": 500
+    },
+    "contact_counts": [],
+    "runs": [],
+    "queue": []
+  },
+  "passed": true,
+  "schedulers": [
+    {
+      "name": "projects/querryside/locations/asia-south1/jobs/leadengine-email-sync",
+      "schedule": "*/10 * * * *",
+      "state": "PAUSED",
+      "status": {
+        "code": -1
+      }
+    },
+    {
+      "lastAttemptTime": "2026-11-02T07:47:00.408464Z",
+      "name": "projects/querryside/locations/asia-south1/jobs/leadengine-hourly-outreach",
+      "schedule": "* * * * *",
+      "state": "ENABLED",
+      "status": {}
+    },
+    {
+      "lastAttemptTime": "2026-11-02T07:40:00.676976Z",
+      "name": "projects/querryside/locations/asia-south1/jobs/leadengine-daily-acquisition",
+      "schedule": "*/10 * * * *",
+      "state": "ENABLED",
+      "status": {}
+    },
+    {
+      "lastAttemptTime": "2026-11-02T07:45:01.764312Z",
+      "name": "projects/querryside/locations/asia-south1/jobs/leadengine-inbox-sync",
+      "schedule": "*/5 * * * *",
+      "state": "ENABLED",
+      "status": {}
+    }
+  ],
+  "root_flags_true": true,
+  "no_rebuild_or_migration": true,
+  "legacy_duplicate_email_sync_left_paused": true,
+  "recent_worker_execution_status": [
+    {
+      "execution": "leadengine-worker-cl95n",
+      "completed_at": null,
+      "succeeded": 0,
+      "failed": 0
+    },
+    {
+      "execution": "leadengine-worker-rxh4x",
+      "completed_at": "2026-11-02T07:47:32.637173Z",
+      "succeeded": 1,
+      "failed": 0
+    },
+    {
+      "execution": "leadengine-worker-rtxt7",
+      "completed_at": "2026-11-02T07:46:30.703769Z",
+      "succeeded": 1,
+      "failed": 0
+    },
+    {
+      "execution": "leadengine-worker-wfxcz",
+      "completed_at": "2026-11-02T07:45:34.407680Z",
+      "succeeded": 1,
+      "failed": 0
+    },
+    {
+      "execution": "leadengine-worker-ppdcd",
+      "completed_at": "2026-11-02T07:45:32.396868Z",
+      "succeeded": 1,
+      "failed": 0
+    }
+  ]
+}

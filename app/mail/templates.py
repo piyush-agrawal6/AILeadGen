@@ -14,10 +14,53 @@ SEEDS=[
  ('no-response','After no response','General','Closing the loop: {{business_name}}','Hello,\n\nI will close the loop on my earlier note for {{business_name}}. If you would like to revisit the observations later, please feel free to reply. Thank you for your time.'),
  ('after-meeting','After meeting','General','Next steps for {{business_name}}','Hello,\n\nThank you for the conversation. I would be happy to confirm the scope, responsibilities and practical next steps for {{business_name}}. Please let me know any priorities you would like reflected in the proposal.')]
 
-VARIABLES={'business_name','website','city','vertical','primary_opportunity','top_finding','sender_name','sender_company'}
-def seed(c):
-    for key,name,category,subject,body in SEEDS:c.execute('INSERT INTO email_templates(id,name,category,subject,body_text,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT DO NOTHING',(key,name,category,subject,body,now()))
+VARIABLES={'business_name','company_name','website','city','vertical','primary_opportunity','top_finding','sender_name','sender_company'}
+def legacy_seed(c):
+    for key,name,category,subject,body in SEEDS:_insert_seed(c,key,name,category,subject,body)
 def render(text,values):
     unknown=set(re.findall(r'{{\s*([\w]+)\s*}}',text))-VARIABLES
     if unknown:raise ValueError('Unsupported template variable')
     return re.sub(r'{{\s*([\w]+)\s*}}',lambda m:str(values.get(m[1]) or ''),text).strip()
+
+
+def render_client_template(c,business_id,template_id,settings,*,pitch_types=None):
+    """Composer, run preview and automation share the same evidence-led copy."""
+    from app.mail.workspace_templates import archived_template,render_template
+    if not archived_template(template_id):return render_template(c,business_id,template_id)
+    from app.reports.data import client_snapshot
+    from app.reports.opportunity import plan,email_values
+    from app.automation.settings import effective_settings
+    settings=effective_settings(c,settings)
+    data=client_snapshot(c,business_id,now())
+    commercial=template_id in COMMERCIAL_IDS
+    selected=plan(data,template_id if commercial else None,allowed_kinds=pitch_types)
+    template=c.execute('SELECT * FROM email_templates WHERE id=? AND enabled=1',(template_id,)).fetchone()
+    if not template:raise ValueError('Template unavailable')
+    values=email_values(data,selected,settings)
+    signature=values['signature']
+    return {**dict(template),'rendered_subject':render(template['subject'],values),'rendered_body':render(template['body_text'],values)+( '' if '{{signature}}' in template['body_text'] else '\n\n'+signature),'recommended':template_id==plan(data)['variant'],'content_version':2}
+
+COMMERCIAL_IDS=('website','seo','security','combined')
+LEGACY_SEEDS=SEEDS
+COMMERCIAL_BODY="Hi {{business_name}} team,\n\n{{opening}}\n\n{{observations}}\n\n{{business_impact}}\n\n{{solution}} {{included_value}}\n\nI've attached a short review showing what we found and what we'd prioritise.\n\n{{cta}}\n\nBest,\n{{signature}}"
+COMMERCIAL_SEEDS=[(key,name,category,'{{opportunity_subject}}',COMMERCIAL_BODY) for key,name,category in [('website','Website / redesign','Website'),('seo','SEO / visibility','SEO'),('security','Security / technical trust','Security'),('combined','Combined digital improvement','General')]]
+VARIABLES.update({'opening','observations','business_impact','solution','included_value','cta','signature','opportunity_subject'})
+def _insert_seed(c,key,name,category,subject,body):
+    version=c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] or 0
+    if version<16:
+        c.execute('INSERT INTO email_templates(id,name,category,subject,body_text,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT DO NOTHING',(key,name,category,subject,body,now()))
+        return
+    from app.platform.context import require_internal_mailbox
+    context=require_internal_mailbox()
+    c.execute('INSERT INTO email_templates(id,name,category,subject,body_text,updated_at,organization_id) VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING',(key,name,category,subject,body,now(),context.organization_id))
+
+def seed(c):
+    # Upgrade only the untouched shipped copy. Owner-edited templates survive.
+    legacy_seed(c)
+    previous=COMMERCIAL_BODY.replace("I've attached a short review showing what we found and what we'd prioritise.","I've attached a short review showing the evidence and our proposed priorities.")
+    for key in COMMERCIAL_IDS:
+        c.execute('UPDATE email_templates SET body_text=?,updated_at=? WHERE id=? AND body_text=?',(COMMERCIAL_BODY,now(),key,previous))
+    for key,name,category,subject,body in COMMERCIAL_SEEDS:
+        old=next((x for x in LEGACY_SEEDS if x[0]==key),None)
+        if old:c.execute('UPDATE email_templates SET name=?,category=?,subject=?,body_text=?,updated_at=? WHERE id=? AND subject=? AND body_text=?',(name,category,subject,body,now(),key,old[3],old[4]))
+        _insert_seed(c,key,name,category,subject,body)

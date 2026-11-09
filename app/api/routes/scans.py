@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
@@ -23,15 +23,16 @@ router = APIRouter(prefix="/scans", tags=["Scans"])
 
 @router.get("", response_model=List[PipelineRunDetail])
 def list_scans(
+    request: Request,
     status_filter: Optional[str] = Query(None, alias="status"),
     vertical_filter: Optional[str] = Query(None, alias="vertical"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = Depends(get_db,scope='function'),
 ):
     """List historical and active pipeline runs."""
     repo = PipelineRunRepository(conn)
-    runs, _ = repo.list_runs(status=status_filter, vertical=vertical_filter, page=page, page_size=page_size)
+    runs, _ = repo.list_runs(status=status_filter, vertical=vertical_filter, page=page, page_size=page_size, organization=request.state.organization_id)
 
     details = []
     for r in runs:
@@ -70,7 +71,7 @@ def list_scans(
 
 
 @router.post("", response_model=ScanCreateResponse, status_code=status.HTTP_201_CREATED)
-async def create_scan(req: ScanCreateRequest):
+async def create_scan(req: ScanCreateRequest, request: Request):
     """Queue and initiate a new LeadEngine prospecting scan."""
     settings_dict = req.settings.model_dump() if req.settings else {}
     settings_dict["target"] = req.target
@@ -80,6 +81,7 @@ async def create_scan(req: ScanCreateRequest):
         vertical=req.vertical.strip().lower(),
         target=req.target,
         settings=settings_dict,
+        organization=request.state.organization_id,
     )
 
     return ScanCreateResponse(
@@ -90,10 +92,10 @@ async def create_scan(req: ScanCreateRequest):
 
 
 @router.get("/{run_id}", response_model=PipelineRunDetail)
-def get_scan(run_id: int, conn: sqlite3.Connection = Depends(get_db)):
+def get_scan(run_id: int, request: Request, conn: sqlite3.Connection = Depends(get_db,scope='function')):
     """Fetch live or historical status of a specific pipeline run."""
     repo = PipelineRunRepository(conn)
-    r = repo.get_by_id(run_id)
+    r = repo.get_by_id(run_id, request.state.organization_id)
     if not r:
         raise HTTPException(status_code=404, detail=f"Scan #{run_id} not found.")
 
@@ -138,10 +140,13 @@ async def cancel_scan(run_id: int):
 
 
 @router.post("/{run_id}/resume")
-async def resume_scan(run_id: int,conn=Depends(get_db)):
+async def resume_scan(run_id: int, request: Request,conn=Depends(get_db,scope='function')):
     """Resume an interrupted, cancelled, or failed scan."""
     from app.database.phase36_schema import phase36_ready
+    organization=request.state.organization_id
     if getattr(conn,'backend',None)=='postgres':conn.execute('SELECT pg_advisory_xact_lock(691944307)')
+    run=conn.execute('SELECT organization_id FROM pipeline_runs WHERE id=?'+(' AND organization_id=?' if organization else ''),(run_id,)+((organization,) if organization else ())).fetchone()
+    if not run:raise HTTPException(status_code=404, detail=f"Scan #{run_id} not found.")
     if phase36_ready(conn) and conn.execute("SELECT 1 FROM deletion_batches d WHERE (d.entity_type='scan' AND d.entity_id=?) OR (d.entity_type='campaign' AND d.entity_id=(SELECT campaign_id FROM pipeline_runs WHERE id=?))",(str(run_id),run_id)).fetchone():raise HTTPException(409,'Finish the pending deletion before resuming this scan.')
     if phase36_ready(conn) and conn.execute('SELECT 1 FROM deletion_targets d JOIN businesses b ON b.id=d.business_id WHERE b.run_id=?',(run_id,)).fetchone():raise HTTPException(409,'Finish the pending deletion before resuming this scan.')
     success = await scan_manager.resume_scan(run_id)
@@ -153,11 +158,14 @@ async def resume_scan(run_id: int,conn=Depends(get_db)):
 @router.get("/{run_id}/events", response_model=List[PipelineEventSchema])
 def get_scan_events(
     run_id: int,
+    request: Request,
     after_id: Optional[int] = Query(None),
     limit: int = Query(200, ge=1, le=1000),
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = Depends(get_db,scope='function'),
 ):
     """Retrieve event log history for a pipeline run."""
+    organization=request.state.organization_id
+    if not conn.execute('SELECT 1 FROM pipeline_runs WHERE id=?'+(' AND organization_id=?' if organization else ''),(run_id,)+((organization,) if organization else ())).fetchone():raise HTTPException(status_code=404, detail=f"Scan #{run_id} not found.")
     event_repo = PipelineRunEventRepository(conn)
     events = event_repo.list_by_run(run_id=run_id, after_id=after_id, limit=limit)
     return [
@@ -183,15 +191,17 @@ async def stream_events(run_id: int):
 
 
 @router.get("/{run_id}/export/xlsx")
-def download_xlsx(run_id: int, conn: sqlite3.Connection = Depends(get_db)):
+def download_xlsx(run_id: int, request: Request, conn: sqlite3.Connection = Depends(get_db,scope='function')):
     """Safely download the Excel (.xlsx) export artifact for a scan."""
     from app.storage import download_artifact
+    repo = PipelineRunRepository(conn)
+    run = repo.get_by_id(run_id, request.state.organization_id)
+    if not run:
+        raise HTTPException(status_code=404, detail=f"Scan #{run_id} not found.")
     artifact = download_artifact(conn, run_id=run_id, kind="xlsx")
     if artifact is not None:
         return artifact
-    repo = PipelineRunRepository(conn)
-    run = repo.get_by_id(run_id)
-    if not run or not run.output_file:
+    if not run.output_file:
         raise HTTPException(status_code=404, detail="No export file registered for this scan.")
 
     path = Path(run.output_file).resolve()
@@ -208,15 +218,17 @@ def download_xlsx(run_id: int, conn: sqlite3.Connection = Depends(get_db)):
 
 
 @router.get("/{run_id}/export/csv")
-def download_csv(run_id: int, conn: sqlite3.Connection = Depends(get_db)):
+def download_csv(run_id: int, request: Request, conn: sqlite3.Connection = Depends(get_db,scope='function')):
     """Safely download the CSV (.csv) export artifact for a scan."""
     from app.storage import download_artifact
+    repo = PipelineRunRepository(conn)
+    run = repo.get_by_id(run_id, request.state.organization_id)
+    if not run:
+        raise HTTPException(status_code=404, detail=f"Scan #{run_id} not found.")
     artifact = download_artifact(conn, run_id=run_id, kind="csv")
     if artifact is not None:
         return artifact
-    repo = PipelineRunRepository(conn)
-    run = repo.get_by_id(run_id)
-    if not run or not run.output_file:
+    if not run.output_file:
         raise HTTPException(status_code=404, detail="No export file registered for this scan.")
 
     # Derive csv path from xlsx path

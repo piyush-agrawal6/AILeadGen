@@ -1,0 +1,25 @@
+{
+  "project": "querryside",
+  "owner_explicitly_approved_exact_three_grants": true,
+  "json_service_account_key_created": false,
+  "runtimes": [
+    {
+      "service_account": "leadengine-api-sa@querryside.iam.gserviceaccount.com",
+      "role": "roles/aiplatform.user",
+      "added": true,
+      "identity_changed": false
+    },
+    {
+      "service_account": "leadengine-worker-sa@querryside.iam.gserviceaccount.com",
+      "role": "roles/aiplatform.user",
+      "added": true,
+      "identity_changed": false
+    },
+    {
+      "service_account": "leadengine-acquisition-sa@querryside.iam.gserviceaccount.com",
+      "role": "roles/aiplatform.user",
+      "added": true,
+      "identity_changed": false
+    }
+  ]
+}

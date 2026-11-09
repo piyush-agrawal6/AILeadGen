@@ -20,13 +20,25 @@ def public_url(value):
     except ValueError:return ''
 
 
-def brand_config():
+def brand_config(conn=None):
     source=json.loads((ROOT/'config/report_brand.json').read_text(encoding='utf-8'))
-    return {'name':'PlaneByte','website':public_url(os.environ.get('PLANEBYTE_WEBSITE',source.get('website'))),
+    result={'name':'PlaneByte','website':public_url(os.environ.get('PLANEBYTE_WEBSITE',source.get('website'))),
             'contact_email':clean(os.environ.get('PLANEBYTE_CONTACT_EMAIL',source.get('contact_email')),150),
             'phone':clean(os.environ.get('PLANEBYTE_PHONE',source.get('phone')),60),
-            'show_pricing':os.environ.get('REPORT_SHOW_PRICING','false').casefold()=='true',
+            'services':source.get('services',{}),'signature_tagline':source.get('signature_tagline','Software Engineering · SEO · Security'),'show_pricing':os.environ.get('REPORT_SHOW_PRICING','false').casefold()=='true',
             'pricing':source.get('pricing',{}),'score_targets':source.get('score_targets',{'WEBSITE':90,'SEO':100,'SECURITY':100})}
+    if conn is not None:
+        from app.api.organization import workspace_settings
+        from app.platform.context import organization
+        saved=(workspace_settings(conn,organization()) or {}).get('foundation')
+        if saved:
+            import hashlib
+            from app.workflows.history import encoded
+            report=saved.get('report',{});sender=saved.get('sender',{})
+            result.update(website=public_url(sender.get('website',result['website'])),contact_email=sender.get('contact_email',result['contact_email']),signature_tagline=report.get('signature_tagline',result['signature_tagline']),report_copy=report,pitch_policy=saved.get('pitches',{}),configuration_revision=hashlib.sha256(encoded({k:saved.get(k) for k in ('sender','report','pitches')}).encode()).hexdigest())
+            for key,label in report.get('service_labels',{}).items():
+                if key in result['services']:result['services'][key]={**result['services'][key],'title':label}
+    return result
 
 
 def client_snapshot(conn,business_id,created_at):
@@ -43,7 +55,7 @@ def client_snapshot(conn,business_id,created_at):
     # Explicit allowlist: workflow, notes, assignment, raw IDs, provenance IDs,
     # exception strings and internal recommendations never enter this snapshot.
     result={'business':{'name':clean(business.name,180),'vertical':clean(business.vertical,80).replace('_',' ').title(),'city':clean(business.city,100),'country':clean(business.country,100),'website':website,'phone':clean(business.normalized_phone or business.phone,80),'email':clean(business.public_email,150)},
-            'mode':mode,'created_at':created_at,'brand':brand_config(),'scores':{kind:raw[column] if raw else None for kind,column in [('WEBSITE','website_opportunity_score'),('SEO','seo_opportunity_score'),('SECURITY','security_opportunity_score')]},
+            'mode':mode,'created_at':created_at,'brand':brand_config(conn),'scores':{kind:raw[column] if raw else None for kind,column in [('WEBSITE','website_opportunity_score'),('SEO','seo_opportunity_score'),('SECURITY','security_opportunity_score')]},
             'primary':raw['primary_opportunity'] if raw else None,'evidence':{},'findings':[],
             'website':{},'lighthouse':{}}
     if mode!='REACHABLE':
@@ -73,6 +85,8 @@ def client_snapshot(conn,business_id,created_at):
         'support':os.environ.get('REPORT_OFFER_INCLUDE_POST_LAUNCH_AUDIT','true').lower()=='true',
         'show_prices':os.environ.get('REPORT_SHOW_VALUE_STACK_PRICES','false').lower()=='true',
         'prices':json.loads((ROOT/'config/report_brand.json').read_text(encoding='utf-8')).get('value_stack_prices',{})}
+    report_copy=result['brand'].get('report_copy',{})
+    for flag,key in [('seo','include_seo'),('security','include_security'),('support','include_validation')]:result['offer'][flag]=result['offer'][flag] and report_copy.get(key,True)
     result['social_profiles']=[];result['capture']=None;result['business_scale']=None
     from app.database.phase36_schema import phase36_ready
     if phase36_ready(conn):
@@ -82,4 +96,7 @@ def client_snapshot(conn,business_id,created_at):
         result['capture']=dict(capture) if capture else None
         pid=conn.execute('SELECT prospect_id FROM businesses WHERE id=?',(business_id,)).fetchone()[0]
         result['social_profiles']=[dict(r) for r in conn.execute('SELECT platform,profile_url,activity_status,last_activity_at,activity_reason FROM social_profiles WHERE prospect_id=? ORDER BY platform',(pid,)).fetchall()]
+    from app.reports.opportunity import plan,report_issues
+    result['sales_review']=plan(result)
+    result['content_quality']={'issues':report_issues(result,result['sales_review'])}
     return result

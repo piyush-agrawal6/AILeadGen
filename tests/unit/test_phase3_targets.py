@@ -27,6 +27,6 @@ def test_presets_cover_requested_countries_and_cities():
 
 def test_campaign_limits_and_unknown_verticals():
     base={"cities":["Austin, United States"],"verticals":["dentists"],"target":5,"request_id":"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
-    assert CampaignCreate(**base).opportunities == ["WEBSITE","SEO","SECURITY"]
+    assert CampaignCreate(**base).opportunities == []
     with pytest.raises(ValueError): CampaignCreate(**{**base,"verticals":["unknown"]})
     with pytest.raises(ValueError): CampaignCreate(**{**base,"cities":[str(i) for i in range(11)]})

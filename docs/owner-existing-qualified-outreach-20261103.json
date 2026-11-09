@@ -1,0 +1,10 @@
+{
+  "scans_still_paused": true,
+  "existing_outreach_resumed": true,
+  "ready_queue": 25,
+  "review_held": 1,
+  "already_sent_statuses_reconciled": 12,
+  "already_sent": 28,
+  "uncertain_smtp": 0,
+  "qualified_preserved": 80
+}

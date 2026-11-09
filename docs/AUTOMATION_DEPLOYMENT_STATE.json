@@ -1,0 +1,73 @@
+{
+  "schema": 10,
+  "frontend": "https://leads.planebyte.com",
+  "frontend_deployment": "https://leadengine-gmyy0qo4k-piyushagrawal6s-projects.vercel.app",
+  "resources": {
+    "api": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:automation-20261101-161259",
+      "flags": {
+        "AUTO_SCAN_ENABLED": "false",
+        "AUTO_EMAIL_ENABLED": "false",
+        "EMAIL_SENDING_ENABLED": "false"
+      },
+      "gmail_secret_reference": {
+        "secretKeyRef": {
+          "key": "1",
+          "name": "leadengine-gmail-app-password"
+        }
+      },
+      "service_account": "leadengine-api-sa@querryside.iam.gserviceaccount.com",
+      "traffic": [
+        {
+          "percent": 100,
+          "revisionName": "leadengine-api-00025-xnh"
+        }
+      ]
+    },
+    "worker": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:automation-20261101-161259",
+      "flags": {
+        "AUTO_SCAN_ENABLED": "false",
+        "AUTO_EMAIL_ENABLED": "false",
+        "EMAIL_SENDING_ENABLED": "false"
+      },
+      "gmail_secret_reference": {
+        "secretKeyRef": {
+          "key": "1",
+          "name": "leadengine-gmail-app-password"
+        }
+      },
+      "service_account": "leadengine-worker-sa@querryside.iam.gserviceaccount.com"
+    }
+  },
+  "api_revision": "leadengine-api-00025-xnh",
+  "schedulers": [
+    {
+      "name": "leadengine-email-sync",
+      "state": "PAUSED",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "name": "leadengine-hourly-outreach",
+      "state": "PAUSED",
+      "schedule": "* * * * *"
+    },
+    {
+      "name": "leadengine-daily-acquisition",
+      "state": "PAUSED",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "name": "leadengine-inbox-sync",
+      "state": "ENABLED",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "builds": {
+    "api": "b9ca1647-8805-445c-a68e-85948a16cc07",
+    "worker": "294c2fbc-32f2-4982-831e-62453f7f8c78"
+  },
+  "new_schedules_enabled": 0,
+  "owner_inspection_pending": true,
+  "owner_clean_start_inspection_pending": true
+}

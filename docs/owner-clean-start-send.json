@@ -1,0 +1,53 @@
+{
+  "recipient": "agrawaljoy1@gmail.com",
+  "business": {
+    "id": 2,
+    "prospect_id": "a0cda101-9f06-4337-8974-fb1f17d5bb8e",
+    "name": "Homestay Hotels"
+  },
+  "report_id": "96200082-d2a1-417f-b444-f7deab91eb09",
+  "attachment_filename": "PlaneByte digital review.pdf",
+  "attachment_size_bytes": 1305211,
+  "attachment_sha256": "3ac653031194b7b990b7571a1150c05d90848927003b67c570ac1b5354ba0b14",
+  "idempotency_key": "250e12a4-4ede-4714-a124-b3da7dad9f3a",
+  "real_prospect_contacted": false,
+  "global_automation_enabled": false,
+  "status": "SENT",
+  "subject": "A focused website review for Homestay Hotels",
+  "intended_recipient": "stay@homestayhotel.co.uk",
+  "provider_message_id": "<179354662453.32033.756525241203050150@planebyte.com>",
+  "mime_path": "/Users/planebyte/Documents/Projects/planebyte-leadgen/output/owner-clean-start/outbound.eml",
+  "result": {
+    "id": "0b1959f8-48d5-4e1f-85f9-c0973467fdf2",
+    "status": "SENT",
+    "thread_id": "3a5736f1-63d0-4b16-a635-65bd2facb495",
+    "test_mode": true,
+    "provider_message_id": "<179354662453.32033.756525241203050150@planebyte.com>",
+    "owner_controlled_redirect": true
+  },
+  "smtp_calls": 1,
+  "gmail_sent_visible": true,
+  "mime_verified": {
+    "recipient": true,
+    "sender": true,
+    "production_subject": true,
+    "production_html_text": true,
+    "pdf_exact_bytes": true,
+    "signature": true,
+    "unsubscribe_footer": true
+  },
+  "tracking": {
+    "open_http": 200,
+    "click_http": 302,
+    "click_destination_http": 200,
+    "unsubscribe_confirmation_http": 200,
+    "unsubscribe_applied": false,
+    "qa_signals_automated": true,
+    "events": [
+      "CLICK_SIGNAL",
+      "OPEN_SIGNAL",
+      "SMTP_ACCEPTED"
+    ]
+  },
+  "verified": true
+}

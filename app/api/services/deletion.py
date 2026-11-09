@@ -14,60 +14,76 @@ def inside(column,values):
     return (column+' IN ('+','.join('?' for _ in values)+')',list(values)) if values else ('1=0',[])
 
 
-def scope(conn,kind,identifier):
-    from app.reports.service import expire_reports
-    expire_reports(conn)
+def scope(conn,kind,identifier,organization=None):
+    from app.platform.context import organization as active_organization
+    organization=active_organization(organization)
+    org_sql=(' AND organization_id=?' if organization else '');org_args=(organization,) if organization else ()
     conn.execute("UPDATE pipeline_runs SET lease_owner=NULL,lease_expires_at=NULL WHERE status='CANCELLED' AND lease_expires_at<?",(now(),))
     if kind=='campaign':
-        row=conn.execute('SELECT configuration_json FROM scan_campaigns WHERE id=?',(identifier,)).fetchone()
+        row=conn.execute('SELECT configuration_json FROM scan_campaigns WHERE id=?'+org_sql,(identifier,)+org_args).fetchone()
         if not row:raise HTTPException(404,'Campaign not found.')
         config=json.loads(row[0]);name=', '.join(config.get('cities',[]))+' / '+', '.join(config.get('verticals',[]))
-        runs=[r[0] for r in conn.execute('SELECT id FROM pipeline_runs WHERE campaign_id=?',(identifier,)).fetchall()]
+        runs=[r[0] for r in conn.execute('SELECT id FROM pipeline_runs WHERE campaign_id=?'+org_sql,(identifier,)+org_args).fetchall()]
         clause,args=inside('run_id',runs);businesses=conn.execute('SELECT id,prospect_id FROM businesses WHERE '+clause,args).fetchall()
     elif kind=='scan':
         if not identifier.isdigit():raise HTTPException(404,'Scan not found.')
-        row=conn.execute('SELECT market,vertical FROM pipeline_runs WHERE id=?',(int(identifier),)).fetchone()
+        row=conn.execute('SELECT market,vertical FROM pipeline_runs WHERE id=?'+org_sql,(int(identifier),)+org_args).fetchone()
         if not row:raise HTTPException(404,'Scan not found.')
         runs=[int(identifier)];name=row[0]+' / '+row[1];businesses=conn.execute('SELECT id,prospect_id FROM businesses WHERE run_id=?',(runs[0],)).fetchall()
     elif kind=='lead':
         if not identifier.isdigit():raise HTTPException(404,'Lead not found.')
         row=conn.execute('SELECT prospect_id,name FROM businesses WHERE id=?',(int(identifier),)).fetchone()
         if not row:raise HTTPException(404,'Lead not found.')
+        if organization and row['prospect_id'] and not conn.execute('SELECT 1 FROM prospects WHERE id=? AND organization_id=?',(row['prospect_id'],organization)).fetchone():raise HTTPException(404,'Lead not found.')
         name=row['name'];businesses=conn.execute('SELECT id,prospect_id FROM businesses WHERE prospect_id=?',(row['prospect_id'],)).fetchall() if row['prospect_id'] else [conn.execute('SELECT id,prospect_id FROM businesses WHERE id=?',(int(identifier),)).fetchone()]
         clause,args=inside('id',[r['id'] for r in businesses]);runs=[r[0] for r in conn.execute('SELECT DISTINCT run_id FROM businesses WHERE '+clause+' AND run_id IS NOT NULL',args).fetchall()]
     else:raise HTTPException(404,'Deletion type not found.')
+    # Operational histories must not be orphaned by a prospect/scan deletion.
+    if kind=='campaign' and conn.execute('SELECT 1 FROM workflow_runs WHERE campaign_id=?'+org_sql+' LIMIT 1',(identifier,)+org_args).fetchone():raise HTTPException(409,'This campaign has saved workflow history. Retain it for audit; stop active runs instead.')
+    contact_prospects=[r['prospect_id'] for r in businesses if r['prospect_id']]
+    if contact_prospects:
+        condition,parameters=inside('prospect_id',contact_prospects)
+        if conn.execute('SELECT 1 FROM contact_people WHERE '+condition+' AND organization_id=? LIMIT 1',[*parameters,organization]).fetchone():raise HTTPException(409,'This company has professional contact history. Retain it; contact archiving preserves that history.')
+    protected=[r['id'] for r in businesses]
+    if protected:
+        clause,args=inside('business_id',protected)
+        if conn.execute('SELECT 1 FROM outreach_run_items WHERE '+clause+org_sql+' LIMIT 1',args+list(org_args)).fetchone():raise HTTPException(409,'These leads have saved outreach history and cannot be deleted from this workspace.')
     bids=sorted(r['id'] for r in businesses);pids=sorted({r['prospect_id'] for r in businesses if r['prospect_id']});orphan=[]
     for pid in pids:
         clause,args=inside('id',bids)
         if not conn.execute('SELECT COUNT(*) FROM businesses WHERE prospect_id=? AND NOT ('+clause+')',[pid]+args).fetchone()[0]:orphan.append(pid)
     bc,ba=inside('business_id',bids);pc,pa=inside('prospect_id',orphan)
-    reports=[dict(r) for r in conn.execute('SELECT id,object_key,status,version FROM client_reports WHERE '+bc+' OR '+pc,ba+pa).fetchall()]
+    reports=[dict(r) for r in conn.execute('SELECT id,object_key,status,version FROM client_reports WHERE ('+bc+' OR '+pc+')'+org_sql,ba+pa+list(org_args)).fetchall()]
     rc,ra=inside('run_id',runs)
     artifacts=conn.execute('SELECT object_key FROM artifact_objects WHERE '+bc+' OR ('+rc+(" AND business_id IS NULL AND kind IN ('csv','xlsx')" if kind=='lead' else '')+')',ba+ra).fetchall()
     keys=sorted({r[0] for r in artifacts}|{r['object_key'] for r in reports if r['object_key']})
     run_clause,run_args=inside('id',runs)
-    active_ids={r[0] for r in conn.execute("SELECT id FROM pipeline_runs WHERE (status IN ('RUNNING','QUEUED') OR lease_owner IS NOT NULL) AND "+run_clause,run_args).fetchall()}
+    active_ids={r[0] for r in conn.execute("SELECT id FROM pipeline_runs WHERE (status IN ('RUNNING','QUEUED') OR lease_owner IS NOT NULL) AND "+run_clause+org_sql,run_args+list(org_args)).fetchall()}
     module=sys.modules.get('app.api.services.scan_manager');manager=getattr(module,'scan_manager',None)
     tasks=getattr(getattr(manager,'executor',None),'_active_tasks',{})
     active_ids.update(run for run in runs if run in tasks and not tasks[run].done())
     active=len(active_ids)
     generating=sum(r['status'] in ('QUEUED','GENERATING') for r in reports)
     result={'kind':kind,'entity_id':identifier,'name':name,'run_ids':runs,'business_ids':bids,'prospect_ids':pids,'orphan_prospect_ids':orphan,'report_ids':sorted(r['id'] for r in reports),'object_keys':keys,'active_scans':active,'active_run_ids':sorted(active_ids),'pending_reports':generating,'shared_leads_retained':len(pids)-len(orphan)}
+    if organization:result['organization_id']=organization
     result['token']=hashlib.sha256(json.dumps({k:v for k,v in result.items() if k not in ('active_scans','active_run_ids','pending_reports')},sort_keys=True).encode()).hexdigest()
     return result
 
 
-def preview(conn,kind,identifier):
-    data=scope(conn,kind,identifier)
+def preview(conn,kind,identifier,organization=None):
+    data=scope(conn,kind,identifier,organization=organization)
     return {k:data[k] for k in ('name','token','active_scans','active_run_ids','pending_reports','shared_leads_retained')}|{'observations':len(data['business_ids']),'scans':len(data['run_ids']),'reports':len(data['report_ids']),'files':len(data['object_keys']),'canonical_leads':len(data['orphan_prospect_ids']),'removes_related_exports':kind=='lead'}
 
 
-def delete(conn,kind,identifier,confirmation,token,actor):
+def delete(conn,kind,identifier,confirmation,token,actor,organization=None):
+    from app.platform.context import organization as active_organization
+    organization=active_organization(organization)
+    org_sql=' AND organization_id=?';org_args=(organization,)
     if confirmation!='DELETE':raise HTTPException(422,'Type DELETE to confirm permanent deletion.')
     postgres=getattr(conn,'backend',None)=='postgres'
     if postgres:conn.execute('SELECT pg_advisory_xact_lock(691944307)')
     else:conn.execute('BEGIN IMMEDIATE')
-    data=scope(conn,kind,identifier)
+    data=scope(conn,kind,identifier,organization=organization)
     if data['token']!=token:raise HTTPException(409,'The data changed. Review the updated deletion preview and confirm again.')
     if data['active_scans'] or data['pending_reports']:raise HTTPException(409,'Stop the related scans and wait for workers and reports to finish before deleting.')
     from app.config.settings import get_settings
@@ -102,7 +118,23 @@ def delete(conn,kind,identifier,confirmation,token,actor):
         if latest['token']!=data['token'] or latest['active_scans'] or latest['pending_reports']:raise RuntimeError('Deletion scope changed; review a new preview.')
         artifact_storage().delete_many(data['object_keys'])
         bc,ba=inside('business_id',data['business_ids']);rc,ra=inside('run_id',data['run_ids']);pc,pa=inside('prospect_id',data['orphan_prospect_ids'])
-        conn.execute('DELETE FROM client_reports WHERE '+bc+' OR '+pc,ba+pa)
+        from app.database.foundation_schema import ready
+        if ready(conn):
+            conn.execute('DELETE FROM campaign_business_snapshots WHERE '+bc+org_sql,ba+list(org_args))
+            conn.execute('DELETE FROM analysis_operations WHERE '+bc,ba)
+            conn.execute('DELETE FROM review_cases WHERE '+bc+org_sql,ba+list(org_args))
+            conn.execute('DELETE FROM worker_attempts WHERE '+rc,ra)
+            source_clause,source_args=inside('source_business_id',data['business_ids'])
+            conn.execute('DELETE FROM analysis_cache WHERE '+source_clause+' OR '+pc,source_args+pa)
+            conn.execute('DELETE FROM review_cases WHERE '+pc+org_sql,pa+list(org_args))
+            conn.execute('DELETE FROM contact_people WHERE '+pc+org_sql,pa+list(org_args))
+            conn.execute('DELETE FROM identity_resolutions WHERE '+pc,pa)
+            target_clause,target_args=inside('target_id',data['orphan_prospect_ids'])
+            conn.execute('DELETE FROM duplicate_resolutions WHERE '+target_clause,target_args)
+            if kind=='campaign':
+                conn.execute('DELETE FROM review_cases WHERE campaign_id=?'+org_sql,(identifier,)+org_args)
+                conn.execute('DELETE FROM campaign_settings_snapshots WHERE campaign_id=?'+org_sql,(identifier,)+org_args)
+        conn.execute('DELETE FROM client_reports WHERE ('+bc+' OR '+pc+')'+org_sql,ba+pa+list(org_args))
         conn.execute('DELETE FROM artifact_objects WHERE '+bc+' OR ('+rc+(" AND business_id IS NULL AND kind IN ('csv','xlsx')" if kind=='lead' else '')+')',ba+ra)
         candidates=[r[0] for r in conn.execute('SELECT DISTINCT profile_id FROM social_profile_sources WHERE '+bc,ba).fetchall()]
         conn.execute('DELETE FROM social_profile_sources WHERE '+bc,ba)
@@ -111,7 +143,9 @@ def delete(conn,kind,identifier,confirmation,token,actor):
         for table in ('business_intelligence','website_captures','opportunity_scores','prospect_observations'):conn.execute('DELETE FROM '+table+' WHERE '+bc,ba)
         # Core profile/contact/finding/Lighthouse/lead-score tables cascade from businesses.
         clause,args=inside('id',data['business_ids']);conn.execute('DELETE FROM businesses WHERE '+clause,args)
-        for table in ('business_identities','prospect_notes'):conn.execute('DELETE FROM '+table+' WHERE '+pc,pa)
+        for table in ('business_identities',):
+            conn.execute('DELETE FROM '+table+' WHERE '+pc,pa)
+        conn.execute('DELETE FROM prospect_notes WHERE '+pc+org_sql,pa+list(org_args))
         clause,args=inside('id',data['orphan_prospect_ids']);conn.execute('DELETE FROM prospects WHERE '+clause,args)
         for run in data['run_ids']:
             row=conn.execute('SELECT output_file,campaign_id FROM pipeline_runs WHERE id=?',(run,)).fetchone()

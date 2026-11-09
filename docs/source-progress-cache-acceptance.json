@@ -1,0 +1,23 @@
+{
+  "progress_read_cache": "PASSED",
+  "first": {
+    "path": "/api/acquisition/jobs/cda4451e-bf33-4621-92c0-667d3efb280f",
+    "status": 200,
+    "ms": 9861,
+    "cache": "MISS"
+  },
+  "repeat": {
+    "path": "/api/acquisition/jobs/cda4451e-bf33-4621-92c0-667d3efb280f",
+    "status": 200,
+    "ms": 1426,
+    "cache": "HIT"
+  },
+  "repeat_again": {
+    "path": "/api/acquisition/jobs/cda4451e-bf33-4621-92c0-667d3efb280f",
+    "status": 200,
+    "ms": 1360,
+    "cache": "HIT"
+  },
+  "qualified": 10,
+  "safety_decisions_cached": false
+}

@@ -98,3 +98,9 @@ def test_social_url_normalization():
     assert normalized.instagram == "https://www.instagram.com/austintacotruck"
 
 
+
+
+def test_unrecognized_suffix_keeps_company_hostname_for_deduplication():
+    assert normalize_domain('https://northstar.test')=='northstar.test'
+    assert normalize_domain('https://harbour.test')=='harbour.test'
+    assert normalize_domain('https://www.private-company.unrecognized')=='private-company.unrecognized'

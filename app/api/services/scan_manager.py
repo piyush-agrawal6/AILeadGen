@@ -46,10 +46,10 @@ class LocalScanExecutor(ScanExecutor):
             finally:
                 self._active_tasks.pop(run_id, None)
                 with db_session() as conn:
-                    row = conn.execute("SELECT campaign_id FROM pipeline_runs WHERE id=?", (run_id,)).fetchone()
+                    row = conn.execute("SELECT campaign_id,organization_id FROM pipeline_runs WHERE id=?", (run_id,)).fetchone()
                     if row and row[0]:
                         from app.api.routes.campaigns import campaign_detail
-                        campaign_detail(conn, row[0], persist=True)
+                        campaign_detail(conn, row[0], persist=True,organization=row[1] or None)
 
     async def start(
         self,
@@ -137,8 +137,11 @@ class ScanManager:
         vertical: str,
         target: int = 50,
         settings: Optional[Dict[str, Any]] = None,
+        organization: Optional[str] = None,
     ) -> int:
         with db_session() as conn:
+            from app.qualification.configuration import new_scan_settings
+            settings=new_scan_settings(conn,settings)
             run_repo = PipelineRunRepository(conn)
             new_run = PipelineRun(
                 market=market,
@@ -148,7 +151,18 @@ class ScanManager:
                 started_at=datetime.now().isoformat(),
                 run_configuration=settings,
             )
-            run_id = run_repo.create(new_run)
+            from app.workflows.controls import require_unpaused
+            require_unpaused(conn,'scan')
+            run_id = run_repo.create(new_run,organization=organization)
+            from app.database.foundation_schema import ready
+            if ready(conn):
+                import json,uuid
+                from app.workflows.history import capture_settings
+                cid=str(uuid.uuid4());options=dict(settings or {},cities=[market],verticals=[vertical],target=target)
+                actor=options.get('created_by') or 'system'
+                conn.execute('INSERT INTO scan_campaigns(id,created_by,configuration_json,created_at,target_total,organization_id) VALUES(?,?,?,?,?,?)',(cid,actor,json.dumps(options),datetime.now().isoformat(),target,organization))
+                conn.execute('UPDATE pipeline_runs SET campaign_id=? WHERE id=? AND organization_id=?',(cid,run_id,organization))
+                capture_settings(conn,cid,options,organization=organization)
             conn.commit()
 
         await self.executor.start(
@@ -164,6 +178,13 @@ class ScanManager:
         return await self.executor.cancel(run_id)
 
     async def resume_scan(self, run_id: int) -> bool:
+        from app.workflows.controls import require_unpaused
+        with db_session() as conn:
+            require_unpaused(conn,'scan')
+            from app.database.acquisition_schema import ready as source_ready
+            if source_ready(conn) and conn.execute('SELECT 1 FROM acquisition_batches WHERE run_id=?',(run_id,)).fetchone():
+                from fastapi import HTTPException
+                raise HTTPException(409,'Resume this source from its acquisition checkpoint, not the Maps worker.')
         return await self.executor.resume(run_id)
 
     def get_status(self, run_id: int) -> Optional[str]:

@@ -1,0 +1,20 @@
+{
+  "run_id": 2,
+  "target": 1,
+  "raw_found": 1,
+  "qualified": 1,
+  "status": "COMPLETED",
+  "quality": "high_intent",
+  "businesses": [
+    {
+      "id": 2,
+      "name": "Homestay Hotels",
+      "website": "http://www.homestayhotels.co.uk/",
+      "prospect_id": "a0cda101-9f06-4337-8974-fb1f17d5bb8e",
+      "public_email": "stay@homestayhotel.co.uk",
+      "processing_status": "QUALIFIED"
+    }
+  ],
+  "automatic_flags": false,
+  "restored_old_findings": false
+}

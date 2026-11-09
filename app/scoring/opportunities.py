@@ -10,10 +10,11 @@ SCORING_VERSION = "3.1.0"
 ORDER = ["WEBSITE", "SEO", "SECURITY"]
 
 
-def analyze_opportunities(business, profile=None, lighthouse=None, crawl=None, probe=None, selected=None):
+def analyze_opportunities(business, profile=None, lighthouse=None, crawl=None, probe=None, selected=None, *,cached_security=None):
     selected = selected or ORDER
     evidence = {key: [] for key in ORDER}
     def add(kind, code, points, detail):
+        if kind=='SECURITY' and cached_security is not None:return
         evidence[kind].append({"code": code, "points": points, "detail": detail})
     email = bool(business.public_email)
     phone = bool(business.normalized_phone or business.phone or (crawl and crawl.contacts.phones))
@@ -107,7 +108,7 @@ def analyze_opportunities(business, profile=None, lighthouse=None, crawl=None, p
         if len(source_phone) >= 8 and website_phones and not any(value.endswith(source_phone[-10:]) or source_phone.endswith(value[-10:]) for value in website_phones if len(value) >= 8):
             add("SEO", "NAP_PHONE_MISMATCH", 10, "Normalized source and extracted public website phone numbers differ.")
         # Missing security headers are scored only when a successful response supplied headers.
-        if probe and probe.response_headers:
+        if cached_security is None and probe and probe.response_headers:
             checks = [("strict-transport-security", "NO_HSTS", 8), ("content-security-policy", "NO_CSP", 12), ("x-content-type-options", "NO_NOSNIFF", 5), ("referrer-policy", "NO_REFERRER_POLICY", 4), ("permissions-policy", "NO_PERMISSIONS_POLICY", 3)]
             for header, code, points in checks:
                 if not headers.get(header) and (header != "strict-transport-security" or profile.https_enabled):
@@ -134,7 +135,7 @@ def analyze_opportunities(business, profile=None, lighthouse=None, crawl=None, p
                 add("SECURITY", "SESSION_COOKIE_NO_HTTPONLY", 5, "A session-like cookie lacks HttpOnly; purpose requires owner confirmation.")
         if profile.https_enabled and soup.select('script[src^="http:"],iframe[src^="http:"],link[rel="stylesheet"][href^="http:"]'):
             add("SECURITY", "MIXED_ACTIVE_CONTENT", 12, "Active content references an HTTP resource on an HTTPS page.")
-        if soup.select('form[action^="http:"]'):
+        if cached_security is None and soup.select('form[action^="http:"]'):
             add("SECURITY", "INSECURE_FORM_ACTION", 12, "A form submits to an HTTP destination. No form was submitted.")
         for kind in ["SEO", "SECURITY"]:
             points = min(100, sum(item["points"] for item in evidence[kind]))
@@ -142,6 +143,8 @@ def analyze_opportunities(business, profile=None, lighthouse=None, crawl=None, p
     scores["WEBSITE"] = min(100, sum(item["points"] for item in evidence["WEBSITE"]))
     if scores["SECURITY"] is None and evidence["SECURITY"]:
         scores["SECURITY"] = min(100,sum(item["points"] for item in evidence["SECURITY"]))
+    if cached_security is not None:
+        evidence['SECURITY']=cached_security['evidence'];scores['SECURITY']=cached_security['score']
     ranked = sorted((kind for kind in ORDER if kind in selected and scores[kind] is not None and scores[kind] >= 40), key=lambda key: (-scores[key], ORDER.index(key)))
     return {"website_opportunity_score": scores["WEBSITE"], "seo_opportunity_score": scores["SEO"], "security_opportunity_score": scores["SECURITY"],
             "primary_opportunity": ranked[0] if ranked else None, "secondary_opportunity": ranked[1] if len(ranked) > 1 else None,

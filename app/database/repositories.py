@@ -190,6 +190,7 @@ class BusinessRepository:
         source: Optional[str] = None,
         quality_status: Optional[str] = None,
         run_id: Optional[int] = None,
+        organization: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
         sort_by: str = "score",
@@ -198,6 +199,11 @@ class BusinessRepository:
         """Search and paginate leads with comprehensive filtering and joined score/profile metrics."""
         conditions: List[str] = []
         params: List[Any] = []
+
+        if organization is not None:
+            # Tenant scope: only businesses attached to this organization's prospects.
+            conditions.append("EXISTS (SELECT 1 FROM prospects op WHERE op.id = b.prospect_id AND op.organization_id = ?)")
+            params.append(organization)
 
         if run_id is not None:
             conditions.append("b.run_id = ?")
@@ -399,11 +405,18 @@ class BusinessRepository:
 
         return leads, total_count
 
-    def get_lead_detail(self, business_id: int) -> Optional[Dict[str, Any]]:
+    def get_lead_detail(self, business_id: int, organization: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Fetch comprehensive prospect intelligence for a single lead."""
         b = self.get_by_id(business_id)
         if not b:
             return None
+        if organization is not None:
+            owner = self.conn.execute(
+                "SELECT p.organization_id FROM prospects p WHERE p.id = (SELECT prospect_id FROM businesses WHERE id = ?)",
+                (business_id,),
+            ).fetchone()
+            if not owner or owner[0] != organization:
+                return None
 
         # Fetch joined records
         cur = self.conn.execute("SELECT * FROM lead_scores WHERE business_id = ?;", (business_id,))
@@ -519,27 +532,41 @@ class BusinessRepository:
             "contacts": contacts,
         }
 
-    def get_dashboard_stats(self) -> Dict[str, Any]:
+    def get_dashboard_stats(self, organization: Optional[str] = None) -> Dict[str, Any]:
         """Aggregate high-level prospecting and pipeline metrics for dashboard overview."""
-        total_biz = self.conn.execute("SELECT COUNT(*) FROM businesses;").fetchone()[0]
-        total_qualified = self.conn.execute("SELECT COUNT(*) FROM businesses WHERE processing_status = 'QUALIFIED';").fetchone()[0]
-        total_runs = self.conn.execute("SELECT COUNT(*) FROM pipeline_runs;").fetchone()[0]
-        no_websites = self.conn.execute("SELECT COUNT(*) FROM businesses WHERE website IS NULL OR website = '' OR website_status = 'NO_WEBSITE';").fetchone()[0]
+        biz_scope = "JOIN prospects op ON op.id = b.prospect_id AND op.organization_id = ?" if organization else ""
+        params = (organization,) if organization else ()
+        total_biz = self.conn.execute(f"SELECT COUNT(*) FROM businesses b {biz_scope};", params).fetchone()[0]
+        total_qualified = self.conn.execute(f"SELECT COUNT(*) FROM businesses b {biz_scope} AND b.processing_status = 'QUALIFIED';", params).fetchone()[0]
+        total_runs = self.conn.execute("SELECT COUNT(*) FROM pipeline_runs WHERE organization_id IS ?;" if not organization else "SELECT COUNT(*) FROM pipeline_runs WHERE organization_id = ?;", params).fetchone()[0]
+        no_websites = self.conn.execute(f"SELECT COUNT(*) FROM businesses b {biz_scope} AND (b.website IS NULL OR b.website = '' OR b.website_status = 'NO_WEBSITE');", params).fetchone()[0]
 
         # Tier breakdown
         tiers = {"A+": 0, "A": 0, "B": 0, "C": 0, "D": 0}
-        for r in self.conn.execute("SELECT tier, COUNT(*) FROM lead_scores GROUP BY tier;").fetchall():
+        if organization:
+            tier_sql = f"SELECT s.tier, COUNT(*) FROM lead_scores s JOIN businesses b ON b.id = s.business_id {biz_scope} AND s.tier IS NOT NULL GROUP BY s.tier;"
+            tier_params = params
+        else:
+            tier_sql = "SELECT tier, COUNT(*) FROM lead_scores GROUP BY tier;"
+            tier_params = ()
+        for r in self.conn.execute(tier_sql, tier_params).fetchall():
             if r[0] in tiers:
                 tiers[r[0]] = r[1]
 
         # Top recommended services
         services = []
-        for r in self.conn.execute("SELECT recommended_service, COUNT(*) as c FROM lead_scores WHERE recommended_service != 'NONE' GROUP BY recommended_service ORDER BY c DESC LIMIT 6;").fetchall():
+        if organization:
+            service_sql = f"SELECT s.recommended_service, COUNT(*) as c FROM lead_scores s JOIN businesses b ON b.id = s.business_id {biz_scope} AND s.recommended_service != 'NONE' GROUP BY s.recommended_service ORDER BY c DESC LIMIT 6;"
+            service_params = params
+        else:
+            service_sql = "SELECT recommended_service, COUNT(*) as c FROM lead_scores WHERE recommended_service != 'NONE' GROUP BY recommended_service ORDER BY c DESC LIMIT 6;"
+            service_params = ()
+        for r in self.conn.execute(service_sql, service_params).fetchall():
             services.append({"name": r[0], "count": r[1]})
 
         # Vertical distribution
         vert_counts = []
-        for r in self.conn.execute("SELECT vertical, COUNT(*) as c FROM businesses GROUP BY vertical ORDER BY c DESC;").fetchall():
+        for r in self.conn.execute(f"SELECT b.vertical, COUNT(*) as c FROM businesses b {biz_scope} " + ("GROUP BY b.vertical ORDER BY c DESC;" if organization else "GROUP BY b.vertical ORDER BY c DESC;"), params).fetchall():
             vert_counts.append({"name": r[0].title(), "count": r[1]})
 
         # Score distribution histogram (buckets: 0-19, 20-39, 40-59, 60-79, 80-100)
@@ -550,7 +577,11 @@ class BusinessRepository:
             {"range": "60–79", "count": 0},
             {"range": "80–100", "count": 0},
         ]
-        for r in self.conn.execute("SELECT total_score FROM lead_scores;").fetchall():
+        if organization:
+            score_sql = f"SELECT s.total_score FROM lead_scores s JOIN businesses b ON b.id = s.business_id {biz_scope};"
+        else:
+            score_sql = "SELECT total_score FROM lead_scores;"
+        for r in self.conn.execute(score_sql, params).fetchall():
             val = r[0]
             if val < 20:
                 buckets[0]["count"] += 1
@@ -565,7 +596,8 @@ class BusinessRepository:
 
         # Recent scans
         recent_scans = []
-        for r in self.conn.execute("SELECT id, market, vertical, status, target, qualified, exported, started_at, finished_at FROM pipeline_runs ORDER BY id DESC LIMIT 5;").fetchall():
+        run_sql = "SELECT id, market, vertical, status, target, qualified, exported, started_at, finished_at FROM pipeline_runs " + ("WHERE organization_id = ? " if organization else "") + "ORDER BY id DESC LIMIT 5;"
+        for r in self.conn.execute(run_sql, params).fetchall():
             recent_scans.append({
                 "id": r["id"],
                 "market": r["market"],
@@ -825,6 +857,11 @@ class FindingRepository:
         self.conn = conn
 
     def insert_batch(self, findings: List[Finding]) -> None:
+        if getattr(self.conn,'backend',None)=='postgres' and findings:
+            values=[(f.business_id,f.finding_code,f.category,f.severity,f.title,f.description,f.evidence,f.source_url,f.score_points) for f in findings]
+            ids=self.conn.insert_many_ids('INSERT INTO findings(business_id,finding_code,category,severity,title,description,evidence,source_url,score_points) VALUES(?,?,?,?,?,?,?,?,?)',values)
+            for finding,identifier in zip(findings,ids):finding.id=identifier
+            return
         for f in findings:
             cur = self.conn.execute(
                 """
@@ -1006,14 +1043,21 @@ class PipelineRunRepository:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
 
-    def create(self, run: PipelineRun) -> int:
+    def create(self, run: PipelineRun, organization=None) -> int:
         config_json = json.dumps(run.run_configuration) if run.run_configuration else None
+        version=self.conn.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] or 0
+        if version<16:
+            cur=self.conn.execute('INSERT INTO pipeline_runs(market,vertical,target,status,run_configuration_json) VALUES(?,?,?,?,?)',(run.market,run.vertical,run.target,run.status,config_json))
+            run.id=cur.lastrowid
+            return run.id
+        if not organization:
+            raise ValueError('Pipeline run creation requires an explicit organization')
         cur = self.conn.execute(
             """
-            INSERT INTO pipeline_runs (market, vertical, target, status, run_configuration_json)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO pipeline_runs (market, vertical, target, status, run_configuration_json, organization_id)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (run.market, run.vertical, run.target, run.status, config_json),
+            (run.market, run.vertical, run.target, run.status, config_json, organization),
         )
         run.id = cur.lastrowid
         return run.id
@@ -1050,8 +1094,13 @@ class PipelineRunRepository:
         )
         return cur.rowcount > 0
 
-    def get_by_id(self, run_id: int) -> Optional[PipelineRun]:
-        cur = self.conn.execute("SELECT * FROM pipeline_runs WHERE id = ?;", (run_id,))
+    def get_by_id(self, run_id: int, organization=None) -> Optional[PipelineRun]:
+        query = "SELECT * FROM pipeline_runs WHERE id = ?"
+        params = [run_id]
+        if organization:
+            query += " AND organization_id = ?"
+            params.append(organization)
+        cur = self.conn.execute(query + ";", params)
         row = cur.fetchone()
         if not row:
             return None
@@ -1070,9 +1119,13 @@ class PipelineRunRepository:
         page_size: int = 20,
         status: Optional[str] = None,
         vertical: Optional[str] = None,
+        organization=None,
     ) -> Tuple[List[PipelineRun], int]:
         conditions = []
         params = []
+        if organization:
+            conditions.append("organization_id = ?")
+            params.append(organization)
         if status:
             conditions.append("status = ?")
             params.append(status.upper())

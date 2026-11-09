@@ -1,0 +1,25 @@
+{
+  "run_id": 3,
+  "schema": 9,
+  "qualified_observations": 19,
+  "unique_qualified_master_leads": 19,
+  "new_qualified_master_leads": 19,
+  "contact_routing": [
+    {
+      "contact_state": "EMAIL_QUEUED",
+      "count": 6
+    },
+    {
+      "contact_state": "MANUAL_CONTACT_REQUIRED",
+      "count": 13
+    }
+  ],
+  "no_email_with_phone_or_social": 13,
+  "qualified_history_events": 19,
+  "prospect_emails_sent": 0,
+  "duplicate_observation_keys": 0,
+  "controls": {
+    "scan_paused": 1,
+    "email_paused": 1
+  }
+}

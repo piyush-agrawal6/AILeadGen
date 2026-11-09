@@ -1,0 +1,6 @@
+{
+  "/api/[...path]/route": "app/api/[...path]/route.js",
+  "/login/page": "app/login/page.js",
+  "/settings/integrations/page": "app/settings/integrations/page.js",
+  "/settings/integrations/gmail-callback/page": "app/settings/integrations/gmail-callback/page.js"
+}

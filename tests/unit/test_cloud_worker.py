@@ -6,6 +6,7 @@ from app.database.connection import get_connection
 from app.database.migrations import run_migrations
 from app.database.models import PipelineRun
 from app.database.repositories import PipelineRunRepository
+from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
 
 
 def test_cloud_job_only_receives_run_id_override():
@@ -18,7 +19,7 @@ def test_cloud_job_only_receives_run_id_override():
 
 def test_worker_claim_and_cancellation_are_persistent(tmp_path):
     conn=get_connection(tmp_path/"worker.db");run_migrations(conn)
-    run=PipelineRun(market="Austin",vertical="dentists",target=5,status="QUEUED");PipelineRunRepository(conn).create(run);conn.commit()
+    run=PipelineRun(market="Austin",vertical="dentists",target=5,status="QUEUED");PipelineRunRepository(conn).create(run, organization=PLANEBYTE_ORGANIZATION_ID);conn.commit()
     assert claim_run(conn,run.id,"first")
     conn.execute("UPDATE pipeline_runs SET status='RUNNING' WHERE id=?",(run.id,));conn.commit()
     assert not claim_run(conn,run.id,"second")
@@ -32,7 +33,7 @@ def test_expired_worker_becomes_resumable_without_losing_observations(tmp_path):
     from app.api.services.cloud_executor import reconcile_expired
     conn=get_connection(tmp_path/'expired.db');run_migrations(conn)
     run=PipelineRun(market='Austin',vertical='dentists',target=5,status='RUNNING')
-    PipelineRunRepository(conn).create(run)
+    PipelineRunRepository(conn).create(run, organization=PLANEBYTE_ORGANIZATION_ID)
     conn.execute("UPDATE pipeline_runs SET lease_owner='dead-worker',lease_expires_at=? WHERE id=?",((datetime.now(timezone.utc)-timedelta(minutes=5)).isoformat(),run.id))
     assert reconcile_expired(conn)==1
     saved=conn.execute('SELECT status,lease_owner FROM pipeline_runs WHERE id=?',(run.id,)).fetchone()

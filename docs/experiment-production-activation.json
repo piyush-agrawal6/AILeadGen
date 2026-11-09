@@ -1,0 +1,80 @@
+{
+  "experiment_id": "planebyte-2026-11-02-06",
+  "status": "LIVE",
+  "start_date": "2026-11-02",
+  "end_date": "2026-11-06",
+  "send_approved": true,
+  "acceptance": {
+    "ai_provider": {
+      "detail": "Vertexquerryside/global/gemini-3.6-flash:localADC1/5/10/40PASS(one40-leadinference);productionCloudRunserviceidentitysmokePASS. GeminiDeveloperAPIsecondaryDEGRADEDHTTP402;deterministicfinalfallbackPASS.",
+      "passed": true
+    },
+    "backend": {
+      "detail": "Final exact Linux release:464 passed,15 skipped. Source resource accounting regression:33 focused passed.",
+      "passed": true
+    },
+    "brief_visual": {
+      "detail": "Three3-pageOpportunityBriefV2variantsrenderedfromstoredpublicevidenceandvisuallyreviewed;clickablelinks.",
+      "passed": true
+    },
+    "controlled_reply": {
+      "detail": "GenuineownerreplyauthenticatedandclassifiedPOSITIVE;correctcampaign/source/template/experimentassociation.",
+      "passed": true
+    },
+    "dashboard": {
+      "detail": "Production frontend Ready; all five final signed API reads HTTP200 on leadengine-api-00105-cil. Settings preserve provider metadata; source usage reads actual request ledger. 43 frontend tests and25 browser checks PASS.",
+      "passed": true
+    },
+    "five_controlled_emails": {
+      "detail": "FiveexactstrategyexamplesSMTPacceptedandverifiedinGmailSentonlyatagrawaljoy1@gmail.com;3-pagebriefs/HTML/text/signature/optout/trackingPASS;genuineownerreplyPOSITIVE. No prospectcontact.",
+      "passed": true
+    },
+    "frontend": {
+      "detail": "43unit; strictTypeScript; productionbuild;25browserworkflowsPASS.",
+      "passed": true
+    },
+    "full_pdf": {
+      "detail": "ExistingFullAuditPDF8pagesrenderedandvisuallyverified;generatorpreserved.",
+      "passed": true
+    },
+    "inbox_sync": {
+      "detail": "Productiongenuinereplysyncconfirmed;noautoreply.",
+      "passed": true
+    },
+    "postgres": {
+      "detail": "RealdisposablePostgreSQLadditivemigration+copycache/circuit/attributionPASS.",
+      "passed": true
+    },
+    "provider_capacity": {
+      "detail": "PersonalGmail500/dayceiling;rolling24hSentaccounting+untrackedaccounttrafficchecked;controlledsendseatusableallowance;doNotBypass.",
+      "passed": true
+    },
+    "schedule": {
+      "detail": "ActualautomaticFirecrawlscheduleexecutedoncewithcorrectsource;OvertureRunNowcorrectsource;temporaryQA3schedulessoftdeleted/historypreserved. Preparation/queueattributioncoveredbycontrolledtest.",
+      "passed": true
+    },
+    "smtp": {
+      "detail": "GmailSMTP/IMAPauthenticatedREADY;controlledmessagesSMTPaccepted.",
+      "passed": true
+    },
+    "source_firecrawl": {
+      "detail": "ControlledBristolsource5contactable/5analyzed;no-emailbusinessesskippedbeforedeepwork.",
+      "passed": true
+    },
+    "source_overture": {
+      "detail": "Controlledscan47completed:target5,actual6validpublic-email/analyzedbusinessespreservedafterretry;no-emaildeepwork0.",
+      "passed": true
+    },
+    "suppression": {
+      "detail": "DNC/unsubscribe/hardbounce/uncertainSMTP/rate/idempotencyguardscoveredbyexistingenabledqueueregressions;ownercontrolledoptoutnevermutatesrealprospect.",
+      "passed": true
+    }
+  },
+  "production_revision": "leadengine-api-00105-cil",
+  "timing": {
+    "path": "/api/experiments/activate",
+    "status": 200,
+    "ms": 33016,
+    "cache": null
+  }
+}

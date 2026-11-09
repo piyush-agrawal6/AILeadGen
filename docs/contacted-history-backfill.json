@@ -1,0 +1,61 @@
+{
+  "organization_id": "planebyte",
+  "historical_actual_sends": 42,
+  "unique_actual_recipients": 32,
+  "registry_rows": 32,
+  "mismatch": 0,
+  "source_audit": [
+    {
+      "schema": "experiment_rollback_20261102t152525z",
+      "authoritative_sent_rows": 0,
+      "orphan_sent_items": 0
+    },
+    {
+      "schema": "owner_fresh500_20261102t173647z",
+      "authoritative_sent_rows": 5,
+      "orphan_sent_items": 0
+    },
+    {
+      "schema": "owner_fresh500_20261103t044850z",
+      "authoritative_sent_rows": 30,
+      "orphan_sent_items": 0
+    },
+    {
+      "schema": "public",
+      "authoritative_sent_rows": 30,
+      "orphan_sent_items": 0
+    },
+    {
+      "archive": "acquisition-online-schema12-20261102T091705Z.zip",
+      "authoritative_sent_rows": 0,
+      "checksum_and_row_count_verified": true
+    },
+    {
+      "archive": "campaign-operations-schema10-20261101T175228Z.zip",
+      "authoritative_sent_rows": 3,
+      "checksum_and_row_count_verified": true
+    },
+    {
+      "archive": "foundation-schema11-20261102T054954Z.zip",
+      "authoritative_sent_rows": 3,
+      "checksum_and_row_count_verified": true
+    },
+    {
+      "archive": "owner-clean-start-20261101T145927Z.zip",
+      "authoritative_sent_rows": 4,
+      "checksum_and_row_count_verified": true
+    },
+    {
+      "archive": "owner-final-clean-start-20261102T060818Z.zip",
+      "authoritative_sent_rows": 3,
+      "checksum_and_row_count_verified": true
+    },
+    {
+      "provider": "GMAIL_SENT",
+      "authoritative_sent_rows": 34
+    }
+  ],
+  "applied": true,
+  "actual_envelope_used": true,
+  "drafts_queued_unsent_excluded": true
+}

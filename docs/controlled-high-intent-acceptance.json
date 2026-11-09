@@ -1,0 +1,17 @@
+{
+  "source_run_id": 3,
+  "controlled_target": 3,
+  "method": "read-only high-intent policy replay over stored production audit facts",
+  "quality_policy": {
+    "threshold": 65,
+    "contact_required": true,
+    "certain_vertical_required": true
+  },
+  "audited_candidates": 40,
+  "high_intent_eligible": 20,
+  "target_shortfall": 0,
+  "standards_lowered": false,
+  "qualification_records_changed": false,
+  "new_scan_started": false,
+  "email_sent": false
+}

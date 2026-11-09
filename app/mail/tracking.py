@@ -1,5 +1,5 @@
 """First-party, privacy-limited signals attached to the existing activity timeline."""
-import hashlib,html,ipaddress,json,re,secrets,time,uuid
+import hmac,hashlib,html,ipaddress,json,re,secrets,time,uuid
 from datetime import datetime,timedelta,timezone
 from urllib.parse import urlsplit,urlunsplit
 from fastapi import HTTPException
@@ -15,6 +15,14 @@ def available(c):
     return (c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] or 0)>=8
 
 def preferences(c):
+    version=c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] or 0
+    if version>=16:
+        from app.platform.context import organization
+        from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
+        org=organization()
+        if org!=PLANEBYTE_ORGANIZATION_ID:
+            row=c.execute('SELECT track_opens,track_clicks,track_replies,track_bounces FROM customer_mail_tracking_preferences WHERE organization_id=?',(org,)).fetchone() if version>=40 else None
+            return {k:bool(v) for k,v in dict(row).items()} if row else {'track_opens':False,'track_clicks':False,'track_replies':True,'track_bounces':True}
     return {k:bool(v) for k,v in dict(c.execute('SELECT track_opens,track_clicks,track_replies,track_bounces FROM email_tracking_preferences WHERE id=1').fetchone()).items()}
 
 def allowed_url(value):
@@ -36,18 +44,27 @@ def allowed_url(value):
 def tracking_base():
     raw=mail_settings().tracking_base_url.rstrip('/')
     parsed=urlsplit(raw)
+    from app.config.settings import get_settings
+    import os
+    if (get_settings().app_env=='development' and os.environ.get('HEYSOW_LOCAL_PREVIEW')=='true'
+        and raw in ('http://localhost:3000/t','http://127.0.0.1:3000/t')):return raw
     if not allowed_url(raw) or parsed.scheme!='https' or parsed.query or parsed.fragment:raise HTTPException(503,'Tracking requires a configured public HTTPS base URL.')
     return raw
 
-def issue_token(c,message_id,action,destination=None):
-    token=secrets.token_urlsafe(32);digest=hashlib.sha256(token.encode()).hexdigest()
+def issue_token(c,message_id,action,destination=None,token=None):
+    token=token or secrets.token_urlsafe(32);digest=hashlib.sha256(token.encode()).hexdigest()
     c.execute('INSERT INTO email_tracking_tokens VALUES(?,?,?,?,?,?)',(digest,message_id,action,destination,now(),(datetime.now(timezone.utc)+timedelta(days=365)).isoformat()))
     return tracking_base()+'/'+action+'/'+token+('.gif' if action=='o' else '')
 
 def lookup(c,token,action):
     if not TOKEN_RE.fullmatch(token):return None
     digest=hashlib.sha256(token.encode()).hexdigest()
-    row=c.execute("SELECT t.*,m.prospect_id,m.thread_id,m.test_mode,m.status FROM email_tracking_tokens t JOIN email_messages m ON m.id=t.message_id WHERE token_hash=? AND action=? AND expires_at>? AND m.status='SENT'",(digest,action,now())).fetchone()
+    row=c.execute("SELECT t.*,m.prospect_id,m.thread_id,m.test_mode,m.status,m.organization_id FROM email_tracking_tokens t JOIN email_messages m ON m.id=t.message_id WHERE token_hash=? AND action=? AND expires_at>? AND m.status='SENT'",(digest,action,now())).fetchone()
+    if not row and action=='u':
+        from app.database.contactable_schema import ready as contacted_ready
+        if contacted_ready(c):
+            saved=c.execute('SELECT * FROM contacted_unsubscribe_tokens WHERE token_hash=? AND expires_at>?',(digest,now())).fetchone()
+            if saved:return dict(saved)|{'permanent_recipient':True,'action':'u'}
     return dict(row) if row else None
 
 def classify(method,agent,fetch_user=''):
@@ -58,32 +75,45 @@ def classify(method,agent,fetch_user=''):
     return 'UNKNOWN','mail_client_or_unknown',False
 
 def event(c,message_id,kind,*,dedup=None,token_id=None,quality='UNKNOWN',category=None,bot=False,metadata=None,occurred_at=None):
-    row=c.execute('SELECT id,thread_id,prospect_id,test_mode FROM email_messages WHERE id=?',(message_id,)).fetchone()
+    from app.platform.context import organization
+    row=c.execute('SELECT id,thread_id,prospect_id,test_mode FROM email_messages WHERE id=? AND organization_id=?',(message_id,organization())).fetchone()
     if not row:return False
     key=dedup or kind+':'+message_id;stamp=occurred_at or now();eid=str(uuid.uuid4())
     inserted=c.execute('INSERT INTO email_engagement_events(id,message_id,thread_id,prospect_id,event_type,occurred_at,last_at,token_id,url_id,user_agent_category,signal_quality,suspected_bot,metadata_json,created_at,dedup_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(dedup_key) DO NOTHING',(eid,message_id,row['thread_id'],row['prospect_id'],kind,stamp,stamp,token_id,token_id if kind=='CLICK_SIGNAL' else None,category,quality,int(bot),json.dumps(metadata or {}),stamp,key)).rowcount
+    if inserted:
+        from app.mail.contacted import engagement
+        genuine_bounce=kind!='BOUNCED_HARD' or (metadata or {}).get('confirmed')
+        applied_optout=kind!='UNSUBSCRIBED' or (metadata or {}).get('suppression_applied') is not False
+        if genuine_bounce and applied_optout:engagement(c,message_id,kind)
     if not inserted:
         c.execute('UPDATE email_engagement_events SET last_at=?,request_count=request_count+1 WHERE dedup_key=?',(stamp,key));return False
     activity(c,row['prospect_id'],'system',ACTIVITY_TYPES.get(kind,'EMAIL_'+kind),{'message_id':message_id,'test_mode':bool(row['test_mode']),'signal_quality':quality,'suspected_bot':bot,**(metadata or {})},'engagement-'+key,event_at=stamp)
     return True
 
-def render_message(c,message_id,text,opens,clicks):
-    base=tracking_base();parts=[];plain=[];offset=0
+def render_message(c,message_id,text,opens,clicks,*,seed=None,persist=True):
+    base=tracking_base();parts=[];plain=[];offset=0;counter=0
+    def capability(action,destination=None):
+        nonlocal counter
+        import base64
+        counter+=1
+        token=base64.urlsafe_b64encode(hmac.new(seed.encode(),(str(counter)+':'+action+':'+str(destination)).encode(),hashlib.sha256).digest()).decode().rstrip('=') if seed else secrets.token_urlsafe(32)
+        if persist:return issue_token(c,message_id,action,destination,token)
+        return base+'/'+action+'/'+token+('.gif' if action=='o' else '')
     for match in re.finditer(r'https?://[^\s<>"\x27]+',text):
         original=match.group().rstrip('.,);!?');end=match.start()+len(original);destination=allowed_url(original)
         parts.append(html.escape(text[offset:match.start()]));plain.append(text[offset:match.start()])
         # Signed/private report URLs remain untouched. Existing attachments stay private.
         protected=any(x in original.lower() for x in ('x-amz-','signature=','/api/client-reports/','/download','/unsubscribe'))
         eligible=destination and not original.startswith(base) and not protected
-        link=issue_token(c,message_id,'c',destination) if clicks and eligible else destination
+        link=capability('c',destination) if clicks and eligible else destination
         if link:parts.append('<a href="'+html.escape(link,quote=True)+'">'+html.escape(original)+'</a>');plain.append(link)
         else:parts.append(html.escape(original));plain.append(original)
         offset=end
     parts.append(html.escape(text[offset:]));plain.append(text[offset:])
-    unsubscribe=issue_token(c,message_id,'u')
-    footer='\n\nStop receiving emails: '+unsubscribe
-    body='<div style="font-family:Arial,sans-serif;white-space:pre-wrap">'+''.join(parts)+'</div><p style="font:12px Arial;color:#666"><a href="'+html.escape(unsubscribe,quote=True)+'">Stop receiving emails</a></p>'
-    if opens:body+='<img alt="" width="1" height="1" src="'+issue_token(c,message_id,'o')+'">'
+    unsubscribe=capability('u')
+    footer='\n\nNot relevant? Opt out here: '+unsubscribe
+    body='<div style="font-family:Arial,sans-serif;white-space:pre-wrap">'+''.join(parts)+'</div><p style="font:11px Arial;color:#888;margin-top:28px">Not relevant? <a style="color:#888" href="'+html.escape(unsubscribe,quote=True)+'">Opt out here</a>.</p>'
+    if opens:body+='<img alt="" width="1" height="1" src="'+capability('o')+'">'
     return ''.join(plain)+footer,body,unsubscribe
 
 def rate_allowed(c,token,action):
@@ -103,11 +133,19 @@ def public_signal(c,row,method,agent,fetch_user=''):
     event(c,row['message_id'],'OPEN_SIGNAL' if row['action']=='o' else 'CLICK_SIGNAL',dedup=row['action']+':'+row['token_hash']+':'+quality,token_id=row['token_hash'],quality=quality,category=category,bot=bot,metadata={'destination_host':urlsplit(row['destination']).hostname} if row['destination'] else {})
 
 def unsubscribe(c,row):
+    if row.get('permanent_recipient'):
+        if not row['test_mode']:
+            c.execute('UPDATE contacted_recipients SET unsubscribed=1,do_not_contact=1,updated_at=? WHERE organization_id=? AND normalized_email=?',(now(),row['organization_id'],row['normalized_email']))
+            c.execute("INSERT INTO email_address_suppressions(address,source,status,updated_at,organization_id) VALUES(?,'RECIPIENT_UNSUBSCRIBE','INVALID',?,?) ON CONFLICT(address) DO UPDATE SET source='RECIPIENT_UNSUBSCRIBE',status='INVALID',updated_at=excluded.updated_at WHERE email_address_suppressions.organization_id=excluded.organization_id",(row['normalized_email'],now(),row['organization_id']))
+        return
     if row['test_mode']:
         event(c,row['message_id'],'UNSUBSCRIBED',metadata={'simulation':True,'source':'RECIPIENT_UNSUBSCRIBE','suppression_applied':False});return
     from app.database.prospects import ProspectRepository
     ensure(c,row['prospect_id']);ProspectRepository(c).workflow(row['prospect_id'],'system',lead_status='DO_NOT_CONTACT')
     c.execute("UPDATE prospect_sales SET suppression_source='RECIPIENT_UNSUBSCRIBE' WHERE prospect_id=?",(row['prospect_id'],))
+    if (c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] or 0)>=9:
+        c.execute("UPDATE master_lead_state SET contact_state='UNSUBSCRIBED',updated_at=? WHERE prospect_id=?",(now(),row['prospect_id']))
+        c.execute("UPDATE automation_email_queue SET status='CANCELED' WHERE prospect_id=? AND status='QUEUED'",(row['prospect_id'],))
     event(c,row['message_id'],'UNSUBSCRIBED',metadata={'source':'RECIPIENT_UNSUBSCRIBE','suppression_applied':True})
 
 def message_summary(c,message_id):
@@ -128,10 +166,20 @@ def lead_summary(c,pid):
     return {'test_only':test_only,'test_messages_sent':mode_counts.get(1,0),'messages_sent':c.execute("SELECT COUNT(*) FROM email_messages WHERE prospect_id=? AND direction='OUTBOUND' AND status='SENT'",(pid,)).fetchone()[0], 'open_signals':counts.get('OPEN_SIGNAL',0),'click_signals':counts.get('CLICK_SIGNAL',0),'verified_replies':counts.get('REPLIED_VERIFIED',0),'last_engagement_at':last,'level':level,'label':EVENT_LABELS.get(strongest,'-')+(' (Test)' if test_only else '')}
 
 
+def _migration_event(c,message_id,kind,*,dedup=None,metadata=None,occurred_at=None):
+    """Schema-8 migration only: no membership schema existed at this point."""
+    version=c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] or 0
+    if version>=8:raise RuntimeError('Historical tracking backfill is restricted to migration 8')
+    row=c.execute('SELECT thread_id,prospect_id,test_mode FROM email_messages WHERE id=?',(message_id,)).fetchone()
+    if not row:return
+    key=dedup or kind+':'+message_id;stamp=occurred_at or now()
+    inserted=c.execute("INSERT INTO email_engagement_events(id,message_id,thread_id,prospect_id,event_type,occurred_at,last_at,signal_quality,suspected_bot,metadata_json,created_at,dedup_key) VALUES(?,?,?,?,?,?,?,'UNKNOWN',0,?,?,?) ON CONFLICT(dedup_key) DO NOTHING",(str(uuid.uuid4()),message_id,row['thread_id'],row['prospect_id'],kind,stamp,stamp,json.dumps(metadata or {}),stamp,key)).rowcount
+    if inserted:c.execute('INSERT INTO activities(id,prospect_id,actor_user_id,event_type,event_at,metadata_json,created_at,dedup_key) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(dedup_key) DO NOTHING',(str(uuid.uuid4()),row['prospect_id'],'system',ACTIVITY_TYPES.get(kind,'EMAIL_'+kind),stamp,json.dumps({'message_id':message_id,'test_mode':bool(row['test_mode']),**(metadata or {})}),stamp,'engagement-'+key))
+
 def backfill(c):
     """Add facts from accepted Phase 4 records; never invent historical signals."""
     for row in c.execute("SELECT id,status,sent_at,created_at FROM email_messages WHERE direction='OUTBOUND' AND status IN ('SENT','FAILED')").fetchall():
-        event(c,row['id'],'SMTP_ACCEPTED' if row['status']=='SENT' else 'SEND_FAILED',occurred_at=row['sent_at'] or row['created_at'])
+        _migration_event(c,row['id'],'SMTP_ACCEPTED' if row['status']=='SENT' else 'SEND_FAILED',occurred_at=row['sent_at'] or row['created_at'])
     for row in c.execute("SELECT metadata_json,prospect_id,event_at FROM activities WHERE event_type='REPLY_DETECTED'").fetchall():
         inbound_id=json.loads(row['metadata_json']).get('message_id')
         incoming=c.execute('SELECT thread_id,references_json FROM email_messages WHERE id=?',(inbound_id,)).fetchone()
@@ -139,4 +187,4 @@ def backfill(c):
         refs=json.loads(incoming['references_json'])
         for ref in refs:
             sent=c.execute("SELECT id FROM email_messages WHERE thread_id=? AND direction='OUTBOUND' AND provider_message_id=?",(incoming['thread_id'],ref)).fetchone()
-            if sent:event(c,sent['id'],'REPLIED_VERIFIED',dedup='verified-'+inbound_id,metadata={'inbound_message_id':inbound_id,'backfilled':True},occurred_at=row['event_at']);break
+            if sent:_migration_event(c,sent['id'],'REPLIED_VERIFIED',dedup='verified-'+inbound_id,metadata={'inbound_message_id':inbound_id,'backfilled':True},occurred_at=row['event_at']);break

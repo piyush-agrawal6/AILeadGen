@@ -1,0 +1,7 @@
+{
+  "actual_backfilled_recipient_rediscovery_blocked": true,
+  "final_send_guard_blocked": true,
+  "new_master_leads_created": 0,
+  "smtp_calls": 0,
+  "temporary_changes_rolled_back": true
+}

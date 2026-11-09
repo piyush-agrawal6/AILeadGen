@@ -70,6 +70,13 @@ def publish_artifact(conn, key, source, *, run_id=None, business_id=None, kind):
 def download_artifact(conn, *, run_id=None, business_id=None, kind):
     from fastapi.responses import StreamingResponse
     from fastapi import HTTPException
+    from app.platform.context import organization
+    org=organization()
+    if run_id is not None:
+        owned=conn.execute('SELECT 1 FROM pipeline_runs WHERE id=? AND organization_id=?',(run_id,org)).fetchone()
+    else:
+        owned=conn.execute('SELECT 1 FROM businesses b JOIN pipeline_runs r ON r.id=b.run_id WHERE b.id=? AND r.organization_id=?',(business_id,org)).fetchone()
+    if not owned:raise HTTPException(404,'Artifact not found.')
     column, value = ("run_id",run_id) if run_id is not None else ("business_id",business_id)
     row = conn.execute(f"SELECT * FROM artifact_objects WHERE {column}=? AND kind=? ORDER BY created_at DESC LIMIT 1", (value,kind)).fetchone()
     if not row:

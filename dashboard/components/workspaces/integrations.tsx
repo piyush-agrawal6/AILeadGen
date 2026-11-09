@@ -1,0 +1,42 @@
+"use client";
+import {useRef,useState} from 'react';
+import {useQuery} from '@tanstack/react-query';
+import {request} from '@/lib/intelligence';
+import {ImportLeads} from '@/components/acquisition/import-leads';
+import type {AcquisitionJob} from '@/components/acquisition/types';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {SheetExports} from './sheet-exports';
+type Connection={id:string;provider:string;status:string;last_success_at:string|null;last_error_code:string|null;scopes?:string[]};
+type Connections={items:Connection[];can_manage:boolean;google_sheets_configured:boolean;google_sheets_import_enabled?:boolean;google_sheets_scope:string};
+type Sheet={title:string;tabs:{title:string;sheetId:number;gridProperties?:{rowCount:number;columnCount:number}}[]};
+export function IntegrationSettings(){
+ const [pending,setPending]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[spreadsheet,setSpreadsheet]=useState(''),[sheet,setSheet]=useState<Sheet|null>(null);
+ const state=useQuery({queryKey:['organization-integrations'],queryFn:()=>request<Connections>('/organization/integrations'),retry:false});
+ const [tab,setTab]=useState(''),[importJob,setImportJob]=useState<AcquisitionJob|null>(null);const importRequest=useRef<string|null>(null);
+ const connection=state.data?.items.find(item=>item.provider==='GOOGLE_SHEETS');
+ const canExport=connection?.scopes?.includes('https://www.googleapis.com/auth/spreadsheets')||false;
+ async function connect(write=false){if(pending)return;setPending(true);setError('');setNotice('');try{
+  const result=await request<{authorization_url:string}>('/organization/integrations/google-sheets/'+(write?'authorize-export':'authorize'),{method:'POST'});
+  const url=new URL(result.authorization_url);if(url.protocol!=='https:'||url.hostname!=='accounts.google.com'||url.pathname!=='/o/oauth2/v2/auth')throw new Error('The connection could not be started securely.');
+  window.location.assign(url.href);
+ }catch(reason){setError(reason instanceof Error?reason.message:'Google Sheets could not connect.');setPending(false)}}
+ async function disconnect(){if(pending||!connection)return;setPending(true);setError('');setNotice('');try{await request('/organization/integrations/'+connection.id,{method:'DELETE'});setSheet(null);setNotice('Disconnected from this workspace. The Google account authorization is unchanged.');await state.refetch()}catch(reason){setError(reason instanceof Error?reason.message:'The workspace connection could not be removed.')}finally{setPending(false)}}
+ async function inspect(event:React.FormEvent){event.preventDefault();if(pending||!connection)return;setPending(true);setError('');setSheet(null);try{const found=await request<Sheet>('/organization/integrations/'+connection.id+'/sheets?spreadsheet='+encodeURIComponent(spreadsheet));setSheet(found);setTab(found.tabs[0]?.title||'');setImportJob(null);importRequest.current=null;await state.refetch()}catch(reason){setError(reason instanceof Error?reason.message:'The spreadsheet could not be read.')}finally{setPending(false)}}
+ async function stageImport(){if(!connection||!tab||pending)return;setPending(true);setError('');importRequest.current??=crypto.randomUUID();try{setImportJob(await request<AcquisitionJob>('/organization/integrations/'+connection.id+'/sheets/import',{method:'POST',body:JSON.stringify({spreadsheet,sheet:tab,request_id:importRequest.current})}))}catch(reason){setError(reason instanceof Error?reason.message:'The spreadsheet could not be staged.')}finally{setPending(false)}}
+ return <section className="max-w-3xl space-y-6"><header><h1 className="text-2xl font-semibold">Workspace integrations</h1><p className="mt-2 text-sm text-muted-foreground">Connections belong to this company workspace. Signing in with Google does not connect your spreadsheets or mailbox.</p></header>
+ {state.isPending?<p role="status">Loading workspace connections…</p>:state.isError?<div role="alert"><p>Workspace connections could not be loaded.</p><Button variant="outline" onClick={()=>void state.refetch()}>Retry connections</Button></div>:<section className="space-y-5 rounded-lg border p-5"><div><h2 className="text-lg font-semibold">Google Sheets</h2><p className="mt-1 text-sm text-muted-foreground">{canExport?'Read and export access. Writes require a reviewed snapshot and explicit destination confirmation; connecting never starts an export.':'Read-only access. This connection can inspect a spreadsheet you choose; it cannot edit your sheets or send email.'}</p></div>
+ {!state.data?.google_sheets_configured?<p className="text-sm text-muted-foreground">Workspace connections need secure server setup. Existing internal connections are not shared with this workspace.</p>:<>
+ <p className="text-sm">Status: {connection?.status.replaceAll('_',' ').toLowerCase()||'not connected'}</p>
+ {connection?.last_success_at&&<p className="text-xs text-muted-foreground">Last successful read: {new Date(connection.last_success_at).toLocaleString()}</p>}
+ {connection?.last_error_code&&<p role="alert" className="text-sm text-destructive">The last connection operation failed. Check spreadsheet access or reconnect.</p>}
+ {state.data.can_manage?<div className="flex flex-wrap gap-3"><Button disabled={pending} onClick={()=>void connect(canExport)}>{pending?'Working…':connection?.status==='CONNECTED'?'Reconnect Google Sheets':'Connect Google Sheets (read only)'}</Button>{connection&&connection.status!=='DISCONNECTED'&&<Button variant="outline" disabled={pending} onClick={()=>void disconnect()}>Disconnect from this workspace</Button>}</div>:<p className="text-sm text-muted-foreground">An owner or administrator can manage this connection.</p>}
+ {state.data.can_manage&&connection?.status==='CONNECTED'&&<form onSubmit={inspect} className="space-y-3 border-t pt-5"><div className="space-y-2"><label htmlFor="integration-spreadsheet" className="text-sm font-medium">Spreadsheet URL or ID</label><Input id="integration-spreadsheet" required minLength={10} maxLength={500} value={spreadsheet} disabled={pending} onChange={event=>setSpreadsheet(event.target.value)}/><p className="text-xs text-muted-foreground">Reads document and tab information only. No leads are imported and no automation starts.</p></div><Button type="submit" variant="outline" disabled={pending}>Check spreadsheet access</Button></form>}
+ {sheet&&<section aria-label="Spreadsheet access result" className="space-y-2"><h3 className="font-medium">{sheet.title}</h3><p role="status" className="text-sm">Spreadsheet access confirmed. {sheet.tabs.length} tabs available.</p><ul className="list-inside list-disc text-sm text-muted-foreground">{sheet.tabs.map(tab=><li className="break-words" key={tab.sheetId}>{tab.title}</li>)}</ul>{state.data?.can_manage&&state.data.google_sheets_import_enabled&&<div className="space-y-3 border-t pt-4"><label className="field-label">Import spreadsheet tab<select className="control mt-2 w-full" value={tab} disabled={pending} onChange={event=>{setTab(event.target.value);importRequest.current=null;setImportJob(null)}}>{sheet.tabs.map(value=><option key={value.sheetId} value={value.title}>{value.title}</option>)}</select></label><p className="text-xs text-muted-foreground">Stage a bounded read-only preview, review column mapping, then approve importing into a campaign. No email will be sent.</p><Button type="button" variant="outline" disabled={pending||!tab} onClick={()=>void stageImport()}>Review spreadsheet import</Button></div>}</section>}
+ </>}
+ </section>}
+ {state.data?.can_manage&&connection?.status==='CONNECTED'&&(canExport?<SheetExports key={connection.id} connectionId={connection.id}/>:<section className="space-y-3 rounded-lg border p-5"><h2 className="font-semibold">Optional spreadsheet export</h2><p className="text-sm text-muted-foreground">Your current connection stays read-only. Export requires a separate Google consent step granting permission to edit spreadsheets. Each export then needs its own reviewed destination and overwrite approval.</p><Button variant="outline" disabled={pending} onClick={()=>void connect(true)}>Authorize Google Sheets export</Button></section>)}
+ {importJob&&<ImportLeads key={importJob.id} inline initialJob={importJob}/>}
+ {notice&&<p role="status" className="text-sm text-primary">{notice}</p>}{error&&<p role="alert" className="text-sm text-destructive">{error}</p>}
+ </section>;
+}

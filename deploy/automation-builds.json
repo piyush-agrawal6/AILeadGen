@@ -1,0 +1,23 @@
+{
+  "images": {
+    "api": "asia-south1-docker.pkg.dev/querryside/leadengine/api:campaign-operations-20261101-180430",
+    "worker": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:automation-20261101-174320"
+  },
+  "builds": {
+    "api": "558e4470-b9f3-47ae-a93d-24ba371e3933",
+    "worker": "34eb69ce-0f46-46ca-84cd-a63d3a0b661c"
+  },
+  "incremental_staging": {
+    "worker": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:automation-20261101-174320",
+      "environment_preserved": true,
+      "secrets_preserved": true
+    },
+    "api": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:campaign-operations-20261101-180430",
+      "environment_preserved": true,
+      "secrets_preserved": true
+    }
+  },
+  "prepared_api_revision": "leadengine-api-00029-9gh"
+}

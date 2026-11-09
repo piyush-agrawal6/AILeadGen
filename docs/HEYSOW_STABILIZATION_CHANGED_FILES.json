@@ -1,0 +1,302 @@
+[
+  {
+    "path": "app/worker.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/database/workspace_settings_schema.py",
+    "change": "new"
+  },
+  {
+    "path": "app/database/migrations.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/database/repositories.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/database/prospects.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/pipeline/runner.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/sales/service.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/acquisition/worker.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/acquisition/service.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/acquisition/policy.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/acquisition/pipeline.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/mail/service.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/mail/bounces.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/mail/templates.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/mail/tracking.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/mail/contacted.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/experiments/runtime.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/platform/context.py",
+    "change": "new"
+  },
+  {
+    "path": "app/workflows/service.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/workflows/campaigns.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/workflows/dashboard.py",
+    "change": "new"
+  },
+  {
+    "path": "app/api/organization.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/api/security.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/api/permissions.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/automation/service.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/automation/settings.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/automation/views.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/outreach/fixed.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/qualification/configuration.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/reports/service.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/reports/data.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/api/routes/mail.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/api/routes/operations.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/api/routes/workflows.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/api/routes/tracking.py",
+    "change": "modified"
+  },
+  {
+    "path": "app/api/services/deletion.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/workspace_fixtures.py",
+    "change": "new"
+  },
+  {
+    "path": "tests/unit/test_phase41.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_enabled_queue.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_campaign_outreach.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/campaign_fixtures.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_experiment.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_foundation_safety.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_contactable_only.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_automation_views.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_workflow_runs.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_prospects.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_resource_qualification.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_automation.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_phase4.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_operations_api.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_cloud_worker.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_internal_auth.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_contacted_registry.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_global_identity_aliases.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_api.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_acquisition_acceptance.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_phase36.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_heysow_workspace_templates.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_phase4_api.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_ai_router.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_phase35_migration.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_acquisition_pipeline.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_heysow_stabilization.py",
+    "change": "new"
+  },
+  {
+    "path": "tests/unit/test_client_reports.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/unit/test_workflow_repairs.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/integration/test_campaign_flow.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/integration/test_pipeline.py",
+    "change": "modified"
+  },
+  {
+    "path": "tests/integration/test_postgres.py",
+    "change": "modified"
+  },
+  {
+    "path": "docs/HEY SOW_REGRESSION_TRIAGE.md",
+    "change": "new"
+  },
+  {
+    "path": "docs/MIGRATIONS.md",
+    "change": "new"
+  },
+  {
+    "path": "docs/ENGINEERING_STANDARDS_AUDIT.md",
+    "change": "modified"
+  },
+  {
+    "path": "docs/HEY SOW_STABILIZATION_REPORT.md",
+    "change": "new"
+  },
+  {
+    "path": "docs/SAAS_MULTI_TENANCY.md",
+    "change": "new"
+  },
+  {
+    "path": "docs/SECURITY.md",
+    "change": "modified"
+  }
+]

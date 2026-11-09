@@ -1,3 +1,35 @@
+from app.database.sheet_export_schema import SHEET_EXPORT_SQL
+from app.database.admission_schema import ADMISSION_SQL
+from app.database.customer_gmail_schema import CUSTOMER_GMAIL_SQL
+from app.database.webhook_schema import WEBHOOK_SQL
+from app.database.icp_proposal_schema import ICP_PROPOSAL_SQL
+from app.database.developer_approval_schema import DEVELOPER_APPROVAL_SQL
+from app.database.developer_schema import DEVELOPER_SQL
+from app.database.sales_operations_schema import SALES_OPERATIONS_SQL
+from app.database.assistant_schema import ASSISTANT_SQL
+from app.database.intelligence_job_schema import INTELLIGENCE_JOB_SQL
+from app.database.people_schema import PEOPLE_SQL
+from app.database.discovery_search_schema import DISCOVERY_SEARCH_SQL
+from app.database.contactable_schema import CONTACTABLE_SQL
+from app.database.workspace_settings_schema import WORKSPACE_SETTINGS_SQL
+from app.database.workspace_selection_schema import WORKSPACE_SELECTION_SQL
+from app.database.invitation_schema import INVITATION_SQL
+from app.database.workspace_creation_schema import WORKSPACE_CREATION_SQL
+from app.database.acquisition_preferences_schema import ACQUISITION_PREFERENCES_SQL
+from app.database.icp_schema import ICP_SQL
+from app.database.onboarding_schema import ONBOARDING_SETUP_SQL
+from app.database.domain_schema import DOMAIN_SQL
+from app.database.company_discovery_schema import COMPANY_DISCOVERY_SQL
+from app.database.ai_usage_schema import AI_USAGE_SQL
+from app.database.integration_schema import INTEGRATION_SQL
+from app.database.company_autofill_schema import COMPANY_AUTOFILL_SQL
+from app.database.organization_schema import ORGANIZATION_MIGRATION_SQL, apply as apply_organization
+from app.database.experiment_schema import EXPERIMENT_SQL
+from app.database.acquisition_schema import ACQUISITION_SQL
+from app.database.campaign_outreach_schema import CAMPAIGN_OUTREACH_SQL,apply as apply_campaign_outreach
+from app.database.workflow_schema import WORKFLOW_SQL
+from app.database.foundation_schema import FOUNDATION_SQL
+from app.database.automation_schema import AUTOMATION_SQL
 from app.database.phase41_schema import PHASE41_SQL
 import logging
 import sqlite3
@@ -292,7 +324,7 @@ MIGRATIONS: List[str] = [
     CREATE INDEX IF NOT EXISTS idx_businesses_state ON businesses(state);
     CREATE INDEX IF NOT EXISTS idx_businesses_country ON businesses(country);
     """
-    , PHASE3_SQL,PHASE35_SQL,PHASE36_SQL,PHASE4_SQL,PHASE41_SQL
+    , PHASE3_SQL,PHASE35_SQL,PHASE36_SQL,PHASE4_SQL,PHASE41_SQL,AUTOMATION_SQL,WORKFLOW_SQL,CAMPAIGN_OUTREACH_SQL,FOUNDATION_SQL,ACQUISITION_SQL,EXPERIMENT_SQL,CONTACTABLE_SQL,ORGANIZATION_MIGRATION_SQL,WORKSPACE_SETTINGS_SQL,WORKSPACE_SELECTION_SQL,INVITATION_SQL,WORKSPACE_CREATION_SQL,ACQUISITION_PREFERENCES_SQL,ICP_SQL,ONBOARDING_SETUP_SQL,DOMAIN_SQL,COMPANY_DISCOVERY_SQL,AI_USAGE_SQL,INTEGRATION_SQL,COMPANY_AUTOFILL_SQL,DISCOVERY_SEARCH_SQL,PEOPLE_SQL,INTELLIGENCE_JOB_SQL,ASSISTANT_SQL,SALES_OPERATIONS_SQL,DEVELOPER_SQL,DEVELOPER_APPROVAL_SQL,ICP_PROPOSAL_SQL,WEBHOOK_SQL,SHEET_EXPORT_SQL,ADMISSION_SQL,CUSTOMER_GMAIL_SQL
 ]
 
 
@@ -328,12 +360,28 @@ def run_migrations(conn: sqlite3.Connection = None) -> int:
                     migration_sql = re.sub(r"INTEGER PRIMARY KEY AUTOINCREMENT", "BIGSERIAL PRIMARY KEY", migration_sql)
                     # Historical models store ISO strings; TEXT avoids implicit timestamp casts.
                     migration_sql = migration_sql.replace("TIMESTAMP DEFAULT CURRENT_TIMESTAMP", "TEXT DEFAULT (CURRENT_TIMESTAMP::text)")
-                if i==7:apply_phase4(conn,postgres)
+                preservation = None
+                if i==9:
+                    tables=('scan_campaigns','pipeline_runs','prospects','prospect_observations','businesses','opportunity_scores','social_profiles','client_reports','activities','followups','lead_lists','email_threads','email_messages')
+                    # Capture counts before additive DDL and reject any loss immediately.
+                    preservation={table:conn.execute('SELECT COUNT(*) FROM '+table).fetchone()[0] for table in tables}
+                    logger.info('Automation preservation baseline counts: %s',preservation)
+                if i==11:apply_campaign_outreach(conn)
+                elif i==7:apply_phase4(conn,postgres)
                 elif i==5:apply_phase35(conn,postgres)
                 else:conn.executescript(migration_sql)
+                if i==9:
+                    from app.automation.service import seed_markets,reconcile
+                    seed_markets(conn)
+                    reconcile(conn)
+                    if any(conn.execute('SELECT COUNT(*) FROM '+table).fetchone()[0] < count for table,count in preservation.items()):
+                        raise RuntimeError('Automation migration preservation check failed')
                 if i==8:
                     from app.mail.tracking import backfill
                     backfill(conn)
+                if i==16:
+                    seeded=apply_organization(conn)
+                    logger.info('Organization seed/backfill: %s',seeded)
                 conn.execute("INSERT INTO schema_migrations (version) VALUES (?);", (i,))
                 if not postgres:
                     conn.commit()
@@ -353,7 +401,8 @@ def verify_schema(conn=None,minimum_version=None):
     conn = conn or get_connection()
     try:
         version = conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
-        if not (minimum_version or len(MIGRATIONS)) <= (version or 0) <= len(MIGRATIONS):
+        # Schema14 remains compatible during the additive registry rollout.
+        if not (minimum_version or (14 if len(MIGRATIONS)==15 else len(MIGRATIONS))) <= (version or 0) <= len(MIGRATIONS):
             raise RuntimeError("Database schema is out of date; run the explicit migration command")
     finally:
         if close:

@@ -1,0 +1,4 @@
+FROM asia-south1-docker.pkg.dev/querryside/leadengine/worker:experiment-20261102-r17
+COPY --chown=10001:10001 app /opt/leadengine/app
+COPY --chown=10001:10001 config /opt/leadengine/config
+COPY --chown=10001:10001 scripts /opt/leadengine/scripts

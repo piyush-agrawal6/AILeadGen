@@ -1,0 +1,39 @@
+{
+  "message_id": "314f1240-650a-4b0b-bdf3-e33955a2db5b",
+  "provider_message_id": "<179353605300.22600.15205846794904126522@planebyte.com>",
+  "prospect_id": "ab4c4c6b-aca5-4531-9b3d-5f66a3628fc1",
+  "thread_id": "4a6eb566-616b-4fc2-9d47-61209090053b",
+  "recipient": "contact@planebyte.com",
+  "send_status": "SMTP_ACCEPTED",
+  "test_mode": false,
+  "qualified": false,
+  "open_http": 200,
+  "click_http": 302,
+  "unsubscribe_get_http": 200,
+  "unsubscribe_post_http": 200,
+  "events": [
+    "CLICK_SIGNAL",
+    "OPEN_SIGNAL",
+    "REPLIED_VERIFIED",
+    "SMTP_ACCEPTED",
+    "UNSUBSCRIBED"
+  ],
+  "timeline_events": [
+    "LEAD_DISCOVERED",
+    "EMAIL_SMTP_ACCEPTED",
+    "EMAIL_OPEN_SIGNAL",
+    "EMAIL_CLICK_SIGNAL",
+    "EMAIL_UNSUBSCRIBED",
+    "EMAIL_REPLY_VERIFIED",
+    "EMAIL_RECEIVED",
+    "REPLY_DETECTED",
+    "DO_NOT_CONTACT"
+  ],
+  "global_sending_enabled": false,
+  "production_unsubscribe_http": 200,
+  "production_unsubscribe_state": {
+    "lead_status": "DO_NOT_CONTACT",
+    "suppression_source": "RECIPIENT_UNSUBSCRIBE"
+  },
+  "controlled_only": true
+}

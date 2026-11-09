@@ -1,0 +1,50 @@
+{
+  "scan_id": 4,
+  "campaign_id": "c738680d-45e4-455d-b31e-1fc999cf04c4",
+  "market": "Denver, United States",
+  "vertical": "hospitality",
+  "target": 1000,
+  "kind": "SCAN",
+  "cause": "Cloud Run three-hour timeout followed by campaign-creation-time guard blocking checkpoint resume",
+  "preserved_checkpoint": {
+    "discovered": 1142,
+    "profiles": 538,
+    "lighthouse_results": 73
+  },
+  "repair": [
+    "Execution-local runtime budget remains bounded at 180 minutes; historical campaign age no longer rejects explicit resumes",
+    "Reuse Lighthouse results already committed for the same run business observation"
+  ],
+  "build_id": "8b79fa54-6e88-4b43-83bd-371dc08d16a7",
+  "regression_tests_passed": 8,
+  "worker_image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker@sha256:b2a216acfa970372cc75d6ef31e5258d985a68638c0274484799730430c02188",
+  "previous_image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:automation-20261101-174320",
+  "environment_and_secrets_preserved": true,
+  "schema_changed": false,
+  "mail_outreach_started_by_this_action": false,
+  "resume_operation": "projects/querryside/locations/asia-south1/operations/15c841e6-f13b-48cc-9e04-410524b02501",
+  "status": "RUNNING",
+  "recorded_at": "2026-11-02T04:01:18.013579+00:00",
+  "error_cleared": true,
+  "execution": "leadengine-worker-b4h4l",
+  "latest_events": [
+    {
+      "stage": "IDENTITY",
+      "event_type": "IDENTITY_PROGRESS",
+      "message": "Saved 60 of 538 canonical observations",
+      "timestamp": "2026-11-02 04:01:48.731503+00"
+    },
+    {
+      "stage": "IDENTITY",
+      "event_type": "IDENTITY_PROGRESS",
+      "message": "Saved 40 of 538 canonical observations",
+      "timestamp": "2026-11-02 04:01:36.832362+00"
+    },
+    {
+      "stage": "IDENTITY",
+      "event_type": "IDENTITY_PROGRESS",
+      "message": "Saved 20 of 538 canonical observations",
+      "timestamp": "2026-11-02 04:01:24.413585+00"
+    }
+  ]
+}

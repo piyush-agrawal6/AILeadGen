@@ -1,0 +1,42 @@
+{
+  "experiment_id": "planebyte-2026-11-02-06",
+  "status": "LIVE",
+  "send_approved": true,
+  "schedule_count": 50,
+  "started_sources": [
+    {
+      "day": 1,
+      "city": "Austin",
+      "country": "United States",
+      "vertical": "hospitality",
+      "source_type": "FIRECRAWL",
+      "target": 50,
+      "status": "QUEUED",
+      "acquisition_job_id": "8633a8da-13cf-4731-84d0-11ee665038aa",
+      "workflow_id": null,
+      "campaign_id": "bd9e6ede-d31d-4812-bb59-d20cdf1f7059",
+      "error": null,
+      "acquisition_status": "RUNNING",
+      "execution_name": "projects/querryside/locations/asia-south1/operations/7717e7ec-09e5-4be6-b8a7-f33bc7917f2b",
+      "counts_json": "{}"
+    }
+  ],
+  "capacity": {
+    "provider": "gmail",
+    "sender": "planebyte@gmail.com",
+    "daily_capacity_ceiling": 500,
+    "counted_last24h": 5,
+    "remaining_allowance": 495,
+    "requested_daily_target": 500,
+    "full_daily_target_fits": true,
+    "smtp_account_authenticated": true,
+    "remaining_is_counted_not_provider_guaranteed": true,
+    "limit_source": "https://support.google.com/mail/answer/22839?hl=en",
+    "account_wide_count_fresh": true,
+    "provider_preflight_at": "2026-11-02T16:58:34.243916+00:00",
+    "untracked_account_sends": 0,
+    "global_max_hour": 50,
+    "global_max_day": 500
+  },
+  "actual_prospect_sends": 0
+}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from app.api.schemas.system import DiagnosticItem, SystemDoctorResponse
 from app.utils.diagnostics import run_system_diagnostics
 
@@ -9,19 +9,19 @@ router = APIRouter(prefix="/system", tags=["System"])
 def safety_limits():
     from app.config.settings import get_settings
     s = get_settings()
-    return {"max_active_scans":s.max_active_scans,"max_cities_per_scan":s.max_cities_per_scan,"max_target_leads":s.max_target_leads,"max_raw_businesses":s.max_raw_businesses,"max_lighthouse_audits":s.max_lighthouse_audits,"max_scan_runtime_minutes":s.max_scan_runtime_minutes,"executor":s.scan_executor}
+    return {"max_active_scans":s.max_active_scans,"max_cities_per_scan":s.max_cities_per_scan,"max_target_leads":s.max_target_leads,"max_raw_businesses":s.max_raw_businesses,"max_scan_runtime_minutes":s.max_scan_runtime_minutes,"executor":s.scan_executor}
 
 
 @router.get("/hosted-health")
-def hosted_health():
+def hosted_health(request: Request = None):
     import httpx
     from app.config.settings import get_settings
     from app.database.connection import db_session
     from app.cloud_doctor import cloud_checks,overpass_health
-    from app.audit.lighthouse import find_lighthouse_executable
+    organization=getattr(request.state,'organization_id',None) if request else None
     s=get_settings()
     if s.app_env=="test":
-        return {"environment":"test","checks":[{"name":name,"status":"ready","details":"Deterministic test fixture; external connectivity is not asserted."} for name in ["FastAPI","Application database","PostgreSQL","Cloud Worker Configuration","R2","Overture","OpenStreetMap","Nominatim","Lighthouse"]]}
+        return {"environment":"test","checks":[{"name":name,"status":"ready","details":"Deterministic test fixture; external connectivity is not asserted."} for name in ["FastAPI","Application database","PostgreSQL","Cloud Worker Configuration","R2","Overture","OpenStreetMap","Nominatim"]]}
     checks=[{"name":"FastAPI","status":"ready","details":"Authenticated API request succeeded."}]
     try:
         with db_session() as conn:conn.execute("SELECT 1")
@@ -32,7 +32,7 @@ def hosted_health():
         from app.database.phase4_schema import ready
         with db_session() as conn:
             if ready(conn):
-                account=conn.execute('SELECT status,smtp_health,imap_health,health_checked_at,last_sync_at FROM email_accounts WHERE id=?',('hostinger-primary',)).fetchone()
+                account=conn.execute('SELECT status,smtp_health,imap_health,health_checked_at,last_sync_at FROM email_accounts WHERE id=?'+(' AND organization_id=?' if organization else ''),('hostinger-primary',*([organization] if organization else []))).fetchone()
                 for title,column in [('Email Sending','smtp_health'),('Inbox Sync','imap_health')]:checks.append({'name':title,'status':'ready' if account and account['status']=='CONNECTED' and account[column]=='READY' else 'unverified','details':'Last explicit connection check: '+str(account['health_checked_at']) if account else 'Open Email preferences and test the configured account.'})
                 checks.append({'name':'Reply Detection','status':'ready' if account and account['last_sync_at'] else 'unverified','details':'Last bounded tracked-thread sync: '+str(account['last_sync_at']) if account else 'No mailbox sync has completed yet.'})
                 from app.mail.config import mail_settings
@@ -50,18 +50,15 @@ def hosted_health():
             checks.append({"name":name,"status":"ready" if response.status_code<400 else "warning","details":f"Endpoint returned HTTP {response.status_code}."})
         except Exception:checks.append({"name":name,"status":"warning","details":"Endpoint did not respond within the health-check timeout."})
     checks.append(overpass_health())
-    if s.scan_executor!='gcp':
-        checks=[item for item in checks if item['name']!='Lighthouse']
-        checks.append({"name":"Lighthouse","status":"ready" if find_lighthouse_executable() else "error","details":"Local executable found." if find_lighthouse_executable() else "Local executable unavailable."})
     return {"environment":s.app_env,"checks":checks}
 
 
 @router.get("/doctor", response_model=SystemDoctorResponse)
-def get_system_doctor():
+def get_system_doctor(request: Request = None):
     """Retrieve system diagnostics, prerequisites, and connectivity health."""
     from app.config.settings import get_settings
     if get_settings().app_env=="production":
-        health=hosted_health()
+        health=hosted_health(request)
         items=[DiagnosticItem(name=r['name'],status=r['status'],details=r['details'],ready=r['status']=='ready') for r in health['checks']]
         return SystemDoctorResponse(overall_status='ERROR' if any(r.status=='error' for r in items) else 'WARNING' if any(r.status!='ready' for r in items) else 'READY',diagnostics=items,api_version='3.0.0',environment='production')
     results = run_system_diagnostics()
@@ -88,6 +85,6 @@ def get_system_doctor():
 
 
 @router.post("/doctor", response_model=SystemDoctorResponse)
-def rerun_system_doctor():
+def rerun_system_doctor(request: Request = None):
     """Rerun active diagnostic checks across databases, engines, and connectivity."""
-    return get_system_doctor()
+    return get_system_doctor(request)

@@ -37,7 +37,8 @@ TRACKING_PARAMS = {
     "fbclid", "gclid", "msclkid", "ref", "mc_cid", "mc_eid"
 }
 
-_tld_extractor = tldextract.TLDExtract()
+# Use the bundled public-suffix snapshot without network or writable-cache dependencies.
+_tld_extractor = tldextract.TLDExtract(cache_dir=None, suffix_list_urls=())
 
 
 def is_safe_ip(ip_str: str) -> bool:
@@ -170,8 +171,8 @@ def extract_domain(url: str) -> str:
         extracted = _tld_extractor(url_str)
         if extracted.domain and extracted.suffix:
             return f"{extracted.domain}.{extracted.suffix}".lower()
-        if extracted.domain:
-            return extracted.domain.lower()
+        # Unknown suffixes must keep their full hostname; returning just the
+        # final label would merge unrelated businesses under one domain key.
     except Exception:
         pass
 

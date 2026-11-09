@@ -1,0 +1,27 @@
+{
+  "superseded_acceptance": [
+    {
+      "health": {
+        "smtp": "READY",
+        "imap": "READY"
+      },
+      "message_id": "<179353110832.11825.11051105116602733931@planebyte.com>",
+      "send_status": "SMTP_ACCEPTED",
+      "sent_folder": "READY",
+      "sent_visible": true,
+      "automatic_sending_enabled": false,
+      "verified_reply_seen": false
+    }
+  ],
+  "recipient": "contact@planebyte.com",
+  "health": {
+    "smtp": "READY",
+    "imap": "READY"
+  },
+  "message_id": "<179353151139.13740.4374985849975019494@planebyte.com>",
+  "send_status": "SMTP_ACCEPTED",
+  "sent_folder": "READY",
+  "sent_visible": true,
+  "verified_reply_seen": true,
+  "automatic_sending_enabled": false
+}

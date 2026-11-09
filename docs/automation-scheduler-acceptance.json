@@ -1,0 +1,15 @@
+{
+  "leadengine-daily-acquisition": {
+    "manual_invocation": "ACCEPTED",
+    "duplicate_invocation": true
+  },
+  "leadengine-hourly-outreach": {
+    "manual_invocation": "ACCEPTED",
+    "duplicate_invocation": false
+  },
+  "leadengine-inbox-sync": {
+    "manual_invocation": "ACCEPTED",
+    "interval_minutes": 5,
+    "state": "ENABLED"
+  }
+}

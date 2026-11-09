@@ -1,0 +1,22 @@
+{
+  "PB_INTRO_01": {
+    "subject": "A quick introduction from PlaneByte",
+    "body_text": "Hi {{company_name}} team,\n\nI'm reaching out from PlaneByte.\n\nWe're a software engineering and technology studio working across custom development, cloud, cybersecurity, SEO and AI-search visibility.\n\nWe don't only build new websites or applications — we also debug, maintain, improve, secure and scale existing systems.\n\nIf your team has any upcoming development, technical, security or search-visibility work, I'd be happy to introduce what we do and see if we can help.\n\nI've attached a short overview of PlaneByte.\n\nBest,\nPlaneByte"
+  },
+  "PB_INTRO_02": {
+    "subject": "Software, maintenance & technical support — PlaneByte",
+    "body_text": "Hi {{company_name}} team,\n\nI'm reaching out from PlaneByte.\n\nWe help businesses build new software, but a large part of our work is also fixing and improving what already exists — debugging, maintenance, feature development, performance, cloud deployment and production issues.\n\nOur team also handles cybersecurity and search visibility when those areas overlap with the product.\n\nIf you ever need a technical team to build, repair or improve an existing system, I'd be happy to share more.\n\nI've attached a short PlaneByte overview.\n\nBest,\nPlaneByte"
+  },
+  "PB_INTRO_03": {
+    "subject": "Development + search visibility for {{company_name}}",
+    "body_text": "Hi {{company_name}} team,\n\nI'm reaching out from PlaneByte.\n\nWe work with businesses on software and web development as well as SEO, AEO and newer AI-search visibility.\n\nThat means we can work on both sides of the problem — building or improving the underlying product and helping it become easier to discover through Google and AI-driven search.\n\nWe also support maintenance, cloud and cybersecurity where needed.\n\nIf any of these areas are relevant for {{company_name}}, I'd be happy to share how we work.\n\nI've attached a short introduction to PlaneByte.\n\nBest,\nPlaneByte"
+  },
+  "PB_INTRO_04": {
+    "subject": "Software engineering & cybersecurity — PlaneByte",
+    "body_text": "Hi {{company_name}} team,\n\nI'm reaching out from PlaneByte.\n\nWe're a software engineering and cybersecurity studio helping businesses build, maintain and secure digital products.\n\nOur work includes application development, debugging, cloud and DevOps, security reviews, VAPT, remediation, maintenance, SEO and AEO.\n\nOne advantage is that the same team can identify a technical issue and also help implement the fix instead of stopping at a report.\n\nIf this kind of support is ever useful for {{company_name}}, I'd be happy to connect.\n\nI've attached a short PlaneByte overview.\n\nBest,\nPlaneByte"
+  },
+  "PB_INTRO_05": {
+    "subject": "A technology partner for {{company_name}}",
+    "body_text": "Hi {{company_name}} team,\n\nI wanted to introduce PlaneByte.\n\nWe work as a broader technology partner rather than only a development vendor.\n\nOur team handles software development, debugging and maintenance, cloud and DevOps, cybersecurity, SEO, AEO, AI-search visibility and technical improvements to existing products.\n\nSo whether a business needs something new built or an existing system fixed, secured, maintained, scaled or made easier to discover, we can support the work.\n\nI've attached a short overview of PlaneByte.\n\nIf anything here is relevant for {{company_name}}, just reply and we can talk.\n\nBest,\nPlaneByte"
+  }
+}

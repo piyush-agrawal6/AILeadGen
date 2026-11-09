@@ -1,0 +1,20 @@
+{
+  "build_id": "48655667-4cff-4aa4-bc75-52129c0897d7",
+  "api_image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:source-policy-20261102-r13",
+  "source_image": "asia-south1-docker.pkg.dev/querryside/leadengine/acquisition:source-policy-20261102-r12",
+  "maps_image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:source-policy-20261102-r9",
+  "previous_api_revision": "leadengine-api-00046-cmh",
+  "staged_revision": "leadengine-api-00047-dkj",
+  "maps_spec_sha_before": "47a017d1c5c85895edb8dff7c554ff2e47474e6b5081a04294dda5a831ed1929",
+  "environment_preserved": true,
+  "production_promoted": true,
+  "built_maps_image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:source-policy-20261102-r11",
+  "maps_spec_sha_after": "b722d762047ee80eb0364a91da09f62ec943b537f46d9fadf9a365866d5a3e7d",
+  "worker_environment_resources_preserved": true,
+  "no_execution_cancelled": true,
+  "no_migration_run": true,
+  "source_recovery_build": "ba4d714e-00da-4537-a8b6-f3ebfbb17cc0",
+  "scheduler_source_dispatch_enabled": true,
+  "promoted_revision": "leadengine-api-00051-5b6",
+  "progress_cache_build": "0a6ee320-73b4-4d8c-b3ff-8b6af65bed02"
+}

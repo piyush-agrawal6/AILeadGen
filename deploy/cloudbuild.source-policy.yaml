@@ -1,0 +1,37 @@
+steps:
+  - id: api
+    name: gcr.io/cloud-builders/docker
+    args: [build, -f, deploy/Dockerfile.acquisition-api, -t, '${_API_IMAGE}', .]
+  - id: worker
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['-']
+    args: [build, -f, deploy/Dockerfile.acquisition-worker, -t, '${_WORKER_IMAGE}', .]
+  - id: maps-worker
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['-']
+    args: [build, -f, deploy/Dockerfile.source-policy-worker, -t, '${_MAPS_IMAGE}', .]
+  - id: exact-lock-tests
+    name: gcr.io/cloud-builders/docker
+    waitFor: [api]
+    args:
+      - run
+      - --rm
+      - -e
+      - APP_ENV=test
+      - -e
+      - LEADENGINE_CONTROLLED_QUEUE_LIVE=0
+      - -e
+      - RUN_POSTGRES_TESTS=0
+      - -e
+      - PYTHONPATH=/opt/leadengine
+      - -v
+      - /workspace/deploy/acquisition-validation.zip:/validation.zip:ro
+      - --entrypoint
+      - python
+      - '${_API_IMAGE}'
+      - -c
+      - "import zipfile,subprocess,sys; zipfile.ZipFile('/validation.zip').extractall('/tmp/validation'); sys.exit(subprocess.run([sys.executable,'-m','pytest','/tmp/validation/tests','-q','-o','asyncio_mode=auto'],cwd='/opt/leadengine').returncode)"
+images: ['${_API_IMAGE}', '${_WORKER_IMAGE}', '${_MAPS_IMAGE}']
+logsBucket: gs://querryside-leadengine-build-logs
+options:
+  logging: GCS_ONLY

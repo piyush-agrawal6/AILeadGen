@@ -1,0 +1,9 @@
+{
+  "controlled_recipient": "contact@planebyte.com",
+  "queue_status": "SENT",
+  "duplicate_tick": "PAUSED_OR_WAITING",
+  "smtp_calls": 1,
+  "database": "disposable SQLite",
+  "production_flags_changed": false,
+  "prospect_addresses_used": false
+}

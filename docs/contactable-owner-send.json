@@ -1,0 +1,76 @@
+{
+  "actual_recipient": "planebyte@gmail.com",
+  "real_prospect_contacted": false,
+  "status": "SENT",
+  "idempotency_key": "3994ecb0-a10e-4706-973d-e62e8a04dd6c",
+  "subject": "A quick introduction from PlaneByte",
+  "body_text": "Hi Working Feedback team,\n\nI'm reaching out from PlaneByte.\n\nWe're a software engineering and technology studio working across custom development, cloud, cybersecurity, SEO and AI-search visibility.\n\nWe don't only build new websites or applications \u2014 we also debug, maintain, improve, secure and scale existing systems.\n\nIf your team has any upcoming development, technical, security or search-visibility work, I'd be happy to introduce what we do and see if we can help.\n\nI've attached a short overview of PlaneByte.\n\nBest,\nPlaneByte",
+  "company": "Working Feedback",
+  "template_id": "PB_INTRO_01",
+  "pdf_asset_id": "PLANEBYTE_CAPABILITIES",
+  "pdf_version": "v1",
+  "pdf_sha256": "d0726890975b61f3bc80ba21ec12d1fbc4f09186b2c6362bdd142c753db6bcff",
+  "pdf_size": 1281493,
+  "pdf_page_count": 3,
+  "provider_message_id": "<179386485540.20828.3013013346670054017@planebyte.com>",
+  "result": {
+    "id": "b440c2e5-3a19-44c6-bf3f-da23f99e6b22",
+    "status": "SENT",
+    "thread_id": "3efa6198-a8a5-4e6d-bfae-31271b8c9177",
+    "test_mode": true,
+    "provider_message_id": "<179386485540.20828.3013013346670054017@planebyte.com>",
+    "owner_controlled_redirect": true
+  },
+  "smtp_calls": 1,
+  "second_send_blocked": true,
+  "registry_immediate": true,
+  "idempotent_retry_prevented": true,
+  "all_five_templates": [
+    {
+      "subject": "A quick introduction from PlaneByte",
+      "body_text": "Hi Working Feedback team,\n\nI'm reaching out from PlaneByte.\n\nWe're a software engineering and technology studio working across custom development, cloud, cybersecurity, SEO and AI-search visibility.\n\nWe don't only build new websites or applications \u2014 we also debug, maintain, improve, secure and scale existing systems.\n\nIf your team has any upcoming development, technical, security or search-visibility work, I'd be happy to introduce what we do and see if we can help.\n\nI've attached a short overview of PlaneByte.\n\nBest,\nPlaneByte",
+      "template_id": "PB_INTRO_01",
+      "template_version": "v1",
+      "outreach_strategy": "FIXED_5",
+      "pdf_asset_id": "PLANEBYTE_CAPABILITIES",
+      "pdf_version": "v1"
+    },
+    {
+      "subject": "Software, maintenance & technical support \u2014 PlaneByte",
+      "body_text": "Hi Working Feedback team,\n\nI'm reaching out from PlaneByte.\n\nWe help businesses build new software, but a large part of our work is also fixing and improving what already exists \u2014 debugging, maintenance, feature development, performance, cloud deployment and production issues.\n\nOur team also handles cybersecurity and search visibility when those areas overlap with the product.\n\nIf you ever need a technical team to build, repair or improve an existing system, I'd be happy to share more.\n\nI've attached a short PlaneByte overview.\n\nBest,\nPlaneByte",
+      "template_id": "PB_INTRO_02",
+      "template_version": "v1",
+      "outreach_strategy": "FIXED_5",
+      "pdf_asset_id": "PLANEBYTE_CAPABILITIES",
+      "pdf_version": "v1"
+    },
+    {
+      "subject": "Development + search visibility for Working Feedback",
+      "body_text": "Hi Working Feedback team,\n\nI'm reaching out from PlaneByte.\n\nWe work with businesses on software and web development as well as SEO, AEO and newer AI-search visibility.\n\nThat means we can work on both sides of the problem \u2014 building or improving the underlying product and helping it become easier to discover through Google and AI-driven search.\n\nWe also support maintenance, cloud and cybersecurity where needed.\n\nIf any of these areas are relevant for Working Feedback, I'd be happy to share how we work.\n\nI've attached a short introduction to PlaneByte.\n\nBest,\nPlaneByte",
+      "template_id": "PB_INTRO_03",
+      "template_version": "v1",
+      "outreach_strategy": "FIXED_5",
+      "pdf_asset_id": "PLANEBYTE_CAPABILITIES",
+      "pdf_version": "v1"
+    },
+    {
+      "subject": "Software engineering & cybersecurity \u2014 PlaneByte",
+      "body_text": "Hi Working Feedback team,\n\nI'm reaching out from PlaneByte.\n\nWe're a software engineering and cybersecurity studio helping businesses build, maintain and secure digital products.\n\nOur work includes application development, debugging, cloud and DevOps, security reviews, VAPT, remediation, maintenance, SEO and AEO.\n\nOne advantage is that the same team can identify a technical issue and also help implement the fix instead of stopping at a report.\n\nIf this kind of support is ever useful for Working Feedback, I'd be happy to connect.\n\nI've attached a short PlaneByte overview.\n\nBest,\nPlaneByte",
+      "template_id": "PB_INTRO_04",
+      "template_version": "v1",
+      "outreach_strategy": "FIXED_5",
+      "pdf_asset_id": "PLANEBYTE_CAPABILITIES",
+      "pdf_version": "v1"
+    },
+    {
+      "subject": "A technology partner for Working Feedback",
+      "body_text": "Hi Working Feedback team,\n\nI wanted to introduce PlaneByte.\n\nWe work as a broader technology partner rather than only a development vendor.\n\nOur team handles software development, debugging and maintenance, cloud and DevOps, cybersecurity, SEO, AEO, AI-search visibility and technical improvements to existing products.\n\nSo whether a business needs something new built or an existing system fixed, secured, maintained, scaled or made easier to discover, we can support the work.\n\nI've attached a short overview of PlaneByte.\n\nIf anything here is relevant for Working Feedback, just reply and we can talk.\n\nBest,\nPlaneByte",
+      "template_id": "PB_INTRO_05",
+      "template_version": "v1",
+      "outreach_strategy": "FIXED_5",
+      "pdf_asset_id": "PLANEBYTE_CAPABILITIES",
+      "pdf_version": "v1"
+    }
+  ],
+  "gmail_sent_visible": true
+}

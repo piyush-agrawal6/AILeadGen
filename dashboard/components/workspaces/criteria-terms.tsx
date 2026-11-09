@@ -1,0 +1,6 @@
+"use client";
+import {X} from 'lucide-react';
+/** Editable structured terms with visible removable selections, no hidden mapping. */
+export function CriteriaTerms({id,label,value,onChange,suggestions=[]}:{id:string;label:string;value:string[];onChange:(value:string[])=>void;suggestions?:string[]}){
+ return <div className="space-y-2"><label htmlFor={id} className="text-sm">{label}</label><input id={id} className="control w-full" maxLength={5000} list={suggestions.length?id+'-options':undefined} value={value.join(', ')} onChange={e=>onChange(e.target.value.split(/[,\n]/).map(value=>value.trimStart()).slice(0,50))} placeholder="Add values, separated by commas"/>{suggestions.length>0&&<datalist id={id+'-options'}>{suggestions.map(value=><option key={value} value={value}/>)}</datalist>}<div className="flex flex-wrap gap-1.5">{value.map((item,index)=>item.trim()?<span key={index} className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary/5 px-2 py-1 text-xs text-primary"><span className="truncate">{item.trim()}</span><button type="button" className="rounded p-0.5 focus-visible:outline focus-visible:outline-2" aria-label={'Remove '+item.trim()+' from '+label} onClick={()=>onChange(value.filter((_,i)=>i!==index))}><X size={12}/></button></span>:null)}</div></div>;
+}

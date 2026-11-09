@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
+from app.platform.context import current
 from pypdf import PdfReader
 from app.api.server import app
 from app.database.connection import db_session
@@ -13,16 +14,19 @@ from app.database.prospects import ProspectRepository
 from app.reports.data import client_snapshot
 from app.reports.pdf import render_pdf
 from app.reports.service import execute_report
+from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
 
 
 @pytest.fixture
-def ready_client(monkeypatch):
+def ready_client(monkeypatch,request):
     monkeypatch.setattr('app.api.routes.client_reports.launch_reports',lambda:None)
     with TestClient(app) as client:
         with db_session() as conn:
-            run=PipelineRun(market='Leeds, UK',vertical='dentists',target=5);PipelineRunRepository(conn).create(run)
+            from tests.workspace_fixtures import bind_internal_workspace
+            bind_internal_workspace(conn,request)
+            run=PipelineRun(market='Leeds, UK',vertical='dentists',target=5);PipelineRunRepository(conn).create(run, organization=PLANEBYTE_ORGANIZATION_ID)
             business=Business(name='Dental & Care <North>',normalized_name='dental care north',vertical='dentists',city='Leeds',country='United Kingdom',website='https://dental.example',run_id=run.id)
-            BusinessRepository(conn).insert(business);pid=ProspectRepository(conn).observe(business)
+            BusinessRepository(conn).insert(business);pid=ProspectRepository(conn).observe(business, organization=PLANEBYTE_ORGANIZATION_ID)
             ProspectRepository(conn).add_note(pid,'founder@example.com','INTERNAL SECRET NOTE')
             ProspectRepository(conn).user("private@example.com")
             conn.execute("UPDATE prospects SET lead_status='CONTACTED',assigned_to='private@example.com' WHERE id=?",(pid,))
@@ -33,11 +37,13 @@ def ready_client(monkeypatch):
         yield client,business.id,pid
 
 
-def test_pdf_generation_storage_versioning_and_protected_api(ready_client):
+def test_historical_pdf_storage_versioning_and_protected_read_only_api(ready_client):
     client,bid,pid=ready_client
-    first=client.post(f'/api/leads/{bid}/pdf-reports');assert first.status_code==202
-    row=first.json();assert row['status']=='QUEUED'
-    assert client.post(f'/api/leads/{bid}/pdf-reports').json()['id']==row['id']
+    assert client.post(f'/api/leads/{bid}/pdf-reports').status_code==409
+    from app.reports.service import create_report
+    # A historical fixture uses the retained renderer, never a product job.
+    with db_session() as conn:row=create_report(conn,bid,pid,current().actor)
+    assert row['status']=='QUEUED'
     assert client.get('/api/client-reports/'+row['id']+'/download').status_code==409
     execute_report(row['id'])
     result=client.get('/api/client-reports/'+row['id']);assert result.json()['status']=='READY'
@@ -45,11 +51,13 @@ def test_pdf_generation_storage_versioning_and_protected_api(ready_client):
     assert response.status_code==200 and response.content.startswith(b'%PDF-') and len(response.content)>10000
     assert response.headers['content-type']=='application/pdf' and 'no-store' in response.headers['cache-control']
     text='\n'.join(page.extract_text() for page in PdfReader(BytesIO(response.content)).pages)
-    for term in ('PlaneByte','Dental & Care <North>','23','68','Proposed target: 90/100','Target gain: +67 points','Search foundations','Basic external security review','HSTS header not observed'):
+    for term in ('PlaneByte','Dental & Care <North>','23','68','Executive Opportunity Brief','What We Found','Recommended PlaneByte Approach','REPLY TO THE EMAIL'):
         assert term in text
     for term in ('INTERNAL SECRET NOTE','private@example.com','CONTACTED',pid,'Traceback','scoring_version','LeadEngine','Website opportunity','Higher opportunity score'):
         assert term not in text
-    second=client.post(f'/api/leads/{bid}/pdf-reports').json();assert second['version']==2 and second['id']!=row['id']
+    assert client.post(f'/api/leads/{bid}/pdf-reports').status_code==409
+    with db_session() as conn:second=create_report(conn,bid,pid,current().actor)
+    assert second['version']==2 and second['id']!=row['id']
     with db_session() as conn:
         stored=conn.execute('SELECT * FROM client_reports WHERE id=?',(row['id'],)).fetchone()
         assert stored['object_key'].endswith(row['id']+'.pdf')
@@ -62,15 +70,18 @@ def test_pdf_generation_storage_versioning_and_protected_api(ready_client):
 
 
 def test_failure_is_internal_and_retry_preserves_old_version(ready_client,monkeypatch):
-    client,bid,_=ready_client
-    row=client.post(f'/api/leads/{bid}/pdf-reports').json()
+    client,bid,pid=ready_client
+    from app.reports.service import create_report
+    with db_session() as conn:row=create_report(conn,bid,pid,current().actor)
     def fail(*args):raise RuntimeError('INTERNAL RENDER DETAIL')
     monkeypatch.setattr('app.reports.pdf.render_pdf',fail)
     with pytest.raises(RuntimeError):execute_report(row['id'])
     result=client.get('/api/client-reports/'+row['id']);assert result.json()['status']=='FAILED'
     assert 'INTERNAL RENDER DETAIL' not in result.text
     with db_session() as conn:assert 'INTERNAL RENDER DETAIL' in conn.execute('SELECT error_message FROM client_reports WHERE id=?',(row['id'],)).fetchone()[0]
-    retry=client.post(f'/api/leads/{bid}/pdf-reports').json();assert retry['version']==2
+    assert client.post(f'/api/leads/{bid}/pdf-reports').status_code==409
+    with db_session() as conn:retry=create_report(conn,bid,pid,current().actor)
+    assert retry['version']==2
 
 
 @pytest.mark.parametrize('mode',['NO_WEBSITE','UNREACHABLE'])
@@ -82,7 +93,7 @@ def test_adaptive_pdf_does_not_invent_assessment(ready_client,tmp_path,mode):
         data=client_snapshot(conn,bid,'2026-10-26T04:00:00+00:00')
     assert data['mode']==mode
     path=render_pdf(data,tmp_path/'adaptive.pdf');text='\n'.join(p.extract_text() for p in PdfReader(path).pages)
-    assert ('New website' if mode=='NO_WEBSITE' else 'Website recovery / redesign') in text
+    assert 'Executive Opportunity Brief' in text and 'RECORDED MEASUREMENTS' not in text
     assert 'Search foundations\n' not in text and 'Basic external security review\n' not in text
 
 
@@ -95,17 +106,16 @@ def test_render_is_deterministic_and_long_text_wraps(ready_client,tmp_path):
     assert a.read_bytes()==b.read_bytes()
     pages=PdfReader(a).pages
     assert '<literal>' in ''.join(p.extract_text() for p in pages)
-    assert 'Executive summary' in pages[1].extract_text()
-    assert 'Clear evidence. Practical next steps.' in pages[0].extract_text()
+    assert 'What We Found' in pages[1].extract_text()
+    assert 'Executive Opportunity Brief' in pages[0].extract_text()
 
 
 def test_cloud_pdf_override_is_bounded():
     from app.api.services.cloud_executor import run_job
     session=Mock();session.post.return_value.status_code=200;session.post.return_value.json.return_value={'name':'accepted'}
-    run_job(None,session,report_id='report-id')
-    body=session.post.call_args.kwargs['json']['overrides']
-    assert body['timeout']=='300s' and body['taskCount']==1
-    assert {'name':'LEADENGINE_REPORT_ID','value':'report-id'} in body['containerOverrides'][0]['env']
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException):run_job(None,session,report_id='report-id')
+    session.post.assert_not_called()
 
 
 def test_pdf_r2_upload_is_private_and_mime_typed(tmp_path,monkeypatch):
@@ -121,17 +131,20 @@ def test_pdf_r2_upload_is_private_and_mime_typed(tmp_path,monkeypatch):
 def test_reports_and_scans_share_existing_dispatch_capacity(ready_client,monkeypatch):
     from app.api.services.cloud_executor import dispatch_queued
     from app.config.settings import get_settings
-    client,bid,_=ready_client
-    report=client.post(f'/api/leads/{bid}/pdf-reports').json()
+    client,bid,pid=ready_client
+    from app.reports.service import create_report
+    with db_session() as conn:report=create_report(conn,bid,pid,current().actor)
     monkeypatch.setattr(get_settings(),'max_active_scans',2)
     with db_session() as conn:
-        active=PipelineRun(market='Active scan',vertical='dentists',target=5,status='RUNNING');PipelineRunRepository(conn).create(active)
+        active=PipelineRun(market='Active scan',vertical='dentists',target=5,status='RUNNING');PipelineRunRepository(conn).create(active, organization=PLANEBYTE_ORGANIZATION_ID)
         conn.execute("UPDATE pipeline_runs SET execution_name='existing' WHERE id=?",(active.id,))
-        queued=PipelineRun(market='Queued scan',vertical='dentists',target=5,status='QUEUED');PipelineRunRepository(conn).create(queued)
+        conn.execute('UPDATE automation_controls SET scan_paused=0')
+        queued=PipelineRun(market='Queued scan',vertical='dentists',target=5,status='QUEUED');PipelineRunRepository(conn).create(queued, organization=PLANEBYTE_ORGANIZATION_ID)
     dispatch=Mock(return_value='operation/pdf')
     monkeypatch.setattr('app.api.services.cloud_executor.run_job',dispatch)
-    assert dispatch_queued()==[]
-    dispatch.assert_called_once_with(None,report_id=report['id'])
+    assert dispatch_queued()==[queued.id]
+    dispatch.assert_called_once_with(queued.id)
+    with db_session() as conn:assert conn.execute('SELECT status,execution_name FROM client_reports WHERE id=?',(report['id'],)).fetchone()['execution_name'] is None
     dispatch_queued()
     assert dispatch.call_count==1
 

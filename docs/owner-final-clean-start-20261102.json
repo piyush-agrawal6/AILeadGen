@@ -1,0 +1,82 @@
+{
+  "passed": true,
+  "schema": 12,
+  "zero_checks": {
+    "Master Leads": 0,
+    "Qualified Leads": 0,
+    "Queued Leads": 0,
+    "Prospect Email Threads": 0,
+    "Prospect Email Messages": 0,
+    "Campaigns": 0,
+    "Schedules": 0,
+    "Scan Runs": 0,
+    "Client Reports": 0,
+    "Activities": 0,
+    "Follow-ups": 0,
+    "Lists": 0,
+    "Tracking Events": 0
+  },
+  "limits": {
+    "daily_qualified_lead_target": 500,
+    "daily_email_target": 500,
+    "max_hour": 50,
+    "max_day": 500,
+    "followup_days": 3,
+    "automation_timezone": "Asia/Kolkata"
+  },
+  "controls": {
+    "scan_paused": 1,
+    "email_paused": 1,
+    "next_send_at": null
+  },
+  "resources": {
+    "leadengine-api": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:foundation-20261102-repair2",
+      "three_flags": false,
+      "gmail_secret_preserved": true,
+      "redis_server_secrets": true,
+      "traffic": [
+        {
+          "percent": 100,
+          "revisionName": "leadengine-api-00034-n2l"
+        }
+      ],
+      "latest_ready": "leadengine-api-00034-n2l"
+    },
+    "leadengine-worker": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:foundation-20261102-repair2",
+      "three_flags": false,
+      "gmail_secret_preserved": true,
+      "redis_server_secrets": true
+    }
+  },
+  "api_checks": [
+    {
+      "path": "/api/automation/master-leads?page=1&page_size=1",
+      "status": 200,
+      "ms": 2984,
+      "cache": "MISS"
+    },
+    {
+      "path": "/api/operations/campaigns?page=1&page_size=15",
+      "status": 200,
+      "ms": 2675,
+      "cache": "MISS"
+    },
+    {
+      "path": "/api/operations/schedules?page=1&page_size=25",
+      "status": 200,
+      "ms": 2926,
+      "cache": "MISS"
+    },
+    {
+      "path": "/api/operations/messages?page=1&page_size=25",
+      "status": 200,
+      "ms": 2767,
+      "cache": "MISS"
+    }
+  ],
+  "real_prospect_emails_sent_during_qa": 0,
+  "new_campaigns_started": 0,
+  "backup": "data/backups/owner-final-clean-start-20261102T060818Z.zip"
+}

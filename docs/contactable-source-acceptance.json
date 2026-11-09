@@ -1,0 +1,48 @@
+{
+  "job_id": "57373363-ab70-48bf-a573-bc56827afbea",
+  "campaign_id": "cd339d64-3eaf-409a-b740-93806ad2dfa0",
+  "target": 10,
+  "no_prospect_outreach": true,
+  "executions": [
+    "leadengine-acquisition-7jscn",
+    "leadengine-acquisition-ftmsb",
+    "leadengine-acquisition-5vr8k",
+    "leadengine-acquisition-5xl6t"
+  ],
+  "latest": {
+    "status": "RUNNING",
+    "error_code": null,
+    "stop_reason": null,
+    "counts": {
+      "already_contacted": 0,
+      "analyzed": 0,
+      "businesses_found": 6,
+      "candidates": 6,
+      "credits_used": 44.0,
+      "duplicates": 0,
+      "emails_found": 3,
+      "existing_businesses": 0,
+      "issues": 32,
+      "new_businesses": 4,
+      "no_email": 8,
+      "qualified": 3,
+      "queries_run": 4,
+      "remaining": 7,
+      "search_results": 56,
+      "shortfall": 7,
+      "target_contactable": 10,
+      "target_reached": false,
+      "unique_businesses": 4,
+      "unreported_credit_requests": 11,
+      "websites_found": 6
+    },
+    "forbidden_automatic_work": {
+      "opportunity_scores": 0,
+      "lighthouse_results": 0,
+      "client_reports": 0,
+      "analysis_operations": 0,
+      "workflow_runs": 0,
+      "prospect_emails": 0
+    }
+  }
+}

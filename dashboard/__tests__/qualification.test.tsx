@@ -1,0 +1,10 @@
+import {it,expect,vi,beforeEach} from 'vitest';
+import {render,screen,fireEvent} from '@testing-library/react';
+import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
+import {Qualification,CompanySummary} from '@/components/intelligence/qualification';
+import {request} from '@/lib/intelligence';
+vi.mock('@/lib/intelligence',()=>({request:vi.fn(),label:(v:string)=>v.replaceAll('_',' ')}));
+beforeEach(()=>{vi.mocked(request).mockReset();vi.mocked(request).mockImplementation(async path=>path.includes('capabilities')?{company_summary_enabled:false,can_generate_summary:true}:path.endsWith('/summary')?{status:'NOT_PREPARED'}:path.includes('/organization/icps')?{items:[{id:'icp-one',name:'Controlled ICP'}]}:{status:'PARTIAL',score:100,coverage:50,criteria:[{field:'company.employee_min',status:'UNKNOWN',weight:3,explanation:'No reliable employee count is stored.'}]})});
+function setup(element:React.ReactNode){render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}>{element}</QueryClientProvider>)}
+it('shows observed fit and coverage separately without changing qualification',async()=>{setup(<Qualification businessId={1}/>);expect(await screen.findByText('50%')).toBeVisible();expect(screen.getByText('100%')).toBeVisible();fireEvent.click(screen.getByText(/company.employee min/));expect(screen.getByText('No reliable employee count is stored.')).toBeVisible();fireEvent.change(screen.getByLabelText('Compare with an ICP'),{target:{value:'icp-one'}});expect(await screen.findByRole('link',{name:'Review matching companies'})).toHaveAttribute('href','/recommendations?profile=icp-one');expect(vi.mocked(request).mock.calls.every(([,options])=>!options?.method)).toBe(true)});
+it('keeps summary generation unavailable when its provider feature is disabled',async()=>{setup(<CompanySummary businessId={1}/>);expect(await screen.findByText(/AI summaries are unavailable/)).toBeVisible();expect(screen.queryByRole('button',{name:'Prepare cited company summary'})).not.toBeInTheDocument();expect(vi.mocked(request).mock.calls.every(([,options])=>!options?.method)).toBe(true)});

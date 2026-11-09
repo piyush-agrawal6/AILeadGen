@@ -1,0 +1,56 @@
+{
+  "build": "ceaf4232-8ccd-42c8-bf1a-df0817ae0735",
+  "images": {
+    "api": "asia-south1-docker.pkg.dev/querryside/leadengine/api:foundation-20261102-repair2",
+    "worker": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:foundation-20261102-repair2"
+  },
+  "staged": {
+    "worker": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:foundation-20261102-repair2",
+      "revision": null,
+      "other_configuration_preserved": true,
+      "gmail_secret_preserved": true,
+      "redis_server_secrets": true
+    },
+    "api": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:foundation-20261102-repair2",
+      "revision": "leadengine-api-00033-2c2",
+      "other_configuration_preserved": true,
+      "gmail_secret_preserved": true,
+      "redis_server_secrets": true
+    }
+  },
+  "automation_enabled": false,
+  "rollback": {
+    "api": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:campaign-operations-20261101-180430",
+      "revision": "leadengine-api-00030-dtb"
+    },
+    "worker": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker@sha256:b2a216acfa970372cc75d6ef31e5258d985a68638c0274484799730430c02188",
+      "revision": null
+    }
+  },
+  "prior_releases": [
+    {
+      "build": "372f0f57-9e32-4d32-ac87-7fdb3b7f2142",
+      "staged": {
+        "worker": {
+          "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:foundation-20261102-repair1",
+          "revision": null,
+          "other_configuration_preserved": true,
+          "gmail_secret_preserved": true,
+          "redis_server_secrets": true
+        },
+        "api": {
+          "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:foundation-20261102-repair1",
+          "revision": "leadengine-api-00032-w94",
+          "other_configuration_preserved": true,
+          "gmail_secret_preserved": true,
+          "redis_server_secrets": true
+        }
+      }
+    }
+  ],
+  "promoted_revision": "leadengine-api-00033-2c2"
+}

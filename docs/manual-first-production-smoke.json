@@ -1,0 +1,20 @@
+{
+  "/api/health": "PASS",
+  "/api/workflow/dashboard": "PASS",
+  "/api/workflow/runs": "PASS",
+  "/api/workflow/schedules": "PASS",
+  "/api/workflow/defaults": "PASS",
+  "/api/workflow/safety": "PASS",
+  "/api/workflow/messages": "PASS",
+  "/api/workflow/messages?direction=INBOUND": "PASS",
+  "/api/automation/master-leads": "PASS",
+  "/api/automation/summary": "PASS",
+  "/api/email/leads/2/compose": "PASS",
+  "gmail_health": {
+    "smtp": "READY",
+    "imap": "READY"
+  },
+  "scans_started": 0,
+  "emails_sent": 0,
+  "scheduled_runs_created": 0
+}

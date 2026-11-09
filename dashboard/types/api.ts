@@ -203,6 +203,8 @@ export interface LeadScoreBreakdown {
 }
 
 export interface LeadDetailResponse {
+  company_intelligence?:{status?:string;summary?:string;summary_type?:string;retrieved_at?:string;pages?:{url:string;title:string;description:string;excerpt:string}[]};
+  icp_match?:{status?:string;profile_id?:string;revision?:number;criteria?:{field:string;status:string;actual?:string;expected?:string[]}[]};
   business: {
     id: number; name: string; vertical: string;
     city?: string | null; state?: string | null; country?: string | null;

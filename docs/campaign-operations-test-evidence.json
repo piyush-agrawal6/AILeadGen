@@ -1,0 +1,64 @@
+{
+  "checked_at": "2026-11-01T18:10:07.896536+00:00",
+  "results": {
+    "backend_unit": {
+      "sha256": "0610de0cf96ed4e6b5a71175706cd8411ca11218f4e4332ee8273a863179ce13",
+      "summary": [
+        "310 passed, 1 skipped, 1 warning in 28.81s"
+      ]
+    },
+    "backend_focused": {
+      "sha256": "f563f083ae481a1585ba93d5ed793fdb80665f265280d62e605b2d7cb2425587",
+      "summary": [
+        "32 passed, 1 warning in 9.61s"
+      ]
+    },
+    "postgres_regression": {
+      "sha256": "e9a75d06e2e2c3a882d8ddfd9d328cbac402061df86d2b3487c0122d33b0bdc6",
+      "summary": [
+        "8 passed in 684.45s (0:11:24)"
+      ]
+    },
+    "postgres_campaign": {
+      "sha256": "ed706fc825ca63cf17b5362cdca62cd2957444652c69a055f0ca07883f695515",
+      "summary": [
+        "2 passed in 186.27s (0:03:06)"
+      ]
+    },
+    "frontend_unit": {
+      "sha256": "aa5f959d6cf90835cff2ed5e788ebd334b921f4b295b9fbaa663a7e32e418ded",
+      "summary": [
+        "Test Files  5 passed (5)",
+        "Tests  41 passed (41)"
+      ]
+    },
+    "typescript": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": []
+    },
+    "eslint": {
+      "sha256": "e0b32592c093b168bb64ebcc00e5d94c54f7051d03bbca641d313b87b0096ecc",
+      "summary": [
+        "\u2716 1 problem (0 errors, 1 warning)"
+      ]
+    },
+    "frontend_build": {
+      "sha256": "2cac59e02bc55fd12780d2fe359ccb071c5297442dbba2e2ee15a13ee5c6bc80",
+      "summary": [
+        "\u2713 Compiled successfully in 4.4s"
+      ]
+    },
+    "browser": {
+      "sha256": "8bed8ec4bb2d087c99f696976ec72b8ca374457e8f6a4fbb358fa6b6540e1275",
+      "summary": [
+        "16 passed (58.4s)"
+      ]
+    },
+    "postgres_query_fix": {
+      "summary": "Saved-views parameterized query verified read-only on real PostgreSQL after smoke revealed literal-percent dialect handling."
+    },
+    "postgres_thread_linkage": {
+      "summary": "Read-only real PostgreSQL OUTBOUND/INBOUND queries pass; 3 stored outbound messages retain campaign linkage; thread inheritance covered by an API fixture test."
+    }
+  }
+}

@@ -1,0 +1,22 @@
+import {test,expect} from '@playwright/test';
+test('invitation admission keeps public registration closed and uses the real protected Google handoff',async({page,context})=>{
+  const privateRequests:string[]=[];
+  page.on('request',request=>{if(request.url().includes('/api/')&&!request.url().includes('/api/auth/'))privateRequests.push(request.url())});
+  await page.route('https://accounts.google.com/**',route=>route.fulfill({status:200,contentType:'text/plain',body:'Synthetic OAuth destination; no Google account authenticated.'}));
+  await page.goto('/accept-invitation');
+  await page.getByRole('link',{name:'Continue with your invitation'}).click();
+  await expect(page.getByText(/Public registration remains closed/)).toBeVisible();
+  await page.getByLabel('Private invitation code',{exact:true}).fill('synthetic-private-invitation-'.padEnd(43,'x'));
+  await page.getByRole('checkbox').check();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.getByRole('button',{name:'Create account with Google'}).click();
+  await page.waitForURL('https://accounts.google.com/**');
+  const destination=new URL(page.url());
+  expect(destination.searchParams.get('client_id')).toBe('synthetic-admission-google-client');
+  expect(destination.searchParams.get('code_challenge')).toBeTruthy();
+  expect(destination.searchParams.get('redirect_uri')).toBe('http://127.0.0.1:13002/api/auth/callback/google');
+  expect(page.url()).not.toContain('synthetic-private-invitation');
+  const consent=(await context.cookies('http://127.0.0.1:13002')).find(cookie=>cookie.name==='planebyte-signup-consent');
+  expect(consent?.httpOnly).toBe(true);expect(consent?.sameSite).toBe('Lax');
+  expect(privateRequests).toEqual([]);
+});

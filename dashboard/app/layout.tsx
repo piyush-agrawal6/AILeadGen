@@ -2,12 +2,14 @@ import "@/app/globals.css";
 import { Shell } from "@/components/layout/shell";
 import { Providers } from "@/components/providers";
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { brand } from "@/lib/brand";
+import { headers,cookies } from "next/headers";
+import {currentUser} from '@/lib/server/session';
 
 export const metadata: Metadata = {
-  title: "PlaneByte | Lead Intelligence",
-  description: "PlaneByte private business intelligence and client website reviews",
-  icons: { icon: "/logo.png", apple: "/logo.png" },
+  title: "PlaneByte | Lead Engine",
+  description: brand.description,
+  icons: { icon: brand.mark, apple: brand.mark },
 };
 
 export default async function RootLayout({
@@ -15,13 +17,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  await headers();
+  const publicPage=(await headers()).get('x-heysow-public-page')==='1';
+  const user=publicPage?null:await currentUser();
+  const collapsed=(await cookies()).get('planebyte-sidebar')?.value==='collapsed';
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground antialiased overflow-hidden">
-        <Providers>
-          <Shell>{children}</Shell>
-        </Providers>
+        {publicPage?children:<Providers><Shell user={user?{name:user.name,email:user.email,image:'image' in user?user.image as string|null:undefined}:undefined} initialCollapsed={collapsed} workspaceManagementEnabled={process.env.HEYSOW_WORKSPACE_MANAGEMENT_ENABLED==='true'} capabilities={{companyDiscovery:process.env.HEYSOW_COMPANY_DISCOVERY_ENABLED==='true',customerIntegrations:process.env.HEYSOW_CUSTOMER_INTEGRATIONS_ENABLED==='true',leadAssistant:process.env.HEYSOW_LEAD_ASSISTANT_ENABLED==='true',developerApi:process.env.HEYSOW_DEVELOPER_API_ENABLED==='true'}}>{children}</Shell></Providers>}
       </body>
     </html>
   );

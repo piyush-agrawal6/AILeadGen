@@ -1,15 +1,13 @@
 "use client";
-import { useTheme } from "next-themes";
-import { usePathname } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
-import { request } from "@/lib/intelligence";
-import { signOut } from "next-auth/react";
-import { Sun, Moon, Monitor } from "lucide-react";
-export function Header() {
-  const {theme,setTheme}=useTheme(); const path=usePathname();
-  const attention=useQuery({queryKey:["outreach-indicator"],queryFn:()=>request<{counts:Record<string,number>}>("/sales/outreach?queue=today&page_size=1&tz="+encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)),refetchInterval:60000});
-  const title=path.startsWith("/outreach")?"Outreach":path.startsWith("/leads")?"Lead workspace":path.startsWith("/campaigns")?"Campaign":path.startsWith("/scans")?"Discovery":path.startsWith("/reports")?"Reports":path.startsWith("/system")?"System":"Workspace";
-  return <header className="flex h-16 shrink-0 items-center justify-between border-b px-5 md:px-8"><div className="flex items-center gap-3 text-xs"><span className="hidden text-muted-foreground sm:inline">PlaneByte</span><span className="hidden text-border sm:inline">/</span><span>{title}</span></div><div className="flex items-center gap-3"><Link href="/outreach" className="hidden text-[10px] text-muted-foreground sm:block">{attention.data?attention.data.counts.today||0:"—"} follow-ups · {attention.data?attention.data.counts.replied||0:"—"} replies</Link><div aria-label="Color theme" className="flex items-center gap-1">{[{key:"light",icon:Sun},{key:"dark",icon:Moon},{key:"system",icon:Monitor}].map(({key,icon:Icon})=><button key={key} aria-label={key+" theme"} aria-pressed={theme===key} onClick={()=>setTheme(key)} className="rounded p-1.5 text-muted-foreground hover:bg-muted"><Icon className="h-3.5 w-3.5"/></button>)}</div><button className="border-l pl-3 text-xs text-muted-foreground hover:text-foreground" onClick={()=>signOut({callbackUrl:"/login"})}>Sign out</button></div></header>;
+import Link from 'next/link';
+import {usePathname} from 'next/navigation';
+import {PanelLeftClose,PanelLeftOpen,LifeBuoy} from 'lucide-react';
+import {WorkspaceSwitcher} from '@/components/workspaces/switcher';
+import {useWorkspace} from '@/components/workspaces/use-workspace';
+import {AccountMenu,type UserIdentity} from './account-menu';
+import {Notifications} from './notifications';
+export function pageTitle(path:string){if(path.startsWith('/settings'))return 'Settings';if(path.startsWith('/account'))return 'Your account';if(path.startsWith('/help'))return 'Help & support';if(path.startsWith('/find-leads'))return 'Find Leads';if(path.startsWith('/leads'))return 'Companies';if(path.startsWith('/assistant'))return 'Prospecting assistant';if(path.startsWith('/recommendations'))return 'Recommendations';if(path.startsWith('/lists'))return 'Lists';if(path.startsWith('/tasks'))return 'Tasks';if(path.startsWith('/contacts'))return 'Contacts';if(path.startsWith('/enrichment'))return 'Enrichment';if(path.startsWith('/campaigns')||path.startsWith('/scans')||path.startsWith('/discovery'))return 'Campaigns';if(path.startsWith('/outreach')||path.startsWith('/runs'))return 'Outreach';if(path.startsWith('/schedules'))return 'Schedules';return 'Overview'}
+export function Header({workspaceManagementEnabled=false,collapsed=false,onToggle,mobileTrigger,user={}}:{workspaceManagementEnabled?:boolean;collapsed?:boolean;onToggle?:()=>void;mobileTrigger?:React.ReactNode;user?:UserIdentity}){
+ const path=usePathname(),workspace=useWorkspace(workspaceManagementEnabled);
+ return <header className="shell-header"><div className="flex min-w-0 items-center gap-3"><button className="shell-icon-button shell-desktop-toggle" onClick={onToggle} aria-label={collapsed?'Expand sidebar':'Collapse sidebar'} aria-expanded={!collapsed} aria-controls="desktop-navigation">{collapsed?<PanelLeftOpen size={19}/>:<PanelLeftClose size={19}/>}</button>{mobileTrigger}<span className="shell-page-title">{pageTitle(path)}</span></div><div className="shell-header-context">{workspaceManagementEnabled&&<WorkspaceSwitcher onSelected={()=>window.location.assign('/')}/>}</div><div className="flex shrink-0 items-center gap-1 sm:gap-2">{workspaceManagementEnabled&&workspace.active&&<Notifications/>}<Link className="shell-icon-button shell-help-action" href="/help" aria-label="Help & support"><LifeBuoy size={18}/></Link><AccountMenu user={user} workspaceManagementEnabled={workspaceManagementEnabled}/></div></header>;
 }
-

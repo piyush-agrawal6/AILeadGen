@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LeadEngine: Zero-cost B2B lead discovery, technical auditing, and qualification engine."""
+"""PlaneByte Lead Engine: B2B prospect discovery and company intelligence."""
 import sys
 
 # Ensure UTF-8 output encoding across Windows consoles

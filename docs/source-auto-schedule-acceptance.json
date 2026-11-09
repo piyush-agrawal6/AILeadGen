@@ -1,0 +1,49 @@
+{
+  "schedule_id": "99a77399-f822-4b85-a6a0-55fc916c04e8",
+  "configuration": {
+    "request_id": "8239b183-f767-4bd3-af1f-161e9bbad73f",
+    "kind": "SCAN",
+    "scan_source": "FIRECRAWL",
+    "target": 1,
+    "ai_prompt": "Find one Bristol dental business with website and public business email. Use the reviewed official-domain query.",
+    "firecrawl_intent": {
+      "targetQualifiedLeads": 1,
+      "verticals": [
+        "dentists"
+      ],
+      "countries": [
+        "United Kingdom"
+      ],
+      "cities": [
+        "Bristol"
+      ],
+      "businessSizes": [
+        "LOCAL",
+        "SMALL_GROUP"
+      ],
+      "opportunities": [
+        "WEBSITE",
+        "SEO",
+        "SECURITY"
+      ],
+      "contactRequired": true,
+      "source": "FIRECRAWL",
+      "queries": [
+        "site:yourdentistbristol.co.uk Bristol dentist contact email"
+      ]
+    },
+    "firecrawl_reviewed": true,
+    "email_all_eligible": false,
+    "acquisition_budgets": {
+      "max_searches": 1,
+      "max_scraped_pages": 4,
+      "max_crawl_pages": 0,
+      "max_runtime_seconds": 180,
+      "max_candidates": 6
+    }
+  },
+  "start_at": "2026-11-02T14:41:20.061649+00:00",
+  "frequency": "once",
+  "no_outreach": true,
+  "run_now_called": false
+}

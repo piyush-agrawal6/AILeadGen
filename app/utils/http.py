@@ -1,5 +1,6 @@
 """Bounded HTTP fetches with TLS and validation before every redirect hop."""
 from urllib.parse import urljoin, urlparse
+import asyncio
 import httpx
 from app.utils.urls import is_safe_url
 from app.utils.public_transport import PublicAsyncTransport
@@ -14,13 +15,19 @@ class SafeAsyncClient(httpx.AsyncClient):
         self.max_bytes = max_bytes
         self.redirect_limit = redirect_limit
 
-    async def get(self, url, *, allowed_host=None, **kwargs):
+    async def get(self, url, *, allowed_host=None, allowed_domain=None, **kwargs):
         history = []
         for _ in range(self.redirect_limit+1):
-            if not is_safe_url(str(url), check_dns=True):
+            try:safe=await asyncio.wait_for(asyncio.to_thread(is_safe_url,str(url),check_dns=True),timeout=5)
+            except asyncio.TimeoutError:raise ValueError('Destination validation timed out') from None
+            if not safe:
                 raise ValueError("Unsafe HTTP destination")
             if allowed_host and urlparse(str(url)).hostname != allowed_host:
                 raise ValueError("Cross-host crawl redirect blocked")
+            if allowed_domain:
+                from app.utils.urls import _tld_extractor
+                if _tld_extractor(urlparse(str(url)).hostname or '').top_domain_under_public_suffix != allowed_domain:
+                    raise ValueError('Cross-domain crawl redirect blocked')
             request = self.build_request("GET", url, **kwargs)
             response = await self.send(request, stream=True, follow_redirects=False)
             try:

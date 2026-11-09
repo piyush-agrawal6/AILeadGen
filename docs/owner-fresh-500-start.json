@@ -1,0 +1,96 @@
+{
+  "status": "LIVE",
+  "send_approved": true,
+  "target_today": 500,
+  "portfolio": "https://planebyte.com/projects",
+  "portfolio_mode": "CATALOG_LINK",
+  "source_allocations": 50,
+  "started_sources": [
+    {
+      "day": 1,
+      "city": "Austin",
+      "country": "United States",
+      "vertical": "hospitality",
+      "source_type": "FIRECRAWL",
+      "target": 50,
+      "status": "QUEUED",
+      "campaign_id": "2c78390d-74ad-4f5d-b7e9-86dc9da614a3",
+      "acquisition_job_id": "97500489-cd1d-4d9f-862c-05efe471f499",
+      "workflow_id": null,
+      "error": null
+    }
+  ],
+  "totals": {
+    "target": 2500,
+    "contactable_found": 0,
+    "analyzed": 0,
+    "prepared": 0,
+    "queued": 0,
+    "sent": 0,
+    "delivered_confirmed": 0,
+    "hard_bounced": 0,
+    "replies": 0,
+    "positive_replies": 0,
+    "meetings": 0,
+    "proposal_requests": 0,
+    "wins": 0,
+    "unsubscribes": 0,
+    "delivery_note": "SMTP acceptance is not proof of delivery; confirmed delivery is shown only when supported by a delivery event.",
+    "reply_rate": null,
+    "positive_reply_rate": null,
+    "meeting_rate": null
+  },
+  "capacity": {
+    "provider": "gmail",
+    "sender": "planebyte@gmail.com",
+    "daily_capacity_ceiling": 500,
+    "counted_last24h": 5,
+    "remaining_allowance": 495,
+    "requested_daily_target": 500,
+    "full_daily_target_fits": true,
+    "smtp_account_authenticated": true,
+    "remaining_is_counted_not_provider_guaranteed": true,
+    "limit_source": "https://support.google.com/mail/answer/22839?hl=en",
+    "account_wide_count_fresh": true,
+    "provider_preflight_at": "2026-11-02T17:38:31.118913+00:00",
+    "untracked_account_sends": 5,
+    "global_max_hour": 50,
+    "global_max_day": 500
+  },
+  "http": 200,
+  "worker_handoff": [
+    {
+      "city": "Austin",
+      "vertical": "hospitality",
+      "source_type": "FIRECRAWL",
+      "allocation_status": "QUEUED",
+      "worker_status": "RUNNING",
+      "execution_name": "projects/querryside/locations/asia-south1/operations/ef1dea3a-6a4e-4f0a-9bef-11546e32fcb1",
+      "job_id": "97500489-cd1d-4d9f-862c-05efe471f499",
+      "campaign_id": "2c78390d-74ad-4f5d-b7e9-86dc9da614a3",
+      "workflow_status": null
+    },
+    {
+      "city": "Austin",
+      "vertical": "hospitality",
+      "source_type": "OVERTURE",
+      "allocation_status": "RUNNING",
+      "worker_status": null,
+      "execution_name": null,
+      "job_id": null,
+      "campaign_id": "443e6673-d2bb-474e-abfd-517e53b16b7b",
+      "workflow_status": "RUNNING"
+    },
+    {
+      "city": "Manchester",
+      "vertical": "legal",
+      "source_type": "FIRECRAWL",
+      "allocation_status": "QUEUED",
+      "worker_status": "QUEUED",
+      "execution_name": null,
+      "job_id": "8f9150c3-278c-4027-9794-8ccf2959c9a1",
+      "campaign_id": "13e54533-36b5-4dd9-af13-e33253fff162",
+      "workflow_status": null
+    }
+  ]
+}

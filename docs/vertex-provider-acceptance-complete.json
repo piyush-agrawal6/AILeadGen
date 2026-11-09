@@ -1,0 +1,8 @@
+{
+  "status": "LIVE",
+  "send_approved": 1,
+  "all_recorded_gates_passed": true,
+  "pending_compatibility_fix_validation": false,
+  "experiment_not_activated": false,
+  "production_revision": "leadengine-api-00105-cil"
+}

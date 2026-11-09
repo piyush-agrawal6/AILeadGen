@@ -1,0 +1,68 @@
+{
+  "checked_at": "2026-11-01T18:13:03.419013+00:00",
+  "schema": 11,
+  "migrations_applied": 1,
+  "rollback_backup_verified": true,
+  "preserved_tables": 51,
+  "frontend": "https://leads.planebyte.com",
+  "frontend_deployment": "https://leadengine-fsi4dmi4k-piyushagrawal6s-projects.vercel.app",
+  "builds": {
+    "api": "558e4470-b9f3-47ae-a93d-24ba371e3933",
+    "worker": "34eb69ce-0f46-46ca-84cd-a63d3a0b661c"
+  },
+  "runtime": {
+    "api": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:campaign-operations-20261101-180430",
+      "flags": {
+        "AUTO_SCAN_ENABLED": "false",
+        "AUTO_EMAIL_ENABLED": "false",
+        "EMAIL_SENDING_ENABLED": "false"
+      },
+      "secret_references_preserved": true,
+      "environment_preserved": true
+    },
+    "worker": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:automation-20261101-174320",
+      "flags": {
+        "AUTO_SCAN_ENABLED": "false",
+        "AUTO_EMAIL_ENABLED": "false",
+        "EMAIL_SENDING_ENABLED": "false"
+      },
+      "secret_references_preserved": true,
+      "environment_preserved": true
+    }
+  },
+  "scans_started": 0,
+  "emails_sent": 0,
+  "api_revision": "leadengine-api-00029-9gh",
+  "traffic": [
+    {
+      "revision": "leadengine-api-00029-9gh",
+      "percent": 100
+    }
+  ],
+  "schedulers": [
+    {
+      "name": "leadengine-email-sync",
+      "state": "PAUSED",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "name": "leadengine-hourly-outreach",
+      "state": "PAUSED",
+      "schedule": "* * * * *"
+    },
+    {
+      "name": "leadengine-daily-acquisition",
+      "state": "PAUSED",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "name": "leadengine-inbox-sync",
+      "state": "ENABLED",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "database_pauses_preserved": true,
+  "passed": true
+}

@@ -10,5 +10,35 @@
     "SEO": 100,
     "SECURITY": 100
   },
-  "logo_sha256": "796ea2ca7441658269ab1855bd43d98f3cd63e34c0198efb986c9b2a96ab8871"
+  "logo_sha256": "796ea2ca7441658269ab1855bd43d98f3cd63e34c0198efb986c9b2a96ab8871",
+  "signature_tagline": "Software Engineering \u00b7 SEO \u00b7 Security",
+  "services": {
+    "WEBSITE": {
+      "title": "Mobile-first website modernisation",
+      "description": "Responsive page templates, clear service presentation and a focused booking or enquiry journey.",
+      "deliverables": [
+        "Responsive page design and implementation",
+        "Clear page hierarchy and enquiry actions",
+        "Scoped deployment and handover"
+      ]
+    },
+    "SEO": {
+      "title": "Technical SEO foundations",
+      "description": "Accurate metadata, useful headings, crawlability and relevant structured business information.",
+      "deliverables": [
+        "Page-title and description plan",
+        "Heading and internal-link structure",
+        "Relevant structured data and crawlability checks"
+      ]
+    },
+    "SECURITY": {
+      "title": "Public technical trust",
+      "description": "HTTPS consistency and agreed external browser configuration checks with hosting dependencies documented.",
+      "deliverables": [
+        "HTTPS and redirect review",
+        "Scoped browser security configuration",
+        "Implementation checks with the hosting provider"
+      ]
+    }
+  }
 }

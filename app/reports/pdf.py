@@ -130,147 +130,80 @@ def scope_items(data):
 
 
 def render_pdf(data,output):
-    fonts();buffer=BytesIO();business=data['business'];brand=data['brand'];name=business['name'];date=report_date(data['created_at'])
-    metrics=client_metrics(data)
-    website=brand.get('website','');footer_site=re.sub(r'^https?://','',website).rstrip('/')
+    from app.reports.opportunity import plan,why_planebyte
+    fonts();buffer=BytesIO();p=plan(data);business=data['business'];brand=data['brand'];name=business['name'];date=report_date(data['created_at'])
     def on_page(c,doc):
-        c.saveState()
-        c.setFillColor(PAGE_BG);c.rect(0,0,PAGE_W,PAGE_H,fill=1,stroke=0)
-        if doc.page==1:
-            mark(c,48,PAGE_H-91,44);c.setFillColor(NAVY);c.setFont('PBBold',22);c.drawString(104,PAGE_H-73,'PlaneByte')
-            c.setStrokeColor(colors.HexColor('#252A23'));c.setLineWidth(.5)
-            for x in range(392,600,28):c.line(x,250,x,600)
-            for y in range(250,601,28):c.line(392,y,PAGE_W,y)
-            c.setFillColor(colors.HexColor('#1D211D'));path=c.beginPath();path.moveTo(PAGE_W,590);path.lineTo(452,500);path.lineTo(452,400);path.lineTo(PAGE_W,490);path.close();c.drawPath(path,fill=1,stroke=0)
-            c.setStrokeColor(colors.HexColor('#56604A'));c.line(452,400,PAGE_W,490)
-        else:
-            mark(c,48,PAGE_H-65,32);c.setFillColor(NAVY);c.setFont('PBBold',12);c.drawString(91,PAGE_H-53,'PlaneByte')
-            c.setFillColor(MUTED);c.setFont('PBRegular',7);c.drawRightString(PAGE_W-48,PAGE_H-48,fit(c,'Digital performance review | '+name,270));c.setStrokeColor(LINE);c.line(48,PAGE_H-76,PAGE_W-48,PAGE_H-76)
-        c.restoreState()
+        c.saveState();c.setFillColor(PAGE_BG);c.rect(0,0,PAGE_W,PAGE_H,fill=1,stroke=0)
+        mark(c,48,PAGE_H-65,32);c.setFillColor(NAVY);c.setFont('PBBold',12);c.drawString(91,PAGE_H-53,'PlaneByte')
+        c.setFillColor(MUTED);c.setFont('PBRegular',7);c.drawRightString(PAGE_W-48,PAGE_H-48,fit(c,name,260));c.setStrokeColor(LINE);c.line(48,PAGE_H-76,PAGE_W-48,PAGE_H-76);c.restoreState()
     class NumberedCanvas(canvas.Canvas):
         def __init__(self,*args,**kwargs):kwargs['invariant']=1;super().__init__(*args,**kwargs);self.saved=[]
         def showPage(self):self.saved.append(dict(self.__dict__));self._startPage()
         def save(self):
             total=len(self.saved)
             for state in self.saved:
-                self.__dict__.update(state);self.setStrokeColor(LINE);self.line(48,43,PAGE_W-48,43);self.setFillColor(MUTED);self.setFont('PBRegular',6.5);self.drawString(48,30,footer_site or 'PlaneByte');self.drawRightString(PAGE_W-48,30,f'{date}  |  Page {self._pageNumber} of {total}');super().showPage()
+                self.__dict__.update(state);self.setStrokeColor(LINE);self.line(48,43,PAGE_W-48,43);self.setFillColor(MUTED);self.setFont('PBRegular',7);self.drawString(48,30,re.sub(r'^https?://','',brand.get('website','')).rstrip('/'));self.drawRightString(PAGE_W-48,30,f'{date}  |  {self._pageNumber} / {total}');super().showPage()
             super().save()
-    doc=BaseDocTemplate(buffer,pagesize=A4,title='Digital performance review for '+name,author='PlaneByte',leftMargin=48,rightMargin=48,topMargin=92,bottomMargin=58)
-    doc.addPageTemplates(PageTemplate(id='report',frames=[Frame(48,57,WIDTH,PAGE_H-151,leftPadding=0,rightPadding=0,topPadding=0,bottomPadding=0)],onPage=on_page))
-    story=[Spacer(1,93),paragraph('WEBSITE / SEO / SECURITY',9,BLUE,True,space=23),paragraph('Digital performance\nreview for',33,NAVY,True,leading=40,space=6),paragraph(name,22 if len(name)>80 else 32,BLUE,True,leading=28 if len(name)>80 else 39,space=18),paragraph('Your current digital performance, a clear improvement plan and measurable goals for the next stage of growth.',11,leading=17,space=25)]
-    cover_rows=[('Business',name),('Location',', '.join(filter(None,[business['city'],business['country']]))),('Industry',business['vertical']),('Prepared',date)]
-    for title,value in cover_rows:story.extend([paragraph(title.upper(),7,MUTED,space=2),paragraph(value,10,NAVY,space=12)])
-    story.extend([Spacer(1,12),callout('Clear evidence. Practical next steps.','Prepared from existing public observations. Recommendations are qualitative and should be validated with the website owner.')])
-    story.append(PageBreak())
-    story.extend(section_title('Executive summary','Current measured performance and proposed improvement targets.'))
-    kinds=['WEBSITE'] if data['mode']!='REACHABLE' else ['WEBSITE','SEO','SECURITY']
-    card_width=(WIDTH-10*(len(kinds)-1))/len(kinds)
-    cards=[]
-    for i,kind in enumerate(kinds):
-        if i:cards.append(Spacer(10,1))
-        cards.append(ScoreCard(LABELS[kind],metrics[kind],kind,card_width))
-    table=Table([cards],colWidths=[10 if isinstance(item,Spacer) else card_width for item in cards]);table.setStyle(TableStyle([('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0)]))
-    if data['mode']=='REACHABLE':
-        story.extend([table,Spacer(1,12),paragraph('Higher current scores are better. Website = Lighthouse mobile performance; SEO = Lighthouse SEO. Security covers the seven external configuration checks listed in this review.',8,space=8),paragraph('Targets are proposed goals, not forecasts or guarantees. The target gain is the arithmetic difference from the current score; results must be confirmed after implementation and a fresh audit.',8,space=18)])
-    mode=data['mode'];primary=data.get('primary')
-    summary='Our review identified practical opportunities in '+KIND_NAMES.get(primary,'the available website evidence').lower()+'. The findings below describe what was observed and where a focused improvement could help.'
-    if mode=='NO_WEBSITE':summary='No official website was found in the available public sources. The primary opportunity is a new website that makes your services and enquiry path clear. Existing-site SEO and security were not assessed.'
-    elif mode=='UNREACHABLE':summary='A website is listed, but the stored assessment did not receive a successful response. The primary opportunity is website recovery or redesign. This is distinct from having no website; SEO and security require reassessment after access is restored.'
-    elif mode=='UNASSESSED':summary='A website is listed, but a current website assessment was not available in the stored evidence. No missing scores or findings have been invented.'
-    story.extend([callout('Recommended focus: '+('New website' if mode=='NO_WEBSITE' else 'Website recovery / redesign' if mode=='UNREACHABLE' else KIND_NAMES.get(primary,'Further assessment')),summary),Spacer(1,20)])
-    if any(client_findings(data,kind) for kind in kinds):story.extend(section_title('Key findings','The following observations are drawn from the assessment already recorded.'))
-    for kind in kinds:
-        for item in client_findings(data,kind)[:1]:story.append(KeepTogether([paragraph(item['title'],10,NAVY,True,space=3),paragraph(item['evidence'],9,space=11)]))
-    if mode=='REACHABLE':
-        story.append(PageBreak());story.extend(section_title('Current digital presence','A visual baseline and the strongest opportunities established by the stored assessment.'))
-        capture=data.get('capture') or {}
-        if data.get('_capture_path'):
-            story.extend([Image(data['_capture_path'],width=WIDTH,height=WIDTH*900/1440),Spacer(1,8),paragraph('Public homepage captured '+report_date(capture.get('captured_at',data['created_at']))+'. The image reflects the page at scan time.',7,space=12)])
-        else:story.append(callout('Screenshot unavailable',capture.get('reason') or 'No public homepage image was captured for this observation. The report uses the stored technical evidence.'))
-        profile=data['website']
-        observations=[('Public website','Reachable during the stored assessment.'),('Mobile layout signal','A mobile viewport declaration was observed.' if profile.get('has_viewport') else 'A mobile viewport declaration was not established.'),('Contact journey','A contact page was observed.' if profile.get('has_contact_page') else 'A contact page was not established in the sampled pages.')]
-        strongest=sorted([(kind,item) for kind in kinds for item in client_findings(data,kind)],key=lambda pair:-pair[1]['points'])[:3]
-        if strongest:observations=[(item['title'],item['evidence']) for _,item in strongest]
-        observations.append(('HTTPS','Observed in the stored assessment.' if profile.get('https_enabled') else 'Not established in the sampled evidence.'))
-        story.extend([Spacer(1,12),details(observations)])
-        story.append(PageBreak());story.extend(section_title('Top 3 improvement priorities','A focused starting point, ordered by the strength of the recorded findings.'))
-        priorities=[]
-        for kind in kinds:
-            for item in client_findings(data,kind):priorities.append((kind,item))
-        priorities=sorted(priorities,key=lambda pair:-pair[1]['points'])[:3]
-        for index,(kind,item) in enumerate(priorities,1):
-            priority='High' if item['points']>=15 else 'Medium' if item['points']>=5 else 'Low'
-            effort='Medium' if kind=='WEBSITE' else 'Low to medium'
-            story.extend([paragraph(str(index)+'. '+item['title'],13,NAVY,True,space=6),paragraph('Priority: '+priority+' | Potential impact: '+('Customer journey' if kind=='WEBSITE' else 'Search clarity' if kind=='SEO' else 'Configuration consistency')+' | Indicative effort: '+effort,8,BLUE,space=8),paragraph('Finding: '+item['title'],9,space=5),paragraph('Evidence: '+item['evidence'],9,space=5),paragraph('Why it matters: '+item['impact'],9,space=5),paragraph('Recommendation: '+item['recommendation'],9,space=16)])
-        if not priorities:story.append(paragraph('No specific priorities were established from the available stored evidence. Agree a baseline review before selecting implementation work.',10))
-        story.append(PageBreak());story.extend(section_title('Website experience','Usability, navigation and conversion opportunities on the sampled pages.'))
-        profile=data['website'];lh=data['lighthouse'];performance=lh.get('performance_score');lcp=lh.get('lcp_ms')
-        tech=', '.join(profile.get('technologies',[])) or 'Not identified';cms=', '.join(x for x in profile.get('technologies',[]) if any(cms in x.casefold() for cms in ['wordpress','drupal','wix','squarespace','webflow','shopify'])) or 'Not identified'
-        story.append(details([('Current status','Reachable in the stored assessment'),('HTTPS',observed(profile.get('https_enabled'))),('Mobile viewport',observed(profile.get('has_viewport'))),('Mobile performance',f'{performance:g}/100 in Lighthouse' if performance is not None else 'Not assessed'),('Largest contentful paint',f'{lcp/1000:.1f} seconds' if lcp is not None else 'Not assessed'),('Contact page',observed(profile.get('has_contact_page'))),('Booking / enquiry feature',observed(profile.get('has_booking'))),('Technology / CMS',tech+' / '+cms)]))
-        story.extend([Spacer(1,13),paragraph('Key website findings',13,NAVY,True),*finding_blocks(data,'WEBSITE')])
-        story.append(PageBreak());story.extend(section_title('Search foundations','An evidence-based review of page structure, discovery signals and public business information.'))
-        story.append(details([('Page title',profile.get('html_title') or 'Not observed'),('Meta description', 'Observed' if profile.get('meta_description') else 'Not observed'),('Primary heading',observed(profile.get('has_h1'))),('Canonical',profile.get('canonical_url') or 'Not observed'),('Robots / sitemap',observed(profile.get('has_robots_txt'))+' / '+observed(profile.get('has_sitemap'))),('Structured data',', '.join(profile.get('schema_types',[])) or 'Not observed'),('Lighthouse SEO',f"{lh['seo_score']:g}/100" if lh.get('seo_score') is not None else 'Not assessed')]))
-        story.extend([Spacer(1,12),*finding_blocks(data,'SEO'),paragraph('Search positions, traffic volumes and revenue effects were not measured in this review.',8,space=8)])
-        story.append(PageBreak());story.extend(section_title('Basic external security review','Passive observations of the public responses and configuration available during assessment.'))
-        story.append(callout('Scope of this review','This is a passive external configuration review, not a penetration test or security certification.',colors.HexColor(KIND_COLORS['SECURITY'])))
-        security=metrics['SECURITY']
-        story.extend([Spacer(1,10),paragraph('Configuration score methodology',11,NAVY,True,space=5),paragraph('Each of seven checks has equal weight. A score is shown only when all seven have an explicit pass or fail. Unknown results are not treated as passes. This measures external configuration checks, not overall security or vulnerability risk.',8,space=9),details([(item['name'],{'PASS':'Observed / passed','FAIL':'Improvement required','UNKNOWN':'Not assessed'}[item['result']]) for item in security['checks']]),*finding_blocks(data,'SECURITY')])
-    else:
-        story.extend([Spacer(1,10),paragraph('Assessment boundary',13,NAVY,True,space=8),paragraph('Existing-site SEO and external security were not assessed. A missing assessment is not evidence of a weakness.',9,space=15)])
-        if business.get('website'):story.append(details([('Listed website',business['website'])]))
-        story.extend([Spacer(1,15),paragraph('A practical first step',13,NAVY,True,space=8),paragraph(scope_items(data)[0][1],10,space=15)])
-    useful_social=[p for p in data.get('social_profiles',[]) if p.get('activity_status') in ('RECENT','ACTIVE','STALE')]
-    if data.get('business_scale') in ('MID_MARKET','REGIONAL'):
-        story.append(PageBreak());story.extend(section_title('Multi-location priorities','A coordinated improvement plan for the shared website and location-level customer journeys.'))
-        story.extend([callout('Assessment boundary','The stored scores and screenshot describe the sampled website. They are not a separate audit of every branch. Confirm representative locations and shared templates before agreeing the rollout scope.'),Spacer(1,20)])
-        for title,text in [
-            ('Consistent experience across locations','Review shared navigation, service presentation, mobile templates and brand standards. Identify which changes can be implemented centrally and which need location-specific content.'),
-            ('Accurate local information and enquiry routing','Validate the selected location pages, contact details and booking or enquiry destinations. Define ownership of updates so customers reach the appropriate team.'),
-            ('Pilot, verify, then extend','Begin with representative templates and agreed locations. Compare performance and enquiry-path checks with the baseline before applying approved changes across the wider site.'),
-            ('Practical governance and handover','Deliver a shared-template checklist, a scoped location-page matrix, responsibilities for ongoing updates and a repeatable post-launch audit process.')]:story.extend([paragraph(title,13,NAVY,True,space=7),paragraph(text,10,space=20)])
-    if useful_social:
-        story.append(PageBreak());story.extend(section_title('Public social presence','Supporting context for a consistent customer journey. Social activity does not establish commercial success.'))
-        for p in useful_social[:8]:story.extend([paragraph(p['platform'].title()+' - '+p['activity_status'].title(),11,NAVY,True,space=5),paragraph(p['profile_url'],8,BLUE,space=5),paragraph(p.get('activity_reason') or 'Based on a reliably dated public post.',9,space=12)])
-        story.append(paragraph('Use relevant profiles to keep contact details, brand presentation and enquiry links consistent. Unavailable activity is treated as unknown, not inactivity.',9))
-    story.append(PageBreak());story.extend(section_title('Business impact','How the observed findings can affect the customer journey, without making numerical growth promises.'))
-    impacts=[]
-    if mode in ('NO_WEBSITE','UNREACHABLE') or (data['scores'].get('WEBSITE') or 0)>=40:impacts.append(('Enquiries and usability','A clearer, more reliable website experience may make it easier for potential customers to understand your services and take the next step.'))
-    if (data['scores'].get('SEO') or 0)>=40:impacts.append(('Clarity and discoverability','Accurate page structure and business information can give visitors and search systems clearer context. Rankings or traffic gains are not guaranteed.'))
-    if (data['scores'].get('SECURITY') or 0)>=40:impacts.append(('Trust and reliability','Reviewing the observed external configuration can support a more consistent experience. These observations do not establish whether a site is vulnerable or certified secure.'))
-    for title,text in impacts or [('An informed starting point','A current evidence baseline can help the business decide which improvements are appropriate.')]:story.extend([paragraph(title,11,NAVY,True,space=5),paragraph(text,9,space=15)])
-    story.extend([Spacer(1,12),*section_title('How PlaneByte can help','A recommended engagement based on the opportunities established in this review.')])
-    for title,text in scope_items(data):story.extend([callout(title,text),Spacer(1,10)])
-    story.append(PageBreak());story.extend(section_title('Recommended delivery roadmap','A proportionate implementation sequence, confirmed together after discovery.'))
-    phases=[('1. Confirm and plan','Validate the recorded evidence, agree the priority pages, audience, enquiry routes and acceptance criteria.')]
-    if mode in ('NO_WEBSITE','UNREACHABLE') or (data['scores'].get('WEBSITE') or 0)>=40:phases.append(('2. Build or improve the website','Deliver responsive page templates, service content structure and clear contact or booking actions. Review changes with the business owner before launch.'))
-    if mode=='REACHABLE' and (data['scores'].get('SEO') or 0)>=40:phases.append(('3. Strengthen search foundations','Deliver an agreed metadata and heading plan, crawlability checks and relevant structured business information.'))
-    if mode=='REACHABLE' and (data['scores'].get('SECURITY') or 0)>=40:phases.append(('4. Review external configuration','Coordinate HTTPS and the observed header settings with the hosting provider; record the verification results.'))
-    phases.append(('5. Validate and hand over','Re-run the agreed checks, compare measured scores with the baseline, test enquiry routes and provide a concise handover checklist.'))
-    for title,text in phases:story.extend([paragraph(title,12,NAVY,True,space=6),paragraph(text,9,space=14)])
-    story.extend([Spacer(1,8),callout('Deliverables and expected outcomes','An agreed page and content plan; implementation of the scoped improvements; contact-path testing; before-and-after audit evidence; launch checklist and handover. The intended outcomes are a clearer customer journey, stronger technical foundations and measurable validation against the agreed goals.')])
-    offer=data.get('offer') or {}
-    if offer.get('enabled') and (mode in ('NO_WEBSITE','UNREACHABLE') or mode=='REACHABLE' and (data['scores'].get('WEBSITE') or 0)>=40):
-        story.append(PageBreak());story.extend(section_title(offer.get('title','Website Redesign Launch Package'),offer.get('subtitle','Included at no additional charge with an eligible PlaneByte website project')))
-        story.append(paragraph('Included services',14,NAVY,True,space=12))
-        included=[]
-        if offer.get('seo'):included.append(('SEO launch foundations','Page-title and description templates, core heading review and crawlability checks for the agreed website pages.'))
-        if offer.get('security'):included.append(('Basic configuration review','HTTPS and agreed public security-header checks, with any hosting dependencies documented.'))
-        if offer.get('support'):included.append(('Post-launch support','An agreed post-launch review, enquiry-path checks and a concise handover. The support period and limits are confirmed in the proposal.'))
-        for title,text in included:
-            configured_price=(offer.get('prices') or {}).get(title)
-            if offer.get('show_prices') and isinstance(configured_price,str) and configured_price.strip():text+=' Configured standalone list price: '+configured_price.strip()[:80]+'. Included with the eligible website project.'
-            story.extend([callout(title,text),Spacer(1,12)])
-        story.extend([Spacer(1,10),paragraph('Eligibility and scope are confirmed in a written proposal. Included services apply to the agreed website project; third-party subscriptions, hosting and separately scoped work are confirmed before commitment.',9,space=20)])
-    story.extend([Spacer(1,12),paragraph("Let's discuss your digital growth opportunities.",15,NAVY,True,space=9),paragraph('We can review these observations together and agree a focused, proportionate next step.',9,space=10)])
-    for value in [brand.get('website'),brand.get('contact_email'),brand.get('phone')]:
-        if value:story.append(paragraph(value,9,BLUE,space=4))
+    doc=BaseDocTemplate(buffer,pagesize=A4,title=p['title']+' for '+name,author='PlaneByte',leftMargin=48,rightMargin=48,topMargin=98,bottomMargin=58)
+    doc.addPageTemplates(PageTemplate(id='report',frames=[Frame(48,57,WIDTH,PAGE_H-155,leftPadding=0,rightPadding=0,topPadding=0,bottomPadding=0)],onPage=on_page))
+    story=[]
+    def heading(number,title,description):
+        if story:story.append(PageBreak())
+        story.extend([paragraph(number+' / OPPORTUNITY REVIEW',8,BLUE,True,space=15),*section_title(title,description),Spacer(1,9)])
+    def box(title,text):story.extend([KeepTogether([callout(title,text),Spacer(1,13)])])
+    heading('01','Executive Opportunity Brief',p['title']+' | Prepared by PlaneByte')
+    story.extend([paragraph(name,25 if len(name)<65 else 18,BLUE,True,leading=30,space=8),paragraph(' · '.join(filter(None,[business.get('city'),business.get('country'),business.get('vertical')])),9,space=19)])
+    story.append(paragraph(str(len(p['top']))+' opportunities identified',13,NAVY,True,space=13))
+    for i,item in enumerate(p['top'],1):box(f'{i:02d}  '+item['title'],item['category']+' · '+item['priority'])
+    story.extend([paragraph('RECOMMENDED FOCUS',8,BLUE,True,space=5),paragraph(p['service_title'],14,NAVY,True,space=10),paragraph(p['solution'],10,space=13)])
+    if p['included']:box('More than a website redesign',p['value'])
+    heading('02','What We Found','The strongest observations from the public pages reviewed, in business terms.')
+    for i,item in enumerate(p['top'],1):
+        story.append(KeepTogether([paragraph(f'{i:02d}  '+item['category'].upper()+' · '+item['priority'],8,BLUE,True,space=5),paragraph(item['title'],14,NAVY,True,space=8),paragraph('WHAT WE SAW',7,TEAL,True,space=3),paragraph(item['observation'][0].upper()+item['observation'][1:]+'.',9,NAVY,space=6),paragraph('WHY IT MATTERS',7,TEAL,True,space=3),paragraph(item['impact'],9,space=15)]))
+    measured=[]
+    for kind,label in [('WEBSITE','Lighthouse mobile performance'),('SEO','Lighthouse SEO')]:
+        metric=client_metrics(data)[kind]
+        if metric['current'] is not None:measured.append(label+': '+str(metric['current'])+'/100')
+    if measured:story.extend([paragraph('RECORDED MEASUREMENTS',7,BLUE,True,space=4),paragraph(' · '.join(measured),9,NAVY,space=8)])
+    story.append(paragraph('Review boundary: sampled public pages and passive configuration checks. No penetration test, revenue estimate or ranking assessment was performed. Further validation should confirm device behaviour and the agreed enquiry journey.',7,space=6))
+    heading('03','Why It Matters to the Business','An improvement case built around the experience of prospective customers.')
+    categories={item['category']:item for item in p['top']}
+    outcomes={'Visitor trust':'Make the first interaction feel consistent and dependable, before a guest shares information or makes an enquiry. Confirm the secure journey end to end.','Mobile usability':'Make key information, navigation and contact actions comfortable to use on a phone. Validate representative screen sizes instead of relying on a desktop-only review.','Customer journey':'Give interested visitors one clear next step and a predictable route to the right team. Test the path from the landing page to the enquiry destination.','Search presentation':'Help potential customers understand what the page offers before visiting. Validate accurate page descriptions and relevant business information.'}
+    for category,item in categories.items():box(category,outcomes.get(category,'Align this part of the website with its business purpose, then validate the agreed improvement against the original observation.'))
+    box('A practical decision, not a growth forecast','These observations can help prioritise work. They do not establish lost bookings, revenue, search positions or an active security incident. The business case and implementation scope should be confirmed together.')
+    heading('04','What We Would Improve','A prioritised transformation plan, connected to the evidence on page 2.')
+    for i,item in enumerate(p['top'],1):
+        story.extend([paragraph(f'{i:02d}  '+item['category'],14,NAVY,True,space=8)])
+        columns=[callout('CURRENT · OBSERVATION '+str(i),item['title']),callout('PLANEBYTE APPROACH',item['improvement'])]
+        table=Table([[paragraph('CURRENT',7,TEAL,True),paragraph('PROPOSED EXPERIENCE',7,BLUE,True)],[paragraph('See observation '+str(i)+' on page 2.',10,NAVY),paragraph(item['improvement'],10,NAVY)]],colWidths=[WIDTH*.36,WIDTH*.64])
+        table.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('BACKGROUND',(0,0),(-1,-1),PALE),('BOX',(0,0),(-1,-1),.5,LINE),('LEFTPADDING',(0,0),(-1,-1),13),('RIGHTPADDING',(0,0),(-1,-1),13),('TOPPADDING',(0,0),(-1,-1),10),('BOTTOMPADDING',(0,0),(-1,-1),12)]));story.extend([table,Spacer(1,20)])
+    heading('05','Recommended PlaneByte Approach',p['service_title'])
+    story.extend([paragraph(p['solution'],12,NAVY,leading=18,space=22)])
+    for service in p['services']:
+        box(service['title'],service['description']+'\n'+'\n'.join('• '+d for d in service.get('deliverables',[])[:3]))
+    if brand.get('report_copy',{}).get('company_description'):story.append(paragraph(brand['report_copy']['company_description'],9,space=10))
+    story.extend([Spacer(1,9),paragraph('WHY PLANEBYTE',8,BLUE,True,space=6),paragraph(why_planebyte(p)[0],12,NAVY,True,space=8),paragraph(why_planebyte(p)[1],9,space=8),paragraph(why_planebyte(p)[2],9)])
+    heading('06','More Than a Website Redesign' if p['included'] else 'What Is Included','Included value for an eligible website project.' if p['included'] else 'The proposed scope is confirmed in writing before implementation.')
+    for item in p['included']:box(item['title']+' · INCLUDED',item['description'])
+    if not p['included']:
+        for service in p['services']:box(service['title'],service['description'])
+    box('Clear scope. Clear responsibilities.','Eligibility and deliverables are agreed in a written proposal. Third-party subscriptions, hosting and separately scoped work are confirmed before commitment. No artificial monetary values or guaranteed outcomes are attached to this review.')
+    heading('07','Implementation Roadmap','Six clear stages from evidence to a validated launch.')
+    phases=[('Discovery','Confirm the findings, audience, priority pages and business requirements.'),('Design','Agree the relevant page hierarchy, mobile experience and primary enquiry actions.'),('Development','Implement the approved website or focused technical improvements.'),('SEO + technical setup','Configure the agreed search foundations and relevant public technical settings.'),('QA + launch','Test the approved journeys and deployment before releasing changes.'),('Post-launch validation','Recheck the agreed scope and document the results and handover.')]
+    for i,(title,text) in enumerate(phases,1):box(f'{i:02d}  '+title,text)
+    heading('08','A Stronger Digital Experience','Let’s turn these opportunities into a practical implementation plan.')
+    story.extend([Spacer(1,18),paragraph('Your priorities.\nA clear way forward.',29,NAVY,True,leading=36,space=25),paragraph('If these priorities align with your plans, we would be happy to review the findings together and outline a practical implementation approach.',12,NAVY,leading=19,space=24)])
+    box('REPLY TO THE EMAIL',p['cta'])
+    story.extend([Spacer(1,28),paragraph('PlaneByte',21,BLUE,True,space=10),paragraph(brand.get('signature_tagline','Software Engineering · SEO · Security'),11,NAVY,space=18)])
+    for value in [brand.get('website'),brand.get('contact_email')]:
+        if value:story.append(paragraph(value,11,BLUE,space=7))
+    story.append(Spacer(1,20));story.append(paragraph('Prepared from the stored public review dated '+date+'. This is an opportunity assessment; implementation scope and validation are agreed with the business.',8))
     doc.build(story,canvasmaker=NumberedCanvas)
-    # Fixed metadata derives from the immutable report snapshot, not render time.
     from pypdf import PdfReader,PdfWriter
-    reader=PdfReader(BytesIO(buffer.getvalue()));writer=PdfWriter();writer.clone_document_from_reader(reader)
+    writer=PdfWriter();writer.clone_document_from_reader(PdfReader(BytesIO(buffer.getvalue())))
     try:stamp=datetime.fromisoformat(data['created_at'].replace('Z','+00:00')).astimezone(timezone.utc).strftime("D:%Y%m%d%H%M%S+00'00'")
     except ValueError:stamp="D:20000101000000+00'00'"
-    writer.add_metadata({'/Title':'Digital performance review for '+name,'/Author':'PlaneByte','/Subject':'Current website and SEO scores, configuration checks and proposed improvement targets','/CreationDate':stamp,'/ModDate':stamp})
+    writer.add_metadata({'/Title':p['title']+' for '+name,'/Author':'PlaneByte','/Subject':'Business opportunities, recommended implementation and included value','/CreationDate':stamp,'/ModDate':stamp})
     output=Path(output);output.parent.mkdir(parents=True,exist_ok=True)
-    with output.open('wb') as file:writer.write(file)
+    with output.open('wb') as f:writer.write(f)
     return output

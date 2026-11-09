@@ -33,7 +33,7 @@ export interface LeadPage { items: IntelligenceLead[]; page: number; page_size: 
 
 export interface Overview { total_leads: number; assessed_leads: number; unassessed_leads: number; new_leads: number; high_intent: number; website: number; seo: number; security: number; uncontacted: number; running_campaigns: number; statuses: { lead_status: string; count: number }[]; markets: { city: string; vertical: string; count: number }[] }
 
-export async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
 
   const response = await fetch(`/api${path}`, { ...options, headers: { "Content-Type": "application/json", ...options?.headers } });
 
@@ -41,12 +41,38 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
 
     const data = await response.json().catch(() => ({}));
 
-    throw new Error(typeof data.detail === "string" ? data.detail : response.status === 401 ? "Sign in to continue." : "This request could not be completed. Check the selection and retry.");
+    const fields:Record<string,string>={max_hour:"Hourly limit",max_day:"Daily limit",daily_email_target:"Daily email target",daily_qualified_lead_target:"Qualified lead target",campaign_id:"Campaign",start_at:"Start time",spacing_minutes:"Send spacing"};
+    const validation=Array.isArray(data.detail)?data.detail.map((issue:{loc?:unknown[];msg?:unknown})=>{
+      const key=String(issue.loc?.filter(x=>x!=="body").join(".")||"Selection");
+      return `${fields[key]||key.replaceAll("_"," ")}: ${typeof issue.msg==="string"?issue.msg.replace(/^Value error, /,""):"Check this value."}`;
+    }).join(" "):null;
+    throw new Error(typeof data.detail === "string" ? data.detail : typeof data.detail?.message === "string" ? data.detail.message : validation || (response.status === 401 ? "Sign in to continue." : response.status>=500 ? "The engine could not complete this request. Please retry; if it persists, check System Health." : "Check the selected values and retry."));
 
   }
 
   return response.json() as Promise<T>;
 
+}
+
+// Share identical reads in flight. Completed values remain owned by React Query.
+const pendingReads = new Map<string, Promise<unknown>>();
+export function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const method = (options?.method || "GET").toUpperCase();
+  if (method !== "GET") {
+    pendingReads.clear();
+    return fetchJSON<T>(path, options);
+  }
+  if (options?.signal) return fetchJSON<T>(path, options);
+  const url = new URL(path, "https://leadengine.internal");
+  url.searchParams.sort();
+  const key = url.pathname + url.search + JSON.stringify(Array.from(new Headers(options?.headers).entries()).sort());
+  const prior = pendingReads.get(key);
+  if (prior) return prior as Promise<T>;
+  const promise = fetchJSON<T>(path, options).finally(() => {
+    if (pendingReads.get(key) === promise) pendingReads.delete(key);
+  });
+  pendingReads.set(key, promise);
+  return promise;
 }
 
 export const label = (value: string) => value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, letter => letter.toUpperCase());

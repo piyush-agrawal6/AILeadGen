@@ -1,3 +1,11 @@
+# Current Lead Engine architecture
+
+The current prospecting architecture is documented in [PlaneByte prospecting separation](PLANEBYTE_PROSPECTING_SEPARATION.md) and [module architecture](MODULE_ARCHITECTURE.md). Lead Engine uses the existing modular backend, verified workspace context, provider adapters and public company crawler. It does not execute technical assessments or require a PDF before outreach.
+
+The original architecture below is retained for historical context only. Its audit, performance-score and Lighthouse stages are no longer part of Lead Engine.
+
+---
+
 # LeadEngine Architecture
 
 ## 1. Overview
@@ -81,3 +89,18 @@ LeadEngine is a local-first, zero-recurring-cost B2B lead discovery, technical a
 1. **Next.js CRM Dashboard**: Local web interface to browse leads, filter by score, and mark outreach status (New, Contacted, Meeting Booked, Not Interested).
 2. **Automated Proposal Generator**: Generate 1-page PDF proposal previews highlighting specific technical issues found during the audit.
 3. **Visual Screenshot Comparison**: Automated before/after mockups using Playwright page screenshots.
+
+
+## HeySow engineering review — 2026-11-05
+
+# Architecture
+
+## Implemented
+
+HeySow remains a modular monolith. `dashboard/` owns the Next frontend and Auth.js session boundary. `app/api/` exposes the signed FastAPI gateway. Domain packages own acquisition, workflows, mail, qualification, reports and experiments. PostgreSQL is the production source of truth; SQLite is used by isolated tests. Existing workers run slow operations outside page requests.
+
+Shared configuration is read through `app/config/workspace.py`; HTTP handlers should not be imported as service functions. `app/platform/modules.py` records available, disabled and planned modules. This registry is not a billing or entitlement implementation.
+
+## Release blockers
+
+The organization/membership foundation is additive but its rollout and every legacy caller have not been certified. Public registration remains unavailable. Global internal Gmail/registry assumptions must be scoped or explicitly quarantined before other customers can use those capabilities. Do not change OAuth access policy to work around these gaps.

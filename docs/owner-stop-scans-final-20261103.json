@@ -1,0 +1,83 @@
+{
+  "controls": {
+    "scan_paused": 1,
+    "email_paused": 0,
+    "pause_reason": "OWNER_EXISTING_QUALIFIED_ONLY_NO_SCANS"
+  },
+  "active_pipeline_scans": 0,
+  "active_discovery_jobs": 0,
+  "enabled_scan_schedules": 0,
+  "qualified": {
+    "records": 81,
+    "unique_leads": 80
+  },
+  "outbound": [
+    {
+      "status": "SENT",
+      "n": 29
+    }
+  ],
+  "queue": [
+    {
+      "status": "QUEUED",
+      "error_code": null,
+      "n": 31
+    },
+    {
+      "status": "SENT",
+      "error_code": null,
+      "n": 29
+    }
+  ],
+  "members": [
+    {
+      "state": "PREPARING",
+      "error": null,
+      "n": 4
+    },
+    {
+      "state": "GENERATING",
+      "error": null,
+      "n": 1
+    },
+    {
+      "state": "SENT",
+      "error": null,
+      "n": 28
+    },
+    {
+      "state": "GENERATED",
+      "error": null,
+      "n": 9
+    },
+    {
+      "state": "SENDING",
+      "error": null,
+      "n": 1
+    },
+    {
+      "state": "QUEUED",
+      "error": null,
+      "n": 31
+    }
+  ],
+  "discovery_requests_since_stop": 0,
+  "schedulers": [
+    {
+      "name": "leadengine-email-sync",
+      "state": "PAUSED"
+    },
+    {
+      "name": "leadengine-hourly-outreach",
+      "state": "ENABLED"
+    },
+    {
+      "name": "leadengine-daily-acquisition",
+      "state": "PAUSED"
+    },
+    {
+      "name": "leadengine-inbox-sync",
+      "state": "ENABLED"
+    }
+  ]
+}

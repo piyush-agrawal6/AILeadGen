@@ -1,0 +1,17 @@
+{
+  "https://leads.planebyte.com/": {
+    "http": 307,
+    "authenticated_surface": true,
+    "has_nosniff": true
+  },
+  "https://leads.planebyte.com/schedules": {
+    "http": 307,
+    "authenticated_surface": true,
+    "has_nosniff": true
+  },
+  "https://leads.planebyte.com/api/workflow/dashboard": {
+    "http": 401,
+    "authenticated_surface": true,
+    "has_nosniff": true
+  }
+}

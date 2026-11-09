@@ -1,0 +1,16 @@
+{
+  "created_at": "2026-11-02T17:36:52.563521+00:00",
+  "rollback_schema": "owner_fresh500_20261102t173647z",
+  "verified": true,
+  "cleared": true,
+  "cleared_at": "2026-11-02T17:37:17.494141+00:00",
+  "zero_checks": {
+    "Master Leads": 0,
+    "Qualified Leads": 0,
+    "Queued Leads": 0,
+    "Prospect Email Threads": 0,
+    "Prospect Email Messages": 0
+  },
+  "retained_contact_suppression_addresses": 0,
+  "private_artifacts": "Existing R2 objects retained unchanged for rollback; live references cleared."
+}

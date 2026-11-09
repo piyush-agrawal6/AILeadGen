@@ -1,0 +1,33 @@
+{
+  "stages": [
+    {
+      "requested": 10,
+      "status": "PASS",
+      "valid": 10,
+      "metrics": {
+        "leads_requested": 10,
+        "cache_hits": 1,
+        "batches_created": 1,
+        "batch_leads": 9,
+        "ai_inference_calls": 1,
+        "vertex_requests": 1,
+        "vertex_successes": 1,
+        "vertex_latency_ms": 10995,
+        "request_latency_ms": 14812,
+        "unknown_ids": 0,
+        "duplicate_ids": 0,
+        "missing_ids": 0,
+        "ai_generated_leads": 9,
+        "successful_batches": 1,
+        "failed_batches": 0,
+        "average_batch_size": 9.0,
+        "average_latency_ms": 14812
+      },
+      "smtp_messages_sent": 0
+    }
+  ],
+  "complete": false,
+  "emails_sent": 0,
+  "blocker": "Only 11 existing analyzed, qualified and evidence-supported leads are available; no broad discovery was launched solely for QA.",
+  "normal_processing_policy": "First10validated; next40groupwaitsforavailableevidence-supportedleads, then normal40batches. Small final tails use validated deterministic copy; completedcopyisnotregenerated."
+}

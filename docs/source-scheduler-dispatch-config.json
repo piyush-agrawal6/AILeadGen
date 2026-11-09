@@ -1,0 +1,12 @@
+{
+  "added_nonsecret_dispatch_flags": [
+    "ENABLE_AI_ACQUISITION",
+    "ENABLE_FIRECRAWL_ACQUISITION"
+  ],
+  "provider_secrets_added": false,
+  "gmail_and_limits_preserved": true,
+  "worker_image_preserved": true,
+  "isolated_job_invoker_bound": true,
+  "before_sha256": "47a017d1c5c85895edb8dff7c554ff2e47474e6b5081a04294dda5a831ed1929",
+  "after_sha256": "b722d762047ee80eb0364a91da09f62ec943b537f46d9fadf9a365866d5a3e7d"
+}

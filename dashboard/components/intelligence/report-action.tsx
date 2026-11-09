@@ -22,6 +22,7 @@ export function ReportAction({id,name,reportId,status,readyReportId,reportVersio
   {busy?<Button variant="outline" disabled className={"gap-2 "+(detail?"w-full":"text-xs")} aria-label={"Generating PDF for "+name}><LoaderCircle className="h-3.5 w-3.5 animate-spin"/>{currentStatus==="QUEUED"?"Queued…":"Generating…"}</Button>:
    currentStatus==="READY"&&activeId?<a className={"pdf-download "+(detail?"w-full justify-center":"")} href={`/api/client-reports/${activeId}/download`}><Download className="h-3.5 w-3.5"/>{detail?"Download latest PDF":"Download PDF"}</a>:
    <Button variant={detail?"default":"outline"} className={"gap-2 "+(detail?"w-full":"text-xs")} onClick={generate}><FileText className="h-3.5 w-3.5"/>{failure?"Try again":detail?"Generate PDF Report":"Generate PDF"}</Button>}
+  {!busy&&currentStatus==="READY"&&activeId&&<a className="text-xs text-primary" target="_blank" rel="noreferrer" href={`/api/client-reports/${activeId}/download?view=true`}>View PDF</a>}
   {!busy&&currentStatus==="READY"&&<button className={detail?"text-xs text-muted-foreground hover:text-primary":"report-regenerate"} onClick={generate} aria-label={"Regenerate PDF for "+name}><RotateCw className="h-3.5 w-3.5"/>{detail&&"Regenerate"}</button>}
   {failure&&<p role="alert" className="max-w-48 text-[11px] text-destructive">Report generation failed. Try again.</p>}
   {detail&&failure&&downloadId&&<a className="text-xs text-primary underline" href={`/api/client-reports/${downloadId}/download`}>Download previous PDF</a>}

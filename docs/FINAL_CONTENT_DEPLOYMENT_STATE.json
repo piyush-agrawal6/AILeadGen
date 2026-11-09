@@ -1,0 +1,36 @@
+{
+  "scope": "client-facing content polish only",
+  "resources": {
+    "api": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:automation-20261101-164338",
+      "flags": {
+        "AUTO_SCAN_ENABLED": "false",
+        "AUTO_EMAIL_ENABLED": "false",
+        "EMAIL_SENDING_ENABLED": "false"
+      },
+      "gmail_secret_reference_preserved": true,
+      "configured_sender_name": "Piyush",
+      "configured_sender_role": "Founder"
+    },
+    "worker": {
+      "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:automation-20261101-164338",
+      "flags": {
+        "AUTO_SCAN_ENABLED": "false",
+        "AUTO_EMAIL_ENABLED": "false",
+        "EMAIL_SENDING_ENABLED": "false"
+      },
+      "gmail_secret_reference_preserved": true,
+      "configured_sender_name": "Piyush",
+      "configured_sender_role": "Founder"
+    }
+  },
+  "api_revision": "leadengine-api-00026-zvx",
+  "schema": 10,
+  "migrations_applied": 0,
+  "database_pauses_preserved": true,
+  "enabled_schedules": 0,
+  "builds": {
+    "api": "0d574084-4b60-450d-98d0-b161b7de9f2a",
+    "worker": "0e1b9ed7-3748-46fb-adc4-9109c20ccd7a"
+  }
+}

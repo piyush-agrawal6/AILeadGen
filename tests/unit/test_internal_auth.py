@@ -17,9 +17,12 @@ def secured(tmp_path, monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "app_env", "development")
     monkeypatch.setattr(settings, "auth_disabled_local", False)
+    monkeypatch.setattr(settings, "upstash_redis_rest_url", "")
+    monkeypatch.setattr(settings, "upstash_redis_rest_token", "")
     monkeypatch.setattr(settings, "api_signing_secret", "s" * 32)
     monkeypatch.setattr(settings, "allowed_user_emails", "founder@example.com")
     db_path = tmp_path / "auth.db"
+    monkeypatch.setattr(settings,"database_path",str(db_path))
     db = get_connection(db_path)
     run_migrations(db)
     db.close()
@@ -68,6 +71,19 @@ def test_invalid_signature_denied(secured):
     headers = signed(settings)
     headers["x-le-signature"] = "0" * 64
     assert client.get("/api/verticals", headers=headers).status_code == 401
+
+
+def test_literal_secret_preserved_and_rejection_diagnostics_redacted(secured, caplog):
+    client, settings = secured
+    settings.api_signing_secret = "controlled-$literal-${never_expand}-signing-secret"
+    assert client.get("/api/verticals", headers=signed(settings)).status_code == 200
+    headers = signed(settings)
+    headers["x-le-signature"] = "0" * 64
+    assert client.get("/api/verticals", headers=headers).status_code == 401
+    assert "signature mismatch" in caplog.text
+    assert settings.api_signing_secret not in caplog.text
+    assert headers["x-le-user"] not in caplog.text
+    assert headers["x-le-signature"] not in caplog.text
 
 
 def test_non_allowlisted_actor_denied(secured):

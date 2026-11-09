@@ -1,0 +1,9 @@
+"use client";
+import {useState} from 'react';
+import Link from 'next/link';
+import {useQuery} from '@tanstack/react-query';
+import {request} from '@/lib/intelligence';
+import {ContactEditor} from './editor';
+import {IntelligenceAction} from '@/components/intelligence/job-action';
+import type {Person} from './types';
+export function CompanyContacts({businessId}:{businessId:number}){const [adding,setAdding]=useState(false);const q=useQuery({queryKey:['company-people',businessId],queryFn:()=>request<{items:Person[];total:number}>('/people?business_id='+businessId)});return <section className="dossier-panel space-y-4"><div className="flex flex-wrap items-center justify-between gap-3"><h2>Professional contacts</h2><button className="control" onClick={()=>setAdding(true)}>Add contact</button></div>{adding&&<ContactEditor businessId={businessId} onSaved={()=>{setAdding(false);void q.refetch()}} onCancel={()=>setAdding(false)}/>}<IntelligenceAction kind="CONTACT_DISCOVER" resourceIds={[String(businessId)]} label="Discover public professionals" onComplete={()=>void q.refetch()}/><p className="text-xs text-muted-foreground">People are separate from general company email addresses. A public profile is not proof of current employment.</p>{q.error&&<p role="alert">{q.error.message}</p>}{q.isLoading?<p>Loading contacts…</p>:q.data?.items.length?<ul className="divide-y">{q.data.items.map(person=><li className="py-3" key={person.id}><Link className="font-medium text-primary" href={'/contacts/'+person.id}>{person.name}</Link><p className="text-xs text-muted-foreground mt-1">{person.role||'Role not recorded'} · {person.verification_state.replaceAll('_',' ').toLowerCase()}</p></li>)}</ul>:<p className="text-sm text-muted-foreground">No professional contacts have been recorded for this company.</p>}<Link className="ops-link text-sm" href={'/contacts?company='+businessId}>View all company contacts{q.data?' ('+q.data.total+')':''}</Link></section>}

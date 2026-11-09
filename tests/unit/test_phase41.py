@@ -13,6 +13,7 @@ from app.sales.service import suppressed
 from app.database.prospects import ProspectRepository
 from app.api.server import app
 from app.api.dependencies import get_db
+from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
 
 @pytest.fixture
 def sent(workspace,monkeypatch):
@@ -104,7 +105,7 @@ def test_tracking_preferences_and_payload_are_review_bound(workspace):
 
 def test_production_send_requires_fresh_smtp_health(workspace):
     c,_,pid,config,mock=workspace;config.mode='production';config.live_approved=True
-    body=payload(c,pid);mock.health_check.return_value={'smtp':'UNAVAILABLE','imap':'READY'}
+    body=payload(c,pid);body['message_type']='MANUAL_REPLY';body['preview_token']=service.preview(c,pid,'founder@example.com',body)['preview_token'];mock.health_check.return_value={'smtp':'UNAVAILABLE','imap':'READY'}
     with pytest.raises(HTTPException):service.send(c,pid,'founder@example.com',body)
     mock.send_message.assert_not_called()
     assert c.execute("SELECT status FROM email_messages").fetchone()[0]=='FAILED'
@@ -112,7 +113,7 @@ def test_production_send_requires_fresh_smtp_health(workspace):
 
 def test_live_render_has_no_test_redirect_and_is_still_idempotent(workspace):
     c,_,pid,config,mock=workspace;config.mode='production';config.live_approved=True;mock.health_check.return_value={'smtp':'READY','imap':'READY'}
-    body=payload(c,pid);result=service.send(c,pid,'founder@example.com',body)
+    body=payload(c,pid);body['message_type']='MANUAL_REPLY';body['preview_token']=service.preview(c,pid,'founder@example.com',body)['preview_token'];result=service.send(c,pid,'founder@example.com',body)
     message=mock.send_message.call_args[0][0]
     assert message['To']=='public@hotel.example' and '[TEST]' not in message['Subject']
     assert 'TEST MODE' not in message.get_body(preferencelist=('plain',)).get_content()
@@ -200,15 +201,31 @@ def test_schema8_preserves_existing_phase4_mail_and_backfills_facts(tmp_path,mon
     c=get_connection(tmp_path/'upgrade.db');all_migrations=migrations.MIGRATIONS
     with monkeypatch.context() as patch:
         patch.setattr(migrations,'MIGRATIONS',all_migrations[:7]);assert migrations.run_migrations(c)==7
-    run=PipelineRun(market='London',vertical='hospitality',target=5);PipelineRunRepository(c).create(run)
-    business=Business(name='Migration fixture',normalized_name='migration fixture',vertical='hospitality',run_id=run.id,public_email='public@example.com');BusinessRepository(c).insert(business);pid=ProspectRepository(c).observe(business)
+    run=PipelineRun(market='London',vertical='hospitality',target=5);PipelineRunRepository(c).create(run, organization=PLANEBYTE_ORGANIZATION_ID)
+    from tests.workspace_fixtures import historical_observation
+    business=Business(name='Migration fixture',normalized_name='migration fixture',vertical='hospitality',run_id=run.id,public_email='public@example.com');BusinessRepository(c).insert(business);pid=historical_observation(c,business)
     c.execute("INSERT INTO email_accounts(id,user_id,provider,email_address,display_name,status,created_at,updated_at) VALUES('account','founder@example.com','hostinger','rajendra@planebyte.com','PlaneByte','CONNECTED',?,?)",(now(),now()))
     c.execute("INSERT INTO email_threads VALUES('thread',?,'account','Retained subject',?,'OUTBOUND',?)",(pid,now(),now()))
     c.execute("INSERT INTO email_messages(id,prospect_id,account_id,thread_id,provider_message_id,direction,status,from_address,to_address,subject,body_text,created_at) VALUES('old-message',?,'account','thread','<old@example.com>','OUTBOUND','SENT','rajendra@planebyte.com','public@example.com','Retained subject','Retained body',?)",(pid,now()))
     old=dict(c.execute("SELECT * FROM email_messages WHERE id='old-message'").fetchone());c.commit()
-    assert migrations.run_migrations(c)==1
+    assert migrations.run_migrations(c)==len(all_migrations)-7
     new=dict(c.execute("SELECT * FROM email_messages WHERE id='old-message'").fetchone())
     assert all(new[k]==v for k,v in old.items())
     assert c.execute("SELECT event_type FROM email_engagement_events WHERE message_id='old-message'").fetchone()[0]=='SMTP_ACCEPTED'
     assert migrations.run_migrations(c)==0
     c.close()
+
+
+def test_tracking_capability_cannot_authorize_mailbox_access(sent):
+    from app.platform.context import tracking_scope,require_internal_mailbox,current
+    c,pid,config,transport,result=sent
+    row=c.execute("SELECT token_hash FROM email_tracking_tokens WHERE message_id=? AND action='u'",(result['id'],)).fetchone()
+    # Use the actual opaque unsubscribe token rendered by the existing pipeline.
+    message=transport.send_message.call_args.args[0]
+    token=re.search(r'/u/([A-Za-z0-9_-]{43})',message.get_body(preferencelist=('plain',)).get_content()).group(1)
+    with tracking_scope(c,token,'u'):
+        assert current().authority=='TRACKING'
+        with pytest.raises(HTTPException):require_internal_mailbox()
+    assert current().authority=='MEMBER'
+    with pytest.raises(HTTPException):
+        with tracking_scope(c,'x'*43,'u'):pass

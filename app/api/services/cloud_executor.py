@@ -8,7 +8,16 @@ from app.database.connection import db_session
 from app.database.repositories import PipelineRunRepository
 
 
-def run_job(run_id, session=None, *, report_id=None):
+def run_job(run_id, session=None, *, report_id=None, profile_job_id=None, intelligence_job_id=None,webhook_endpoint_id=None,webhook_dispatch_token=None,sheet_export_id=None):
+    if sheet_export_id:
+        from app.integrations.service import require_enabled
+        require_enabled()
+    if webhook_endpoint_id:
+        from app.webhooks.service import enabled
+        enabled()
+    if report_id:
+        from app.prospecting.policy import unavailable
+        unavailable()
     settings = get_settings()
     if session is None:
         import google.auth
@@ -17,8 +26,22 @@ def run_job(run_id, session=None, *, report_id=None):
         session = AuthorizedSession(credentials)
     url = f"https://run.googleapis.com/v2/projects/{settings.gcp_project_id}/locations/{settings.gcp_region}/jobs/{settings.cloud_run_job}:run"
     overrides={"taskCount":1,"containerOverrides":[{"env":[{"name":"LEADENGINE_RUN_ID","value":str(run_id) if run_id else ""},{"name":"LEADENGINE_REPORT_ID","value":report_id or ""}]}]}
-    if report_id:overrides['timeout']='300s'
-    else:overrides['containerOverrides'][0]['env']=overrides['containerOverrides'][0]['env'][:1]
+    if sheet_export_id:
+        overrides['timeout']='90s'
+        overrides['containerOverrides'][0]['env']=[{'name':'LEADENGINE_SHEET_EXPORT_ID','value':sheet_export_id}]+[{'name':key,'value':''} for key in ('LEADENGINE_AUTOMATION_MODE','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID','LEADENGINE_INTELLIGENCE_JOB_ID','LEADENGINE_PROFILE_DISCOVERY_ID','LEADENGINE_WEBHOOK_ENDPOINT_ID','LEADENGINE_WEBHOOK_DISPATCH_TOKEN')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
+    elif webhook_endpoint_id:
+        from app.webhooks.service import enabled
+        enabled()
+        overrides['timeout']='150s'
+        overrides['containerOverrides'][0]['env']=[{'name':'LEADENGINE_WEBHOOK_ENDPOINT_ID','value':webhook_endpoint_id},{'name':'LEADENGINE_WEBHOOK_DISPATCH_TOKEN','value':webhook_dispatch_token or ''}]+[{'name':key,'value':''} for key in ('LEADENGINE_AUTOMATION_MODE','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID','LEADENGINE_INTELLIGENCE_JOB_ID','LEADENGINE_PROFILE_DISCOVERY_ID')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
+    elif intelligence_job_id:
+        overrides['timeout']='300s'
+        overrides['containerOverrides'][0]['env']=[{'name':'LEADENGINE_INTELLIGENCE_JOB_ID','value':intelligence_job_id}]+[{'name':key,'value':''} for key in ('LEADENGINE_AUTOMATION_MODE','LEADENGINE_PROFILE_DISCOVERY_ID','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
+    elif profile_job_id:
+        overrides['timeout']='120s'
+        overrides['containerOverrides'][0]['env']=[{'name':'LEADENGINE_PROFILE_DISCOVERY_ID','value':profile_job_id}]+[{'name':key,'value':''} for key in ('LEADENGINE_AUTOMATION_MODE','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
+    elif report_id:overrides['timeout']='300s'
+    elif not profile_job_id:overrides['containerOverrides'][0]['env']=overrides['containerOverrides'][0]['env'][:1]
     response = session.post(url, json={"overrides":overrides}, timeout=30)
     if response.status_code >= 400:
         # Cloud error bodies can contain infrastructure data: never expose them to UI.
@@ -33,7 +56,6 @@ def reconcile_expired(conn):
 def dispatch_queued():
     settings = get_settings()
     reserved = []
-    report_ids = []
     with db_session() as conn:
         if getattr(conn, "backend", None) == "postgres":
             conn.execute("SELECT pg_advisory_xact_lock(691944303)")
@@ -41,25 +63,12 @@ def dispatch_queued():
             conn.execute("BEGIN IMMEDIATE")
         reconcile_expired(conn)
         active = conn.execute("SELECT COUNT(*) FROM pipeline_runs WHERE status IN ('QUEUED','RUNNING') AND execution_name IS NOT NULL").fetchone()[0]
-        has_reports=conn.execute('SELECT COALESCE(MAX(version),0) FROM schema_migrations').fetchone()[0]>=5
-        if has_reports:
-            from app.reports.service import expire_reports
-            expire_reports(conn)
-            active+=conn.execute("SELECT COUNT(*) FROM client_reports WHERE status IN ('QUEUED','GENERATING') AND execution_name IS NOT NULL").fetchone()[0]
         capacity = max(0, settings.max_active_scans - active)
-        if has_reports:
-            for row in conn.execute("SELECT id FROM client_reports WHERE status='QUEUED' AND execution_name IS NULL ORDER BY created_at LIMIT ?",(capacity,)).fetchall():
-                conn.execute("UPDATE client_reports SET execution_name='DISPATCHING' WHERE id=?",(row[0],));report_ids.append(row[0])
-            capacity-=len(report_ids)
+        controls=conn.execute('SELECT scan_paused FROM automation_controls WHERE id=1').fetchone()
+        if not controls or controls['scan_paused']:capacity=0
         for row in conn.execute("SELECT id FROM pipeline_runs WHERE status='QUEUED' AND execution_name IS NULL AND cancellation_requested=0 ORDER BY id LIMIT ?", (capacity,)).fetchall():
             conn.execute("UPDATE pipeline_runs SET execution_name='DISPATCHING' WHERE id=? AND execution_name IS NULL", (row[0],))
             reserved.append(row[0])
-    for report_id in report_ids:
-        try:
-            operation=run_job(None,report_id=report_id)
-            with db_session() as conn:conn.execute("UPDATE client_reports SET execution_name=? WHERE id=?",(operation,report_id))
-        except Exception:
-            with db_session() as conn:conn.execute("UPDATE client_reports SET status='FAILED',error_message='Cloud worker dispatch failed' WHERE id=? AND status='QUEUED'",(report_id,))
     for run_id in reserved:
         try:
             operation = run_job(run_id)

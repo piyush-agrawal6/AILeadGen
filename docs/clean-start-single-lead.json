@@ -1,0 +1,19 @@
+{
+  "run_id": 1,
+  "target": 1,
+  "public_source": "OpenStreetMap way/617204465; verified official canonical website",
+  "status": "COMPLETED",
+  "raw_found": 1,
+  "qualified": 0,
+  "businesses": [
+    {
+      "id": 1,
+      "name": "Lime Tree Dental Practice",
+      "website": "https://limetreedental.co.uk/",
+      "prospect_id": "0d24e44f-e04d-4d91-b8af-9ad986380ee3",
+      "public_email": "info@limetreedental.co.uk",
+      "processing_status": "NORMALIZED"
+    }
+  ],
+  "automatic_flags": false
+}

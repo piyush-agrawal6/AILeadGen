@@ -1,6 +1,10 @@
 """Explicit offline test mode; production startup rejects local auth bypasses."""
 import os
 os.environ["APP_ENV"] = "test"
+# Offline tests must not inherit the owner's live Redis connection. Cache tests
+# supply an explicit MockTransport and fixture configuration instead.
+os.environ["UPSTASH_REDIS_REST_URL"] = ""
+os.environ["UPSTASH_REDIS_REST_TOKEN"] = ""
 import pytest
 
 

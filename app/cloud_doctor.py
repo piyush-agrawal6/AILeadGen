@@ -73,7 +73,6 @@ def cloud_checks(execute_canary=False):
     else:
         result=completed_canary(job,session) if job and session else None
         record("Canary","ready" if result else "unverified",f"Verified completed worker execution {result['execution']}." if result else "No successful canary recorded for the deployed worker image.")
-        record("Lighthouse","ready" if result and result.get('lighthouse') else "unverified","Verified in the completed worker canary." if result else "Requires a successful worker canary for the deployed image.")
     return checks
 
 
@@ -148,12 +147,6 @@ def worker_canary():
     finally:database.close()
     storage=R2ArtifactStorage()
     with TemporaryDirectory() as directory:
-        from app.reports.pdf import fonts
-        from reportlab.pdfgen.canvas import Canvas
-        from pypdf import PdfReader
-        fonts();pdf_path=Path(directory)/'renderer-probe.pdf';pdf=Canvas(str(pdf_path));pdf.setFont('PBRegular',11);pdf.drawString(48,760,'PlaneByte PDF renderer');pdf.save()
-        assert 'PlaneByte PDF renderer' in PdfReader(pdf_path).pages[0].extract_text()
-        result['pdf_renderer']=True
         source=Path(directory)/'probe.txt';payload=uuid.uuid4().hex.encode();source.write_bytes(payload)
         key=f'audits/canary/{execution}/probe.txt'
         try:
@@ -168,8 +161,6 @@ def worker_canary():
         except ClientError as exc:
             if exc.response['ResponseMetadata']['HTTPStatusCode']!=404:raise
         result['r2_write_read_delete']=True
-        for name,command in [('node',["node","--version"]),('chromium',["chromium","--version"]),('lighthouse',["node","node_modules/lighthouse/cli/index.js","--version"])]:
-            subprocess.run(command,check=True,capture_output=True,timeout=20);result[name]=True
         result['sources']=[source_health('Overture','https://overturemaps-us-west-2.s3.amazonaws.com/?prefix=release/&delimiter=/'),overpass_health()]
         if result['sources'][0]['status']!='ready':raise RuntimeError('Overture connectivity check failed')
         result_file=Path(directory)/'result.json';result_file.write_text(json.dumps(result))

@@ -1,0 +1,29 @@
+{
+  "created_at": "20261105T105658Z",
+  "local_only": true,
+  "targets": [
+    {
+      "path": ".pytest_cache",
+      "purpose": "reproducible test cache",
+      "files": 5,
+      "bytes": 64884
+    },
+    {
+      "path": "dashboard/test-results",
+      "purpose": "generated browser run state",
+      "files": 1,
+      "bytes": 45
+    },
+    {
+      "path": "dashboard/.next/cache",
+      "purpose": "reproducible compiler cache",
+      "files": 148,
+      "bytes": 528636210
+    }
+  ],
+  "applied": true,
+  "production_data_changed": false,
+  "backup": "data/backups/heysow-generated-20261105T105658Z.zip",
+  "restore_verified": true,
+  "compiler_cache": "Regenerable compiler cache removed; no operational data or source files included."
+}

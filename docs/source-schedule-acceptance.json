@@ -1,0 +1,223 @@
+{
+  "overture": {
+    "schedule_id": "e7cbef8d-eb11-4230-b72e-2fa9629868fa",
+    "configuration": {
+      "request_id": "e6241653-4501-4080-8cf7-946f287fe615",
+      "name": "",
+      "kind": "SCAN",
+      "scan_source": "OVERTURE",
+      "ai_prompt": "",
+      "firecrawl_intent": null,
+      "firecrawl_reviewed": false,
+      "acquisition_budgets": {
+        "max_searches": 6,
+        "max_scraped_pages": 40,
+        "max_crawl_pages": 0,
+        "max_runtime_seconds": 1200,
+        "max_candidates": 200
+      },
+      "qualification_mode": "BALANCED",
+      "preliminary_opportunity_threshold": 10,
+      "qualified_score_threshold": 35,
+      "max_candidates": 1,
+      "max_runtime_seconds": 60,
+      "analysis_reuse_days": 7,
+      "deep_audit_budget": 1,
+      "lighthouse_budget": 0,
+      "email_enrichment_reuse_days": 7,
+      "target": 1,
+      "countries": [
+        "United States"
+      ],
+      "cities": [
+        "Chicago"
+      ],
+      "locations": [],
+      "verticals": [
+        "hospitality"
+      ],
+      "opportunities": [
+        "WEBSITE",
+        "SEO",
+        "SECURITY"
+      ],
+      "business_scales": [
+        "LOCAL",
+        "SMALL_GROUP",
+        "MID_MARKET"
+      ],
+      "commercial_fit": [
+        "HIGH",
+        "MEDIUM"
+      ],
+      "rotate_locations": false,
+      "rotate_verticals": false,
+      "analysis_mode": "INCREMENTAL",
+      "full_refresh_confirmed": false,
+      "campaign_id": null,
+      "pitch_types": [
+        "WEBSITE",
+        "SEO",
+        "SECURITY"
+      ],
+      "outreach_mode": "UNCONTACTED",
+      "confirm_recontact": false,
+      "email_all_eligible": false,
+      "needs_owner_review": false,
+      "minimum_score": 0,
+      "filters": {
+        "country": "",
+        "city": "",
+        "vertical": "",
+        "commercial_fit": "",
+        "opportunity": "",
+        "email_availability": "yes",
+        "discovered_from": "",
+        "discovered_to": ""
+      },
+      "max_hour": 5,
+      "max_day": 100,
+      "spacing_minutes": 1.2,
+      "window_start": "09:00",
+      "window_end": "17:00",
+      "recipient_timezone": true,
+      "_schedule_trigger": "RUN_NOW"
+    },
+    "enabled": false,
+    "no_outreach": true,
+    "run_id": "fb93686a-eb1a-4d8f-8528-dd63721a7b55",
+    "observed_dispatch": {
+      "id": "fb93686a-eb1a-4d8f-8528-dd63721a7b55",
+      "status": "RUNNING",
+      "schedule_id": "e7cbef8d-eb11-4230-b72e-2fa9629868fa",
+      "scan_run_id": 43,
+      "source_type": "OVERTURE",
+      "acquisition_job_id": null,
+      "acquisition_status": null,
+      "execution_name": null
+    }
+  },
+  "firecrawl": {
+    "run_id": "18869f3c-c138-4087-b65b-c88f4507cb2c",
+    "schedule_id": "6ffd64f3-8c97-4b9e-a4f1-181202b0b102",
+    "configuration": {
+      "request_id": "45abad3d-833c-442a-97ae-74e3433ee115",
+      "name": "",
+      "kind": "SCAN",
+      "scan_source": "FIRECRAWL",
+      "ai_prompt": "Find 1 dentist in Bristol with an official website and publicly available business email.",
+      "firecrawl_intent": {
+        "targetQualifiedLeads": 1,
+        "verticals": [
+          "dentists"
+        ],
+        "countries": [
+          "United Kingdom"
+        ],
+        "cities": [
+          "Bristol"
+        ],
+        "businessSizes": [
+          "LOCAL",
+          "SMALL_GROUP"
+        ],
+        "opportunities": [
+          "WEBSITE",
+          "SEO",
+          "SECURITY"
+        ],
+        "contactRequired": true,
+        "source": "FIRECRAWL",
+        "queries": [
+          "Bristol dentist official website contact email"
+        ]
+      },
+      "firecrawl_reviewed": true,
+      "acquisition_budgets": {
+        "max_searches": 1,
+        "max_scraped_pages": 4,
+        "max_crawl_pages": 0,
+        "max_runtime_seconds": 180,
+        "max_candidates": 6
+      },
+      "qualification_mode": "BALANCED",
+      "preliminary_opportunity_threshold": 10,
+      "qualified_score_threshold": 35,
+      "max_candidates": 1,
+      "max_runtime_seconds": 60,
+      "analysis_reuse_days": 7,
+      "deep_audit_budget": 1,
+      "lighthouse_budget": 0,
+      "email_enrichment_reuse_days": 7,
+      "target": 1,
+      "countries": [
+        "United Kingdom"
+      ],
+      "cities": [
+        "Bristol"
+      ],
+      "locations": [],
+      "verticals": [
+        "dentists"
+      ],
+      "opportunities": [
+        "WEBSITE",
+        "SEO",
+        "SECURITY"
+      ],
+      "business_scales": [
+        "LOCAL",
+        "SMALL_GROUP",
+        "MID_MARKET"
+      ],
+      "commercial_fit": [
+        "HIGH",
+        "MEDIUM"
+      ],
+      "rotate_locations": false,
+      "rotate_verticals": false,
+      "analysis_mode": "INCREMENTAL",
+      "full_refresh_confirmed": false,
+      "campaign_id": null,
+      "pitch_types": [
+        "WEBSITE",
+        "SEO",
+        "SECURITY"
+      ],
+      "outreach_mode": "UNCONTACTED",
+      "confirm_recontact": false,
+      "email_all_eligible": false,
+      "needs_owner_review": false,
+      "minimum_score": 0,
+      "filters": {
+        "country": "",
+        "city": "",
+        "vertical": "",
+        "commercial_fit": "",
+        "opportunity": "",
+        "email_availability": "yes",
+        "discovered_from": "",
+        "discovered_to": ""
+      },
+      "max_hour": 5,
+      "max_day": 100,
+      "spacing_minutes": 1.2,
+      "window_start": "09:00",
+      "window_end": "17:00",
+      "recipient_timezone": true,
+      "_schedule_trigger": "RUN_NOW"
+    },
+    "enabled": false,
+    "no_outreach": true,
+    "observed_dispatch": {
+      "id": "18869f3c-c138-4087-b65b-c88f4507cb2c",
+      "status": "NEEDS_REVIEW",
+      "schedule_id": "6ffd64f3-8c97-4b9e-a4f1-181202b0b102",
+      "scan_run_id": null,
+      "source_type": "FIRECRAWL",
+      "acquisition_job_id": "4eee1b2c-590b-41eb-902b-db65f0a9e5c6",
+      "acquisition_status": "RUNNING",
+      "execution_name": "projects/querryside/locations/asia-south1/operations/94991268-98c2-45d2-b6c0-1fa5ec730fc9"
+    }
+  }
+}

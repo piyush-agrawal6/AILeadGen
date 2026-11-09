@@ -23,9 +23,14 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 sse-starlette>=2.0.0
 psycopg[binary]>=3.3.6
+psycopg_pool>=3.3.3
+pycountry>=26.2.16
 boto3>=1.43.118
 google-auth>=2.62.0
 httpcore>=1.0.9
 
 reportlab==5.1.0
 pypdf==6.21.2
+
+# Official MCP protocol server/client (no separate application framework)
+mcp==2.3.0

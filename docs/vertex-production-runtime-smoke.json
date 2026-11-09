@@ -1,0 +1,29 @@
+{
+  "authentication": "SERVICE_IDENTITY",
+  "cloud_run": true,
+  "emails_sent": 0,
+  "location": "global",
+  "metrics": {
+    "ai_generated_leads": 1,
+    "ai_inference_calls": 1,
+    "average_batch_size": 1.0,
+    "average_latency_ms": 7386,
+    "batch_leads": 1,
+    "batches_created": 1,
+    "duplicate_ids": 0,
+    "failed_batches": 0,
+    "leads_requested": 1,
+    "missing_ids": 0,
+    "request_latency_ms": 7386,
+    "successful_batches": 1,
+    "unknown_ids": 0,
+    "vertex_latency_ms": 4206,
+    "vertex_requests": 1,
+    "vertex_successes": 1
+  },
+  "model": "gemini-3.6-flash",
+  "passed": true,
+  "project": "querryside",
+  "provider": "VERTEX_AI",
+  "structured_output_valid": true
+}

@@ -11,7 +11,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 5000,
+            staleTime: 20000,
+            gcTime: 300000,
             refetchOnWindowFocus: false,
           },
         },
@@ -19,7 +20,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <NextThemesProvider attribute="class" defaultTheme="dark" storageKey="planebyte-theme" enableSystem>
+    <NextThemesProvider attribute="class" defaultTheme="light" storageKey="heysow-theme" enableSystem>
       <QueryClientProvider client={queryClient}>
         {children}
         <Toaster position="bottom-right" richColors />

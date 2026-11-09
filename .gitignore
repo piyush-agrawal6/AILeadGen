@@ -22,6 +22,8 @@ data/e2e/
 .env.*
 !.env.example
 .next/
+.next-preview-test/
+.next-auth-test/
 *.tsbuildinfo
 playwright-report/
 test-results/
@@ -38,3 +40,5 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 node_modules
+
+dashboard/.next-workflow-test/

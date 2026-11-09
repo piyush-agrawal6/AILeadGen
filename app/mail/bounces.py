@@ -26,14 +26,18 @@ def parse_dsn(message):
     return {'kind':'dsn','references':list(refs),'recipients':recipients[:10]}
 
 
-def process(c,incoming):
+def process(c,incoming,*,account_id=None):
+    from app.platform.context import current
+    from app.mail.service import account
+    org=current().organization_id;acc=account(c,current().actor,account_id)
     if not tracking.preferences(c)['track_bounces']:return 0
-    from app.mail.service import authenticated_reply,ACCOUNT
+    from app.mail.service import authenticated_reply
     refs=incoming.get('references',[])[:30]
     if not refs or not re.fullmatch(r'<[^<>\s]{3,250}>',incoming.get('message_id','')):return 0
     targets={value.lower() for _,value in getaddresses([incoming.get('to','')])}
-    if mail_settings().from_address.lower() not in targets:return 0
-    rows=c.execute("SELECT * FROM email_messages WHERE direction='OUTBOUND' AND status='SENT' AND account_id=? AND provider_message_id IN ("+','.join('?' for _ in refs)+')',[ACCOUNT,*refs]).fetchall()
+    mailbox=acc['email_address'] if acc['provider']=='gmail_oauth' else mail_settings().from_address
+    if mailbox.lower() not in targets:return 0
+    rows=c.execute("SELECT * FROM email_messages WHERE organization_id=? AND direction='OUTBOUND' AND status='SENT' AND account_id=? AND provider_message_id IN ("+','.join('?' for _ in refs)+')',[org,acc['id'],*refs]).fetchall()
     count=0
     for dsn in incoming.get('recipients',[])[:10]:
         candidates=[r for r in rows if r['to_address'].lower()==dsn['recipient']]
@@ -51,9 +55,11 @@ def process(c,incoming):
         if not inserted:continue
         count+=1
         if not confirmed or row['test_mode']:continue
-        address=dsn['recipient'];previous=c.execute('SELECT soft_bounce_count,status FROM email_address_suppressions WHERE address=?',(address,)).fetchone()
+        table='customer_mail_suppressions' if acc['provider']=='gmail_oauth' else 'email_address_suppressions'
+        conflict='organization_id,address' if acc['provider']=='gmail_oauth' else 'address'
+        address=dsn['recipient'];previous=c.execute(f'SELECT soft_bounce_count,status FROM {table} WHERE address=? AND organization_id=?',(address,org)).fetchone()
         soft=(previous['soft_bounce_count'] if previous else 0)+(0 if hard else 1)
         status='INVALID' if hard or previous and previous['status']=='INVALID' else 'TEMPORARILY_UNUSABLE' if soft>=mail_settings().soft_bounce_threshold else 'REVIEW'
-        c.execute("INSERT INTO email_address_suppressions VALUES(?,?,?,?,?) ON CONFLICT(address) DO UPDATE SET source=excluded.source,soft_bounce_count=excluded.soft_bounce_count,status=excluded.status,updated_at=excluded.updated_at",(address,'HARD_BOUNCE' if hard else 'OTHER',soft,status,now()))
-        if status=='INVALID':c.execute("UPDATE contacts SET is_valid=0 WHERE lower(contact_value)=? AND contact_type='email'",(address,))
+        c.execute(f"INSERT INTO {table}(address,source,soft_bounce_count,status,updated_at,organization_id) VALUES(?,?,?,?,?,?) ON CONFLICT({conflict}) DO UPDATE SET source=excluded.source,soft_bounce_count=excluded.soft_bounce_count,status=excluded.status,updated_at=excluded.updated_at WHERE {table}.organization_id=excluded.organization_id",(address,'HARD_BOUNCE' if hard else 'OTHER',soft,status,now(),org))
+        if status=='INVALID':c.execute("UPDATE contacts SET is_valid=0 WHERE lower(contact_value)=? AND contact_type='email' AND business_id IN (SELECT b.id FROM businesses b JOIN prospects p ON p.id=b.prospect_id WHERE p.organization_id=?)",(address,org))
     return count

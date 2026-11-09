@@ -1,0 +1,27 @@
+{
+  "/api/health": "PASS",
+  "/api/intelligence/overview": "PASS",
+  "automation": {
+    "flags_disabled": true,
+    "database_paused": true,
+    "queue": []
+  },
+  "/api/automation/summary": "PASS",
+  "master_leads": 0,
+  "/api/automation/master-leads": "PASS",
+  "markets_first_page": 100,
+  "/api/automation/markets": "PASS",
+  "/api/email/account": "PASS",
+  "master_tab_counts": "PASS",
+  "/api/automation/master-leads?email_availability=no&page_size=1": "PASS",
+  "/api/automation/markets/page?page=2&page_size=25": "PASS",
+  "/api/automation/targets": "PASS",
+  "/api/automation/email-history?page_size=5": "PASS",
+  "/api/automation/identity-review": "PASS",
+  "gmail_health": {
+    "smtp": "READY",
+    "imap": "READY"
+  },
+  "outbound_messages_sent": 0,
+  "scans_started": 0
+}

@@ -9,16 +9,19 @@ from app.database.models import Business,PipelineRun
 from app.database.repositories import BusinessRepository,PipelineRunRepository
 from app.database.prospects import ProspectRepository
 from app.mail.config import MailSettings
+from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
 
 @pytest.fixture
-def client4(monkeypatch):
+def client4(monkeypatch,request):
     monkeypatch.setattr('app.reports.service.launch_reports',lambda:None)
     with TestClient(app) as client:
         ids=[]
         with db_session() as c:
+            from tests.workspace_fixtures import bind_internal_workspace
+            bind_internal_workspace(c,request)
             for city in ('London','Manchester'):
-                run=PipelineRun(market=city,vertical='hospitality',target=5);PipelineRunRepository(c).create(run)
-                b=Business(name=city+' Hotel',normalized_name=city.lower()+' hotel',vertical='hospitality',city=city,run_id=run.id,website='https://'+city.lower()+'.example',domain=city.lower()+'.example',public_email='hello@'+city.lower()+'.example',processing_status='QUALIFIED');BusinessRepository(c).insert(b);ProspectRepository(c).observe(b);ids.append(b.id)
+                run=PipelineRun(market=city,vertical='hospitality',target=5);PipelineRunRepository(c).create(run, organization=PLANEBYTE_ORGANIZATION_ID)
+                b=Business(name=city+' Hotel',normalized_name=city.lower()+' hotel',vertical='hospitality',city=city,run_id=run.id,website='https://'+city.lower()+'.example',domain=city.lower()+'.example',public_email='hello@'+city.lower()+'.example',processing_status='QUALIFIED');BusinessRepository(c).insert(b);ProspectRepository(c).observe(b, organization=PLANEBYTE_ORGANIZATION_ID);ids.append(b.id)
         yield client,ids
 
 def test_sales_routes_followups_lists_views_bulk_and_suppression(client4):
@@ -45,7 +48,7 @@ def test_sales_routes_followups_lists_views_bulk_and_suppression(client4):
 
 def test_email_api_account_never_exposes_secret_and_requires_review(client4,monkeypatch):
     client,ids=client4
-    settings=MailSettings(_env_file=None,MAIL_PASSWORD='UNIT_ONLY_NEVER_EXPOSE',EMAIL_TEST_RECIPIENT='controlled@example.com',EMAIL_SEND_MODE='test')
+    settings=MailSettings(_env_file=None,EMAIL_PROVIDER='hostinger',EMAIL_SENDING_ENABLED=True,MAIL_PASSWORD='UNIT_ONLY_NEVER_EXPOSE',EMAIL_TEST_RECIPIENT='controlled@example.com',EMAIL_SEND_MODE='test')
     monkeypatch.setattr('app.mail.service.mail_settings',lambda:settings);monkeypatch.setattr('app.api.routes.mail.mail_settings',lambda:settings)
     mock=Mock();mock.send_message.return_value='ok';monkeypatch.setattr('app.mail.service.provider',lambda:mock)
     account=client.get('/api/email/account');assert account.status_code==200 and 'UNIT_ONLY_NEVER_EXPOSE' not in account.text

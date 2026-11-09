@@ -14,6 +14,7 @@ logger = logging.getLogger("leadengine.discovery.resolver")
 
 
 class DiscoveryCoordinator:
+    supports_progressive=True
     def __init__(self):
         self.overture_provider = OvertureDiscoveryProvider()
         self.osm_provider = OSMDiscoveryProvider()
@@ -48,13 +49,24 @@ class DiscoveryCoordinator:
         # 3. Query discovery providers
         raw_businesses: List[Business] = []
 
-        # Query Overture
-        overture_businesses = self.overture_provider.search(market, vertical, limit=raw_target)
-        raw_businesses.extend(overture_businesses)
-
-        # Query OSM
-        osm_businesses = self.osm_provider.search(market, vertical, limit=raw_target)
-        raw_businesses.extend(osm_businesses)
+        raw_businesses.extend(getattr(self,'existing_businesses',[]))
+        self.provider_errors={}
+        completed=getattr(self,'completed_sources',set())
+        for source,provider in [('OVERTURE',self.overture_provider),('OSM',self.osm_provider)]:
+            getattr(self,'check_cancel',lambda:None)()
+            if source in completed:continue
+            callback=getattr(self,'on_batch',None)
+            if len(raw_businesses)>=raw_budget:break
+            try:
+                values=provider.search(market,vertical,limit=min(raw_target,raw_budget-len(raw_businesses)))
+            except Exception as exc:
+                self.provider_errors[source]=type(exc).__name__
+                if callback:callback(source,[],error=type(exc).__name__)
+                continue
+            values=values[:max(0,raw_budget-len(raw_businesses))]
+            raw_businesses.extend(values)
+            if callback:callback(source,values,error=None)
+        if not raw_businesses and self.provider_errors:raise RuntimeError('Discovery providers are unavailable; inspect the recorded source results and retry.')
         raw_businesses = raw_businesses[:raw_budget]
 
         logger.info(f"Total raw businesses discovered: {len(raw_businesses)}")

@@ -11,6 +11,7 @@ from app.database.prospects import ProspectRepository
 from app.enrichment.social_intelligence import normalize_profile, discover_profiles, parse_activity, timestamp_status, presence_summary, store_social
 from app.scoring.commercial import classify_scale_v2, commercial_fit
 from app.api.services.deletion import preview, delete
+from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
 
 @pytest.mark.parametrize('missing',[None,float('nan'),'null','nan','',[]])
 def test_missing_source_metadata_does_not_discard_businesses(missing):
@@ -73,13 +74,15 @@ def test_scale_bands_preserve_independent_groups(locations,expected):
     assert commercial_fit(b,'MID_MARKET','HIGH')[0]=='HIGH'
 
 @pytest.fixture
-def deletion_fixture(tmp_path):
+def deletion_fixture(tmp_path,request):
     c=get_connection(tmp_path/'delete.db');run_migrations(c)
-    c.execute("INSERT INTO scan_campaigns(id,created_by,status,configuration_json,target_total,created_at) VALUES('one','founder@example.com','COMPLETED',?,5,'2026-10-26')",(json.dumps({'cities':['London'],'verticals':['dentists']}),))
+    from tests.workspace_fixtures import bind_internal_workspace
+    bind_internal_workspace(c,request)
+    c.execute("INSERT INTO scan_campaigns(id,created_by,status,configuration_json,target_total,created_at,organization_id) VALUES('one','founder@example.com','COMPLETED',?,5,'2026-10-26',?)",(json.dumps({'cities':['London'],'verticals':['dentists']}),PLANEBYTE_ORGANIZATION_ID))
     runs=[];businesses=[]
     for campaign in ['one',None]:
-        run=PipelineRun(market='London',vertical='dentists',target=5,status='COMPLETED');PipelineRunRepository(c).create(run);c.execute('UPDATE pipeline_runs SET campaign_id=? WHERE id=?',(campaign,run.id));runs.append(run.id)
-        b=Business(name='Shared Dental',normalized_name='shared dental',vertical='dentists',city='London',country='UK',website='https://shared.example',domain='shared.example',address='1 Street',run_id=run.id);BusinessRepository(c).insert(b);ProspectRepository(c).observe(b,campaign);businesses.append(b)
+        run=PipelineRun(market='London',vertical='dentists',target=5,status='COMPLETED');PipelineRunRepository(c).create(run, organization=PLANEBYTE_ORGANIZATION_ID);c.execute('UPDATE pipeline_runs SET campaign_id=? WHERE id=?',(campaign,run.id));runs.append(run.id)
+        b=Business(name='Shared Dental',normalized_name='shared dental',vertical='dentists',city='London',country='UK',website='https://shared.example',domain='shared.example',address='1 Street',run_id=run.id);BusinessRepository(c).insert(b);ProspectRepository(c).observe(b,campaign, organization=PLANEBYTE_ORGANIZATION_ID);businesses.append(b)
     c.commit();yield c,runs,businesses;c.close()
 
 def test_campaign_delete_preserves_other_observation_and_workflow(deletion_fixture,monkeypatch):
@@ -117,7 +120,7 @@ def test_delete_removes_all_versions_private_files_and_derived_data(deletion_fix
     file=tmp_path/'evidence.pdf';file.write_bytes(b'%PDF-QA')
     for i in (1,2):
         key=f'prospects/{pid}/reports/qa-{i}.pdf';artifact_storage().put(key,file,'application/pdf')
-        c.execute("INSERT INTO client_reports(id,prospect_id,business_id,created_at,created_by,version,status,object_key,snapshot_json,updated_at) VALUES(?,?,?,?,?,?,'READY',?,'{}',?)",(f'report-{i}',pid,b[0].id,now(),'founder@example.com',i,key,now()))
+        c.execute("INSERT INTO client_reports(id,prospect_id,business_id,created_at,created_by,version,status,object_key,snapshot_json,updated_at,organization_id) VALUES(?,?,?,?,?,?,'READY',?,'{}',?,?)",(f'report-{i}',pid,b[0].id,now(),'founder@example.com',i,key,now(),PLANEBYTE_ORGANIZATION_ID))
     for run in runs:publish_artifact(c,f'campaigns/qa-{run}/leads.csv',file,run_id=run,kind='csv')
     publish_artifact(c,f'audits/{b[0].id}/capture.webp',file,run_id=runs[0],business_id=b[0].id,kind='website_desktop')
     profiles=discover_profiles({'https://shared.example':'<footer><a href="https://instagram.com/shareddental">Social</a></footer>'},b[0]);store_social(c,b[0],profiles)

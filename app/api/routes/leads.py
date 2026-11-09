@@ -2,7 +2,7 @@ import math
 import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Literal
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 
 from app.api.dependencies import get_db
@@ -23,13 +23,13 @@ from app.database.repositories import (
     LighthouseRepository,
     WebsiteProfileRepository,
 )
-from app.exports.report import generate_html_report
 
 router = APIRouter(prefix="/leads", tags=["Leads"])
 
 
 @router.get("", response_model=LeadPaginationResponse)
 def search_leads(
+    request: Request,
     search: Optional[str] = Query(None),
     tier: Optional[str] = Query(None),
     min_score: Optional[float] = Query(None),
@@ -53,7 +53,7 @@ def search_leads(
     page_size: int = Query(50, ge=1, le=100),
     sort_by: Literal["score", "performance", "seo", "name", "newest", "oldest"] = Query("score"),
     sort_dir: Literal["asc", "desc"] = Query("desc"),
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = Depends(get_db,scope='function'),
 ):
     """Search and paginate prospects with multi-dimensional filtering and sorting."""
     repo = BusinessRepository(conn)
@@ -77,6 +77,7 @@ def search_leads(
         source=source,
         quality_status=quality_status,
         run_id=run_id,
+        organization=request.state.organization_id,
         page=page,
         page_size=page_size,
         sort_by=sort_by,
@@ -122,10 +123,10 @@ def search_leads(
 
 
 @router.get("/{lead_id}", response_model=LeadDetailResponse)
-def get_lead_detail(lead_id: int, conn: sqlite3.Connection = Depends(get_db)):
+def get_lead_detail(lead_id: int, request: Request, conn: sqlite3.Connection = Depends(get_db,scope='function')):
     """Fetch complete prospect intelligence dossier for a single business."""
     repo = BusinessRepository(conn)
-    data = repo.get_lead_detail(lead_id)
+    data = repo.get_lead_detail(lead_id,organization=request.state.organization_id)
     if not data:
         raise HTTPException(status_code=404, detail=f"Lead #{lead_id} not found.")
 
@@ -204,7 +205,10 @@ def get_lead_detail(lead_id: int, conn: sqlite3.Connection = Depends(get_db)):
         for c in data.get("contacts", [])
     ]
 
+    import json
+    source=json.loads(data['business'].get('source_tags') or data['business'].get('source_tags_json') or '{}')
     return LeadDetailResponse(
+        company_intelligence=source.get('company_intelligence',{}),icp_match=source.get('icp_match',{}),
         business=data["business"],
         website_status=data["website_status"],
         score=score_obj,
@@ -216,49 +220,12 @@ def get_lead_detail(lead_id: int, conn: sqlite3.Connection = Depends(get_db)):
 
 
 @router.post("/{lead_id}/report")
-def generate_lead_report(lead_id: int, conn: sqlite3.Connection = Depends(get_db)):
-    """Generate a clean standalone HTML audit report for a prospect."""
-    biz_repo = BusinessRepository(conn)
-    score_repo = LeadScoreRepository(conn)
-    profile_repo = WebsiteProfileRepository(conn)
-    lh_repo = LighthouseRepository(conn)
-    finding_repo = FindingRepository(conn)
-
-    b = biz_repo.get_by_id(lead_id)
-    if not b:
-        raise HTTPException(status_code=404, detail=f"Lead #{lead_id} not found.")
-
-    score = score_repo.get_by_business_id(lead_id)
-    if not score:
-        raise HTTPException(status_code=400, detail=f"Lead #{lead_id} has not been scored yet.")
-
-    profile = profile_repo.get_by_business_id(lead_id)
-    lh = lh_repo.get_by_business_id(lead_id)
-    findings = finding_repo.list_by_business_id(lead_id)
-
-    from app.exports.phase3 import attach_workflow
-    attach_workflow(conn,lead_id,score)
-
-    report_path = generate_html_report(
-        business=b,
-        score=score,
-        profile=profile,
-        lh=lh,
-        findings=findings,
-    )
-    from app.storage import publish_artifact
-    publish_artifact(conn, f"prospects/{b.id}/reports/report.html", report_path, business_id=lead_id, kind="html")
-
-    return {
-        "success": True,
-        "message": "HTML audit report generated successfully.",
-        "report_file": str(report_path.name),
-        "download_url": f"/api/leads/{lead_id}/report",
-    }
-
+def generate_lead_report(lead_id: int, conn: sqlite3.Connection = Depends(get_db,scope='function')):
+    from app.prospecting.policy import unavailable
+    unavailable()
 
 @router.get("/{lead_id}/report")
-def download_lead_report(lead_id: int, conn: sqlite3.Connection = Depends(get_db)):
+def download_lead_report(lead_id: int, conn: sqlite3.Connection = Depends(get_db,scope='function')):
     """Download or view the generated HTML audit report for a prospect."""
     from app.storage import download_artifact
     artifact = download_artifact(conn, business_id=lead_id, kind="html")
@@ -269,27 +236,6 @@ def download_lead_report(lead_id: int, conn: sqlite3.Connection = Depends(get_db
     if not b:
         raise HTTPException(status_code=404, detail=f"Lead #{lead_id} not found.")
 
-    reports_dir = Path("output/reports").resolve()
-    # Find matching report file starting with "{lead_id}_"
-    matches = list(reports_dir.glob(f"{lead_id}_*.html")) if reports_dir.exists() else []
-    if not matches:
-        # Generate on-demand if not already generated
-        score_repo = LeadScoreRepository(conn)
-        score = score_repo.get_by_business_id(lead_id)
-        if not score:
-            raise HTTPException(status_code=404, detail="Lead has not been scored and has no report.")
-        profile = WebsiteProfileRepository(conn).get_by_business_id(lead_id)
-        lh = LighthouseRepository(conn).get_by_business_id(lead_id)
-        findings = FindingRepository(conn).list_by_business_id(lead_id)
-        report_path = generate_html_report(b, score, profile, lh, findings)
-        from app.storage import publish_artifact
-        publish_artifact(conn,f"prospects/{lead_id}/reports/report.html",report_path,business_id=lead_id,kind="html")
-        return download_artifact(conn,business_id=lead_id,kind="html")
-    else:
-        report_path = matches[0]
-
-    return FileResponse(
-        path=report_path,
-        media_type="text/html",
-        filename=report_path.name,
-    )
+    # Bare numeric filenames are not ownership evidence. Preserve orphan files
+    # on disk, but serve historical artifacts only through the owned registry.
+    raise HTTPException(404,'No registered historical report is available. New assessments are excluded from Lead Engine.')

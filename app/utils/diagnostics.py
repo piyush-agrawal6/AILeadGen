@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any, Dict, List
 from pydantic import BaseModel
 
-from app.audit.lighthouse import find_lighthouse_executable
 from app.config.settings import get_settings
 from app.database.connection import get_db_path
 from app.database.migrations import run_migrations
@@ -99,17 +98,6 @@ def run_system_diagnostics() -> List[DiagnosticCheck]:
             status="ok" if chrome_found else "warning",
             details=chrome_path or "Not in default path (Playwright managed fallback)",
             ready=True,
-        )
-    )
-
-    # 5. Lighthouse CLI
-    lh_bin = find_lighthouse_executable()
-    results.append(
-        DiagnosticCheck(
-            name="Lighthouse CLI",
-            status="ok" if lh_bin else "warning",
-            details=lh_bin or "Optional for deep Web Vitals",
-            ready=bool(lh_bin),
         )
     )
 

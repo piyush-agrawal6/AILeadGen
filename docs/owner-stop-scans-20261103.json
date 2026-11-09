@@ -1,0 +1,42 @@
+{
+  "before": {
+    "controls": {
+      "id": 1,
+      "scan_paused": 0,
+      "email_paused": 1,
+      "pause_reason": "SEND_REQUIRES_REVIEW",
+      "next_send_at": "2026-11-03T04:01:58.338845+00:00",
+      "updated_at": "2026-11-03T04:01:23.634790+00:00"
+    },
+    "qualified": 81,
+    "prospects": 2125,
+    "outbound": [
+      {
+        "status": "SENT",
+        "n": 28
+      }
+    ],
+    "member_states": [
+      {
+        "state": "QUEUED",
+        "n": 16
+      },
+      {
+        "state": "GENERATING",
+        "n": 29
+      },
+      {
+        "state": "SENT",
+        "n": 28
+      }
+    ]
+  },
+  "qualified_preserved": 81,
+  "scan_schedules_disabled": 50,
+  "source_jobs_stopped": 10,
+  "pipeline_scans_stopped": 7,
+  "scan_workflows_stopped": 7,
+  "scan_paused": true,
+  "outreach_pause_preserved": true,
+  "stopped_at": "2026-11-03T04:25:26.548796+00:00"
+}

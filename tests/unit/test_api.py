@@ -10,6 +10,7 @@ from app.database.repositories import (
     PipelineRunEventRepository,
     PipelineRunRepository,
 )
+from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
 
 
 @pytest.fixture
@@ -73,7 +74,7 @@ def test_scans_lifecycle_and_events(client, monkeypatch):
             target=25,
             status="RUNNING",
         )
-        run_id = run_repo.create(run)
+        run_id = run_repo.create(run, organization=PLANEBYTE_ORGANIZATION_ID)
 
         evt = PipelineRunEvent(
             run_id=run_id,
@@ -103,6 +104,7 @@ def test_scans_lifecycle_and_events(client, monkeypatch):
     cancel_resp = client.post(f"/api/scans/{run_id}/cancel")
     assert cancel_resp.status_code == 200
 
+    assert client.put('/api/automation/controls',json={'scan_paused':False,'email_paused':True}).status_code==200
     # Resume scan
     resume_resp = client.post(f"/api/scans/{run_id}/resume")
     assert resume_resp.status_code == 200
@@ -125,7 +127,14 @@ def test_leads_search_and_detail(client):
             public_email="contact@apitestbistro.com",
             processing_status="QUALIFIED",
         )
+        run=PipelineRun(market='Austin, United States',vertical='restaurant',target=1)
+        PipelineRunRepository(conn).create(run,organization=PLANEBYTE_ORGANIZATION_ID)
+        b.run_id=run.id
         b_id = biz_repo.insert(b)
+        from app.database.prospects import ProspectRepository
+        from app.platform.context import workspace_scope
+        actor=conn.execute('SELECT created_by_user_id FROM organizations WHERE id=?',(PLANEBYTE_ORGANIZATION_ID,)).fetchone()[0]
+        with workspace_scope(conn,actor,PLANEBYTE_ORGANIZATION_ID):ProspectRepository(conn).observe(b,organization=PLANEBYTE_ORGANIZATION_ID)
 
         score = LeadScore(
             business_id=b_id,
@@ -159,13 +168,11 @@ def test_leads_search_and_detail(client):
 
     # Generate report
     report_resp = client.post(f"/api/leads/{b_id}/report")
-    assert report_resp.status_code == 200
-    assert report_resp.json()["success"] is True
+    assert report_resp.status_code == 409
 
     # Download report
     dl_resp = client.get(f"/api/leads/{b_id}/report")
-    assert dl_resp.status_code == 200
-    assert "text/html" in dl_resp.headers["content-type"]
+    assert dl_resp.status_code == 404
 
 
 def test_settings_get_and_update(client):

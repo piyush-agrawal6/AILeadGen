@@ -1,0 +1,90 @@
+{
+  "run_id": "359b10db-bf81-480b-8135-fab344ded743",
+  "configuration": {
+    "request_id": "0c03f421-8d21-4319-b95c-99ef906dce75",
+    "name": "Owner QA \u00b7 Small Seattle email-first qualification",
+    "kind": "SCAN",
+    "scan_source": "OVERTURE",
+    "target": 2,
+    "countries": [
+      "United States"
+    ],
+    "cities": [
+      "Seattle"
+    ],
+    "verticals": [
+      "hospitality"
+    ],
+    "max_candidates": 12,
+    "deep_audit_budget": 3,
+    "lighthouse_budget": 0,
+    "max_runtime_seconds": 180,
+    "qualification_mode": "BALANCED",
+    "rotate_locations": false,
+    "rotate_verticals": false,
+    "email_all_eligible": false
+  },
+  "no_outreach": true,
+  "direct_scan_id": 27,
+  "cooldown_history_preserved": true,
+  "status": "PASSED",
+  "run": {
+    "id": 27,
+    "campaign_id": "fa046c37-8051-4744-84ab-d434c5482e98",
+    "status": "COMPLETED",
+    "raw_found": 12,
+    "deduped": 9,
+    "filtered": 9,
+    "websites_processed": 3,
+    "qualified": 2,
+    "started_at": "2026-11-02 11:46:47.198128+00",
+    "finished_at": "2026-11-02 11:53:48.780927"
+  },
+  "diagnostics": {
+    "new_qualification_flow": true,
+    "rejections": {
+      "UNCERTAIN_NICHE": 2,
+      "CHAIN": 1,
+      "NO_REACHABLE_WEBSITE": 5,
+      "DEEP_AUDIT_BUDGET": 1,
+      "TARGET_REACHED": 1
+    },
+    "email": {
+      "email_searched": 0,
+      "email_found": 4,
+      "email_valid": 4,
+      "no_email": 0,
+      "invalid_email": 0,
+      "preliminary_opportunity": 4,
+      "contact_pages": 0,
+      "contacts_reused": 4,
+      "deep_audits_skipped": 6
+    },
+    "resources": {
+      "websites_probed": 4,
+      "emails_searched": 0,
+      "deep_crawls": 3,
+      "technical_audits": 3,
+      "seo_audits": 3,
+      "security_audits": 1,
+      "lighthouse_runs": 0,
+      "analysis_reused": 2,
+      "deep_audits_skipped": 6
+    }
+  },
+  "qualified_evidence": [
+    {
+      "business_id": 2127,
+      "email_valid": true,
+      "primary_reason": "QUALIFIED"
+    },
+    {
+      "business_id": 2128,
+      "email_valid": true,
+      "primary_reason": "QUALIFIED"
+    }
+  ],
+  "lighthouse_runs": 0,
+  "no_email_deep_audits": 0,
+  "outreach_runs": 0
+}

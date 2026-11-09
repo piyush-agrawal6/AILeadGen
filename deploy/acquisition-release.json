@@ -1,0 +1,49 @@
+{
+  "build": "a7d961f6-6b36-46fd-b66a-d07c7b14bdae",
+  "api_image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:source-policy-20261102-r13",
+  "acquisition_image": "asia-south1-docker.pkg.dev/querryside/leadengine/acquisition:source-policy-20261102-r12",
+  "previous_revision": "leadengine-api-00035-g7j",
+  "existing_worker_spec_sha256": "b722d762047ee80eb0364a91da09f62ec943b537f46d9fadf9a365866d5a3e7d",
+  "new_features_enabled": true,
+  "existing_global_flags": {
+    "AUTO_SCAN_ENABLED": "true",
+    "AUTO_EMAIL_ENABLED": "true",
+    "EMAIL_SENDING_ENABLED": "true"
+  },
+  "staged_revision": "leadengine-api-00036-5qd",
+  "existing_api_environment_preserved": true,
+  "existing_worker_unchanged": false,
+  "new_job_has_no_gmail_credentials": true,
+  "secret_references": {
+    "GEMINI_API_KEY": "leadengine-acquisition-gemini-api-key:3",
+    "FIRECRAWL_API_KEY": "leadengine-acquisition-firecrawl-api-key:3",
+    "AUTH_GOOGLE_SECRET": "leadengine-acquisition-auth-google-secret:3"
+  },
+  "promoted_revision": "leadengine-api-00051-5b6",
+  "source_deadline_fix_build": "56ff2aad-650f-4e87-be00-175e05fb6ca2",
+  "running_executions_restarted": false,
+  "source_review_fix_build": "3e2d6f2c-fbdd-44c8-899e-286674063c43",
+  "previous_source_revision": "leadengine-api-00036-5qd",
+  "gemini_model": "gemini-3.6-flash",
+  "owner_model_change_approved": true,
+  "prior_model_revision": "leadengine-api-00037-pl9",
+  "gemini_retry_build": "b5d65cf6-4ce4-47d9-b83b-4f83c561b62e",
+  "prior_retry_revision": "leadengine-api-00038-ng9",
+  "enabled_source_features": [
+    "ENABLE_AI_ACQUISITION",
+    "ENABLE_FIRECRAWL_ACQUISITION",
+    "ENABLE_LEAD_IMPORT",
+    "ENABLE_GOOGLE_SHEETS_IMPORT"
+  ],
+  "semantic_validation_build": "36cbb928-3fab-45f6-867c-0cc4fcc252c9",
+  "prior_semantic_revision": "leadengine-api-00041-plr",
+  "cache_validation_version": 4,
+  "prior_worker_spec_sha256": "0e7254a009e1b7fbcaf4b088801669a0147baa5a4722091c28cb50dde5009823",
+  "worker_schema13_image_repair": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:source-policy-20261102-r9",
+  "source_policy_release": "deploy/source-policy-release.json",
+  "existing_worker_environment_preserved": true,
+  "source_policy_final_build": "48655667-4cff-4aa4-bc75-52129c0897d7",
+  "source_recovery_build": "ba4d714e-00da-4537-a8b6-f3ebfbb17cc0",
+  "scheduler_source_dispatch_enabled": true,
+  "progress_cache_build": "0a6ee320-73b4-4d8c-b3ff-8b6af65bed02"
+}

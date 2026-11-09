@@ -1,6 +1,6 @@
 import sqlite3
 from typing import Any, Dict
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.api.dependencies import get_db
 from app.api.schemas.dashboard import (
@@ -18,10 +18,11 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
 @router.get("", response_model=DashboardResponse)
-def get_dashboard(conn: sqlite3.Connection = Depends(get_db)):
+def get_dashboard(request: Request, conn: sqlite3.Connection = Depends(get_db,scope='function')):
     """Fetch aggregated business, scoring, and pipeline run metrics for the dashboard."""
+    organization = request.state.organization_id
     repo = BusinessRepository(conn)
-    raw = repo.get_dashboard_stats()
+    raw = repo.get_dashboard_stats(organization=organization)
 
     total_scored = sum(raw["tiers"].values())
     tier_distribution = []

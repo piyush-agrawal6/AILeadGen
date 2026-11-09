@@ -1,0 +1,130 @@
+{
+  "provider": "VERTEX_AI",
+  "project": "querryside",
+  "location": "global",
+  "model": "gemini-3.6-flash",
+  "authentication": "LOCAL_ADC",
+  "batch_size": 40,
+  "stages": [
+    {
+      "leads": 1,
+      "status": "FAIL",
+      "error_type": "AiApplicationError",
+      "safe_error": "Internal provider request/schema was rejected; review it before retrying."
+    },
+    {
+      "leads": 1,
+      "status": "PASS",
+      "outputs": 1,
+      "providers": [
+        "VERTEX_AI"
+      ],
+      "metrics": {
+        "leads_requested": 1,
+        "batches_created": 1,
+        "batch_leads": 1,
+        "ai_inference_calls": 1,
+        "vertex_requests": 1,
+        "vertex_successes": 1,
+        "vertex_latency_ms": 6668,
+        "request_latency_ms": 10543,
+        "unknown_ids": 0,
+        "duplicate_ids": 0,
+        "missing_ids": 0,
+        "ai_generated_leads": 1,
+        "successful_batches": 1,
+        "failed_batches": 0,
+        "average_batch_size": 1.0,
+        "average_latency_ms": 10543
+      },
+      "seconds": 20.21,
+      "emails_sent": 0
+    },
+    {
+      "leads": 5,
+      "status": "PASS",
+      "outputs": 5,
+      "providers": [
+        "VERTEX_AI"
+      ],
+      "metrics": {
+        "leads_requested": 5,
+        "batches_created": 1,
+        "batch_leads": 5,
+        "ai_inference_calls": 1,
+        "vertex_requests": 1,
+        "vertex_successes": 1,
+        "vertex_latency_ms": 10802,
+        "request_latency_ms": 14909,
+        "unknown_ids": 0,
+        "duplicate_ids": 0,
+        "missing_ids": 0,
+        "ai_generated_leads": 5,
+        "successful_batches": 1,
+        "failed_batches": 0,
+        "average_batch_size": 5.0,
+        "average_latency_ms": 14909
+      },
+      "seconds": 32.94,
+      "emails_sent": 0
+    },
+    {
+      "leads": 10,
+      "status": "PASS",
+      "outputs": 10,
+      "providers": [
+        "VERTEX_AI"
+      ],
+      "metrics": {
+        "leads_requested": 10,
+        "batches_created": 1,
+        "batch_leads": 10,
+        "ai_inference_calls": 1,
+        "vertex_requests": 1,
+        "vertex_successes": 1,
+        "vertex_latency_ms": 13420,
+        "request_latency_ms": 17848,
+        "unknown_ids": 0,
+        "duplicate_ids": 0,
+        "missing_ids": 0,
+        "ai_generated_leads": 10,
+        "successful_batches": 1,
+        "failed_batches": 0,
+        "average_batch_size": 10.0,
+        "average_latency_ms": 17848
+      },
+      "seconds": 41.73,
+      "emails_sent": 0
+    },
+    {
+      "leads": 40,
+      "status": "PASS",
+      "outputs": 40,
+      "providers": [
+        "VERTEX_AI"
+      ],
+      "metrics": {
+        "leads_requested": 40,
+        "batches_created": 1,
+        "batch_leads": 40,
+        "ai_inference_calls": 1,
+        "vertex_requests": 1,
+        "vertex_successes": 1,
+        "vertex_latency_ms": 38939,
+        "request_latency_ms": 42872,
+        "unknown_ids": 0,
+        "duplicate_ids": 0,
+        "missing_ids": 0,
+        "ai_generated_leads": 40,
+        "successful_batches": 1,
+        "failed_batches": 0,
+        "average_batch_size": 40.0,
+        "average_latency_ms": 42872
+      },
+      "seconds": 112.13,
+      "emails_sent": 0
+    }
+  ],
+  "complete": true,
+  "provider_status": "READY"
+}

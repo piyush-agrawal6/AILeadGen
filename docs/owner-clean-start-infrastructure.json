@@ -1,0 +1,45 @@
+{
+  "api": {
+    "flags": {
+      "AUTO_SCAN_ENABLED": "false",
+      "AUTO_EMAIL_ENABLED": "false",
+      "EMAIL_SENDING_ENABLED": "false"
+    },
+    "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:automation-20261101-150458",
+    "signature_matches_root": true,
+    "revision": "leadengine-api-00024-bh9"
+  },
+  "worker": {
+    "flags": {
+      "AUTO_SCAN_ENABLED": "false",
+      "AUTO_EMAIL_ENABLED": "false",
+      "EMAIL_SENDING_ENABLED": "false"
+    },
+    "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:automation-20261101-150458",
+    "signature_matches_root": true
+  },
+  "schedulers": [
+    {
+      "name": "leadengine-email-sync",
+      "state": "PAUSED"
+    },
+    {
+      "name": "leadengine-hourly-outreach",
+      "state": "PAUSED"
+    },
+    {
+      "name": "leadengine-daily-acquisition",
+      "state": "PAUSED"
+    },
+    {
+      "name": "leadengine-inbox-sync",
+      "state": "ENABLED"
+    }
+  ],
+  "root_limits": {
+    "MAX_EMAILS_PER_HOUR": 10,
+    "MAX_EMAILS_PER_DAY": 100,
+    "DAILY_EMAIL_TARGET": 100
+  },
+  "public_signature_corrected": true
+}

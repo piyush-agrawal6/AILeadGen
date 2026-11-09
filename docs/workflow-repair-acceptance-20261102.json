@@ -1,0 +1,219 @@
+{
+  "date": "2026-11-02",
+  "timezone": "Asia/Kolkata",
+  "backend_linux": {
+    "passed": 346,
+    "skipped": 11,
+    "build": "ceaf4232-8ccd-42c8-bf1a-df0817ae0735"
+  },
+  "frontend": {
+    "unit_passed": 43,
+    "browser_distinct_passed": 17,
+    "production_build": true,
+    "deployment": "dpl_7BpyCx3LwrCVG7HXXQzxM5KcRRiC"
+  },
+  "production_smoke": {
+    "passed": true,
+    "reads": [
+      {
+        "path": "/api/foundation/quality",
+        "status": 200,
+        "ms": 3618,
+        "cache": null
+      },
+      {
+        "path": "/api/foundation/reviews?page=1&page_size=1",
+        "status": 200,
+        "ms": 3698,
+        "cache": null
+      },
+      {
+        "path": "/api/foundation/countries",
+        "status": 200,
+        "ms": 1322,
+        "cache": "MISS"
+      },
+      {
+        "path": "/api/foundation/market-groups",
+        "status": 200,
+        "ms": 2449,
+        "cache": null
+      },
+      {
+        "path": "/api/foundation/settings",
+        "status": 200,
+        "ms": 2428,
+        "cache": null
+      },
+      {
+        "path": "/api/foundation/health",
+        "status": 200,
+        "ms": 5938,
+        "cache": null
+      },
+      {
+        "path": "/api/workflow/safety",
+        "status": 200,
+        "ms": 2384,
+        "cache": null
+      }
+    ]
+  },
+  "cache_acceptance": {
+    "checks": [
+      {
+        "path": "/api/operations/dashboard",
+        "status": 200,
+        "ms": 7693,
+        "cache": "MISS"
+      },
+      {
+        "path": "/api/operations/dashboard",
+        "status": 200,
+        "ms": 1384,
+        "cache": "HIT"
+      },
+      {
+        "path": "/api/operations/dashboard",
+        "status": 200,
+        "ms": 7534,
+        "cache": "MISS"
+      },
+      {
+        "path": "/api/operations/dashboard",
+        "status": 200,
+        "ms": 1380,
+        "cache": "HIT"
+      }
+    ],
+    "cache_health": {
+      "configured": true,
+      "state": "READY",
+      "last_success_at": "2026-11-02T06:16:37.628793+00:00",
+      "process_counters": {
+        "misses": 3,
+        "hits": 2
+      },
+      "operational_ttl_seconds": 15,
+      "reference_ttl_seconds": 86400,
+      "safety_decisions_cached": false
+    }
+  },
+  "deployed_worker_safe_dispatch": {
+    "execution": "leadengine-worker-jv4wp",
+    "result": "SUCCESS",
+    "automation_flags": false,
+    "scans_started": 0,
+    "emails_sent": 0
+  },
+  "rollback": {
+    "backup": "/Users/planebyte/Documents/Projects/planebyte-leadgen/data/backups/owner-final-clean-start-20261102T060818Z.zip",
+    "backup_sha256": "a59cba6a789f930227d24ff2a0ad2c008c10b0e77915a74a066ea930c524583d",
+    "backup_verified": true,
+    "restore_test_passed": true
+  },
+  "cleanup_complete": true,
+  "phase49_complete": false,
+  "zero_checks": {
+    "Master Leads": 0,
+    "Qualified Leads": 0,
+    "Queued Leads": 0,
+    "Prospect Email Threads": 0,
+    "Prospect Email Messages": 0,
+    "Campaigns": 0,
+    "Schedules": 0
+  },
+  "limits": {
+    "daily_qualified_lead_target": 500,
+    "daily_email_target": 500,
+    "max_hour": 50,
+    "max_day": 500,
+    "followup_days": 3,
+    "automation_timezone": "Asia/Kolkata"
+  },
+  "private_artifacts_removed": 11,
+  "suppression_protections_retained": true,
+  "three_automation_flags": false,
+  "post_reset_production_verification": {
+    "passed": true,
+    "schema": 12,
+    "zero_checks": {
+      "Master Leads": 0,
+      "Qualified Leads": 0,
+      "Queued Leads": 0,
+      "Prospect Email Threads": 0,
+      "Prospect Email Messages": 0,
+      "Campaigns": 0,
+      "Schedules": 0,
+      "Scan Runs": 0,
+      "Client Reports": 0,
+      "Activities": 0,
+      "Follow-ups": 0,
+      "Lists": 0,
+      "Tracking Events": 0
+    },
+    "limits": {
+      "daily_qualified_lead_target": 500,
+      "daily_email_target": 500,
+      "max_hour": 50,
+      "max_day": 500,
+      "followup_days": 3,
+      "automation_timezone": "Asia/Kolkata"
+    },
+    "controls": {
+      "scan_paused": 1,
+      "email_paused": 1,
+      "next_send_at": null
+    },
+    "resources": {
+      "leadengine-api": {
+        "image": "asia-south1-docker.pkg.dev/querryside/leadengine/api:foundation-20261102-repair2",
+        "three_flags": false,
+        "gmail_secret_preserved": true,
+        "redis_server_secrets": true,
+        "traffic": [
+          {
+            "percent": 100,
+            "revisionName": "leadengine-api-00034-n2l"
+          }
+        ],
+        "latest_ready": "leadengine-api-00034-n2l"
+      },
+      "leadengine-worker": {
+        "image": "asia-south1-docker.pkg.dev/querryside/leadengine/worker:foundation-20261102-repair2",
+        "three_flags": false,
+        "gmail_secret_preserved": true,
+        "redis_server_secrets": true
+      }
+    },
+    "api_checks": [
+      {
+        "path": "/api/automation/master-leads?page=1&page_size=1",
+        "status": 200,
+        "ms": 2984,
+        "cache": "MISS"
+      },
+      {
+        "path": "/api/operations/campaigns?page=1&page_size=15",
+        "status": 200,
+        "ms": 2675,
+        "cache": "MISS"
+      },
+      {
+        "path": "/api/operations/schedules?page=1&page_size=25",
+        "status": 200,
+        "ms": 2926,
+        "cache": "MISS"
+      },
+      {
+        "path": "/api/operations/messages?page=1&page_size=25",
+        "status": 200,
+        "ms": 2767,
+        "cache": "MISS"
+      }
+    ],
+    "real_prospect_emails_sent_during_qa": 0,
+    "new_campaigns_started": 0,
+    "backup": "data/backups/owner-final-clean-start-20261102T060818Z.zip"
+  }
+}

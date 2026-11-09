@@ -1,0 +1,5 @@
+"use client";
+import {useQuery} from '@tanstack/react-query';
+import {request} from '@/lib/intelligence';
+import {sourceName} from './types';
+export function SourceEvidence({prospectId}:{prospectId:string}){const q=useQuery({queryKey:['source-evidence',prospectId],queryFn:()=>request<{source_types:string[];evidence:{id:string;source_type:string;observed_at:string;fields:Record<string,unknown>}[]}>('/acquisition/leads/'+prospectId+'/sources')});if(!q.data?.evidence.length)return null;return <section className="rounded-lg border p-4"><h3 className="text-sm font-medium">Acquisition Evidence</h3><p className="mt-2 text-xs">One Master Lead · {q.data.source_types.map(x=>sourceName(x)).join(' · ')}</p><div className="mt-3 space-y-2">{q.data.evidence.map(e=><details className="text-xs" key={e.id}><summary className="cursor-pointer">{sourceName(e.source_type)} · {new Date(e.observed_at).toLocaleDateString()}</summary><pre className="mt-2 overflow-auto whitespace-pre-wrap break-words">{JSON.stringify(e.fields,null,2)}</pre></details>)}</div></section>}

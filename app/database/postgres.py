@@ -1,7 +1,25 @@
 """Small PostgreSQL DB-API adapter retaining the existing parameterized repositories."""
-import re
+import re,os,threading
 import psycopg
 from urllib.parse import urlsplit,urlunsplit
+
+_pools={}
+_pool_lock=threading.Lock()
+
+def connection_pool(url):
+    from psycopg_pool import ConnectionPool
+    with _pool_lock:
+        if url not in _pools:
+            pool=ConnectionPool(url,min_size=0,max_size=4,max_waiting=32,timeout=8,
+                                max_idle=120,max_lifetime=600,open=False,
+                                kwargs={'row_factory':record_factory,'connect_timeout':10,'prepare_threshold':None})
+            pool.open();_pools[url]=pool
+        return _pools[url]
+
+def close_pools():
+    with _pool_lock:
+        for pool in _pools.values():pool.close()
+        _pools.clear()
 
 
 def session_url(url):
@@ -54,7 +72,12 @@ class PostgresConnection:
         self.schema=schema or 'public'
         if not re.fullmatch(r"[a-z][a-z0-9_]{0,62}", self.schema):
             raise ValueError("Invalid database schema")
-        self.raw = psycopg.connect(session_url(url) if session_bound else url, row_factory=record_factory, connect_timeout=15)
+        self.pool=None
+        if not session_bound and schema is None and os.environ.get('LEADENGINE_ROLE')!='worker' and os.environ.get('APP_ENV')=='production':
+            self.pool=connection_pool(url);self.raw=self.pool.getconn()
+        else:
+            self.raw = psycopg.connect(session_url(url) if session_bound else url, row_factory=record_factory, connect_timeout=15)
+        self.closed=False
 
     def _prepare_transaction(self):
         if self.raw.info.transaction_status == psycopg.pq.TransactionStatus.IDLE:
@@ -91,8 +114,25 @@ class PostgresConnection:
     def commit(self):
         self.raw.commit()
 
+    def insert_many_ids(self,statement,parameters):
+        """Pipeline inserts while preserving repository-assigned result IDs."""
+        self._prepare_transaction()
+        with self.raw.cursor() as cursor:
+            cursor.executemany(statement.replace('?','%s')+' RETURNING id',parameters,returning=True)
+            result=[]
+            if parameters:
+                while True:
+                    result.append(cursor.fetchone()[0])
+                    if not cursor.nextset():break
+            return result
+
     def rollback(self):
         self.raw.rollback()
 
     def close(self):
-        self.raw.close()
+        if self.closed:return
+        self.closed=True
+        if self.pool:
+            try:self.raw.rollback()
+            finally:self.pool.putconn(self.raw)
+        else:self.raw.close()

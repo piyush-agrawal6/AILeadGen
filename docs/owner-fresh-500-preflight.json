@@ -1,0 +1,30 @@
+{
+  "reset_verified": true,
+  "fresh_source_allocations": 50,
+  "portfolio": "https://planebyte.com/projects",
+  "catalog_mode": "CATALOG_LINK",
+  "capacity": {
+    "provider": "gmail",
+    "sender": "planebyte@gmail.com",
+    "daily_capacity_ceiling": 500,
+    "counted_last24h": 5,
+    "remaining_allowance": 495,
+    "requested_daily_target": 500,
+    "full_daily_target_fits": true,
+    "smtp_account_authenticated": true,
+    "remaining_is_counted_not_provider_guaranteed": true,
+    "limit_source": "https://support.google.com/mail/answer/22839?hl=en",
+    "account_wide_count_fresh": true,
+    "provider_preflight_at": "2026-11-02T17:38:31.118913+00:00",
+    "untracked_account_sends": 5,
+    "global_max_hour": 50,
+    "global_max_day": 500
+  },
+  "sender": "PlaneByte <planebyte@gmail.com>",
+  "day1_target": 500,
+  "day1_source_targets": {
+    "OVERTURE": 250,
+    "FIRECRAWL": 250
+  },
+  "copy_rollout_stage": "FIRST10"
+}

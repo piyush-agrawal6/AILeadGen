@@ -1,0 +1,119 @@
+{
+  "status": "LIVE",
+  "totals": {
+    "target": 2500,
+    "contactable_found": 0,
+    "analyzed": 0,
+    "prepared": 0,
+    "queued": 0,
+    "sent": 0,
+    "delivered_confirmed": 0,
+    "hard_bounced": 0,
+    "replies": 0,
+    "positive_replies": 0,
+    "meetings": 0,
+    "proposal_requests": 0,
+    "wins": 0,
+    "unsubscribes": 0,
+    "delivery_note": "SMTP acceptance is not proof of delivery; confirmed delivery is shown only when supported by a delivery event.",
+    "reply_rate": null,
+    "positive_reply_rate": null,
+    "meeting_rate": null
+  },
+  "sources": [
+    {
+      "day": 1,
+      "city": "Austin",
+      "source_type": "FIRECRAWL",
+      "status": "RUNNING",
+      "target": 50,
+      "campaign_id": "bd9e6ede-d31d-4812-bb59-d20cdf1f7059",
+      "acquisition_job_id": "8633a8da-13cf-4731-84d0-11ee665038aa",
+      "workflow_id": null,
+      "error": null
+    },
+    {
+      "day": 1,
+      "city": "Austin",
+      "source_type": "OVERTURE",
+      "status": "RUNNING",
+      "target": 50,
+      "campaign_id": "f71eedeb-c828-42f0-b0f2-6b5d8a61725b",
+      "acquisition_job_id": null,
+      "workflow_id": "f71eedeb-c828-42f0-b0f2-6b5d8a61725b",
+      "error": null
+    }
+  ],
+  "resource_usage": [
+    {
+      "acquisition_source": "OVERTURE",
+      "contactable_found": 0,
+      "analyzed": 0,
+      "prepared": 0,
+      "queued": 0,
+      "sent": 0,
+      "delivered_confirmed": 0,
+      "hard_bounced": 0,
+      "replies": 0,
+      "positive_replies": 0,
+      "meetings": 0,
+      "proposal_requests": 0,
+      "wins": 0,
+      "unsubscribes": 0,
+      "delivery_note": "SMTP acceptance is not proof of delivery; confirmed delivery is shown only when supported by a delivery event.",
+      "reply_rate": null,
+      "positive_reply_rate": null,
+      "meeting_rate": null,
+      "discovered": 0,
+      "resource_usage": {
+        "searches": 0,
+        "scraped_pages": 0,
+        "audited_websites": 0
+      }
+    },
+    {
+      "acquisition_source": "FIRECRAWL",
+      "contactable_found": 0,
+      "analyzed": 0,
+      "prepared": 0,
+      "queued": 0,
+      "sent": 0,
+      "delivered_confirmed": 0,
+      "hard_bounced": 0,
+      "replies": 0,
+      "positive_replies": 0,
+      "meetings": 0,
+      "proposal_requests": 0,
+      "wins": 0,
+      "unsubscribes": 0,
+      "delivery_note": "SMTP acceptance is not proof of delivery; confirmed delivery is shown only when supported by a delivery event.",
+      "reply_rate": null,
+      "positive_reply_rate": null,
+      "meeting_rate": null,
+      "discovered": 0,
+      "resource_usage": {
+        "searches": 1,
+        "scraped_pages": 2,
+        "audited_websites": 0
+      }
+    }
+  ],
+  "capacity": {
+    "provider": "gmail",
+    "sender": "planebyte@gmail.com",
+    "daily_capacity_ceiling": 500,
+    "counted_last24h": 5,
+    "remaining_allowance": 495,
+    "requested_daily_target": 500,
+    "full_daily_target_fits": true,
+    "smtp_account_authenticated": true,
+    "remaining_is_counted_not_provider_guaranteed": true,
+    "limit_source": "https://support.google.com/mail/answer/22839?hl=en",
+    "account_wide_count_fresh": true,
+    "provider_preflight_at": "2026-11-02T16:58:34.243916+00:00",
+    "untracked_account_sends": 0,
+    "global_max_hour": 50,
+    "global_max_day": 500
+  },
+  "http": 200
+}

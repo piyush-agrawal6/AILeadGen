@@ -1,0 +1,34 @@
+{
+  "checks": {
+    "/api/operations/dashboard": "PASS",
+    "/api/health": "PASS",
+    "/api/operations/campaigns": "PASS",
+    "/api/operations/runs": "PASS",
+    "/api/operations/messages": "PASS",
+    "/api/operations/messages?direction=INBOUND": "PASS",
+    "/api/operations/schedules": "PASS",
+    "/api/operations/reports": "PASS",
+    "/api/operations/exports": "PASS",
+    "/api/operations/files": "PASS",
+    "/api/operations/views": "PASS",
+    "/api/workflow/safety": "PASS",
+    "/api/automation/master-leads": "PASS",
+    "/api/automation/summary": "PASS",
+    "campaign:d0b00f9d-5d37-5b45-b1cb-645150b64948": {
+      "qualified": 1,
+      "accounted": 1,
+      "status": "COMPLETED"
+    },
+    "campaign:373998f9-68ad-5cd6-9f6d-a76a6e3dff20": {
+      "qualified": 0,
+      "accounted": 0,
+      "status": "COMPLETED"
+    }
+  },
+  "flags_disabled": true,
+  "operator_pauses_preserved": true,
+  "scans_started": 0,
+  "emails_sent": 0,
+  "schedules_created": 0,
+  "passed": true
+}

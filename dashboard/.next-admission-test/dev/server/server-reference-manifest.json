@@ -1,0 +1,26 @@
+{
+  "node": {
+    "00d98a54c0eda89c0be76868351029663ef941e845": {
+      "workers": {
+        "app/signup/page": {
+          "moduleId": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fplanebyte%2FDocuments%2FProjects%2Fplanebyte-leadgen%2Fdashboard%2Fapp%2Flogin%2Factions.ts%22%2C%5B%7B%22id%22%3A%2200d98a54c0eda89c0be76868351029663ef941e845%22%2C%22exportedName%22%3A%22googleSignIn%22%2C%22filename%22%3A%22app%2Flogin%2Factions.ts%22%7D%5D%5D%2C%5B%22%2FUsers%2Fplanebyte%2FDocuments%2FProjects%2Fplanebyte-leadgen%2Fdashboard%2Fapp%2Fsignup%2Factions.ts%22%2C%5B%7B%22id%22%3A%224017cb9a1ae7693da76c42d6c51366043cfa8e746e%22%2C%22exportedName%22%3A%22signupWithGoogle%22%2C%22filename%22%3A%22app%2Fsignup%2Factions.ts%22%7D%5D%5D%5D&__client_imported__=!",
+          "async": false
+        }
+      },
+      "filename": "app/login/actions.ts",
+      "exportedName": "googleSignIn"
+    },
+    "4017cb9a1ae7693da76c42d6c51366043cfa8e746e": {
+      "workers": {
+        "app/signup/page": {
+          "moduleId": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2FUsers%2Fplanebyte%2FDocuments%2FProjects%2Fplanebyte-leadgen%2Fdashboard%2Fapp%2Flogin%2Factions.ts%22%2C%5B%7B%22id%22%3A%2200d98a54c0eda89c0be76868351029663ef941e845%22%2C%22exportedName%22%3A%22googleSignIn%22%2C%22filename%22%3A%22app%2Flogin%2Factions.ts%22%7D%5D%5D%2C%5B%22%2FUsers%2Fplanebyte%2FDocuments%2FProjects%2Fplanebyte-leadgen%2Fdashboard%2Fapp%2Fsignup%2Factions.ts%22%2C%5B%7B%22id%22%3A%224017cb9a1ae7693da76c42d6c51366043cfa8e746e%22%2C%22exportedName%22%3A%22signupWithGoogle%22%2C%22filename%22%3A%22app%2Fsignup%2Factions.ts%22%7D%5D%5D%5D&__client_imported__=!",
+          "async": false
+        }
+      },
+      "filename": "app/signup/actions.ts",
+      "exportedName": "signupWithGoogle"
+    }
+  },
+  "edge": {},
+  "encryptionKey": "S1G98zK/g7+G0xbvDoc6oy5OQ3hQL9PSg/hJCoSVrXA="
+}

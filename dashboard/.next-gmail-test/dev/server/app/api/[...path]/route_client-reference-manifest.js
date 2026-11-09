@@ -1,0 +1,1 @@
+globalThis.__RSC_MANIFEST=(globalThis.__RSC_MANIFEST||{});globalThis.__RSC_MANIFEST["/api/[...path]/route"]={"moduleLoading":{"prefix":"/_next/"},"ssrModuleMapping":{},"edgeSSRModuleMapping":{},"clientModules":{},"entryCSSFiles":{"/Users/planebyte/Documents/Projects/planebyte-leadgen/dashboard/app/api/[...path]/route":[]},"rscModuleMapping":{},"edgeRscModuleMapping":{}};

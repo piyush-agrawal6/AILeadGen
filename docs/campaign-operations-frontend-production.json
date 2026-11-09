@@ -1,0 +1,42 @@
+{
+  "/": {
+    "http": 307,
+    "authenticated_surface": true,
+    "nosniff": true
+  },
+  "/leads": {
+    "http": 307,
+    "authenticated_surface": true,
+    "nosniff": true
+  },
+  "/campaigns": {
+    "http": 307,
+    "authenticated_surface": true,
+    "nosniff": true
+  },
+  "/outreach": {
+    "http": 307,
+    "authenticated_surface": true,
+    "nosniff": true
+  },
+  "/schedules": {
+    "http": 307,
+    "authenticated_surface": true,
+    "nosniff": true
+  },
+  "/reports": {
+    "http": 307,
+    "authenticated_surface": true,
+    "nosniff": true
+  },
+  "/settings": {
+    "http": 307,
+    "authenticated_surface": true,
+    "nosniff": true
+  },
+  "/api/operations/dashboard": {
+    "http": 401,
+    "authenticated_surface": true,
+    "nosniff": true
+  }
+}

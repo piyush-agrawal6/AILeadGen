@@ -1,0 +1,30 @@
+{
+  "scope": "controlled acceptance; production activation remains owner-only",
+  "backend_unit_tests": 285,
+  "backend_opt_in_live_send_skipped_in_full_suite": 1,
+  "separate_live_controlled_queue_test": "PASS",
+  "frontend_unit_tests": 45,
+  "full_browser_tests": 9,
+  "typescript_strict": "PASS",
+  "eslint": "PASS (one existing warning)",
+  "verification_build": "PASS",
+  "postgres_acceptance": [
+    "schema-9 views and target storage",
+    "enabled queue duplicate prevention across independent connections",
+    "legacy company alias enrichment across cities"
+  ],
+  "schema": 9,
+  "production_migrations_rerun": false,
+  "live_prospect_emails_during_QA": 0,
+  "live_bounce_test_emails": 0,
+  "controlled_recipient": "contact@planebyte.com",
+  "evidence": [
+    "controlled-live-queue-acceptance.json",
+    "controlled-production-tracking.json",
+    "controlled-small-acquisition.json",
+    "controlled-acquisition-routing-acceptance.json",
+    "controlled-high-intent-acceptance.json",
+    "gmail-special-use-acceptance.json",
+    "gmail-bounce-fixture-acceptance.json"
+  ]
+}

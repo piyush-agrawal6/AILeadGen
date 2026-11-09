@@ -19,3 +19,24 @@ Rotate a secret by adding a Secret Manager version, updating Vercel if relevant,
 
 Client PDF creation, metadata and downloads use the same allowlisted session and signed BFF authentication as other workspace routes. The renderer uses stored, escaped text and bundled fonts/vector assets; it performs no client-site fetches. Private R2 keys are not returned in the public report DTO. Downloads stream through the authenticated API with `application/pdf`, attachment disposition, `nosniff` and private/no-store caching. PDFs omit internal workflow, notes, assignment and database identifiers; failure details remain in private metadata. Queue capacity shares the existing bounded worker dispatcher, and prior report versions are preserved.
 
+
+## HeySow recovery — 2026-11-05 (local, not deployed)
+
+Workspace membership is checked on every authenticated request, including reads
+and cache hits; the primary allowlisted actor no longer bypasses role resolution.
+Missing context and revoked membership fail closed. The previous automatic test
+workspace provisioning is no longer used by request authentication. Explicit
+membership-backed fixtures replace assumptions about a global owner.
+
+Mailbox operations require the internal workspace. Other workspaces see a truthful
+NOT_CONFIGURED account state, and provider calls are blocked. Permanent contacted
+history uses verified context, not the legacy runtime `organization_id` default.
+Identity aliases written by new observations are workspace-namespaced; historical
+aliases remain scoped by prospect ownership. Worker entry points validate persisted
+owners. Public tracking capabilities cannot authorize SMTP or mailbox access.
+
+These repairs do not certify the whole platform. The full regression suite remains
+the release gate. Remaining singleton settings/address-suppression constraints,
+ancillary ownership and unvalidated PostgreSQL paths block public SaaS release.
+No production infrastructure, OAuth credential, environment file or email send was
+changed by this stabilization work.

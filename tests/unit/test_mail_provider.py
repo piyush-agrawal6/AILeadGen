@@ -11,7 +11,7 @@ from app.mail.providers import HostingerEmailProvider
 
 def transport():
     return HostingerEmailProvider(MailSettings(
-        _env_file=None, MAIL_PASSWORD='offline-fixture',
+        _env_file=None, EMAIL_PROVIDER='hostinger', MAIL_PASSWORD='offline-fixture',
         MAIL_SMTP_HOST='smtp.hostinger.com', MAIL_SMTP_PORT=465,
         MAIL_SMTP_SECURE=True, MAIL_IMAP_HOST='imap.hostinger.com',
         MAIL_IMAP_PORT=993, MAIL_IMAP_SECURE=True,

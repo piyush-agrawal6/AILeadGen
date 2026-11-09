@@ -1,0 +1,253 @@
+{
+  "status": "LIVE_GATED; ACCEPTANCE_INCOMPLETE",
+  "controlled_sheet_url": "https://docs.google.com/spreadsheets/d/1ykaqduUYQv7kCWw2HasWKLlDsiGRO3DkdXEIBVZXckc/edit",
+  "controlled_sheet_usage": "READ_ONLY; NO PROSPECT EMAIL",
+  "offline_backend": {
+    "passed": 375,
+    "skipped": 11,
+    "runtime": "Linux exact dependency lock"
+  },
+  "frontend_unit": {
+    "passed": 43
+  },
+  "acquisition_browser": {
+    "passed": 4,
+    "prior_suite_other_passed": 17
+  },
+  "disposable_postgres_migration": "PASSED",
+  "linux_build": "3e2d6f2c-fbdd-44c8-899e-286674063c43",
+  "live_acceptance": {
+    "gemini": {
+      "status": "PRODUCTION_HEALTHY",
+      "cloud_run_timeout_seconds": [
+        35,
+        90
+      ],
+      "last_probe_duration_seconds": 90.6,
+      "error": "ReadTimeout",
+      "model_changed": false,
+      "production_timeout_changed": false,
+      "production_recheck": "ERROR: PROVIDER_CONNECTION_FAILED",
+      "minimal_probes": {
+        "plain": "ReadTimeout at 25.3 seconds",
+        "structured": "ReadTimeout at 25.2 seconds",
+        "request_schema_matches_official_docs": true
+      },
+      "model_isolation": {
+        "gemini-3.8-flash": "timeouts",
+        "gemini-3.6-flash": {
+          "minimal_generation_seconds": 2.6,
+          "strict_intent_and_mapping_passed": true,
+          "combined_seconds": 10.0
+        },
+        "production_model_changed": true,
+        "owner_model_choice": "APPROVED gemini-3.6-flash"
+      },
+      "configured_model": "gemini-3.6-flash",
+      "production_key_matches_root": true,
+      "production_check": "FAILED; rollout guard kept all new source flags false",
+      "transient_retry_diagnostic": "PASSED on second attempt after HTTP 503; strict intent verified",
+      "retry_fix_tests": "375 Linux regression tests passed; explicit transient retry bounded to 35 seconds",
+      "retry_fix_build": "b5d65cf6-4ce4-47d9-b83b-4f83c561b62e",
+      "retry_fix_deployment": "DEPLOYED leadengine-api-00039-b9m; strict production check passed",
+      "semantic_acceptance": {
+        "status": "FIX_BUILDING",
+        "observed_wrong_target": 555,
+        "requested_target": 5,
+        "acquisition_started": false,
+        "temporary_ai_disable": true,
+        "fix": "explicit numeric target constrained in provider schema and independently validated; cache values revalidated and cache schema version increased",
+        "targeted_tests_passed": 24,
+        "build_file": "/private/tmp/acquisition-cloud-build-r7.json"
+      }
+    },
+    "firecrawl": "PRODUCTION HEALTH/CREDITS PASSED; acquisition pipeline pending",
+    "sheets": {
+      "connection": "PASSED",
+      "scope": "https://www.googleapis.com/auth/spreadsheets.readonly",
+      "spreadsheet": "LeadEngine \u2014 Controlled Google Sheets Acceptance Leads",
+      "tab": "Acceptance Leads",
+      "source_rows": 10,
+      "mapping": "REVIEWED_DETERMINISTIC_HEADER_MAPPING; AI unavailable",
+      "processing": "COMPLETED",
+      "execution": "leadengine-acquisition-rtrdj",
+      "job_id": "50e28925-a446-46c5-bf76-d2aaa2b67662",
+      "campaign_id": "5f38b7e5-9aa7-4d6b-b7b4-f70de94af8d6",
+      "additional_discovery": false,
+      "outreach_created": false,
+      "canonical_leads": 10,
+      "observations": 10,
+      "source_evidence": 10,
+      "review_cases": 10,
+      "qualified": 0,
+      "email_messages": 0,
+      "email_queue": 0,
+      "outreach_runs": 0,
+      "reason": "All sample website fields empty; review required; no guessed websites or qualification",
+      "duplicate_execution": {
+        "status": "PASSED",
+        "before": {
+          "businesses": 10,
+          "messages": 0,
+          "observations": 10,
+          "review_cases": 10,
+          "source_evidence": 10
+        },
+        "after": {
+          "businesses": 10,
+          "messages": 0,
+          "observations": 10,
+          "review_cases": 10,
+          "source_evidence": 10
+        },
+        "execution": "leadengine-acquisition-w5v9s"
+      }
+    },
+    "gmail": {
+      "smtp": "READY",
+      "imap": "READY",
+      "configuration_changed": false
+    },
+    "firecrawl_adapter": {
+      "searches": 1,
+      "results": 5,
+      "scrapes": 2,
+      "valid_public_candidates": 2,
+      "canonical_leads_created": 0,
+      "emails_sent": 0
+    },
+    "firecrawl_pipeline": {
+      "status": "DEGRADED_SHORTFALL_RECORDED",
+      "job_id": "40d22015-bcb6-4f70-a611-f01d81886bd7",
+      "campaign_id": "1e87dca2-2ee5-46dd-a6bd-96becbe7d8b5",
+      "execution": "leadengine-acquisition-sn6hd",
+      "interpretation": "MANUAL_FALLBACK; Gemini unavailable",
+      "max_searches": 1,
+      "max_scrapes": 5,
+      "qualified_target": 5,
+      "max_runtime_seconds": 600,
+      "outreach_created": false,
+      "counts": {
+        "analyzed": 3,
+        "candidates": 4,
+        "duplicates": 0,
+        "existing_businesses": 0,
+        "issues": 1,
+        "new_businesses": 4,
+        "qualified": 0,
+        "search_results": 5,
+        "shortfall": 5,
+        "unique_businesses": 4
+      },
+      "email_messages": 0,
+      "email_queue": 0,
+      "outreach_runs": 0,
+      "qualification_target_met": false,
+      "chain_filter_verified": true,
+      "actual_opportunity_scores_below_threshold": true
+    },
+    "file_imports": {
+      "CSV": {
+        "id": "4eebe1bf-12ec-40a2-a48c-79dbb34cdbca",
+        "source_type": "FILE_IMPORT",
+        "status": "COMPLETED",
+        "error_code": null,
+        "error_message": null,
+        "counts": {
+          "analyzed": 0,
+          "candidates": 2,
+          "duplicates": 1,
+          "existing_businesses": 1,
+          "invalid_rows": 1,
+          "issues": 1,
+          "new_businesses": 0,
+          "qualified": 0,
+          "rows_read": 3,
+          "shortfall": 0,
+          "unique_businesses": 1,
+          "valid_rows": 2
+        },
+        "email_messages": 0,
+        "email_queue": 0,
+        "outreach_runs": 0
+      },
+      "XLSX": {
+        "id": "68ab241c-8c5f-43f4-9505-f01e90dcb3a7",
+        "source_type": "FILE_IMPORT",
+        "status": "COMPLETED",
+        "error_code": null,
+        "error_message": null,
+        "counts": {
+          "analyzed": 0,
+          "candidates": 2,
+          "duplicates": 1,
+          "existing_businesses": 1,
+          "invalid_rows": 1,
+          "issues": 1,
+          "new_businesses": 0,
+          "qualified": 0,
+          "rows_read": 3,
+          "shortfall": 0,
+          "unique_businesses": 1,
+          "valid_rows": 2
+        },
+        "email_messages": 0,
+        "email_queue": 0,
+        "outreach_runs": 0
+      },
+      "issue_downloads": [
+        {
+          "job_id": "4eebe1bf-12ec-40a2-a48c-79dbb34cdbca",
+          "http": 200,
+          "issues_exported": 1,
+          "csv_headers_verified": true,
+          "download_disposition": "attachment; filename=\"import-issues.csv\""
+        },
+        {
+          "job_id": "68ab241c-8c5f-43f4-9505-f01e90dcb3a7",
+          "http": 200,
+          "issues_exported": 1,
+          "csv_headers_verified": true,
+          "download_disposition": "attachment; filename=\"import-issues.csv\""
+        }
+      ]
+    }
+  },
+  "real_prospect_email_during_qa": false,
+  "existing_worker_must_remain_unchanged": true,
+  "schema": 13,
+  "migration": {
+    "backup_restore_verified": true,
+    "controls_preserved": true,
+    "data_reset": false,
+    "active_scan_interrupted": false
+  },
+  "api_revision": "leadengine-api-00041-plr",
+  "frontend_deployment": "dpl_E8SGknpX4rv3CL6apGUsNBdyepfH",
+  "source_features_enabled": false,
+  "separate_acquisition_service_account": "leadengine-acquisition-sa@querryside.iam.gserviceaccount.com",
+  "existing_worker_spec_preserved": true,
+  "scheduler_metadata_preserved": true,
+  "existing_global_flags_preserved": {
+    "AUTO_SCAN_ENABLED": true,
+    "AUTO_EMAIL_ENABLED": true,
+    "EMAIL_SENDING_ENABLED": true
+  },
+  "source_jobs_created": 4,
+  "no_qa_canonical_lead_writes": false,
+  "existing_worker_permissions_for_new_source_secrets_removed": true,
+  "production_health": {
+    "api": "READY",
+    "gmail_smtp": "READY",
+    "gmail_imap": "READY"
+  },
+  "source_deadline_fix": "DEPLOYED to isolated worker; mixed groups share deadline, whole execution has timeout",
+  "review_count_fix": "DEPLOYED AND VERIFIED: review_cases=10, separate email eligibility count, Review Leads link",
+  "enabled_source_features": [],
+  "source_feature_flags": {
+    "ENABLE_AI_ACQUISITION": false,
+    "ENABLE_FIRECRAWL_ACQUISITION": false,
+    "ENABLE_LEAD_IMPORT": false,
+    "ENABLE_GOOGLE_SHEETS_IMPORT": false
+  }
+}

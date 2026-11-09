@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel,Field
 
 
 class LeadListItem(BaseModel):
@@ -95,6 +95,8 @@ class LeadScoreBreakdown(BaseModel):
 
 
 class LeadDetailResponse(BaseModel):
+    company_intelligence: Dict[str, Any] = Field(default_factory=dict)
+    icp_match: Dict[str, Any] = Field(default_factory=dict)
     business: Dict[str, Any]
     website_status: str
     score: Optional[LeadScoreBreakdown] = None

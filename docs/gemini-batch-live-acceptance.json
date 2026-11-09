@@ -1,0 +1,26 @@
+{
+  "provider": "Gemini",
+  "model": "gemini-3.6-flash",
+  "api_key": "CONFIGURED",
+  "batch_size": 40,
+  "stages": [
+    {
+      "leads": 1,
+      "status": "FAIL",
+      "returned": 1,
+      "metrics": {
+        "leads_requested": 1,
+        "batches_created": 1,
+        "batch_leads": 1,
+        "gemini_requests": 3,
+        "failed_batches": 1,
+        "deterministic_fallback_leads": 1,
+        "average_batch_size": 1.0,
+        "average_latency_ms": 0
+      },
+      "seconds": 23.96,
+      "smtp_messages_sent": 0
+    }
+  ],
+  "complete": false
+}

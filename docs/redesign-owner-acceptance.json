@@ -1,0 +1,109 @@
+{
+  "company": {
+    "id": 2,
+    "prospect_id": "a0cda101-9f06-4337-8974-fb1f17d5bb8e",
+    "name": "Homestay Hotels"
+  },
+  "report": {
+    "id": "b431980e-e3a1-4f52-851f-bbddff2eee40",
+    "prospect_id": "a0cda101-9f06-4337-8974-fb1f17d5bb8e",
+    "business_id": 2,
+    "created_at": "2026-11-01T16:22:05.861510+00:00",
+    "created_by": "planebyte@gmail.com",
+    "version": 2,
+    "status": "QUEUED"
+  },
+  "status": "SENT",
+  "subject": "3 website opportunities for Homestay Hotels",
+  "body": "Hi Homestay Hotels team,\n\nWe looked at your public website while researching hospitality businesses in Greater London, with the experience for potential guests in mind.\n\nFrom the pages reviewed, the page we reached was served over HTTP and a mobile viewport declaration was absent from the reviewed HTML.\n\nTogether, these points may affect visitor trust, mobile usability and the path to an enquiry, before someone decides to get in touch.\n\nPlaneByte can connect a clearer mobile-first website and enquiry journey with stronger search foundations and technical trust. For an eligible website project, SEO launch foundations, basic external security configuration review and post-launch technical validation can be included in the agreed scope, rather than separate add-ons.\n\nI've attached a short review showing the evidence and our proposed priorities.\n\nIf improving this is on your roadmap, reply here and we'll outline what we'd prioritise first.\n\nBest,\nPlaneByte\nSoftware Engineering \u00b7 SEO \u00b7 Security\nhttps://planebyte.com\ncontact@planebyte.com",
+  "variant": "combined",
+  "pdf_path": "/Users/planebyte/Documents/Projects/planebyte-leadgen/output/pdf/PlaneByte opportunity review.pdf",
+  "pdf_pages": 8,
+  "attachment_filename": "PlaneByte digital review.pdf",
+  "attachment_size_bytes": 1288617,
+  "attachment_sha256": "bc8747eb0bbb743278335a72872f5d6409ddd82d6b5a38d15f97e48014f7d3a5",
+  "top_findings": [
+    {
+      "code": "HTTP_ONLY",
+      "kind": "SECURITY",
+      "title": "The public experience still uses HTTP",
+      "category": "Visitor trust",
+      "observation": "the page we reached was served over HTTP",
+      "evidence": "Traffic to the observed page is unencrypted.",
+      "impact": "Unencrypted browsing can create trust and data-protection concerns for visitors.",
+      "improvement": "Consistent HTTPS across the public journey, with redirects and certificate checks.",
+      "points": 30,
+      "priority": "HIGH IMPACT"
+    },
+    {
+      "code": "NO_MOBILE_VIEWPORT",
+      "kind": "WEBSITE",
+      "title": "A clearer experience on smaller screens",
+      "category": "Mobile usability",
+      "observation": "a mobile viewport declaration was absent from the reviewed HTML",
+      "evidence": "No viewport declaration in observed HTML.",
+      "impact": "Potential customers may have to work harder to read content or reach the next step on a phone.",
+      "improvement": "Responsive page templates with a verified mobile layout and clear next steps.",
+      "points": 20,
+      "priority": "HIGH IMPACT"
+    },
+    {
+      "code": "NO_PRIMARY_CTA",
+      "kind": "WEBSITE",
+      "title": "Make the next enquiry easier",
+      "category": "Customer journey",
+      "observation": "a prominent booking or enquiry action was not found in the sampled links",
+      "evidence": "A clear service enquiry action was not found among the sampled links.",
+      "impact": "Interested visitors may not have an obvious route from browsing to contacting the business.",
+      "improvement": "A visible primary action and a tested enquiry or booking journey.",
+      "points": 15,
+      "priority": "HIGH IMPACT"
+    }
+  ],
+  "primary_service": "Website modernisation + technical foundation upgrade",
+  "included_value": [
+    {
+      "title": "SEO launch foundations",
+      "description": "Core page titles, descriptions and crawlability checks for the agreed pages."
+    },
+    {
+      "title": "Basic external security configuration review",
+      "description": "Public HTTPS and browser configuration checks, with hosting dependencies documented."
+    },
+    {
+      "title": "Post-launch technical validation",
+      "description": "Recheck the agreed pages, enquiry paths and technical setup after launch."
+    }
+  ],
+  "cta": "If improving this is on your roadmap, reply here and we'll outline what we'd prioritise first.",
+  "controlled_recipient": "agrawaljoy1@gmail.com",
+  "real_prospect_contacted": false,
+  "all_global_flags_false": true,
+  "visual_review_passed": true,
+  "provider_message_id": "<179355039477.40295.10832165171581254769@planebyte.com>",
+  "mime_path": "/Users/planebyte/Documents/Projects/planebyte-leadgen/output/owner-redesign/outbound.eml",
+  "result": {
+    "id": "35a2a209-042e-4655-85f9-e717c471040e",
+    "status": "SENT",
+    "thread_id": "9b29b1d9-88bd-4094-8acc-1f73a9ebcf99",
+    "test_mode": true,
+    "provider_message_id": "<179355039477.40295.10832165171581254769@planebyte.com>",
+    "owner_controlled_redirect": true
+  },
+  "smtp_calls": 1,
+  "gmail_sent_visible": true,
+  "sent_mime_verified": true,
+  "tracking": {
+    "open_http": 200,
+    "click_http": 302,
+    "unsubscribe_confirmation_http": 200,
+    "unsubscribe_applied": false,
+    "qa_signals_automated": true
+  },
+  "timeline": [
+    "CLICK_SIGNAL",
+    "OPEN_SIGNAL",
+    "SMTP_ACCEPTED"
+  ],
+  "verified": true
+}
