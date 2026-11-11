@@ -53,8 +53,9 @@ def email_account(request:Request,conn=Depends(get_db,scope='function')):
         if not get_settings().heysow_customer_gmail_enabled:
             return {'status':'NOT_CONFIGURED','provider':None,'email_address':None,'display_name':None,'sending_enabled':False,'can_send':False,'sync_enabled':False,'gmail_status':'Not configured for this workspace'}
         acc=service.account(conn,request.state.user_email);s=service.settings_for(conn,acc)
-        return {**acc,'sending_enabled':s.sending_enabled,'can_send':s.sending_enabled and acc['connection_status']=='CONNECTED',
-            'sync_enabled':True,'send_mode':s.mode,'test_recipient':s.test_recipient or None,'max_per_hour':s.max_hour,'max_per_day':s.max_day,'live_approved':s.live_approved}
+        from app.mail.customer import can_send
+        return {**acc,'sending_enabled':s.sending_enabled,'can_send':can_send(conn,acc,s),
+            'sync_enabled':acc['status']=='CONNECTED' and acc['connection_status']=='CONNECTED','send_mode':s.mode,'test_recipient':s.test_recipient or None,'max_per_hour':s.max_hour,'max_per_day':s.max_day,'live_approved':s.live_approved}
     s=mail_settings();acc=service.account(conn,request.state.user_email)
     return {**acc,'send_mode':s.mode,'test_recipient':s.test_recipient if s.mode=='test' else None,'sync_enabled':s.sync_enabled,'sync_interval_minutes':s.sync_interval,'max_per_hour':s.max_hour,'max_per_day':s.max_day,'gmail_status':'Configured; acceptance required' if s.provider=='gmail' else 'Inactive','sending_enabled':s.sending_enabled,'can_send':s.sending_enabled and ((s.mode=='test' and not s.live_approved) or (s.mode=='production' and s.live_approved)),'live_approved':s.live_approved,'tracking':tracking.preferences(conn),'tracking_base_url':s.tracking_base_url}
 @router.post('/health')
@@ -81,6 +82,7 @@ def sync(request:Request,conn=Depends(get_db,scope='function')):
     from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
     account_id=None if request.state.organization_id==PLANEBYTE_ORGANIZATION_ID else service.account(conn,request.state.user_email)['id']
     try:return service.sync_mailbox(account_id=account_id)
+    except HTTPException:raise
     except Exception:raise HTTPException(503,'Inbox synchronization is temporarily unavailable. No credentials or message bodies are included in this error.') from None
 @router.get('/leads/{lead_id}/compose')
 def compose(lead_id:int,request:Request,conn=Depends(get_db,scope='function')):
@@ -103,7 +105,11 @@ def compose(lead_id:int,request:Request,conn=Depends(get_db,scope='function')):
     templates=[render_client_template(conn,lead_id,t[0],s) for t in conn.execute('SELECT id FROM email_templates WHERE enabled=1 AND organization_id=? AND (vertical IS NULL OR vertical=(SELECT vertical FROM businesses WHERE id=?)) ORDER BY name',(organization,lead_id)).fetchall() if (legacy_enabled() or not archived_template(t[0]))]
     templates.sort(key=lambda t:not t.get('recommended',False))
     blocked=service.suppressed(conn,pid)
-    return {'account_id':acc['id'] if acc else None,'recipients':[] if blocked else service.recipients(conn,pid),'reports':reports,'templates':[] if blocked else templates,'suppressed':blocked,'from_address':s.from_address or None,'from_name':s.from_name,'test_mode':s.mode=='test','effective_test_recipient':s.test_recipient if s.mode=='test' else None,'sending_enabled':s.sending_enabled,'can_send':s.sending_enabled and ((s.mode=='test' and not s.live_approved) or (s.mode=='production' and s.live_approved)),'tracking':tracking.preferences(conn),'draft':(lambda r:json.loads(r[0]) if r else None)(conn.execute('SELECT payload_json FROM email_drafts WHERE prospect_id=? AND actor=? AND organization_id=?',(pid,request.state.user_email,organization)).fetchone())}
+    ready=s.sending_enabled and ((s.mode=='test' and not s.live_approved) or (s.mode=='production' and s.live_approved))
+    if acc:
+        from app.mail.customer import can_send
+        ready=can_send(conn,acc,s)
+    return {'account_id':acc['id'] if acc else None,'recipients':[] if blocked else service.recipients(conn,pid),'reports':reports,'templates':[] if blocked else templates,'suppressed':blocked,'from_address':s.from_address or None,'from_name':s.from_name,'test_mode':s.mode=='test','effective_test_recipient':s.test_recipient if s.mode=='test' else None,'sending_enabled':s.sending_enabled,'can_send':ready,'tracking':tracking.preferences(conn),'draft':(lambda r:json.loads(r[0]) if r else None)(conn.execute('SELECT payload_json FROM email_drafts WHERE prospect_id=? AND actor=? AND organization_id=?',(pid,request.state.user_email,organization)).fetchone())}
 
 from app.integrations import gmail as customer_gmail,service as connection_service
 from app.api.routes.integrations import Code
@@ -134,6 +140,15 @@ async def gmail_health(connection_id:uuid.UUID,conn=Depends(get_db,scope='functi
 class SyncRetry(Strict):
     revision:int=Field(ge=1)
     confirmation:Literal['RETRY_SYNC']
+
+class SyncRestart(Strict):
+    revision:int=Field(ge=1)
+    confirmation:Literal['RESTART_RECENT_SYNC']
+
+@router.post('/gmail/{connection_id}/sync-restart',dependencies=[Depends(customer_gmail.require_enabled)])
+def gmail_sync_restart(connection_id:uuid.UUID,body:SyncRestart,conn=Depends(get_db,scope='function')):
+    from app.mail.customer import restart_sync
+    return restart_sync(conn,str(connection_id),body.revision)
 
 @router.post('/gmail/{connection_id}/sync-retry',dependencies=[Depends(customer_gmail.require_enabled)])
 def gmail_sync_retry(connection_id:uuid.UUID,body:SyncRetry,conn=Depends(get_db,scope='function')):

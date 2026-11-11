@@ -1,0 +1,19 @@
+{
+  "requirements": 510,
+  "statuses": {
+    "PARTIALLY IMPLEMENTED": 50,
+    "VERIFIED": 355,
+    "BLOCKED BY EXTERNAL APPROVAL": 4,
+    "IMPLEMENTED BUT NOT VERIFIED": 66,
+    "NOT APPLICABLE": 5,
+    "MISSING": 30
+  },
+  "closure_numerator": 355,
+  "closure_denominator": 505,
+  "verified_closure_percent": 70.3,
+  "local_functional_numerator": 399,
+  "local_functional_denominator": 501,
+  "local_functional_percent": 79.64,
+  "launch": "NO-GO",
+  "scope": "510 individually enumerated owner-request criteria, including acceptance and release gates; not weighted by feature size."
+}

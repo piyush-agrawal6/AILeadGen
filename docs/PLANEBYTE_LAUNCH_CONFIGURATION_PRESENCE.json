@@ -1,0 +1,331 @@
+[
+  {
+    "name": "AUTH_GOOGLE_ID",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env",
+      "dashboard/.env.local"
+    ]
+  },
+  {
+    "name": "AUTH_GOOGLE_SECRET",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env",
+      "dashboard/.env.local"
+    ]
+  },
+  {
+    "name": "AUTH_SECRET",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env",
+      "dashboard/.env.local"
+    ]
+  },
+  {
+    "name": "AUTH_URL",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "LEADENGINE_API_SIGNING_SECRET",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env",
+      "dashboard/.env.local"
+    ]
+  },
+  {
+    "name": "LEADENGINE_API_URL",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      "dashboard/.env.local"
+    ]
+  },
+  {
+    "name": "ALLOWED_USER_EMAILS",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env",
+      "dashboard/.env.local"
+    ]
+  },
+  {
+    "name": "DATABASE_URL",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "DATABASE_BACKEND",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "INTENT_RADAR_STAGE",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "INTENT_RADAR_INTERNAL_WORKSPACES",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "INTENT_RADAR_STACKEXCHANGE_ENABLED",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "INTENT_RADAR_STACKEXCHANGE_KEY",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "INTENT_RADAR_STACKEXCHANGE_SITES",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "INTENT_RADAR_APPROVED_FEED_HOSTS",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "INTENT_RADAR_SCHEDULES_ENABLED",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "INTENT_RADAR_MIN_SCHEDULE_HOURS",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "INTENT_RADAR_AI_ENABLED",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "INTENT_RADAR_AI_DAILY_CALLS",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "INTENT_RADAR_AI_DAILY_TOKENS",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "AI_PRIMARY_PROVIDER",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "VERTEX_AI_ENABLED",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "VERTEX_AI_PROJECT_ID",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "VERTEX_AI_LOCATION",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "VERTEX_AI_MODEL",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "GOOGLE_APPLICATION_CREDENTIALS",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "GEMINI_API_ENABLED",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "GEMINI_API_KEY",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "GEMINI_MODEL",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "AI_FALLBACK_ENABLED",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "HEYSOW_DEVELOPER_API_ENABLED",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "HEYSOW_MCP_ENABLED",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "MCP_ALLOWED_HOSTS",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "MCP_ALLOWED_ORIGINS",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "HEYSOW_CUSTOMER_INTEGRATIONS_ENABLED",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "HEYSOW_CUSTOMER_GMAIL_ENABLED",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "HEYSOW_CUSTOMER_GMAIL_REDIRECT_URI",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "HEYSOW_INTEGRATION_ENCRYPTION_KEY",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "HEYSOW_CUSTOMER_MAIL_SENDING_ENABLED",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "HEYSOW_CUSTOMER_MAIL_LIVE_APPROVED",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "HEYSOW_CUSTOMER_MAIL_MODE",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "HEYSOW_CUSTOMER_MAIL_TEST_RECIPIENT",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "GCP_PROJECT_ID",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "GCP_REGION",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "SCAN_EXECUTOR",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "LEADENGINE_CLOUD_RUN_JOB",
+    "process_presence": false,
+    "files_with_nonempty_value": []
+  },
+  {
+    "name": "ACQUISITION_CLOUD_RUN_JOB",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "R2_ENDPOINT",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "R2_ACCESS_KEY_ID",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "R2_SECRET_ACCESS_KEY",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "R2_BUCKET_NAME",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "R2_REGION",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "UPSTASH_REDIS_REST_URL",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  },
+  {
+    "name": "UPSTASH_REDIS_REST_TOKEN",
+    "process_presence": false,
+    "files_with_nonempty_value": [
+      ".env"
+    ]
+  }
+]

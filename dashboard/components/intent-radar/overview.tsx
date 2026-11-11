@@ -1,0 +1,31 @@
+"use client";
+import Link from 'next/link';
+import {Activity,Target,Radio,Bookmark,Bell,CheckCheck,Search,Plus,ArrowRight,Radar} from 'lucide-react';
+import type {IntentOverview} from '@/lib/intent-radar';
+import {useRadarRead,useRadarCapabilities} from './provider';
+import {Badge,PageHeading,LoadingSkeleton,ErrorState} from './ui';
+import {SignalCard} from './signals';
+
+export function OverviewDashboard(){
+ const query=useRadarRead<IntentOverview>('/overview'),access=useRadarCapabilities();
+ if(query.error)return <ErrorState message={query.error.message} retry={()=>void query.refetch()}/>;
+ if(!query.data)return <LoadingSkeleton/>;
+ const d=query.data;
+ const fresh=!d.recent_signals.length&&!d.monitors.length&&!d.opportunities.length&&!d.alerts.length;
+ const metrics=[['New Signals',d.new_signals,Activity,'/signals?status=New'],['High-Relevance Signals',d.high_relevance,Target,'/signals?min_score=85'],['Active Monitors',d.active_monitors,Radio,'/monitors'],['Saved Opportunities',d.saved_opportunities,Bookmark,'/opportunities'],['Reviewed Signals',d.reviewed_signals,CheckCheck,'/signals?status=Reviewed'],['Unread Alerts',d.unread_alerts,Bell,'/alerts']] as const;
+ const trends=[...d.trends].reverse(),max=Math.max(1,...trends.map(t=>t.volume));
+ return <div className="ir-page">
+  <PageHeading title="Intent Radar" description="Discover conversations that reveal what potential customers need." badge={<Badge>{access.data?.stage||'Beta'}</Badge>} actions={<><Link className="ir-button" href="/intent-radar/monitors/new"><Plus size={16}/>Create Monitor</Link><Link className="ir-button ir-primary" href="/intent-radar/discover"><Search size={16}/>Discover Intent</Link></>}/>
+  {fresh&&<section className="ir-panel ir-onboarding"><div><p className="ir-eyebrow">YOUR FIRST SIGNAL STARTS HERE</p><h2>Start finding relevant conversations</h2><p>Turn public discussions into useful research for your business.</p><div className="ir-onboarding-steps">{['Describe what your customers are looking for.','Discover public discussions.','Review and save useful opportunities.'].map((s,i)=><div key={s}><span className="ir-step-dot">{i+1}</span><span>{s}</span></div>)}</div><Link className="ir-button ir-primary" href="/intent-radar/monitors/new">Create Your First Monitor <ArrowRight size={16}/></Link></div><div className="ir-radar-mini" aria-hidden="true"><Radar size={36}/></div></section>}
+  <div className="ir-metrics">{metrics.map(([name,count,Icon,href])=><Link className="ir-panel" key={name} href={'/intent-radar'+href}><div><span>{name}</span><Icon size={15}/></div><strong>{count}</strong></Link>)}</div>
+  {!fresh&&<>
+   <div className="ir-section-heading"><h2>Latest relevant conversations</h2><Link className="ir-link" href="/intent-radar/signals">Review all signals <ArrowRight size={14}/></Link></div>
+   {d.recent_signals.length?<div className="ir-cards">{[...d.recent_signals].sort((a,b)=>b.score-a.score).slice(0,4).map(s=><SignalCard key={s.id} signal={s}/>)}</div>:<section className="ir-panel"><h3>Your monitors are ready</h3><p>Run a manual check from Monitors to collect your first source-backed conversations.</p><Link className="ir-button" href="/intent-radar/monitors">Open Monitors <ArrowRight size={15}/></Link></section>}
+   <div className="ir-cards"><section className="ir-panel"><div className="ir-section-heading"><h2>Monitor activity</h2><Link className="ir-link" href="/intent-radar/monitors">Manage</Link></div>{d.monitors.map(m=><Link className="ir-summary" key={m.id} href={'/intent-radar/monitors/'+m.id}><Radio size={19}/><div><strong>{m.name}</strong><small>{m.last_checked?'Checked '+new Date(m.last_checked).toLocaleDateString():'Ready for its first manual check'}</small></div><Badge>{m.status}</Badge></Link>)}{!d.monitors.length&&<p>Create a monitor to save your search topics for your next check.</p>}</section>
+   <section className="ir-panel"><div className="ir-section-heading"><h2>Opportunities to review</h2><Link className="ir-link" href="/intent-radar/opportunities">View all</Link></div>{d.opportunities.filter(o=>['New','Reviewing'].includes(o.status)).map(o=><Link className="ir-summary" key={o.id} href="/intent-radar/opportunities"><Target size={19}/><div><strong>{o.next_action||'Review source evidence'}</strong><small>{o.priority} priority · {o.status}</small></div><ArrowRight size={15}/></Link>)}{!d.opportunities.some(o=>['New','Reviewing'].includes(o.status))&&<p>Choose a useful signal and add it to Opportunities when it’s worth a closer look.</p>}</section>
+   <section className="ir-panel"><div className="ir-section-heading"><h2>Recent activity</h2><Link className="ir-link" href="/intent-radar/alerts">Alerts</Link></div>{d.alerts.slice(0,3).map(a=><Link className="ir-summary" href={a.signal_id?'/intent-radar/signals/'+a.signal_id:'/intent-radar/alerts'} key={a.id}><Bell size={18}/><div><strong>{a.title}</strong><small>{new Date(a.created_at).toLocaleString()}</small></div></Link>)}{!d.alerts.length&&<p>Monitor check activity will appear here after your next check.</p>}</section>
+   <section className="ir-panel"><h2>Signals over time</h2><p>Public conversations by observed date · latest {trends.length} recorded days</p>{trends.length?<div className="ir-trend" role="img" aria-label={trends.map(t=>`${t.day}: ${t.volume} signals`).join('; ')}>{trends.map(t=><div key={t.day}><small>{t.volume}</small><span style={{height:Math.max(5,t.volume/max*65)+'%'}}/><small>{t.day.slice(5)}</small></div>)}</div>:<p>No signal history yet.</p>}</section></div>
+  </>}
+  {fresh&&<div className="ir-split"><section className="ir-panel"><div className="ir-section-heading"><h2>A focused public source</h2><Badge>Available</Badge></div><p>Hacker News · recent Ask HN discussions. Each check reviews a small, bounded set of public stories matching your keywords.</p><Link className="ir-link" href="/intent-radar/integrations">Understand source coverage <ArrowRight size={14}/></Link></section><section className="ir-panel"><h2>You choose when to check</h2><p>Save a monitor, then run checks when you need fresh research. Review the original evidence before deciding what to pursue.</p><Link className="ir-link" href="/intent-radar/monitors/new">Set up a monitor <ArrowRight size={14}/></Link></section></div>}
+ </div>;
+}

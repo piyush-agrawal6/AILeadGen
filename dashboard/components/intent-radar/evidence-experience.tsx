@@ -1,0 +1,34 @@
+"use client";
+import Link from 'next/link';
+import {useState} from 'react';
+import {ArrowLeft,Bookmark,Target,CheckCheck,ShieldCheck,X,ArrowUpRight,StickyNote} from 'lucide-react';
+import type {IntentSignal} from '@/lib/intent-radar';
+import {useRadarRead,useRadarMutation,useRadarCapabilities} from './provider';
+import {Badge,Field,PageHeading,ErrorState,LoadingSkeleton,Modal} from './ui';
+import {SignalScore} from './signals';
+import {ProviderLogo} from './provider-logo';
+import {SignalIntelligence} from './advanced-controls';
+
+export function EvidenceDetail({id}:{id:string}){
+ const query=useRadarRead<IntentSignal>('/signals/'+id),access=useRadarCapabilities();
+ if(query.error)return <ErrorState message={query.error.message} retry={()=>void query.refetch()}/>;
+ if(!query.data)return <LoadingSkeleton/>;
+ return <EvidenceContent key={id} signal={query.data} canWrite={!!access.data?.can_write}/>;
+}
+function EvidenceContent({signal:s,canWrite}:{signal:IntentSignal;canWrite:boolean}){
+ const mutation=useRadarMutation(),[notes,setNotes]=useState(s.notes),[dismiss,setDismiss]=useState(false),[error,setError]=useState('');
+ const disabled=!canWrite||mutation.isPending;
+ async function review(status:string,saveNotes=false){setError('');try{await mutation.mutateAsync({path:'/signals/'+s.id,method:'PATCH',body:{revision:s.revision,status,...(saveNotes?{notes}:{})}});setDismiss(false)}catch(e){setError((e as Error).message)}}
+ return <div className="ir-page"><Link className="ir-link" href="/intent-radar/signals"><ArrowLeft size={15}/>Back to Intent Signals</Link>
+  <PageHeading title={s.title} description="Review the original discussion and the evidence behind this match." badge={<Badge>{s.status}</Badge>}/>
+  <div className="ir-meta"><span className="ir-source"><ProviderLogo provider={s.source} size={24}/>{s.source}</span><Badge>{s.category}</Badge><SignalScore score={s.score}/><small>Observed {new Date(s.observed_at).toLocaleString()}</small></div>
+  <div className="ir-detail-grid"><div className="ir-stack"><section className="ir-panel"><div className="ir-section-heading"><h2>Original conversation evidence</h2><Badge>Public source</Badge></div><blockquote className="ir-source-quote">{s.excerpt||s.title}</blockquote><small>Stored excerpt · retrieved {new Date(s.retrieved_at).toLocaleString()}</small><div className="ir-actions" style={{marginTop:18}}><a className="ir-button ir-primary" href={s.source_url} target="_blank" rel="noopener noreferrer">Open original public discussion <ArrowUpRight size={15}/></a></div></section>
+   <section className="ir-panel"><div className="ir-section-heading"><h2>Why this matches</h2><ShieldCheck size={20}/></div><p>{s.evidence.explanation||'No relevance explanation is currently available.'}</p><div className="ir-evidence-columns"><div><h3>Matched keywords</h3><div className="ir-chips">{s.evidence.matched_keywords?.map(k=><span className="ir-chip" key={k}>{k}</span>)}{!s.evidence.matched_keywords?.length&&<small>None recorded</small>}</div></div><div><h3>Intent indicators</h3><p>{s.evidence.intent_phrase||'No explicit intent phrase was found.'}</p></div></div><details><summary>Evidence and uncertainty</summary><div className="ir-form-section" style={{marginTop:16}}><Badge>{s.evidence.confidence||'Confidence unavailable'}</Badge><h3>Directly observed text</h3><p>{s.evidence.observed_text||'The source did not provide additional evidence.'}</p><h3>Uncertain or missing information</h3><ul className="ir-source-limits">{(s.evidence.unknown||['Budget, buying authority and purchasing readiness are not verified.']).map((u,i)=><li key={i}>{u}</li>)}</ul><small>The relevance score is an interpretation of public text, not proof of a purchasing decision.</small></div></details></section>
+   <section className="ir-panel ir-form-section"><h2><StickyNote size={18}/>Your review notes</h2><Field label="Your review notes"><textarea maxLength={4000} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="What makes this conversation useful? What needs another look?"/></Field><div className="ir-actions"><button className="ir-primary" disabled={disabled} onClick={()=>void review(s.status,true)}>Save note</button>{notes!==s.notes&&<small>Unsaved note</small>}</div></section>
+   <section className="ir-panel"><h3>Source attribution & provenance</h3><p>{typeof s.evidence.provenance?.attribution==='string'?s.evidence.provenance.attribution:s.evidence.provenance?.attribution?[s.evidence.provenance.attribution.author,s.evidence.provenance.attribution.license,s.evidence.provenance.attribution.source].filter(Boolean).join(' · '):s.source}</p><small>Method: {s.evidence.provenance?.fetch_method||'Public source'}. Feed-declared language: {s.evidence.provenance?.declared_feed_language||'Unknown'}; item language is not independently verified. Geography remains unknown.</small></section>
+   <SignalIntelligence id={s.id}/></div><aside className="ir-stack"><section className="ir-panel ir-form-section"><h2>Review this signal</h2><Field label="Signal status"><select disabled={disabled} value={s.status} onChange={e=>void review(e.target.value)}>{['New','Reviewed','Saved','Dismissed','Needs Review'].map(v=><option key={v}>{v}</option>)}</select></Field><button className="ir-primary" disabled={disabled} onClick={()=>mutation.mutate({path:'/saved/'+s.id,method:s.saved?'DELETE':'POST'})}><Bookmark size={16}/>{s.saved?'Unsave signal':'Save signal'}</button><button disabled={disabled} onClick={()=>void review('Reviewed')}><CheckCheck size={16}/>Mark Reviewed</button><button disabled={disabled} onClick={()=>mutation.mutate({path:'/opportunities/'+s.id})}><Target size={16}/>Add to Opportunity</button><button disabled={disabled} onClick={()=>setDismiss(true)}><X size={16}/>Dismiss signal</button>{!canWrite&&<small>Your workspace role allows evidence review, but not record changes.</small>}</section>
+   <section className="ir-panel"><h2>Matched monitors</h2>{s.monitors?.length?s.monitors.map(m=><Link className="ir-summary" href={'/intent-radar/monitors/'+m.id} key={m.id}><Target size={17}/><div><strong>{m.name}</strong><small>View monitor and its results</small></div></Link>):<p>Collected through a direct search. No monitor is linked.</p>}<Link className="ir-link" href="/intent-radar/alerts">Review workspace alerts <ArrowUpRight size={14}/></Link></section>
+  </aside></div>{error&&<ErrorState message={error}/>}
+  <Modal open={dismiss} onOpenChange={setDismiss} title="Dismiss this signal?" description="It will remain in workspace history with a Dismissed status. You can change its review status later."><div className="ir-actions"><button onClick={()=>setDismiss(false)}>Cancel</button><button className="ir-primary" disabled={disabled} onClick={()=>void review('Dismissed')}>Dismiss signal</button></div></Modal>
+ </div>;
+}

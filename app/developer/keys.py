@@ -11,8 +11,8 @@ from app.database.prospects import now
 from app.people.service import ctx
 from app.api.organization import require_role,membership_role
 
-Scope=Literal['companies:read','contacts:read','searches:read','searches:write','icps:read','lists:read','lists:write','tasks:read','tasks:write','enrichment:write','campaigns:read','mcp:use']
-SCOPES=['companies:read','contacts:read','searches:read','searches:write','icps:read','lists:read','lists:write','tasks:read','tasks:write','enrichment:write','campaigns:read','mcp:use']
+Scope=Literal['companies:read','contacts:read','searches:read','searches:write','icps:read','lists:read','lists:write','tasks:read','tasks:write','enrichment:write','campaigns:read','mcp:use','intent:read']
+SCOPES=['companies:read','contacts:read','searches:read','searches:write','icps:read','lists:read','lists:write','tasks:read','tasks:write','enrichment:write','campaigns:read','mcp:use','intent:read']
 @dataclass(frozen=True)
 class Grant:
     id:str
@@ -48,7 +48,9 @@ def visible(row):
 
 def listing(c):
     context=manager(c)
-    return {'items':[visible(row) for row in c.execute('SELECT * FROM workspace_api_keys WHERE organization_id=? ORDER BY created_at DESC LIMIT 100',(context.organization_id,)).fetchall()],'available_scopes':[scope for scope in SCOPES if scope!='mcp:use' or get_settings().heysow_mcp_enabled],'rate_limit_per_minute':get_settings().developer_key_requests_per_minute}
+    from app.intent_radar.permissions import availability
+    available=[scope for scope in SCOPES if (scope!='mcp:use' or get_settings().heysow_mcp_enabled) and (scope!='intent:read' or availability(c,context.organization_id)['enabled'])]
+    return {'items':[visible(row) for row in c.execute('SELECT * FROM workspace_api_keys WHERE organization_id=? ORDER BY created_at DESC LIMIT 100',(context.organization_id,)).fetchall()],'available_scopes':available,'rate_limit_per_minute':get_settings().developer_key_requests_per_minute}
 
 
 def owned(c,key):
@@ -62,6 +64,9 @@ def audit(c,key,action):
 
 
 def create(c,body,rotated_from=None):
+    if 'intent:read' in body.scopes:
+        from app.intent_radar.permissions import context as radar_context
+        radar_context(c)
     context=manager(c)
     lock(c,context.organization_id)
     if c.execute('SELECT COUNT(*) FROM workspace_api_keys WHERE organization_id=? AND revoked_at IS NULL AND expires_at>?',(context.organization_id,now())).fetchone()[0]>=20:raise HTTPException(429,'Revoke an unused API key before creating more.')

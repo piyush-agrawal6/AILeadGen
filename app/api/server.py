@@ -41,12 +41,19 @@ async def lifespan(app: FastAPI):
     import asyncio,os
     from contextlib import suppress
     task=None
+    radar_task=None
+    if get_settings().intent_radar_schedules_enabled and get_settings().app_env!='test':
+        from app.intent_radar.schedules import loop
+        radar_task=asyncio.create_task(loop())
     if get_settings().heysow_webhooks_enabled and get_settings().app_env=='development' and os.environ.get('HEYSOW_LOCAL_PREVIEW')=='true':
         from app.webhooks.dispatch import preview_loop
         task=asyncio.create_task(preview_loop())
     try:
         async with mcp.session_manager.run():yield
     finally:
+        if radar_task:
+            radar_task.cancel()
+            with suppress(asyncio.CancelledError):await radar_task
         if task:
             task.cancel()
             with suppress(asyncio.CancelledError):await task
@@ -110,6 +117,8 @@ def create_app() -> FastAPI:
     app.include_router(people.router,prefix="/api")
     from app.api.routes import intelligence_jobs
     app.include_router(intelligence_jobs.router,prefix="/api")
+    from app.api.routes import intent_radar
+    app.include_router(intent_radar.router,prefix='/api')
     app.include_router(automation.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(markets.router, prefix="/api")

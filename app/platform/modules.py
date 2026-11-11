@@ -19,7 +19,8 @@ class Module:
     usage_dimensions:tuple[str,...]=()
 
 MODULES={m.id:m for m in (
- Module('lead_engine','Lead Engine','1','AVAILABLE',('/api/acquisition','/api/workflow'),('read','operate'),('discovery_runs','companies')),
+  Module('lead_engine','Lead Engine','1','AVAILABLE',('/api/acquisition','/api/workflow'),('read','operate'),('discovery_runs','companies')),
+  Module('intent_radar','Intent Radar','1','DISABLED',('/api/intent-radar',),('read','operate'),('intent_searches','intent_signals')),
  Module('sales','Sales workspace','1','AVAILABLE',('/api/sales','/api/email'),('read','operate','send'),('emails_sent',)),
  Module('legacy_experiment','Internal experiment archive','1','DISABLED',('/api/experiments','/api/email/intro-analytics'),('owner',)),
  Module('ai_agent','HeySow AI Agent','1','PLANNED',(),('read','operate'),('ai_requests',)),
@@ -37,6 +38,11 @@ def require_legacy():
     if organization()!=PLANEBYTE_ORGANIZATION_ID:raise HTTPException(404,'Not found.')
 
 def guard_route(path,*,organization_id,role,method='GET'):
+    if path=='/api/intent-radar' or path.startswith('/api/intent-radar/'):
+        from app.database.connection import db_session
+        from app.intent_radar.permissions import availability
+        with db_session() as c:
+            if not role or not availability(c,organization_id)['enabled']:raise HTTPException(404,'Intent Radar is unavailable.')
     from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
     internal=('/api/automation/controls','/api/automation/markets','/api/foundation/emergency',
               '/api/foundation/health','/api/foundation/settings','/api/system',

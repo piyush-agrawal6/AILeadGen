@@ -1,0 +1,5 @@
+import {defineConfig} from '@playwright/test';
+import radar from './playwright.intent-radar.config';
+const phase=process.env.RADAR_UI_BASELINE==='1'?'before':'after';
+const servers=Array.isArray(radar.webServer)?radar.webServer:[];
+export default defineConfig({...radar,timeout:240000,testDir:'./intent-radar-ui-e2e',outputDir:`../data/artifacts/verification/intent-radar-ui/${phase}`,reporter:[['list'],['json',{outputFile:`../data/artifacts/verification/intent-radar-ui/${phase}-results.json`}]],use:{...radar.use,baseURL:'http://127.0.0.1:14040'},webServer:servers.map((server,index)=>({...server,command:index===0?server.command.replace('18787','18840'):'node ../scripts/local_frontend.cjs '+(process.env.RADAR_UI_PRODUCTION==='1'?'start':'dev')+' -p 14040',url:index===0?'http://127.0.0.1:18840/api/health':'http://127.0.0.1:14040/login',env:{...server.env,HEYSOW_E2E_DIST_DIR:process.env.RADAR_UI_PRODUCTION==='1'?'.next-intent-radar-ui-build':'.next-intent-radar-ui-test',AUTH_URL:'http://127.0.0.1:14040',LEADENGINE_API_URL:'http://127.0.0.1:18840',AUTH_GOOGLE_ID:'controlled-google-client',AUTH_GOOGLE_SECRET:'controlled-google-secret'}}))});

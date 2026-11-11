@@ -62,14 +62,19 @@ def test_registry_requires_context_and_never_accepts_another_tenant_override(ten
 
 def test_customer_mailbox_is_not_configured_and_provider_never_touched(tenants,monkeypatch):
     c,owner,other=tenants
+    from app.config.settings import get_settings
+    monkeypatch.setattr(get_settings(),'heysow_customer_gmail_enabled',False)
     transport=Mock();monkeypatch.setattr(mail,'provider',transport)
     with workspace_scope(c,'second@example.test',other):
         from app.api.routes.mail import email_account
         result=email_account(SimpleNamespace(state=SimpleNamespace(organization_id=other)),c)
         assert result['status']=='NOT_CONFIGURED' and not result['can_send'] and result['email_address'] is None
-        for operation in (lambda:mail.account(c,'second@example.test'),lambda:mail.sync_mailbox(),lambda:mail.send(c,'unowned','second@example.test',{})):
+        # The new customer mailbox path is explicitly disabled (503); calling
+        # internal sync from a foreign workspace still fails ownership (409).
+        operations=((lambda:mail.account(c,'second@example.test'),503),(lambda:mail.sync_mailbox(),409),(lambda:mail.send(c,'unowned','second@example.test',{}),503))
+        for operation,status in operations:
             with pytest.raises(HTTPException) as err:operation()
-            assert err.value.status_code==409
+            assert err.value.status_code==status
     transport.assert_not_called()
     assert c.execute('SELECT COUNT(*) FROM email_accounts').fetchone()[0]==0
 

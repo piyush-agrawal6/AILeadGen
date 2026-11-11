@@ -1,0 +1,5 @@
+import {defineConfig} from '@playwright/test';
+import base from './playwright.config';
+const servers=Array.isArray(base.webServer)?base.webServer:[];
+const production=process.env.INTENT_RADAR_BROWSER_PRODUCTION==='1';
+export default defineConfig({...base,testDir:'./intent-radar-e2e',outputDir:'../data/artifacts/verification/intent-radar/browser',reporter:[['list'],['json',{outputFile:'../data/artifacts/verification/intent-radar/browser-results.json'}]],webServer:servers.map((server,index)=>({...server,command:index===0?server.command.replace('app.api.server:app','tests.intent_radar_fixture_server:app'):`node ../scripts/local_frontend.cjs ${production?'start':'dev'} -p 13000`,env:{...server.env,DATABASE_BACKEND:'sqlite',DATABASE_URL:'',INTENT_RADAR_STAGE:'Beta',HEYSOW_E2E_DIST_DIR:production?'.next-intent-radar-build':'.next-intent-radar-test',HEYSOW_WORKSPACE_MANAGEMENT_ENABLED:'true',HEYSOW_INTERNAL_EXPERIMENTS_ENABLED:'false',VERTEX_AI_ENABLED:'false',GEMINI_API_ENABLED:'false',INTENT_RADAR_AI_ENABLED:'false'}}))});

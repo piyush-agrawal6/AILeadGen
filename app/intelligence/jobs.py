@@ -11,7 +11,7 @@ from app.people.service import ctx,company,get as person,save,Person
 from app.config.settings import get_settings
 class Start(BaseModel):
     model_config=ConfigDict(extra='forbid')
-    kind:Literal['COMPANY_ENRICH','CONTACT_DISCOVER','CONTACT_ENRICH','CONTACT_VERIFY','COMPANY_SUMMARIZE','ASSISTANT_TURN']
+    kind:Literal['COMPANY_ENRICH','CONTACT_DISCOVER','CONTACT_ENRICH','CONTACT_VERIFY','COMPANY_SUMMARIZE','ASSISTANT_TURN','INTENT_DISCOVER']
     resource_ids:list[Annotated[str,Field(min_length=1,max_length=60)]]=Field(min_length=1,max_length=100)
     request_id:uuid.UUID=Field(default_factory=uuid.uuid4)
     reuse_days:int=Field(7,ge=0,le=90)
@@ -19,6 +19,9 @@ class Start(BaseModel):
 def owned(c,key):
     context=ctx(c);row=c.execute('SELECT * FROM intelligence_jobs WHERE id=? AND organization_id=?',(key,context.organization_id)).fetchone()
     if not row:raise HTTPException(404,'Intelligence job not found.')
+    if row['kind']=='INTENT_DISCOVER':
+        from app.intent_radar.permissions import context as radar_context
+        radar_context(c)
     return dict(row)
 
 def detail(c,key,page=1,size=25):
@@ -28,10 +31,13 @@ def detail(c,key,page=1,size=25):
     result['items']=[{**dict(r),'result':json.loads(r['result_json'])} for r in c.execute('SELECT * FROM intelligence_job_items WHERE job_id=? ORDER BY id LIMIT ? OFFSET ?',(key,size,(page-1)*size)).fetchall()]
     for item in result['items']:item.pop('result_json')
     result['usage']={'requested_records':result['total'],'provider':'STORED_EVIDENCE_THEN_PUBLIC_WEBSITE_OR_DNS','monetary_cost':None,'cost_state':'NOT_REPORTED','recipient_delivery_verified':False}
+    if result['kind']=='INTENT_DISCOVER':result['usage']={'provider':'Authorized public APIs and approved feeds','maximum_requests_per_attempt':33,'maximum_attempts':3,'automatic_posting':False}
     return result
 
 def listing(c,status='',page=1,size=25):
     org=ctx(c).organization_id;where='organization_id=?';args=[org]
+    from app.intent_radar.permissions import availability
+    if not availability(c,org)['enabled']:where+=" AND kind<>'INTENT_DISCOVER'"
     if status:where+=' AND status=?';args.append(status)
     total=c.execute('SELECT COUNT(*) FROM intelligence_jobs WHERE '+where,args).fetchone()[0]
     rows=c.execute('SELECT id,kind,status,created_at,updated_at,completed_at,error_code,attempts FROM intelligence_jobs WHERE '+where+' ORDER BY created_at DESC,id LIMIT ? OFFSET ?',[*args,size,(page-1)*size]).fetchall()
@@ -39,12 +45,19 @@ def listing(c,status='',page=1,size=25):
 
 def create(c,body):
     context=ctx(c,True);ids=list(dict.fromkeys(body.resource_ids))
+    if body.kind=='INTENT_DISCOVER':
+        expected=str(uuid.uuid5(uuid.NAMESPACE_URL,context.organization_id+':intent-search:'+str(body.request_id)))
+        if ids!=[expected] or body.reuse_days!=0:raise HTTPException(422,'Intent jobs require one reviewed discovery and its original request ID.')
     if body.kind=='COMPANY_SUMMARIZE':
         from app.api.organization import require_role
         require_role(c,context.actor,context.organization_id,('OWNER','ADMIN'))
         if not get_settings().heysow_company_ai_enabled:raise HTTPException(503,'Company AI summaries are disabled.')
     for key in ids:
-        if body.kind=='ASSISTANT_TURN':
+        if body.kind=='INTENT_DISCOVER':
+            from app.intent_radar.service import get
+            from app.intent_radar.permissions import context as radar_context
+            radar_context(c,True);get(c,'discoveries',key)
+        elif body.kind=='ASSISTANT_TURN':
             from app.assistant.service import turn
             from app.api.organization import require_role
             require_role(c,context.actor,context.organization_id,('OWNER','ADMIN'))
@@ -81,6 +94,9 @@ def control(c,key,action):
 
 async def run_item(c,row,item,configuration):
     kind=row['kind'];resource=item['resource_id'];ctx(c,True)
+    if kind=='INTENT_DISCOVER':
+        from app.intent_radar.discovery import process
+        return await process(c,resource,row['id'],row['lease_owner'])
     if kind=='ASSISTANT_TURN':
         from app.assistant.service import process
         return await process(c,resource)
@@ -150,6 +166,9 @@ def execute(key,db_path=None):
     with db_session(db_path) as entry:
         with job_scope(entry,'intelligence',key):return asyncio.run(_execute(key,db_path))
 
+def valid_lease(row,lease):
+    return row['status']=='RUNNING' and row['lease_owner']==lease and bool(row['lease_until']) and row['lease_until']>now()
+
 async def _execute(key,db_path):
     lease=str(uuid.uuid4());deadline=time.monotonic()+240
     with db_session(db_path) as c:
@@ -161,16 +180,26 @@ async def _execute(key,db_path):
         for item in c.execute("SELECT * FROM intelligence_job_items WHERE job_id=? AND status='QUEUED' ORDER BY id",(key,)).fetchall():
             if time.monotonic()>deadline:break
             active=owned(c,key)
-            if active['status']!='RUNNING' or active['lease_owner']!=lease:return
+            if not valid_lease(active,lease):return
             ctx(c,True);c.execute("UPDATE intelligence_job_items SET status='PROCESSING',updated_at=? WHERE id=?",(now(),item['id']));c.commit()
             try:
-                result=await asyncio.wait_for(run_item(c,row,dict(item),configuration),timeout=35)
+                result=await asyncio.wait_for(run_item(c,row,dict(item),configuration),timeout=125 if row['kind']=='INTENT_DISCOVER' else 35)
                 active=owned(c,key)
-                if active['status']!='RUNNING' or active['lease_owner']!=lease:c.rollback();return
+                if not valid_lease(active,lease):c.rollback();return
                 c.execute('UPDATE intelligence_job_items SET status=?,result_json=?,error_code=NULL,updated_at=? WHERE id=?',(result.pop('status'),json.dumps(result),now(),item['id']));c.commit()
             except Exception as exc:
                 c.rollback();active=owned(c,key)
-                if active['status']!='RUNNING' or active['lease_owner']!=lease:return
+                if not valid_lease(active,lease):return
+                ctx(c,True)
+                if row['kind']=='INTENT_DISCOVER':
+                    from app.intent_radar import service as radar
+                    from app.intent_radar.discovery import ExecutionInvalidated
+                    if isinstance(exc,ExecutionInvalidated):
+                        cancelled=c.execute("UPDATE intelligence_jobs SET status='CANCELLED',error_code='DISCOVERY_INVALIDATED',completed_at=?,updated_at=? WHERE id=? AND organization_id=? AND status='RUNNING' AND lease_owner=? AND lease_until>?",(now(),now(),key,row['organization_id'],lease,now())).rowcount
+                        if cancelled:c.execute("UPDATE intelligence_job_items SET status='CANCELLED',error_code='DISCOVERY_INVALIDATED',updated_at=? WHERE id=?",(now(),item['id']))
+                        c.commit();return
+                    descriptor=radar.get(c,'discoveries',item['resource_id'])
+                    if radar.preferences(c)['alerts_enabled']:radar.alert(c,'job-failure:'+key,'Intent monitor check failed','The source check did not complete. Review its job history before retrying.',descriptor['monitor_id'],actor=row['created_by'])
                 c.execute("UPDATE intelligence_job_items SET status='FAILED',error_code=?,updated_at=? WHERE id=?",(type(exc).__name__,now(),item['id']));c.commit()
         pending=c.execute("SELECT COUNT(*) FROM intelligence_job_items WHERE job_id=? AND status IN ('FAILED','QUEUED','PROCESSING')",(key,)).fetchone()[0]
-        c.execute('UPDATE intelligence_jobs SET status=?,lease_owner=NULL,lease_until=NULL,completed_at=?,updated_at=? WHERE id=? AND organization_id=? AND lease_owner=?',('PARTIAL' if pending else 'COMPLETED',now(),now(),key,row['organization_id'],lease))
+        c.execute("UPDATE intelligence_jobs SET status=?,lease_owner=NULL,lease_until=NULL,completed_at=?,updated_at=? WHERE id=? AND organization_id=? AND status='RUNNING' AND lease_owner=? AND lease_until>?",('PARTIAL' if pending else 'COMPLETED',now(),now(),key,row['organization_id'],lease,now()))

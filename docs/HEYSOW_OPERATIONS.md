@@ -32,6 +32,30 @@ commands. A successful login-page response does not prove the backend is ready;
 also check the local API health endpoint. Do not point the preview at production
 to work around a local backend problem.
 
+### Scoped local Intent Radar beta access
+
+The isolated preview runs the implemented Intent Radar module at **Beta** stage.
+That stage grants no workspace access by itself: the existing organization product
+record and completed onboarding are required on pages, APIs and workers. Production
+continues to default to Disabled. Restart the local backend after code changes;
+an old process can return 404 for `/api/organization/products`.
+
+Enable only an existing, completed workspace using its actual administrator and ID:
+
+```sh
+.venv/bin/python scripts/local_intent_radar.py status --actor <administrator> --organization <workspace-uuid>
+.venv/bin/python scripts/local_intent_radar.py enable --actor <administrator> --organization <workspace-uuid>
+```
+
+The command verifies the actor through the signed local backend, requires the
+requested workspace to match the server-resolved active organization, rechecks
+owner/admin membership through shared RBAC and records an audit entry. It changes
+only that workspace's existing Intent Radar row in `data/e2e/local-preview/workspace.db`.
+It does not complete onboarding, create memberships or subscriptions, grant other
+workspaces, or change environment files. Use `disable` with the same arguments to
+revoke the local grant while retaining historical data. Refresh/focus the browser
+after granting access; product availability is workspace-keyed and revalidated.
+
 The frontend launcher preloads dashboard defaults before restoring the exact
 inherited root values, including in Next's child server. This prevents
 dotenv expansion from changing literal `$` characters in credentials duplicated

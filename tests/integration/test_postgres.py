@@ -918,7 +918,9 @@ def customer_connection(postgres,monkeypatch):
     monkeypatch.setattr(settings,'heysow_integration_encryption_key',Fernet.generate_key().decode())
     provider_config=AcquisitionSettings(_env_file=None,AUTH_GOOGLE_ID='fixture-client',AUTH_GOOGLE_SECRET='fixture-secret')
     monkeypatch.setattr('app.acquisition.config.settings',lambda:provider_config)
-    run_migrations(postgres);actor='customer-pg@example.test';org=create_organization(postgres,actor,'Customer connection')['organization_id'];postgres.commit()
+    run_migrations(postgres);actor='customer-pg@example.test'
+    monkeypatch.setattr(settings,'allowed_user_emails','a@example.com,'+actor)
+    org=create_organization(postgres,actor,'Customer connection')['organization_id'];postgres.commit()
     tokens={'access_token':'pg-controlled-access','refresh_token':'pg-controlled-refresh','expires_in':3600,'scope':sheets.SCOPE}
     with workspace_scope(postgres,actor,org):
         authorization=service.authorize(postgres);postgres.commit()

@@ -373,7 +373,7 @@ def test_disconnect_during_reply_fetch_cannot_persist_inbound_or_revive_cursor(m
     c,first,second,path,posts=mailbox
     with workspace_scope(c,OWNER,first):
         row,_=connect(c)
-        async def canceled(*args):
+        async def canceled(*args,**kwargs):
             gmail.disconnect(c,row['id']);c.commit()
             return [],{'history_id':'999'}
         monkeypatch.setattr(gmail,'sync_messages',canceled)

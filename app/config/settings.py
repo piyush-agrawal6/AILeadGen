@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import yaml
-from pydantic import BaseModel, Field, model_validator, AliasChoices
+from pydantic import BaseModel, Field, model_validator, AliasChoices, SecretStr
 from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -54,6 +54,20 @@ class ExportConfig(BaseModel):
 
 
 class Settings(BaseSettings):
+    intent_radar_stage:Literal['Disabled','Internal Preview','Beta']=Field('Disabled',alias='INTENT_RADAR_STAGE')
+    intent_radar_internal_workspaces:str=Field('',alias='INTENT_RADAR_INTERNAL_WORKSPACES')
+    intent_radar_daily_searches:int=Field(20,ge=1,le=50)
+    intent_radar_global_daily_searches:int=Field(100,ge=1,le=200)
+    intent_radar_monitor_limit:int=Field(50,ge=1,le=100)
+    intent_radar_ai_enabled:bool=Field(False,alias='INTENT_RADAR_AI_ENABLED')
+    intent_radar_stackexchange_enabled:bool=False
+    intent_radar_stackexchange_key:SecretStr=SecretStr('')
+    intent_radar_stackexchange_sites:str='stackoverflow;softwareengineering;webmasters'
+    intent_radar_approved_feed_hosts:str=''
+    intent_radar_schedules_enabled:bool=False
+    intent_radar_min_schedule_hours:int=Field(12,ge=6,le=24)
+    intent_radar_ai_daily_calls:int=Field(10,ge=1,le=50)
+    intent_radar_ai_daily_tokens:int=Field(60000,ge=6000,le=300000)
     heysow_webhooks_enabled:bool=Field(False,alias='HEYSOW_WEBHOOKS_ENABLED')
     heysow_mcp_enabled:bool=Field(False,alias='HEYSOW_MCP_ENABLED')
     mcp_allowed_hosts:str=Field('localhost:*,127.0.0.1:*,testserver,leads.planebyte.com',alias='MCP_ALLOWED_HOSTS')

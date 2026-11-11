@@ -42,3 +42,9 @@ Desktop.ini
 node_modules
 
 dashboard/.next-workflow-test/
+dashboard/.next-intent-radar-test/
+dashboard/.next-intent-radar-build/
+dashboard/.next-gmail-test/
+dashboard/.next-gmail-build/
+dashboard/.next-intent-radar23-build/
+dashboard/.next-intent-radar23-product-build/

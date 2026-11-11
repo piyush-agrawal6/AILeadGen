@@ -23,9 +23,10 @@ test('PlaneByte sign-in is responsive, readable and independent of private works
  expect(privateRequests).toEqual([]);expect(errors).toEqual([]);
 });
 test('safe errors, honest request access, legal pages and Google recovery work',async({page})=>{
- await page.goto('/login?error=AccessDenied');await expect(page.getByRole('alert')).toContainText('workspace');
+  const signInError=page.locator('.auth-error[role="alert"]');
+  await page.goto('/login?error=AccessDenied');await expect(signInError).toContainText('workspace');
  await page.screenshot({path:path.join(output,'access-error.png'),fullPage:true});
- await page.goto('/login?error=%3Cscript%3Eprivate-token%3C/script%3E');await expect(page.getByRole('alert')).not.toContainText('private-token');
+  await page.goto('/login?error=%3Cscript%3Eprivate-token%3C/script%3E');await expect(signInError).toBeVisible();await expect(signInError).toContainText('We couldn’t complete sign-in');await expect(signInError).not.toContainText('private-token');
  await page.goto('/login');await page.getByRole('link',{name:'Request access'}).click();
  await expect(page.getByRole('heading',{name:'Join PlaneByte'})).toBeVisible();await expect(page.getByText(/Public self-service registration is not available yet/)).toBeVisible();
  await expect(page.getByRole('link',{name:/Request workspace access/})).toHaveAttribute('href',/^mailto:contact@planebyte\.com\?/);

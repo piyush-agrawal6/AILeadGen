@@ -141,7 +141,10 @@ test('manual onboarding resumes and unlocks only its own workspace without start
  await page.goto('/settings/setup');await expect(page).toHaveURL(/\/onboarding$/);await page.getByLabel('Build prospect lists',{exact:true}).check();await page.getByRole('button',{name:'Save and continue',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Company profile',exact:true})).toBeVisible();await page.getByRole('button',{name:'Save and continue',exact:true}).click();
  await page.getByRole('button',{name:'Add product or service',exact:true}).click();await page.getByLabel('Product or service name',{exact:true}).fill('Software engineering');await page.getByRole('button',{name:'Save and continue',exact:true}).click();
- await page.getByLabel('Default ideal customer profile',{exact:true}).selectOption((await icp.json()).id);await page.getByRole('button',{name:'Save and continue',exact:true}).click();
+  const selectedICP=await icp.json();
+  const [loadedICP]=await Promise.all([page.waitForResponse(response=>response.url().endsWith('/api/organization/icps/'+selectedICP.id)&&response.request().method()==='GET'),page.getByLabel('Default ideal customer profile',{exact:true}).selectOption(selectedICP.id)]);
+  expect(loadedICP.status()).toBe(200);expect((await loadedICP.json()).status).toBe('ACTIVE');
+  await page.getByRole('button',{name:'Save and continue',exact:true}).click();
  await page.getByLabel('I confirm this target geography.',{exact:true}).check();await page.getByLabel('Set up mailbox and CRM integrations later.',{exact:true}).check();await page.getByRole('button',{name:'Save and continue',exact:true}).click();
  await page.reload();await expect(page.getByRole('button',{name:'Finish setup',exact:true})).toBeVisible();await page.getByRole('button',{name:'Finish setup',exact:true}).click();
  await expect(page.getByText('Setup is complete. No discovery or outreach has started.',{exact:true})).toBeVisible();

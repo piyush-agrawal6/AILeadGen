@@ -80,7 +80,7 @@ class InvitationRevoked(BaseModel):
 
 class NotificationItem(BaseModel):
     id:UUID
-    kind:Literal['INVITATION_ACCEPTED','INVITATION_REJECTED']
+    kind:Literal['INVITATION_ACCEPTED','INVITATION_REJECTED','INTENT_RADAR']
     entity_id:UUID
     created_at:str
     read_at:str|None
@@ -198,4 +198,7 @@ def respond(c,actor,body:InviteRespond):
 
 def notifications(c):
     org=organization();actor=current().actor
-    return {'items':[dict(r) for r in c.execute('SELECT id,kind,entity_id,created_at,read_at FROM workspace_notifications WHERE organization_id=? AND user_id=? ORDER BY created_at DESC,id LIMIT 50',(org,actor)).fetchall()]}
+    from app.intent_radar.permissions import availability
+    enabled=availability(c,org)['enabled']
+    where='' if enabled else " AND kind<>'INTENT_RADAR'"
+    return {'items':[dict(r) for r in c.execute('SELECT id,kind,entity_id,created_at,read_at FROM workspace_notifications WHERE organization_id=? AND user_id=?'+where+' ORDER BY created_at DESC,id LIMIT 50',(org,actor)).fetchall()]}

@@ -5,6 +5,7 @@ import {GmailSettings,GmailCallback} from '@/components/workspaces/gmail';
 import {PlanForm} from '@/components/workflows/mailbox-plan';
 import {initialPlan} from '@/components/workflows/types';
 import {request} from '@/lib/intelligence';
+import {Composer} from '@/components/sales/composer';
 vi.mock('@/lib/intelligence',()=>({request:vi.fn()}));
 vi.mock('@/components/workflows/plan-form',()=>({PlanForm:()=> <p>Campaign plan fields</p>}));
 const calls=vi.mocked(request);
@@ -71,4 +72,38 @@ it('reports deferred inbox work honestly and retries the saved cursor only on an
  fireEvent.click(screen.getByRole('button',{name:'Retry saved inbox sync'}));
  expect(await screen.findByText('Bounded inbox synchronization completed.')).toBeVisible();
  expect(calls).toHaveBeenCalledWith('/email/gmail/owned-connection/sync-retry',{method:'POST',body:JSON.stringify({revision:1,confirmation:'RETRY_SYNC'})});
+});
+it('requires reviewed confirmation for expired history and retains the current revision',async()=>{
+ calls.mockImplementation(async(path)=>path.endsWith('/policy')?{revision:0,max_hour:5,max_day:50,sending_approved:0,can_approve:false} as never:{items:[{...connection,sync:{attempts:3,last_success_at:null,next_attempt_at:null,lease_until:null,last_error_code:'GMAIL_HISTORY_EXPIRED'}}],configured:true,can_connect:true} as never);
+ mount(<GmailSettings/>);fireEvent.click(await screen.findByRole('button',{name:'Review recent sync restart'}));
+ expect(calls.mock.calls.every(([,options])=>!options?.method)).toBe(true);
+ fireEvent.click(screen.getByRole('button',{name:'Confirm restart recent sync'}));
+ await waitFor(()=>expect(calls).toHaveBeenCalledWith('/email/gmail/owned-connection/sync-restart',{method:'POST',body:JSON.stringify({revision:1,confirmation:'RESTART_RECENT_SYNC'})}));
+});
+it('refreshes revoked connection state after a failed health check and permits removal of stale approval',async()=>{
+ let revoked=false;
+ calls.mockImplementation(async(path,options)=>{
+  if(path.endsWith('/health')){revoked=true;throw new Error('Reconnect this mailbox.');}
+  if(path.endsWith('/policy'))return {revision:4,max_hour:3,max_day:25,sending_approved:1,can_approve:true} as never;
+  return {items:[{...connection,status:revoked?'REAUTH_REQUIRED':'CONNECTED'}],configured:true,can_connect:true} as never;
+ });
+ mount(<GmailSettings/>);fireEvent.click(await screen.findByRole('button',{name:'Check Gmail health'}));
+ expect(await screen.findByText(/previous sending approval is no longer valid/)).toBeVisible();
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Remove sending approval'})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Remove sending approval'}));
+ expect(await screen.findByText('Workspace sending approval removed.')).toBeVisible();
+});
+it('binds composer preview and manual send to the owned mailbox and exact reviewed token',async()=>{
+ calls.mockImplementation(async(path)=>{
+  if(path.endsWith('/compose'))return {account_id:'gmail-owned',recipients:['public@example.test'],templates:[],reports:[],suppressed:false,test_mode:true,from_address:'customer@example.test',effective_test_recipient:'sandbox@example.test',can_send:true,sending_enabled:true} as never;
+  if(path.endsWith('/preview'))return {preview_token:'reviewed-token',test_mode:true,from_name:'Customer',from_address:'customer@example.test',to_address:'sandbox@example.test',intended_to:'public@example.test',rendered_text:'Reviewed response',rendered_html:'<p>Reviewed response</p>',rendered_subject:'Reviewed reply',subject:'Reviewed reply',body_text:'Reviewed response'} as never;
+  return {status:'SENT',test_mode:true} as never;
+ });
+ mount(<Composer id={7} name="Owned company" threadId="owned-thread"/>);
+ fireEvent.click(screen.getByRole('button',{name:'Reply / Follow up'}));
+ fireEvent.change(await screen.findByLabelText('Subject'),{target:{value:'Reviewed reply'}});fireEvent.change(screen.getByLabelText('Body'),{target:{value:'Reviewed response'}});
+ fireEvent.click(screen.getByRole('button',{name:/Preview/}));
+ const confirm=await screen.findByRole('button',{name:'Confirm Send'});expect(calls.mock.calls.some(([path])=>path.endsWith('/send'))).toBe(false);
+ fireEvent.click(confirm);expect(await screen.findByText('Sent to the controlled test mailbox.')).toBeVisible();
+ for(const [path,options] of calls.mock.calls.filter(([path])=>path.endsWith('/preview')||path.endsWith('/send'))){const body=JSON.parse(options!.body as string);expect(body.account_id).toBe('gmail-owned');expect(body.thread_id).toBe('owned-thread');if(path.endsWith('/send')){expect(body.preview_token).toBe('reviewed-token');expect(body.confirmation).toBe('SEND')}}
 });

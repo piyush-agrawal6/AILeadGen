@@ -72,6 +72,11 @@ def settings(c,acc):
         live_approved=s.heysow_customer_mail_live_approved,max_hour=p['max_hour'],max_day=p['max_day'],auto_email_enabled=s.heysow_customer_mail_schedules_enabled,
         tracking_enabled=False,tracking_base_url='',signature_name=company,signature_role='',sync_enabled=True)
 
+def can_send(c,acc,s=None):
+    s=s or settings(c,acc)
+    mode_ready=bool(s.mode=='test' and s.test_recipient and not s.live_approved or s.mode=='production' and s.live_approved and get_settings().app_env=='production')
+    return bool(s.sending_enabled and mode_ready and acc['status']=='CONNECTED' and acc['connection_status']=='CONNECTED')
+
 def validate_campaign(c,campaign_id,account_id):
     row=c.execute('SELECT email_account_id FROM scan_campaigns WHERE id=? AND organization_id=?',(campaign_id,organization())).fetchone()
     if not row:raise HTTPException(404,'Campaign not found in this workspace.')
@@ -104,11 +109,12 @@ def route_campaign(c,campaign_id,account_id):
 
 def run(coroutine,timeout=60):
     """Bridge the existing synchronous mail engine to bounded async OAuth I/O."""
+    async def bounded():return await asyncio.wait_for(coroutine,timeout=timeout)
     try:asyncio.get_running_loop()
-    except RuntimeError:return asyncio.run(coroutine)
+    except RuntimeError:return asyncio.run(bounded())
     context=contextvars.copy_context()
     with ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(context.run,asyncio.run,coroutine).result(timeout=timeout)
+        return pool.submit(context.run,asyncio.run,bounded()).result(timeout=timeout+1)
 
 class GmailProvider:
     def __init__(self,c,acc):
@@ -136,6 +142,9 @@ class GmailProvider:
         encoded=base64.urlsafe_b64encode(message.as_bytes(policy=mime_policy.SMTP)).decode()
         try:result=run(gmail.api('POST','messages/send',self.token,payload={'raw':encoded}))
         except gmail.GmailRejected as exc:
+            if exc.status in (401,403):
+                row=connections.owned(self.c,self.acc['connection_id'],spec=gmail.spec())
+                connections.provider_error(self.c,row,'GMAIL_AUTH_REJECTED',reauth=True,spec=gmail.spec())
             if exc.status in (400,401,403,404,429):raise SendFailed('GMAIL_REJECTED') from None
             raise SendUncertain('GMAIL_RESULT_UNCERTAIN') from None
         except Exception:raise SendUncertain('GMAIL_RESULT_UNCERTAIN') from None
@@ -143,9 +152,9 @@ class GmailProvider:
         if not isinstance(identifier,str) or not re_full_id(identifier):raise SendUncertain('GMAIL_RESULT_UNCERTAIN')
         return identifier
 
-    def sync_messages(self,known_ids,cursor):
+    def sync_messages(self,known_ids,cursor,permit=None):
         self.validate()
-        return run(asyncio.wait_for(gmail.sync_messages(self.token,known_ids,cursor),timeout=45))
+        return run(asyncio.wait_for(gmail.sync_messages(self.token,known_ids,cursor,permit=permit),timeout=45))
 
 def re_full_id(value):
     import re
@@ -171,10 +180,13 @@ def sync_mailbox(account_id,*,recheck=False):
         c.commit()
         try:
             transport=GmailProvider(c,acc)
-            messages,updated=transport.sync_messages(known,cursor)
+            def permit():
+                transport.validate()
+                active=c.execute('SELECT lease_id,lease_until FROM customer_gmail_sync WHERE connection_id=? AND organization_id=?',(row['id'],org)).fetchone()
+                if not active or active['lease_id']!=lease or not active['lease_until'] or active['lease_until']<=now():raise HTTPException(409,'Inbox synchronization lease expired or was replaced.')
+            messages,updated=transport.sync_messages(known,cursor,permit)
             connections.lock(c);transport.validate()
-            active=c.execute('SELECT lease_id FROM customer_gmail_sync WHERE connection_id=? AND organization_id=?',(row['id'],org)).fetchone()
-            if not active or active['lease_id']!=lease:raise HTTPException(409,'This synchronization lease was replaced.')
+            if not c.execute('UPDATE customer_gmail_sync SET lease_id=lease_id WHERE connection_id=? AND organization_id=? AND lease_id=? AND lease_until>?',(row['id'],org,lease,now())).rowcount:raise HTTPException(409,'This synchronization lease expired or was replaced.')
             received=service.ingest_messages(c,messages,acc)
             c.execute('''UPDATE customer_gmail_sync SET cursor_json=?,last_success_at=?,attempts=0,next_attempt_at=NULL,
                 last_error_code=NULL,lease_id=NULL,lease_until=NULL WHERE connection_id=? AND organization_id=? AND lease_id=?''',(json.dumps(updated),now(),row['id'],org,lease))
@@ -182,10 +194,14 @@ def sync_mailbox(account_id,*,recheck=False):
             return {'status':'SYNCED','received':received,'checked':len(messages),'last_sync_at':now()}
         except Exception as exc:
             c.rollback();attempts=(previous['attempts'] if previous else 0)+1
-            retryable=not isinstance(exc,HTTPException) or exc.status_code in (429,503)
+            if isinstance(exc,gmail.IdentityChanged) or isinstance(exc,gmail.GmailRejected) and exc.status in (401,403):
+                connections.provider_error(c,row,'GMAIL_AUTH_REJECTED',reauth=True,spec=gmail.spec())
+            retryable=(exc.status==429 or exc.status>=500) if isinstance(exc,gmail.GmailRejected) else not isinstance(exc,HTTPException) or exc.status_code in (429,503)
+            if isinstance(exc,gmail.IdentityChanged):retryable=False
+            code='GMAIL_HISTORY_EXPIRED' if isinstance(exc,gmail.HistoryExpired) else 'GMAIL_SYNC_TEMPORARY' if retryable else 'GMAIL_SYNC_REVIEW_REQUIRED'
             attempts=min(attempts,3) if retryable else 3
             c.execute('''UPDATE customer_gmail_sync SET lease_id=NULL,lease_until=NULL,attempts=?,next_attempt_at=?,last_error_code=?
-                WHERE connection_id=? AND organization_id=? AND lease_id=?''',(attempts,(datetime.now(timezone.utc)+timedelta(seconds=30*2**attempts)).isoformat() if retryable and attempts<3 else None,'GMAIL_SYNC_TEMPORARY' if retryable else 'GMAIL_SYNC_REVIEW_REQUIRED',row['id'],org,lease));c.commit()
+                WHERE connection_id=? AND organization_id=? AND lease_id=?''',(attempts,(datetime.now(timezone.utc)+timedelta(seconds=30*2**attempts)).isoformat() if retryable and attempts<3 else None,code,row['id'],org,lease));c.commit()
             raise HTTPException(503 if retryable else 409,'Gmail synchronization needs a retry or connection review. The saved cursor was retained.') from None
 
 def sync_owned_account(account_id):
@@ -205,11 +221,24 @@ def sync_owned_account(account_id):
 def retry_sync(c,connection_id,revision):
     row=connections.owned(c,connection_id,spec=gmail.spec());acc=owned_account(c,current().actor,row['account_id'])
     connections.lock(c)
+    row=connections.owned(c,connection_id,spec=gmail.spec())
     if row['revision']!=revision or row['status']!='CONNECTED':raise HTTPException(409,'Review the current connected mailbox before retrying inbox sync.')
-    state=c.execute('SELECT lease_until FROM customer_gmail_sync WHERE connection_id=? AND organization_id=?',(connection_id,organization())).fetchone()
+    state=c.execute('SELECT lease_until,last_error_code FROM customer_gmail_sync WHERE connection_id=? AND organization_id=?',(connection_id,organization())).fetchone()
     if state and state['lease_until'] and state['lease_until']>now():raise HTTPException(409,'Inbox synchronization is already running.')
+    if state and state['last_error_code']=='GMAIL_HISTORY_EXPIRED':raise gmail.HistoryExpired()
     c.execute('UPDATE customer_gmail_sync SET attempts=0,next_attempt_at=NULL,last_error_code=NULL WHERE connection_id=? AND organization_id=?',(connection_id,organization()));c.commit()
     # Retry resumes the durable cursor; resetting history is a different operation.
+    return sync_mailbox(acc['id'])
+
+def restart_sync(c,connection_id,revision):
+    connections.lock(c);row=connections.owned(c,connection_id,spec=gmail.spec())
+    acc=owned_account(c,current().actor,row['account_id'])
+    if row['revision']!=revision or row['status']!='CONNECTED':raise HTTPException(409,'Review the current mailbox before restarting recent inbox sync.')
+    state=c.execute('SELECT lease_until,last_error_code FROM customer_gmail_sync WHERE connection_id=? AND organization_id=?',(connection_id,organization())).fetchone()
+    if not state or state['last_error_code']!='GMAIL_HISTORY_EXPIRED':raise HTTPException(409,'Recent sync restart is available only after Gmail history expires.')
+    if state['lease_until'] and state['lease_until']>now():raise HTTPException(409,'Inbox synchronization is already running.')
+    c.execute("UPDATE customer_gmail_sync SET cursor_json='{}',attempts=0,next_attempt_at=NULL,last_error_code=NULL WHERE connection_id=? AND organization_id=?",(connection_id,organization()))
+    connections.audit(c,connection_id,'GMAIL_RECENT_SYNC_RESTARTED');c.commit()
     return sync_mailbox(acc['id'])
 
 def outreach_tick(c,run_id):

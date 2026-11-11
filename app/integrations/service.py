@@ -29,6 +29,7 @@ class ProviderSpec:
     user_owned:bool=False
     exchange:object=None
     connected:object=None
+    revoked:object=None
 
 SHEETS=ProviderSpec()
 
@@ -161,12 +162,14 @@ async def exchange(payload,*,spec=SHEETS):
 
 
 def provider_error(c,row,code,lease=None,reauth=False,*,spec=SHEETS):
-    c.execute(f'''UPDATE {spec.table} SET last_error_code=?,updated_at=?,
+    changed=c.execute(f'''UPDATE {spec.table} SET last_error_code=?,updated_at=?,
         status=CASE WHEN ?=1 THEN 'REAUTH_REQUIRED' ELSE status END,
+        credentials_ciphertext=CASE WHEN ?=1 THEN NULL ELSE credentials_ciphertext END,
         refresh_lease_id=CASE WHEN CAST(? AS TEXT) IS NULL THEN NULL ELSE refresh_lease_id END,
         refresh_lease_until=CASE WHEN CAST(? AS TEXT) IS NULL THEN NULL ELSE refresh_lease_until END
         WHERE id=? AND organization_id=? AND revision=? AND status<>'DISCONNECTED' AND (refresh_lease_id=? OR CAST(? AS TEXT) IS NULL)''',
-        (code,now(),int(reauth),lease,lease,row['id'],organization(),row['revision'],lease,lease))
+        (code,now(),int(reauth),int(reauth),lease,lease,row['id'],organization(),row['revision'],lease,lease)).rowcount
+    if changed and reauth and spec.revoked:spec.revoked(c,row)
     c.commit()
 
 

@@ -14,6 +14,12 @@ SCOPE='openid https://www.googleapis.com/auth/userinfo.email https://www.googlea
 class GmailRejected(Exception):
     def __init__(self,status):self.status=status
 
+class HistoryExpired(HTTPException):
+    def __init__(self):super().__init__(409,'Gmail history expired. Review and restart the bounded recent inbox sync.')
+
+class IdentityChanged(HTTPException):
+    def __init__(self):super().__init__(409,'Gmail mailbox identity changed. Reconnect your verified account.')
+
 async def request_json(method,url,token,*,params=None,payload=None):
     """Fixed provider destinations, bounded JSON and no arbitrary provider errors."""
     if get_settings().app_env=='test' and os.getenv('ACQUISITION_TEST_ALLOW_PROVIDER_NETWORK')!='1':raise sheets.SheetsUnavailable('Provider requests are disabled in offline tests.')
@@ -69,7 +75,14 @@ def connected(c,row,value):
 
 def spec():
     return service.ProviderSpec(provider='GMAIL',table='customer_gmail_connections',states='customer_gmail_oauth_states',scope=SCOPE,
-        redirect_uri=get_settings().heysow_customer_gmail_redirect_uri,user_owned=True,exchange=exchange,connected=connected)
+        redirect_uri=get_settings().heysow_customer_gmail_redirect_uri,user_owned=True,exchange=exchange,connected=connected,revoked=revoke_authority)
+
+def revoke_authority(c,row):
+    """Same fenced transaction as token revocation; preserve conversations/cursors."""
+    org=organization();stamp=now()
+    c.execute("UPDATE email_accounts SET status='DISCONNECTED',smtp_health='UNAVAILABLE',imap_health='UNAVAILABLE',updated_at=? WHERE id=? AND organization_id=?",(stamp,row['account_id'],org))
+    c.execute('UPDATE customer_mail_policies SET sending_approved=0,revision=revision+1,approved_by=NULL,approved_at=NULL,updated_at=? WHERE organization_id=? AND (sending_approved<>0 OR approved_by IS NOT NULL)',(stamp,org))
+    c.execute("UPDATE customer_gmail_sync SET attempts=3,lease_id=NULL,lease_until=NULL,next_attempt_at=NULL,last_error_code='GMAIL_AUTH_REJECTED' WHERE connection_id=? AND organization_id=?",(row['id'],org))
 
 def require_enabled():service.require_spec(spec())
 
@@ -80,21 +93,28 @@ def listing(c):
     require_enabled();org=service.reader(c)
     rows=c.execute('SELECT * FROM customer_gmail_connections WHERE organization_id=?',(org,)).fetchall()
     from app.api.organization import membership_role
-    return {'items':[view(dict(row)) for row in rows],
+    items=[]
+    for row in rows:
+        state=c.execute('SELECT lease_until,last_success_at,next_attempt_at,attempts,last_error_code FROM customer_gmail_sync WHERE connection_id=? AND organization_id=?',(row['id'],org)).fetchone()
+        items.append(view(dict(row))|{'sync':dict(state) if state else None})
+    return {'items':items,
         'can_connect':membership_role(c,current().actor,org) in ('OWNER','ADMIN') and (not rows or rows[0]['owner_user_id']==current().actor),
         'configured':service.configured() and bool(get_settings().heysow_customer_gmail_redirect_uri),'scope':SCOPE}
 
 def disconnect(c,key):
     row=service.owned(c,key,spec=spec());result=service.disconnect(c,key,spec=spec())
-    c.execute("UPDATE email_accounts SET status='DISCONNECTED',updated_at=? WHERE id=? AND organization_id=?",(now(),row['account_id'],organization()))
-    c.execute('UPDATE customer_mail_policies SET sending_approved=0,revision=revision+1,approved_by=NULL,approved_at=NULL,updated_at=? WHERE organization_id=?',(now(),organization()))
+    revoke_authority(c,row)
     return result
 
 async def health(c,key):
     service.manager(c);row=service.owned(c,key,spec=spec());token,revision=await service.access_token(c,key,spec=spec())
     try:
         profile=await api('GET','profile',token)
-        if profile.get('emailAddress','').lower()!=row['email_address']:raise HTTPException(409,'Mailbox identity changed. Reconnect before sending.')
+        email=profile.get('emailAddress')
+        if not isinstance(email,str) or email.lower()!=row['email_address']:raise IdentityChanged()
+    except IdentityChanged:
+        service.provider_error(c,row,'GMAIL_IDENTITY_CHANGED',reauth=True,spec=spec())
+        raise
     except GmailRejected as exc:
         service.provider_error(c,row,'GMAIL_AUTH_REJECTED',reauth=exc.status in (401,403),spec=spec())
         raise HTTPException(503,'Gmail connection health could not be verified.') from None
@@ -107,11 +127,13 @@ async def health(c,key):
     c.execute("UPDATE email_accounts SET smtp_health='READY',imap_health='READY',health_checked_at=? WHERE id=? AND organization_id=?",(now(),row['account_id'],organization()))
     return {'sending':'READY','inbox':'READY','email_address':row['email_address'],'checked_at':now()}
 
-async def sync_messages(token,known,cursor):
+async def sync_messages(token,known,cursor,*,permit=None):
     """One bounded provider page, advancing its cursor only after durable ingestion."""
     from app.mail.providers import parse_incoming
+    if permit:permit()
     profile=await api('GET','profile',token)
-    if profile.get('emailAddress','').lower()!=current().actor:raise HTTPException(409,'Gmail synchronization identity does not match the mailbox owner.')
+    email=profile.get('emailAddress')
+    if not isinstance(email,str) or email.lower()!=current().actor:raise IdentityChanged()
     params={'maxResults':25};history=cursor.get('history_id')
     initial=not history
     snapshot=cursor.get('snapshot_history_id') or profile.get('historyId')
@@ -120,13 +142,15 @@ async def sync_messages(token,known,cursor):
     if cursor.get('pending_ids'):
         ids=cursor['pending_ids'];data={'nextPageToken':cursor.get('page_token')}
     elif initial:
+        if permit:permit()
         params['q']='newer_than:30d';data=await api('GET','messages',token,params=params)
         ids=[entry.get('id') for entry in data.get('messages',[])[:25]]
     else:
+        if permit:permit()
         params.update(startHistoryId=history,historyTypes='messageAdded')
         try:data=await api('GET','history',token,params=params)
         except GmailRejected as exc:
-            if exc.status==404:raise HTTPException(409,'Gmail history expired. Review and restart the bounded inbox sync.') from None
+            if exc.status==404:raise HistoryExpired() from None
             raise
         records=data.get('history',[])
         if not isinstance(records,list) or len(records)>25:raise HTTPException(503,'Gmail history exceeds this bounded page.')
@@ -138,13 +162,20 @@ async def sync_messages(token,known,cursor):
         import base64
         if not isinstance(key,str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',key):return None
         async with semaphore:
+            if permit:permit()
             raw=await api('GET','messages/'+key,token,params={'format':'raw'})
             encoded=raw.get('raw','')
             if not isinstance(encoded,str) or len(encoded)>700_000:return None
             try:content=base64.b64decode(encoded+'='*(-len(encoded)%4),altchars=b'-_',validate=True)
             except ValueError:return None
             return parse_incoming(content,known)
-    messages=await asyncio.gather(*(read(key) for key in ids))
+    tasks=[asyncio.create_task(read(key)) for key in ids]
+    try:messages=await asyncio.gather(*tasks)
+    except BaseException:
+        for task in tasks:task.cancel()
+        await asyncio.gather(*tasks,return_exceptions=True)
+        raise
+    if permit:permit()
     next_page=data.get('nextPageToken')
     if next_page and (not isinstance(next_page,str) or len(next_page)>2000):raise HTTPException(503,'Gmail pagination is unavailable.')
     more=bool(next_page or pending)

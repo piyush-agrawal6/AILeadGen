@@ -443,4 +443,105 @@ write, database reset, Git stash/commit/push or deployment was performed.
   suppression/API regression coverage, verify the isolated frontend build, then
   checkpoint B04 local acceptance and continue the next dependency-ordered backlog.
   All new Gmail/send/schedule controls remain false by default. No live email,
-  external Sheet/CRM write, environment/OAuth/deployment change or commit occurred.
+   external Sheet/CRM write, environment/OAuth/deployment change or commit occurred.
+
+### Intent Radar integration handback — 2026-11-10
+
+Lead Engine remains paused at the B04 continuation above. Radar Phase 1 is locally
+integrated: 757 backend passes/51 explicit skips, 134 UI passes, types/build pass,
+4 Radar and 29 Lead Engine production-bundle browsers pass; real HN fetch passes.
+Review the fenced rejected-token ciphertext cleanup in `app/integrations/service.py`
+before continuing B04. Shared notifications and disabled-archive HTTP status were
+also repaired. No customer mail was sent and no production settings/data changed.
+PostgreSQL remains blocked. Resume the existing B04 next action; this does not close
+the broader Lead Engine roadmap. See `INTENT_RADAR_PHASE_1_INTEGRATION_REPORT.md`
+and its readback-verified source checkpoint for exact results and preserved changes.
+
+### B04 customer Gmail lifecycle closure — 2026-11-10
+
+**B04 is implemented and locally verified with mocked transports. STOP here.**
+The historical B04 continuation above is superseded by this checkpoint. No next
+milestone, remaining Phase 1–6 backlog work or Intent Radar Phase 2 is authorized.
+
+Completed the remaining lifecycle safeguards:
+- Kept encrypted, actor/workspace/context-bound OAuth and refresh leases. The shared
+  provider error path now invokes Gmail authority revocation only after its existing
+  tenant/revision/lease fence succeeds. Rejected refresh, API authorization and
+  changed mailbox identity clear credentials, disable mailbox/policy authority and
+  invalidate sync work. Disconnect/reconnect retain historical conversations;
+  reconnect never inherits prior sending approval.
+- Inbox requests recheck ownership, revision and active lease before provider work;
+  expired/replaced leases cannot persist evidence or advance the saved cursor.
+  Concurrent reads cancel on failure, async mail I/O has a real cancellation timeout,
+  temporary retries remain bounded and expired history requires explicit, revisioned
+  `RESTART_RECENT_SYNC` review. This restarts only the bounded recent inbox position,
+  preserving messages, suppression records and audit history.
+- Gmail management UI shows sync/re-authentication state, exposes reviewed history
+  recovery, refreshes revoked state after errors and allows removal of stale approval.
+  Composer preview/send payloads explicitly bind the workspace mailbox. Account and
+  compose readiness reflect connection, workspace approval, recipient/mode and live
+  environment gates rather than advertising unavailable sends.
+- Verified campaign-to-mailbox routing, inert preparation, fresh reviewed previews,
+  explicit owner approval, final recipient/suppression guards, authenticated replies,
+  idempotent bounce handling, tenant-local soft/hard suppression, bounded throttle
+  retries and uncertain-delivery reservations that are never automatically resent.
+
+Exact local results, all under
+`data/artifacts/verification/phase6/b04-completion-20261110/`:
+
+| Verification | Result | Evidence |
+|---|---|---|
+| Full backend/security/regressions | **775 passed, 51 skipped**, 7 warnings | `backend-full.log`, `backend-full.xml` |
+| Final Gmail/campaign/tenant/worker/shared/Radar focus | **109 passed**, 1 warning | `backend-focused-verified.log`, `.xml` |
+| Frontend units | **137 passed**, 35 files | `frontend-final.log` |
+| Type checking / isolated production build | **PASS / PASS** | `typecheck-final.log`, `build.log` |
+| Gmail production-bundle browser journeys | **2 passed** | `browser-production-final.log`, `browser-results.json` |
+| Lead Engine production-bundle regressions | **29 passed** | `lead-engine-browser.log`, `lead-engine-browser-results.json` |
+| Intent Radar production-bundle regressions | **7 passed** | `radar-browser.log`, `radar-browser-results.json` |
+
+The final focused run additionally covers the rejected-refresh regression added
+after the full run; do not relabel the full run as 776 passes. Frontend units exclude
+`intent-radar-ui-e2e/**` on the CLI because those are separate Playwright tests.
+The 51 backend skips remain **50 PostgreSQL checks BLOCKED** by unavailable local
+infrastructure plus one deliberately skipped live-mail acceptance. No production
+DSN was substituted. Additive schema **40, 41–42** remains intact; no migration was
+edited or reset. Completed Radar services, workers, permissions, navigation and UI
+were preserved; shared changes passed its regressions.
+
+Intermediate failures were recorded and repaired: test-fixture import/indentation;
+an open unapproved draft retaining its audience reservation (explicitly stop the
+draft, then create a newly reviewed run); a collapsed conversation hiding the
+composer; ambiguous loading/status selectors in the production browser; and a new
+refresh test mistakenly targeting a SQL expiry column instead of encrypted token
+expiry. The initial lifecycle assertions exposed six actual revocation/lease/history
+gaps, now passing. Provider rate/DNS interruptions (`getaddrinfo ENOTFOUND`) are
+harness/provider events, not application acceptance failures.
+
+The browser harness uses disposable SQLite, synthetic OAuth/Gmail responses and a
+bounded fixture clock calling the existing owned-run worker. Its sole delivered
+browser message is a mocked Gmail API response to a controlled fixture recipient;
+no real Google OAuth, external inbox access or email delivery occurred. Initial
+preparation leaves sending unapproved and cannot start delivery. Existing follow-up
+composer review does not bypass permanent contact/suppression or uncertain-send guards.
+
+Outstanding external approvals/acceptance (not completed by these mocks): owner
+approval/provisioning of the Gmail OAuth client, callback URI, server encryption
+key and scope/access verification; authorized real-account connect/refresh/revoke
+and inbox acceptance; separately authorized controlled live-send acceptance and
+explicit live runtime/owner gates; local PostgreSQL restore/concurrency validation.
+Public signup/customer rollout and production readiness remain uncertified.
+
+Reproduce from the repository root: `.venv/bin/python -m pytest tests -q`.
+In `dashboard/`: `npm run typecheck`; `npm run test -- --exclude
+'intent-radar-ui-e2e/**' --maxWorkers=2`; use `build-command.json` for the isolated
+fixture production bundle; `B04_BROWSER_PRODUCTION=1 npx playwright test
+--config=playwright.gmail.config.ts`; `npx playwright test
+--config=playwright.b04-regressions.config.ts`; and `B04_BROWSER_SUITE=radar npx
+playwright test --config=playwright.b04-regressions.config.ts`.
+
+`source-checkpoint.zip` and `results.json` in the evidence directory preserve dirty
+source, source-only diff/status, hashes and verified archive readback. Generated
+Next build caches, including already-tracked test caches present on resume, are
+excluded from the source archive and were not reset or untracked. Source whitespace
+check passed (Git noted the existing generated `next-env.d.ts` CRLF normalization).
+**B04 is closed locally; development stops pending further owner instructions.**

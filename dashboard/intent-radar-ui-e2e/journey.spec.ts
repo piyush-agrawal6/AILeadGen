@@ -1,0 +1,68 @@
+import {test,expect} from '@playwright/test';
+import {encode} from 'next-auth/jwt';
+test.beforeEach(async({context,baseURL})=>{
+ const email='founder@leadengine.example';
+ await context.addCookies([{name:'authjs.session-token',value:await encode({token:{sub:email,email},secret:'fixture-session-secret-only-for-local-tests-123456789',salt:'authjs.session-token',maxAge:3600}),url:baseURL!,httpOnly:true,sameSite:'Lax'}]);
+ const workspaces=await(await context.request.get('/api/organization/workspaces')).json();
+ const original=workspaces.items.find((w:{name:string})=>w.name==='PlaneByte');
+ expect((await context.request.put('/api/organization/active',{headers:{origin:baseURL!},data:{organization_id:original.organization_id}})).status()).toBe(200);
+});
+test('complete redesigned customer journey uses real APIs with explicitly synthetic HN transport',async({page,context},info)=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/');await page.getByRole('button',{name:'Switch PlaneByte product'}).click();await page.getByRole('menuitem',{name:/Intent Radar/}).click();
+ await expect(page.getByRole('heading',{name:'Intent Radar',exact:true})).toBeVisible({timeout:30000});
+ await page.getByRole('link',{name:'Discover Intent',exact:true}).last().click();
+ await page.getByRole('button',{name:'People looking for recommendations',exact:true}).click();
+  await expect(page.getByLabel('Describe conversations',{exact:true})).toHaveValue('Find businesses asking for marketing agency recommendations and consulting partners.');
+ await page.getByRole('button',{name:'Generate Search Criteria',exact:true}).click();await expect(page.getByRole('heading',{name:'Your search is ready'})).toBeVisible();
+ await expect(page.getByText('Manual fallback',{exact:true})).toBeVisible();
+ expect((await(await context.request.get('/api/intent-radar/jobs')).json()).items).toHaveLength(0);
+ await page.screenshot({path:info.outputPath('search-review.png')});
+ await page.getByRole('button',{name:'Edit criteria'}).click();
+ await page.getByRole('button',{name:'Clear filters',exact:true}).click();await page.getByLabel('Add Keywords',{exact:true}).fill('website');await page.getByLabel('Add Keywords',{exact:true}).press('Enter');
+ await page.getByRole('button',{name:'Review Search',exact:true}).click();await page.getByRole('button',{name:'Search Public Conversations',exact:true}).click();
+ await expect(page.getByText('COMPLETED',{exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'Search results',exact:true})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Ask HN: recommend a website development partner?',exact:true})).toBeVisible();await page.screenshot({path:info.outputPath('search-results.png')});
+ await page.getByRole('button',{name:'Save as Monitor',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Create an intent monitor'});
+ await dialog.getByRole('button',{name:'Continue',exact:true}).click();await dialog.getByLabel('Monitor name',{exact:true}).fill('Redesigned customer journey');
+ for(let i=0;i<3;i++)await dialog.getByRole('button',{name:'Continue',exact:true}).click();
+ await page.screenshot({path:info.outputPath('wizard-review.png')});await dialog.getByRole('button',{name:'Create Monitor',exact:true}).click();await expect(dialog).toHaveCount(0);
+ // Saving a monitor does not start another discovery job.
+ expect((await(await context.request.get('/api/intent-radar/jobs')).json()).items).toHaveLength(1);
+ await page.getByRole('link',{name:'Monitors',exact:true}).click();const card=page.locator('.ir-monitor').filter({hasText:'Redesigned customer journey'});
+ await card.getByRole('button',{name:'Run manual check'}).click();await expect(card.getByText('COMPLETED',{exact:true})).toBeVisible();
+ await card.getByRole('button',{name:'Actions for Redesigned customer journey'}).click();await page.getByRole('menuitem',{name:'Pause',exact:true}).click();await expect(card.getByRole('button',{name:'Run manual check'})).toBeDisabled();
+ await card.getByRole('button',{name:'Actions for Redesigned customer journey'}).click();await page.getByRole('menuitem',{name:'Resume',exact:true}).click();await expect(card.getByRole('button',{name:'Run manual check'})).toBeEnabled();
+ await page.getByRole('link',{name:'Intent Signals',exact:true}).click();await page.getByLabel('Search signals',{exact:true}).fill('does-not-match-fixture');await expect(page.getByRole('heading',{name:'No signals match your filters'})).toBeVisible();await page.getByRole('button',{name:'Reset filters',exact:true}).last().click();
+ await page.getByRole('button',{name:'Cards',exact:true}).click();await page.getByRole('link',{name:'Ask HN: recommend a website development partner?',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Original conversation evidence'})).toBeVisible();await expect(page.getByRole('link',{name:/Open original public discussion/})).toHaveAttribute('href','https://news.ycombinator.com/item?id=999123');
+ await page.getByLabel('Signal status',{exact:true}).selectOption('Reviewed');await page.getByLabel('Your review notes',{exact:true}).fill('Reviewed source-backed synthetic browser evidence.');await page.getByRole('button',{name:'Save note',exact:true}).click();
+ await page.getByRole('button',{name:'Save signal',exact:true}).click();await page.getByRole('button',{name:'Add to Opportunity',exact:true}).click();
+ await page.getByRole('link',{name:'Saved Signals',exact:true}).click();await page.getByLabel('Collection',{exact:true}).fill('Market research');await page.getByLabel('Add Tags',{exact:true}).fill('reviewed');await page.getByLabel('Add Tags',{exact:true}).press('Enter');await page.getByLabel('Saved signal notes',{exact:true}).fill('Saved context persists.');await page.getByRole('button',{name:'Save collection and notes',exact:true}).click();await page.reload();await expect(page.getByLabel('Collection',{exact:true})).toHaveValue('Market research');
+ await page.getByRole('link',{name:'Opportunities',exact:true}).click();await page.getByLabel('Opportunity status',{exact:true}).selectOption('Qualified');await page.getByLabel('Priority',{exact:true}).selectOption('High');await page.getByLabel('Opportunity notes',{exact:true}).fill('Human-reviewed opportunity.');await page.getByRole('button',{name:'Save opportunity',exact:true}).click();await page.reload();await expect(page.getByLabel('Opportunity notes',{exact:true})).toHaveValue('Human-reviewed opportunity.');
+ await page.getByRole('link',{name:'Alerts',exact:true}).click();await page.getByRole('button',{name:'Mark read',exact:true}).first().click();await expect(page.getByRole('button',{name:'Mark unread',exact:true}).first()).toBeVisible();
+ await page.getByRole('link',{name:'Integrations & MCP',exact:true}).click();await page.getByRole('tab',{name:'AI Assistants & MCP',exact:true}).click();await expect(page.getByRole('heading',{name:'Visual Studio Code',exact:true})).toBeVisible();await page.getByRole('button',{name:'Learn more about ChatGPT / OpenAI'}).click();await expect(page.getByRole('dialog')).toContainText('not been implemented');await page.keyboard.press('Escape');
+ await page.getByRole('link',{name:'Intent Radar Settings',exact:true}).click();await page.getByLabel('Default signal view',{exact:true}).selectOption('cards');await page.getByLabel('Add Preferred topics',{exact:true}).fill('Software development');await page.getByLabel('Add Preferred topics',{exact:true}).press('Enter');await page.getByRole('button',{name:'Save preferences',exact:true}).first().click();await expect(page.getByText('Preferences saved',{exact:true}).first()).toBeVisible();await page.reload();await expect(page.getByLabel('Default signal view',{exact:true})).toHaveValue('cards');
+ await page.getByRole('button',{name:'Switch PlaneByte product'}).click();await page.getByRole('menuitem',{name:/Lead Engine/}).click();await expect(page.getByRole('navigation',{name:'Main navigation'}).getByRole('link',{name:'Find Leads',exact:true})).toBeVisible();expect(errors).toEqual([]);
+});
+test('wizard opacity, keyboard focus, validation, unsaved-change confirmation and mobile scrolling',async({page},info)=>{
+ await page.setViewportSize({width:390,height:844});await page.goto('/intent-radar/monitors/new');const modal=page.getByRole('dialog',{name:'Create an intent monitor'});await expect(modal).toBeVisible();
+ expect(await modal.evaluate(e=>getComputedStyle(e).backgroundColor)).toBe('rgb(255, 255, 255)');
+ await page.keyboard.press('Tab');expect(await modal.evaluate(e=>e.contains(document.activeElement))).toBe(true);
+ await modal.getByRole('button',{name:'Continue',exact:true}).click();await modal.getByRole('button',{name:'Continue',exact:true}).click();await expect(modal.getByRole('alert')).toContainText('Enter a monitor name');
+ await modal.getByLabel('Monitor name',{exact:true}).fill('Unsaved mobile monitor');await page.screenshot({path:info.outputPath('mobile-wizard.png')});await page.keyboard.press('Escape');await expect(page.getByRole('dialog',{name:'Discard unsaved monitor changes?'})).toBeVisible();await page.getByRole('button',{name:'Keep editing',exact:true}).click();await expect(modal.getByLabel('Monitor name',{exact:true})).toHaveValue('Unsaved mobile monitor');
+ await page.keyboard.press('Escape');await page.getByRole('button',{name:'Discard changes',exact:true}).click();await expect(modal).toHaveCount(0);
+});
+test('unavailable product, absent session and cross-workspace evidence stay denied',async({page,context,baseURL})=>{
+ const workspaces=await(await context.request.get('/api/organization/workspaces')).json();const unavailable=workspaces.items.find((w:{name:string})=>w.name==='Radar unavailable workspace');
+ const signals=(await(await context.request.get('/api/intent-radar/signals')).json()).items;
+ const other=workspaces.items.find((w:{name:string})=>w.name==='Isolated Radar workspace');
+ expect((await context.request.put('/api/organization/active',{headers:{origin:baseURL!},data:{organization_id:other.organization_id}})).status()).toBe(200);
+ for(const signal of signals)expect((await context.request.get('/api/intent-radar/signals/'+signal.id)).status()).toBe(404);
+ expect((await(await context.request.get('/api/intent-radar/signals')).json()).total).toBe(0);
+ expect((await context.request.put('/api/organization/active',{headers:{origin:baseURL!},data:{organization_id:unavailable.organization_id}})).status()).toBe(200);
+ await page.goto('/intent-radar');await expect(page.getByRole('heading',{name:'Intent Radar is unavailable'})).toBeVisible();
+ for(const route of ['overview','signals','monitors','saved','opportunities','alerts','settings'])expect((await context.request.get('/api/intent-radar/'+route)).status()).toBe(404);
+ await page.goto('/');await page.getByRole('button',{name:'Switch PlaneByte product'}).click();await expect(page.getByRole('menuitem',{name:/Intent Radar/})).toHaveCount(0);await page.keyboard.press('Escape');
+ await context.clearCookies();await page.goto('/intent-radar');await expect(page).toHaveURL(/\/login/);expect((await context.request.get('/api/intent-radar/signals')).status()).toBe(401);
+});

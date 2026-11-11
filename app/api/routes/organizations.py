@@ -39,6 +39,14 @@ def workspaces(request:Request,c=Depends(get_db,scope='function')):
     from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
     return {'items':memberships(c,request.state.user_email),'active_organization_id':state['organization_id'] if state else None,'active_onboarding_status':state['onboarding_status'] if state else None,'active_is_internal':bool(state and state['organization_id']==PLANEBYTE_ORGANIZATION_ID)}
 
+@router.get('/products')
+def product_access(request:Request,c=Depends(get_db,scope='function')):
+    state=resolve(c,request.state.user_email)
+    from app.intent_radar.permissions import availability
+    from app.api.organization import products
+    org=state['organization_id'] if state else None
+    return {'organization_id':org,'lead_engine':bool(org and products(c,org).get('LEADGEN')),'intent_radar':availability(c,org)}
+
 @router.put('/active',response_model=Selection)
 def active(body:Selection,request:Request,c=Depends(get_db,scope='function')):
     require_enabled()

@@ -37,6 +37,10 @@ environment.update({
     'LEADENGINE_API_URL':'http://127.0.0.1:18790','AUTH_URL':'',
     'AUTH_DISABLED_LOCAL':'false','HEYSOW_WORKSPACE_MANAGEMENT_ENABLED':'true',
     'HEYSOW_INTERNAL_EXPERIMENTS_ENABLED':'false',
+    # A local Beta stage does not grant access: organization_products and
+    # completed onboarding still gate every page, API and worker.
+    'INTENT_RADAR_STAGE':'Beta',
+    'INTENT_RADAR_AI_ENABLED':'false',
     'AUTO_SCAN_ENABLED':'false','AUTO_EMAIL_ENABLED':'false',
     'EMAIL_SENDING_ENABLED':'false','EMAIL_SYNC_ENABLED':'false',
     'EMAIL_TRACKING_BASE_URL':'http://localhost:3000/t',
