@@ -46,8 +46,13 @@ def dedupe(rows):
         result.append(item)
     return result,duplicates
 
-def evidence(c,scope:Scope,as_of=None):
-    org=access(c).organization_id;end=as_of or datetime.now(timezone.utc);days=scope.days or 7
+def evidence(c,scope:Scope,as_of=None,*,_verified_context=None):
+    # Internal read composition may reuse this request's already-verified access.
+    # APIs and workers omit the parameter; persistence still uses fresh fences.
+    if _verified_context is not None:
+        from app.platform.context import current
+        if _verified_context!=current():raise HTTPException(403,'The composed read does not match the verified workspace.')
+    org=(_verified_context or access(c)).organization_id;end=as_of or datetime.now(timezone.utc);days=scope.days or 7
     start=end-timedelta(days=days);previous=start-timedelta(days=days)
     where=['organization_id=?','available=1','observed_at>=?','observed_at<?',service.rank_expression()+'>=?'];args=[org,previous.isoformat(),end.isoformat(),scope.min_score]
     if scope.sources:where.append('source IN ('+','.join('?' for _ in scope.sources)+')');args.extend(scope.sources)
@@ -137,8 +142,11 @@ def lexical_groups(items):
     return result
 
 def overview(c,scope):
-    data=evidence(c,scope);items=data['items'];org=access(c).organization_id
+    ctx=access(c);data=evidence(c,scope,_verified_context=ctx);items=data['items'];org=ctx.organization_id
     daily=Counter(r['observed_at'][:10] for r in items);categories=Counter(r['category'] for r in items)
-    from .service import themes as theme_listing
-    themes=theme_listing(c,size=25)['items']
-    return {'sample_size':len(items),'comparison':comparison(len(items),len(data['previous']),data['coverage']),'coverage':data['coverage'],'as_of':data['as_of'],'sources':dict(Counter(r['source'] for r in items)),'categories':dict(categories),'daily':[{'day':d,'conversations':n} for d,n in sorted(daily.items())],'themes':themes,'monitored_topics':c.execute("SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status='Active'",(org,)).fetchone()[0],'opportunity_candidates':sum(r['score']>=45 for r in items),'freshest_evidence':max((r['retrieved_at'] for r in items),default=None),'signals':[{k:r[k] for k in ('id','title','source','source_url','observed_at','retrieved_at','score','category')} for r in items[:25]],'geography':'Unknown unless explicitly evidenced; no inferred country filter.'}
+    # Counts do not need theme bodies/citations or another permission traversal.
+    # Bundle bounded filter options to avoid two separately authenticated reads.
+    theme_count=c.execute("SELECT COUNT(*) FROM growth_themes WHERE organization_id=? AND status='Active'",(org,)).fetchone()[0]
+    options={'icps':[dict(r) for r in c.execute("SELECT id,name FROM ideal_customer_profiles WHERE organization_id=? AND status<>'DELETED' ORDER BY updated_at DESC,id LIMIT 100",(org,)).fetchall()],
+             'competitors':[dict(r) for r in c.execute('SELECT id,name FROM growth_competitors WHERE organization_id=? AND archived_at IS NULL ORDER BY name,id LIMIT 100',(org,)).fetchall()]}
+    return {'sample_size':len(items),'comparison':comparison(len(items),len(data['previous']),data['coverage']),'coverage':data['coverage'],'as_of':data['as_of'],'sources':dict(Counter(r['source'] for r in items)),'categories':dict(categories),'daily':[{'day':d,'conversations':n} for d,n in sorted(daily.items())],'themes':[],'theme_count':theme_count,'filter_options':options,'monitored_topics':c.execute("SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status='Active'",(org,)).fetchone()[0],'opportunity_candidates':sum(r['score']>=45 for r in items),'freshest_evidence':max((r['retrieved_at'] for r in items),default=None),'signals':[{k:r[k] for k in ('id','title','source','source_url','observed_at','retrieved_at','score','category')} for r in items[:25]],'geography':'Unknown unless explicitly evidenced; no inferred country filter.'}

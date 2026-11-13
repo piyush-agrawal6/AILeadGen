@@ -91,6 +91,18 @@ verified state remains authoritative), and the bounded server wait was raised to
 the final frontend build passes. This is a functional timeout repair, not an SLA
 or claim of low production latency.
 
+Production research then completed through real Vertex (`gemini-3.6-flash`) with
+five validated citations. Save/reopen notes and all three real exports passed.
+The four Growth MCP tools passed actual SDK discovery/read, scope denial and
+revocation. Live aggregate reads nevertheless measured up to 40.57 seconds.
+The final read optimization composes one verified request context, returns only
+the needed theme count, and bundles bounded owned ICP/competitor filter options.
+It removes repeated authorization traversals and two separate browser reads;
+fresh worker persistence/export checks are unchanged. The new composed-context
+guard, query budget, PostgreSQL workflow and MCP checks pass 19, and the full
+local Growth browser workflow passes again. Production latency must be measured
+after deployment; no improvement percentage is inferred from local tests.
+
 Manual theme merge/split, global semantic retrieval, independent multilingual
 quality calibration, external alert delivery and additional vendor sources are
 not claimed complete. Current production source permissions remain unchanged.

@@ -42,23 +42,26 @@ def gates():
     if not (STATE/'leadengine-api.json').exists():raise RuntimeError('Fresh runtime checkpoints are required.')
     return record
 
-def release(api_image,worker_image):
+def release(api_image,worker_image,api_only=False):
     record=gates()
     for image,kind in ((api_image,'api'),(worker_image,'worker')):
+        if api_only and kind=='worker':continue
         if not image.startswith('asia-south1-docker.pkg.dev/querryside/leadengine/'+kind+':growth-'):raise RuntimeError('Expected verified existing-project Growth image.')
     settings=dotenv_values(ROOT/'.env',interpolate=False)
     c=PostgresConnection(settings['DATABASE_URL'],session_bound=True)
     try:
         before=c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0]
         if before not in (44,45):raise RuntimeError('Unexpected production schema; stop for review.')
+        if api_only and before!=45:raise RuntimeError('An API-only patch requires the already-deployed schema 45 workers.')
         owner=c.execute("SELECT m.organization_id FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id JOIN organization_products p ON p.organization_id=o.id AND p.product='INTENT_RADAR' WHERE m.user_id='planebyte@gmail.com' AND m.role='OWNER' AND m.status='ACTIVE' AND p.enabled=1 AND o.slug='planebyte'").fetchall()
         if len(owner)!=1 or owner[0][0]!='e5ffc3dc-241e-5558-acd4-84f5fe354ca7':raise RuntimeError('Existing owner-only beta grant could not be verified.')
         if c.execute("SELECT COUNT(*) FROM organization_products WHERE product='INTENT_RADAR' AND enabled=1").fetchone()[0]!=1:raise RuntimeError('Unexpected additional beta workspaces; no broad activation authorized.')
         applied=run_migrations(c) if before==44 else 0;verify_schema(c);c.commit()
     except Exception:c.rollback();raise
     finally:c.close()
-    save('migration.json',{'before':before,'after':45,'applied':applied,'backup_sha256':record['backup_sha256'],'owner_beta_workspace':owner[0][0]})
+    save('migration-patch-verified.json' if api_only else 'migration.json',{'before':before,'after':45,'applied':applied,'backup_sha256':record['backup_sha256'],'owner_beta_workspace':owner[0][0]})
     for kind,name,image_kind in RESOURCES:
+        if api_only and kind!='services':continue
         current=command(['run',kind,'describe',name,'--region='+REGION]);old=spec(current,kind)
         save(name+'-pre-update.json',current)
         env={r['name']:r for r in old['containers'][0].get('env',[])}
@@ -84,10 +87,10 @@ def promote():
     save('promoted.json',{**record,'traffic_promoted':True});print(json.dumps({'promoted':record['revision'],'url':record['url']}))
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('action',choices=['prepare','release','promote']);parser.add_argument('--api-image');parser.add_argument('--worker-image');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('action',choices=['prepare','release','promote']);parser.add_argument('--api-image');parser.add_argument('--worker-image');parser.add_argument('--api-only',action='store_true');args=parser.parse_args()
     try:
         if args.action=='prepare':prepare()
-        elif args.action=='release':release(args.api_image or '',args.worker_image or '')
+        elif args.action=='release':release(args.api_image or '',args.worker_image or '',args.api_only)
         else:promote()
     except Exception as error:
         print(json.dumps({'status':'FAILED','error_type':type(error).__name__,'detail':str(error) if isinstance(error,RuntimeError) else 'Inspect restricted release evidence. Credentials are never printed.'}));raise SystemExit(1)

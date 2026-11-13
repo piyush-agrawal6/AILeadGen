@@ -188,3 +188,18 @@ def test_http_date_filter_parsing_and_direct_disabled_route(growth,monkeypatch):
         assert http.get('/api/intent-radar/growth/overview?days=90',headers=headers).status_code==422
         monkeypatch.setattr(get_settings(),'intent_radar_growth_enabled',False)
         assert http.get('/api/intent-radar/growth/overview?days=0',headers=headers).status_code==404
+
+def test_overview_bundles_owned_filter_options_without_repeated_authentication_queries(growth):
+    from app.platform.context import WorkspaceContext
+    c,path,org,other=growth
+    class Counting:
+        def __init__(self):self.reads=[]
+        def __getattr__(self,name):return getattr(c,name)
+        def execute(self,sql,args=()):self.reads.append(sql);return c.execute(sql,args)
+    with workspace_scope(c,'controlled@example.test',org):
+        competitor=service.competitor(c,models.Competitor(name='Owned reporting product'));c.commit()
+        measured=Counting();result=analytics.overview(measured,models.Scope())
+        assert result['filter_options']['competitors']==[{'id':competitor['id'],'name':'Owned reporting product'}]
+        assert sum('organization_memberships' in sql for sql in measured.reads)<=2
+        assert result['theme_count']==0
+        with pytest.raises(HTTPException):analytics.evidence(c,models.Scope(),_verified_context=WorkspaceContext(other,'controlled@example.test'))
