@@ -10,6 +10,24 @@ from app.intent_radar import models
 
 TABLES = {'monitors': 'intent_monitors', 'signals': 'intent_signals', 'opportunities': 'intent_opportunities', 'alerts': 'intent_alerts', 'discoveries': 'intent_discoveries'}
 
+def rank_expression(alias='intent_signals'):
+    if alias not in ('intent_signals','s'):raise ValueError('Internal rank alias required.')
+    base=f"COALESCE((SELECT r.score FROM intent_rankings r WHERE r.organization_id={alias}.organization_id AND r.signal_id={alias}.id AND (r.icp_id IS NULL OR EXISTS(SELECT 1 FROM ideal_customer_profiles i WHERE i.organization_id=r.organization_id AND i.id=r.icp_id AND i.revision=r.icp_revision)) AND NOT EXISTS(SELECT 1 FROM organization_profiles p WHERE p.organization_id=r.organization_id AND p.updated_at>r.updated_at)),{alias}.score)"
+    delta=f"COALESCE((SELECT CASE WHEN SUM(CASE WHEN f.label='Relevant' THEN 5 WHEN f.label IN ('Not relevant','Not a target customer','Too old','Duplicate','Incorrect AI summary') THEN -10 ELSE 0 END)>10 THEN 10 WHEN SUM(CASE WHEN f.label='Relevant' THEN 5 WHEN f.label IN ('Not relevant','Not a target customer','Too old','Duplicate','Incorrect AI summary') THEN -10 ELSE 0 END)<-20 THEN -20 ELSE SUM(CASE WHEN f.label='Relevant' THEN 5 WHEN f.label IN ('Not relevant','Not a target customer','Too old','Duplicate','Incorrect AI summary') THEN -10 ELSE 0 END) END FROM intent_feedback f WHERE f.organization_id={alias}.organization_id AND f.signal_id={alias}.id AND f.active=1),0)"
+    value=f'({base}+{delta})'
+    return f'CASE WHEN {value}>100 THEN 100 WHEN {value}<0 THEN 0 ELSE {value} END'
+
+def ranked_signal(c,item):
+    item['keyword_score']=item['score']
+    if not item['available']:
+        item['score']=0;item['ranking']={'basis':'Public source evidence is unavailable; no current relevance claim.'}
+        return item
+    rank=c.execute('SELECT '+rank_expression()+' FROM intent_signals WHERE organization_id=? AND id=?',(item['organization_id'],item['id'])).fetchone()
+    item['score']=rank[0] if rank else item['score']
+    row=c.execute('SELECT r.explanation_json FROM intent_rankings r WHERE r.organization_id=? AND r.signal_id=? AND (r.icp_id IS NULL OR EXISTS(SELECT 1 FROM ideal_customer_profiles i WHERE i.organization_id=r.organization_id AND i.id=r.icp_id AND i.revision=r.icp_revision)) AND NOT EXISTS(SELECT 1 FROM organization_profiles p WHERE p.organization_id=r.organization_id AND p.updated_at>r.updated_at)',(item['organization_id'],item['id'])).fetchone()
+    item['ranking']=json.loads(row[0]) if row else {'version':'DETERMINISTIC_V3','basis':'Keyword evidence + bounded active workspace feedback'}
+    return item
+
 def audit(c, action, key):
     ctx = context(c)
     c.execute('INSERT INTO audit_log(id,actor,action,entity,result,organization_id,created_at) VALUES(?,?,?,?,?,?,?)', (str(uuid.uuid4()), ctx.actor, 'INTENT_RADAR_' + action, key, 'SUCCESS', ctx.organization_id, now()))
@@ -28,44 +46,66 @@ def get(c, kind, key):
     if not row: raise HTTPException(404, 'Intent Radar record not found.')
     item = decode(row)
     if kind == 'signals':
-        if expired(item):
+        if expired(item,preferences(c)['source_retention_days']):
             item.update(available=0,title='Source item unavailable',excerpt='',evidence={})
         item['monitors'] = [dict(r) for r in c.execute('SELECT m.id,m.name FROM intent_monitors m JOIN intent_monitor_signals x ON x.monitor_id=m.id AND x.organization_id=m.organization_id WHERE x.organization_id=? AND x.signal_id=?', (org, key)).fetchall()]
         item['saved'] = bool(c.execute('SELECT 1 FROM intent_saved_signals WHERE organization_id=? AND signal_id=?', (org, key)).fetchone())
+        ranked_signal(c,item)
+    if kind=='opportunities':
+        signal=get(c,'signals',item['signal_id']);item['score']=signal['score'];item['ranking']=signal['ranking']
     return item
 
-def expired(signal):
+def expired(signal,retention_days=30):
     policy=signal.get('evidence',{}).get('provenance',{})
     days=policy.get('retention_days')
-    if not isinstance(days,int):return False
+    days=min(days,retention_days) if type(days) is int and days>0 else retention_days
     try:return (datetime.now(timezone.utc)-datetime.fromisoformat(signal['retrieved_at'])).total_seconds()>days*86400
     except (ValueError,KeyError,TypeError):return True
 
+def retention_sql(c,days,alias='intent_signals'):
+    policy=("CAST("+alias+".evidence_json AS JSONB)->'provenance'->>'retention_days'" if getattr(c,'backend','sqlite')=='postgres' else "json_extract("+alias+".evidence_json,'$.provenance.retention_days')")
+    policy='CAST(('+policy+') AS INTEGER)'
+    effective='CASE WHEN '+policy+' BETWEEN 1 AND ? THEN '+policy+' ELSE ? END'
+    if getattr(c,'backend','sqlite')=='postgres':
+        predicate='(CAST('+alias+'.retrieved_at AS TIMESTAMPTZ) + ('+effective+") * INTERVAL '1 day') > CAST(? AS TIMESTAMPTZ)"
+    else:predicate='julianday('+alias+'.retrieved_at) + ('+effective+') > julianday(?)'
+    return predicate,[days,days,now()]
+
 def expire_content(c):
-    org=context(c,True).organization_id;count=0
-    for row in c.execute('SELECT * FROM intent_signals WHERE organization_id=? AND available=1 ORDER BY retrieved_at LIMIT 1000',(org,)).fetchall():
+    from app.intent_radar.permissions import persistence_context
+    org=persistence_context(c,manager=True).organization_id;count=0
+    retention_days=preferences(c)['source_retention_days']
+    cursor=c.execute('SELECT signal_after,cache_after FROM intent_retention_cursors WHERE organization_id=?',(org,)).fetchone()
+    after=cursor['signal_after'] if cursor else '';cache_after=cursor['cache_after'] if cursor else ''
+    rows=c.execute('SELECT * FROM intent_signals WHERE organization_id=? AND available=1 AND id>? ORDER BY id LIMIT 1000',(org,after)).fetchall()
+    for row in rows:
         signal=decode(row)
-        if not expired(signal):continue
+        if not expired(signal,retention_days):continue
         changed=c.execute("UPDATE intent_signals SET available=0,title='Source item unavailable',excerpt='',evidence_json='{}',revision=revision+1 WHERE id=? AND organization_id=? AND retrieved_at=?",(signal['id'],org,signal['retrieved_at'])).rowcount
         if changed:
             c.execute('DELETE FROM intent_analyses WHERE organization_id=? AND signal_id=?',(org,signal['id']));count+=1
+            c.execute('DELETE FROM intent_rankings WHERE organization_id=? AND signal_id=?',(org,signal['id']))
             c.execute("UPDATE intent_alerts SET description='Source content unavailable' WHERE organization_id=? AND signal_id=?",(org,signal['id']))
-    for row in c.execute('SELECT fingerprint,result_json FROM intent_source_cache WHERE organization_id=? LIMIT 1000',(org,)).fetchall():
+    caches=c.execute('SELECT fingerprint,result_json FROM intent_source_cache WHERE organization_id=? AND fingerprint>? ORDER BY fingerprint LIMIT 1000',(org,cache_after)).fetchall()
+    for row in caches:
         data=json.loads(row['result_json']);items=data if isinstance(data,list) else data.get('items',[])
-        remaining=[x for x in items if not expired({'retrieved_at':x.get('retrieved_at'),'evidence':{'provenance':x.get('provenance',{})}})]
+        remaining=[x for x in items if not expired({'retrieved_at':x.get('retrieved_at'),'evidence':{'provenance':x.get('provenance',{})}},retention_days)]
         if len(remaining)!=len(items):
             if isinstance(data,list):data=remaining
             else:data['items']=remaining;data.pop('etag',None);data.pop('last_modified',None)
             c.execute('UPDATE intent_source_cache SET result_json=? WHERE organization_id=? AND fingerprint=?',(json.dumps(data),org,row['fingerprint']))
-    return {'expired_source_items':count,'customer_notes_preserved':True}
+    c.execute('INSERT INTO intent_retention_cursors(organization_id,signal_after,cache_after,updated_at) VALUES(?,?,?,?) ON CONFLICT(organization_id) DO UPDATE SET signal_after=excluded.signal_after,cache_after=excluded.cache_after,updated_at=excluded.updated_at',(org,rows[-1]['id'] if len(rows)==1000 else '',caches[-1]['fingerprint'] if len(caches)==1000 else '',now()))
+    return {'expired_source_items':count,'customer_notes_preserved':True,'scanned':len(rows),'more_signal_batches':len(rows)==1000}
 
-def listing(c, kind, *, page=1, size=25, search='', status='', category='', source='', min_score=0, monitor_id='', saved='', from_date='', to_date='', sort='newest'):
+def _listing(c, kind, *, page=1, size=25, search='', status='', category='', source='', min_score=0, monitor_id='', saved='', from_date='', to_date='', sort='newest'):
     org = context(c).organization_id
+    if not 1<=page<=10000 or not 1<=size<=100:raise HTTPException(422,'Bounded pagination required.')
     where, args = 'organization_id=?', [org]
     if search:
         field = 'name' if kind == 'monitors' else 'title' if kind in ('signals','alerts') else 'notes'
         where += f' AND LOWER({field}) LIKE ?'; args.append('%' + search.casefold() + '%')
-    if status and kind != 'alerts': where += ' AND status=?'; args.append(status)
+    if kind=='monitors' and status=='Current':where+=" AND status<>'Archived'"
+    elif status and kind != 'alerts': where += ' AND status=?'; args.append(status)
     if kind == 'signals':
         where += ' AND available=1 AND score>=?'; args.append(min_score)
         for field, value in (('category',category),('source',source)):
@@ -85,6 +125,55 @@ def listing(c, kind, *, page=1, size=25, search='', status='', category='', sour
     rows = c.execute(f'SELECT id FROM {TABLES[kind]} WHERE {where} ORDER BY {order} LIMIT ? OFFSET ?', [*args,size,(page-1)*size]).fetchall()
     return {'items': [get(c,kind,r[0]) for r in rows], 'total': total, 'page':page, 'page_size':size}
 
+def listing(c,kind,**filters):
+    if kind not in ('signals','opportunities','alerts'):return _listing(c,kind,**filters)
+    org=context(c).organization_id;page=filters.get('page',1);size=filters.get('size',25)
+    if not 1<=page<=10000 or not 1<=size<=100:raise HTTPException(422,'Bounded pagination required.')
+    where=['organization_id=?'];args=[org];sort=filters.get('sort','newest')
+    if filters.get('search'):
+        field='title' if kind in ('signals','alerts') else 'notes'
+        where.append('LOWER('+field+') LIKE ?');args.append('%'+filters['search'].casefold()+'%')
+    if filters.get('status') and kind!='alerts':where.append('status=?');args.append(filters['status'])
+    if kind=='signals':
+        where+=['available=1',rank_expression()+'>=?'];args.append(filters.get('min_score',0))
+        retention,retention_args=retention_sql(c,preferences(c)['source_retention_days']);where.append(retention);args.extend(retention_args)
+        for field in ('category','source'):
+            if filters.get(field):where.append(field+'=?');args.append(filters[field])
+        if filters.get('monitor_id'):
+            get(c,'monitors',filters['monitor_id']);where.append('id IN (SELECT signal_id FROM intent_monitor_signals WHERE organization_id=? AND monitor_id=?)');args.extend([org,filters['monitor_id']])
+        if filters.get('saved'):
+            where.append(('NOT ' if filters['saved']=='unsaved' else '')+'EXISTS(SELECT 1 FROM intent_saved_signals s WHERE s.organization_id=intent_signals.organization_id AND s.signal_id=intent_signals.id)')
+        for field,operator,end in [('from_date','>=',''),('to_date','<','T23:59:59.999999+00:00')]:
+            if filters.get(field):where.append('observed_at'+operator+'?');args.append(filters[field]+end)
+        order={'score':rank_expression()+' DESC,id','title':'title,id','newest':'observed_at DESC,id'}[sort]
+    elif kind=='opportunities':
+        order="CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END,(SELECT "+rank_expression('s')+" FROM intent_signals s WHERE s.id=intent_opportunities.signal_id AND s.organization_id=intent_opportunities.organization_id) DESC,created_at DESC,id"
+    else:
+        if filters.get('read_state')=='Unread':where.append('read_at IS NULL')
+        if filters.get('read_state')=='Read':where.append('read_at IS NOT NULL')
+        if filters.get('alert_kind')=='Source issues':where.append("event_key LIKE 'source-failure:%'")
+        if filters.get('alert_kind')=='Monitor activity':where.append("event_key NOT LIKE 'source-failure:%'")
+        order='created_at DESC,id'
+    sql=' AND '.join(where);total=c.execute('SELECT COUNT(*) FROM '+TABLES[kind]+' WHERE '+sql,args).fetchone()[0]
+    rows=c.execute('SELECT * FROM '+TABLES[kind]+' WHERE '+sql+' ORDER BY '+order+' LIMIT ? OFFSET ?',[*args,size,(page-1)*size]).fetchall()
+    if kind!='signals':items=[get(c,kind,r['id']) for r in rows]
+    else:
+        items=[]
+        retention_days=preferences(c)['source_retention_days']
+        # Bounds are strict; rows contain actual records, not fabricated result cards.
+        for row in rows:
+            item=decode(row)
+            if expired(item,retention_days):item.update(available=0,title='Source item unavailable',excerpt='',evidence={})
+            ranked_signal(c,item);items.append(item)
+        ids=[i['id'] for i in items]
+        links={key:[] for key in ids};saved_ids=set()
+        if ids:
+            marks=','.join('?' for _ in ids)
+            for r in c.execute('SELECT x.signal_id,m.id,m.name FROM intent_monitor_signals x JOIN intent_monitors m ON m.id=x.monitor_id AND m.organization_id=x.organization_id WHERE x.organization_id=? AND x.signal_id IN ('+marks+')',[org,*ids]).fetchall():links[r['signal_id']].append({'id':r['id'],'name':r['name']})
+            saved_ids={r[0] for r in c.execute('SELECT signal_id FROM intent_saved_signals WHERE organization_id=? AND signal_id IN ('+marks+')',[org,*ids]).fetchall()}
+        for item in items:item['monitors']=links[item['id']];item['saved']=item['id'] in saved_ids
+    return {'items':items,'total':total,'page':page,'page_size':size}
+
 def save_monitor(c, body, key=None):
     ctx = context(c, True)
     config = body.configuration.model_dump(mode='json')
@@ -99,6 +188,7 @@ def save_monitor(c, body, key=None):
         if body.revision != old['revision']: raise HTTPException(409, 'Monitor changed. Reload before editing.')
         changed = c.execute('UPDATE intent_monitors SET name=?,description=?,goal=?,configuration_json=?,status=?,revision=revision+1,updated_at=? WHERE id=? AND organization_id=? AND revision=?', (body.name,body.description,body.goal,encoded,body.status,now(),key,ctx.organization_id,body.revision)).rowcount
         if not changed: raise HTTPException(409,'Monitor changed. Reload before editing.')
+        c.execute('DELETE FROM intent_rankings WHERE organization_id=? AND signal_id IN (SELECT signal_id FROM intent_monitor_signals WHERE organization_id=? AND monitor_id=?)',(ctx.organization_id,ctx.organization_id,key))
     else:
         old = c.execute('SELECT id,fingerprint FROM intent_monitors WHERE organization_id=? AND request_id=?',(ctx.organization_id,str(body.request_id))).fetchone()
         if old:
@@ -124,9 +214,17 @@ def preferences(c, body=None):
     audit(c,'PREFERENCES_SAVED',ctx.organization_id)
     return preferences(c)
 
-def saved(c):
+def saved(c,*,page=1,size=25,search='',collection='',sort='newest'):
     org = context(c).organization_id
-    return {'items':[decode(r) for r in c.execute('SELECT * FROM intent_saved_signals WHERE organization_id=? ORDER BY saved_at DESC LIMIT 500',(org,)).fetchall()]}
+    where='organization_id=?';args=[org]
+    if collection:where+=' AND collection=?';args.append(collection)
+    if search:where+=' AND (LOWER(notes) LIKE ? OR LOWER(collection) LIKE ? OR LOWER(tags_json) LIKE ?)';args.extend(['%'+search.casefold()+'%']*3)
+    if not 1<=page<=10000 or not 1<=size<=100:raise HTTPException(422,'Bounded saved pagination required.')
+    total=c.execute('SELECT COUNT(*) FROM intent_saved_signals WHERE '+where,args).fetchone()[0]
+    orders={'newest':'saved_at DESC,signal_id','oldest':'saved_at,signal_id','collection':'collection,signal_id'}
+    if sort not in orders:raise HTTPException(422,'Unsupported saved sort.')
+    collections=[r[0] for r in c.execute('SELECT DISTINCT collection FROM intent_saved_signals WHERE organization_id=? ORDER BY collection LIMIT 100',(org,)).fetchall()]
+    return {'items':[decode(r) for r in c.execute('SELECT * FROM intent_saved_signals WHERE '+where+' ORDER BY '+orders[sort]+' LIMIT ? OFFSET ?',[*args,size,(page-1)*size]).fetchall()],'page':page,'page_size':size,'total':total,'collections':collections}
 
 def bookmark(c, key, body=None, remove=False):
     ctx = context(c,True); get(c,'signals',key); lock(c)
@@ -179,9 +277,11 @@ def alert(c,event_key,title,description,monitor_id=None,signal_id=None,actor=Non
 
 def overview(c):
     org=context(c).organization_id
+    from app.intent_radar.operations import overview as operational_overview
     count=lambda table,where='',args=():c.execute(f'SELECT COUNT(*) FROM {table} WHERE organization_id=?'+where,(org,*args)).fetchone()[0]
-    return {'new_signals':count('intent_signals'," AND status='New' AND available=1"),'reviewed_signals':count('intent_signals'," AND status='Reviewed'"),'high_relevance':count('intent_signals',' AND score>=85 AND available=1'),
-            'active_monitors':count('intent_monitors'," AND status='Active'"),'saved_opportunities':count('intent_opportunities'," AND status='Saved'"),'unread_alerts':count('intent_alerts',' AND read_at IS NULL'),
+    retention,retention_args=retention_sql(c,preferences(c)['source_retention_days'])
+    return {'new_signals':count('intent_signals'," AND status='New' AND available=1 AND "+retention,retention_args),'reviewed_signals':count('intent_signals'," AND status='Reviewed'"),'high_relevance':count('intent_signals',' AND '+rank_expression()+'>=85 AND available=1 AND '+retention,retention_args),
+            'active_monitors':count('intent_monitors'," AND status='Active'"),'saved_opportunities':count('intent_opportunities'," AND status='Saved'"),'unread_alerts':count('intent_alerts',' AND read_at IS NULL'),'operations':operational_overview(c),
             'trends':[dict(r) for r in c.execute('SELECT SUBSTR(observed_at,1,10) day,COUNT(*) volume FROM intent_signals WHERE organization_id=? AND available=1 GROUP BY SUBSTR(observed_at,1,10) ORDER BY day DESC LIMIT 14',(org,)).fetchall()],
              'recent_signals':listing(c,'signals',size=5)['items'],'monitors':listing(c,'monitors',size=5)['items'],'opportunities':listing(c,'opportunities',size=5)['items'],'alerts':listing(c,'alerts',size=5)['items']}
 
@@ -190,6 +290,7 @@ def remove_source(c,key):
     ctx=context(c,True,True);signal=get(c,'signals',key);lock(c)
     c.execute("UPDATE intent_signals SET available=0,title='Source item unavailable',excerpt='',evidence_json=?,revision=revision+1 WHERE id=? AND organization_id=?",(json.dumps({'removed_by_policy':True}),key,ctx.organization_id))
     c.execute('DELETE FROM intent_analyses WHERE signal_id=? AND organization_id=?',(key,ctx.organization_id))
+    c.execute('DELETE FROM intent_rankings WHERE signal_id=? AND organization_id=?',(key,ctx.organization_id))
     c.execute("UPDATE intent_alerts SET description='Source content unavailable' WHERE organization_id=? AND signal_id=?",(ctx.organization_id,key))
     for row in c.execute('SELECT fingerprint,result_json FROM intent_source_cache WHERE organization_id=? LIMIT 1000',(ctx.organization_id,)).fetchall():
         data=json.loads(row['result_json']);items=data if isinstance(data,list) else data.get('items',[])

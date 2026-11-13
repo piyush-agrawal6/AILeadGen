@@ -13,3 +13,10 @@ docs
 .pytest_cache
 
 tmp
+
+# Share the source-only exclusions with Git; never upload local credential,
+# database, backup, browser or build caches to Cloud Build.
+#!include:.gitignore
+deploy/*.zip
+deploy/*.tar
+deploy/*.tar.gz

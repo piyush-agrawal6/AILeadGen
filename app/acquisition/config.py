@@ -26,6 +26,7 @@ class AcquisitionSettings(BaseSettings):
     google_secret:SecretStr=Field(SecretStr(''),alias='AUTH_GOOGLE_SECRET',repr=False,exclude=True)
     sheets_redirect_uri:str=Field('https://leads.planebyte.com/acquisition/sheets/callback',alias='GOOGLE_SHEETS_REDIRECT_URI')
     job_name:str=Field('leadengine-acquisition',alias='ACQUISITION_CLOUD_RUN_JOB')
+    model_pricing_json:str=Field('{}',alias='AI_MODEL_PRICING_JSON',repr=False)
 
 def settings():return AcquisitionSettings()
 def require(feature,c=None):

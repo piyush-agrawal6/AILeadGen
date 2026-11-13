@@ -27,7 +27,7 @@ select_workspace(c, 'founder@leadengine.example', PLANEBYTE_ORGANIZATION_ID)
 c.commit()
 c.close()
 
-async def fetch(self, offset=0, permit=None):
+async def fetch(self, offset=0, permit=None, *, feeds=None, comments=False, limit=20, seen_ids=None):
     # Allow the actual cancel API to race a response; no browser route interception.
     for _ in range(10):
         if permit: permit()

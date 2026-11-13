@@ -11,6 +11,8 @@ htmlcov/
 # App data & artifacts
 data/*.db
 data/*.db-journal
+data/*.db-wal
+data/*.db-shm
 data/lighthouse/
 data/screenshots/
 output/
@@ -22,6 +24,8 @@ data/e2e/
 .env.*
 !.env.example
 .next/
+# Every isolated Next build/dev directory is disposable generated output.
+dashboard/.next*/
 .next-preview-test/
 .next-auth-test/
 *.tsbuildinfo
@@ -48,3 +52,4 @@ dashboard/.next-gmail-test/
 dashboard/.next-gmail-build/
 dashboard/.next-intent-radar23-build/
 dashboard/.next-intent-radar23-product-build/
+deploy/*-validation.zip

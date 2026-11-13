@@ -1,6 +1,6 @@
 from uuid import UUID
-from datetime import date
 from typing import Literal
+from datetime import date
 from fastapi import APIRouter,Depends,Query,HTTPException
 from pydantic import BaseModel
 from app.api.dependencies import get_db
@@ -21,13 +21,8 @@ def source_configs(c=Depends(get_db,scope='function')):
     return {'items':configurations(c)}
 @router.get('/sources/health')
 def source_health(c=Depends(get_db,scope='function')):
-    org=context(c).organization_id
-    result=[]
-    for provider in providers.catalog(c):
-        row=c.execute('SELECT status,updated_at FROM intent_source_runs WHERE organization_id=? AND provider=? ORDER BY updated_at DESC LIMIT 1',(org,provider['id'])).fetchone()
-        success=c.execute("SELECT updated_at FROM intent_source_runs WHERE organization_id=? AND provider=? AND status IN ('COMPLETE','NO_RESULTS') ORDER BY updated_at DESC LIMIT 1",(org,provider['id'])).fetchone()
-        result.append({'provider':provider['id'],'state':row['status'] if row else 'Never checked','last_check':row['updated_at'] if row else None,'last_success':success[0] if success else None})
-    return {'items':result}
+    from app.intent_radar.operations import source_health
+    return source_health(c)
 @router.post('/sources/expire')
 def expire_sources(c=Depends(get_db,scope='function')):
     context(c,True,True)
@@ -61,6 +56,11 @@ def profile_context(c=Depends(get_db,scope='function')):
 def overview(c=Depends(get_db,scope='function')):return service.overview(c)
 @router.get('/usage')
 def usage(c=Depends(get_db,scope='function')):return discovery.usage(c)
+@router.get('/usage/provider')
+def provider_usage(c=Depends(get_db,scope='function')):
+    context(c)
+    from app.platform.provider_usage import summary
+    return summary(c)
 @router.get('/monitors')
 def monitors(page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),search:str=Query('',max_length=120),status:str=Query('',max_length=30),c=Depends(get_db,scope='function')):return service.listing(c,'monitors',page=page,size=page_size,search=search,status=status)
 @router.post('/monitors',status_code=201)
@@ -115,7 +115,7 @@ def bulk(body:models.Bulk,c=Depends(get_db,scope='function')):
             old=service.get(c,'signals',key);service.review(c,key,models.SignalUpdate(revision=old['revision'],status='Reviewed' if body.action=='review' else 'Dismissed'))
     return {'updated':len(keys)}
 @router.get('/saved')
-def saved(c=Depends(get_db,scope='function')):return service.saved(c)
+def saved(page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),search:str=Query('',max_length=120),collection:str=Query('',max_length=100),sort:Literal['newest','oldest','collection']='newest',c=Depends(get_db,scope='function')):return service.saved(c,page=page,size=page_size,search=search,collection=collection,sort=sort)
 @router.post('/saved/{key}')
 def save_signal(key:UUID,c=Depends(get_db,scope='function')):return service.bookmark(c,str(key))
 @router.put('/saved/{key}')
@@ -131,7 +131,7 @@ def opportunity_detail(key:UUID,c=Depends(get_db,scope='function')):return servi
 @router.patch('/opportunities/{key}')
 def update_opportunity(key:UUID,body:models.OpportunityUpdate,c=Depends(get_db,scope='function')):return service.opportunity(c,str(key),body)
 @router.get('/alerts')
-def alerts(page:int=Query(1,ge=1,le=10000),c=Depends(get_db,scope='function')):return service.listing(c,'alerts',page=page)
+def alerts(page:int=Query(1,ge=1,le=10000),read_state:Literal['All','Unread','Read']='All',alert_kind:Literal['All','Source issues','Monitor activity']='All',c=Depends(get_db,scope='function')):return service.listing(c,'alerts',page=page,read_state=read_state,alert_kind=alert_kind)
 class Read(BaseModel):read:bool
 @router.patch('/alerts/{key}')
 def read(key:UUID,body:Read,c=Depends(get_db,scope='function')):return service.mark_alert(c,str(key),body.read)

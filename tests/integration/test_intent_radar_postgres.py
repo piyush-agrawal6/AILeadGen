@@ -34,8 +34,9 @@ def pg_radar(postgres,monkeypatch):
         except BaseException:
             db.rollback();raise
         finally:db.close()
-    from app.platform import ai_usage
-    for module in (jobs,connectors,intelligence,schedules,ai_usage):monkeypatch.setattr(module,'db_session',session)
+    from app.platform import ai_usage,provider_usage
+    from app.intent_radar import operations
+    for module in (jobs,connectors,intelligence,schedules,ai_usage,provider_usage,operations):monkeypatch.setattr(module,'db_session',session)
     return c,org,other
 
 def test_postgres_radar_scheduling_dedupe_quota_recovery_and_isolation(pg_radar,monkeypatch):
@@ -115,6 +116,7 @@ def test_postgres_radar_analysis_cache_feedback_and_durable_budget(pg_radar,monk
     mock=AsyncMock(return_value=output)
     monkeypatch.setattr('app.acquisition.ai.provider',lambda db:SimpleNamespace(structured=mock,last_provider='SYNTHETIC',last_model='fixture'))
     with workspace_scope(c,'radar-pg@example.test',org):
+        service.preferences(c,models.Preferences(analysis_daily_call_limit=1));c.commit()
         job=discovery.create(c,models.Discovery(configuration=models.Search(keywords=['website'])));c.commit();jobs.execute(job['id'])
         signal=service.listing(c,'signals')['items'][0]
         first=asyncio.run(intelligence.analyze(c,signal['id'],models.AnalysisRequest()));c.commit()
@@ -126,3 +128,49 @@ def test_postgres_radar_analysis_cache_feedback_and_durable_budget(pg_radar,monk
         with pytest.raises(HTTPException) as denied:intelligence.reserve()
         assert denied.value.status_code==429
         assert c.execute('SELECT calls FROM intent_analysis_usage').fetchone()[0]==1
+
+def test_postgres_completion_migration_and_scoped_retention_preserve_history(pg_radar,monkeypatch):
+    import json
+    c,org,other=pg_radar
+    monkeypatch.setattr(connectors,'fetch',AsyncMock(return_value=source_result()))
+    with workspace_scope(c,'radar-pg@example.test',org):
+        job=discovery.create(c,models.Discovery(configuration=models.Search(keywords=['website'])));c.commit();jobs.execute(job['id'])
+        signal=service.listing(c,'signals')['items'][0]
+        service.bookmark(c,signal['id']);c.execute("UPDATE intent_saved_signals SET notes='Private customer research' WHERE organization_id=?",(org,))
+        evidence={**signal['evidence'],'provenance':{'retention_days':1}}
+        c.execute('UPDATE intent_signals SET retrieved_at=?,evidence_json=? WHERE organization_id=? AND id=?',('2000-01-01T00:00:00+00:00',json.dumps(evidence),org,signal['id']));c.commit()
+        assert service.expire_content(c)['expired_source_items']==1;c.commit()
+        assert service.saved(c)['items'][0]['notes']=='Private customer research'
+        assert discovery.owned_job(c,job['id'])['status']=='COMPLETED'
+    with workspace_scope(c,'radar-pg@example.test',other):
+        assert service.listing(c,'signals')['total']==0
+        assert c.execute('SELECT COUNT(*) FROM intent_retention_cursors WHERE organization_id=?',(other,)).fetchone()[0]==0
+
+def test_postgres_actual_provider_aggregation_and_fallback_usage(pg_radar):
+    import time
+    from app.platform.provider_usage import record,reported,summary
+    c,org,other=pg_radar
+    provider=SimpleNamespace(config=SimpleNamespace(model_pricing_json='{}',primary_provider='vertex'),model='fixture',provider_name='GEMINI_API',usage_connection=c)
+    with workspace_scope(c,'radar-pg@example.test',org):
+        record(provider,reported({'usageMetadata':{'promptTokenCount':12,'candidatesTokenCount':3,'cachedContentTokenCount':2}}),'SUCCEEDED',time.monotonic())
+        record(provider,reported({}),'FAILED',time.monotonic());c.commit()
+        usage=summary(c)
+        assert usage['requests']==2 and usage['input_tokens_reported']==12 and usage['cached_tokens_reported']==2
+        assert usage['unreported_requests']==1 and usage['estimated_cost_usd'] is None and usage['items'][0]['fallback']==1
+    with workspace_scope(c,'radar-pg@example.test',other):assert summary(c)['requests']==0
+
+def test_postgres_global_source_reservations_serialize_across_workspaces(pg_radar,monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from app.intent_radar import operations
+    from app.database.connection import db_session
+    c,org,other=pg_radar
+    monkeypatch.setattr(get_settings(),'intent_radar_global_daily_searches',1)
+    def reserve(target):
+        # operations.db_session is fixture-scoped to this isolated schema.
+        with operations.db_session() as connection:
+            with workspace_scope(connection,'radar-pg@example.test',target):
+                try:operations.reserve_source('hacker_news');return 'RESERVED'
+                except HTTPException as exc:assert exc.status_code==429;return 'DENIED'
+    with ThreadPoolExecutor(max_workers=2) as workers:results=list(workers.map(reserve,[org,other]))
+    assert sorted(results)==['DENIED','RESERVED']
+    assert c.execute('SELECT SUM(reserved_requests) FROM intent_source_usage').fetchone()[0]==22

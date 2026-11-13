@@ -7,9 +7,15 @@ class Search(Strict):
     page:int=Field(1,ge=1,le=10000)
 class SignalID(Strict):id:UUID
 class Empty(Strict):pass
-READ={'search_intent_signals':Search,'list_intent_monitors':Empty,'get_intent_signal':SignalID,'list_intent_opportunities':Empty,'list_intent_sources':Empty,'get_intent_analysis':SignalID,'get_intent_run':SignalID}
+READ={'search_intent_signals':Search,'list_intent_monitors':Search,'get_intent_signal':SignalID,'list_intent_opportunities':Search,'list_intent_sources':Empty,'get_intent_analysis':SignalID,'get_intent_run':SignalID,'get_intent_source_health':Empty,'get_intent_workspace_context':Empty}
 def read(c,name,arguments):
     args=READ[name].model_validate(arguments)
+    if name=='get_intent_source_health':
+        from app.intent_radar.operations import source_health
+        return source_health(c)
+    if name=='get_intent_workspace_context':
+        from app.intent_radar.operations import workspace_context
+        return workspace_context(c)
     if name=='list_intent_sources':
         from app.intent_radar.providers import catalog
         return {'items':catalog(c)}
@@ -22,4 +28,4 @@ def read(c,name,arguments):
         return owned_job(c,str(args.id))
     if name=='get_intent_signal':return service.get(c,'signals',str(args.id))
     if name=='search_intent_signals':return service.listing(c,'signals',page=args.page,size=20,search=args.search)
-    return service.listing(c,'monitors' if name=='list_intent_monitors' else 'opportunities',size=20)
+    return service.listing(c,'monitors' if name=='list_intent_monitors' else 'opportunities',size=20,page=args.page,search=args.search)

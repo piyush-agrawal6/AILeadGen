@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  ...(process.env.PLANEBYTE_STANDALONE === 'true' ? { output: 'standalone' } : {}),
   reactStrictMode: true,
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
   poweredByHeader: false,

@@ -4,7 +4,7 @@ const origin='http://127.0.0.1:13000';
 async function session(context:BrowserContext){const email='founder@leadengine.example';await context.addCookies([{name:'authjs.session-token',value:await encode({token:{sub:email,email},secret:'fixture-session-secret-only-for-local-tests-123456789',salt:'authjs.session-token',maxAge:3600}),url:origin,httpOnly:true,sameSite:'Lax'}]);}
 test.beforeEach(async({context})=>session(context));
 
-test('four actual provider families and seven read-only MCP contracts are discoverable',async({page,context})=>{
+test('four actual provider families and nine read-only MCP contracts are discoverable',async({page,context})=>{
  const response=await context.request.get('/api/intent-radar/capabilities');expect(response.status()).toBe(200);
  const catalog=await response.json();expect(catalog.sources.map((s:{id:string})=>s.id).sort()).toEqual(['discourse','hacker_news','rss','stack_exchange']);
  await page.goto('/intent-radar/integrations');
@@ -14,7 +14,7 @@ test('four actual provider families and seven read-only MCP contracts are discov
  await page.getByRole('tab',{name:'AI Assistants & MCP',exact:true}).click();
  await page.getByRole('button',{name:'View details for Intent Radar MCP',exact:true}).click();
  const dialog=page.getByRole('dialog');
- for(const name of ['search_intent_signals','list_intent_monitors','get_intent_signal','list_intent_opportunities','list_intent_sources','get_intent_analysis','get_intent_run'])await expect(dialog.locator('dl code').filter({hasText:name})).toBeVisible();
+ for(const name of ['search_intent_signals','list_intent_monitors','get_intent_signal','list_intent_opportunities','list_intent_sources','get_intent_analysis','get_intent_run','get_intent_source_health','get_intent_workspace_context'])await expect(dialog.locator('dl code').filter({hasText:name})).toBeVisible();
  await expect(dialog).toContainText('Client connection is not verified');
  await page.screenshot({path:(process.env.RADAR23_EVIDENCE_ROOT||'../data/artifacts/verification/intent-radar23-product-product')+'/evidence-mcp.png',fullPage:true});
  await page.getByRole('button',{name:'Close dialog'}).click();

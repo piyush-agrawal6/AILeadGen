@@ -32,9 +32,15 @@ async def draft(c,body):
         import json
         inputs['review_preferences']=[{'label':r['label'],'matched_keywords':json.loads(r['evidence_json']).get('matched_keywords',[])} for r in c.execute('SELECT f.label,s.evidence_json FROM intent_feedback f JOIN intent_signals s ON s.id=f.signal_id AND s.organization_id=f.organization_id WHERE f.organization_id=? AND f.active=1 ORDER BY f.updated_at DESC LIMIT 10',(ctx.organization_id,)).fetchall()]
         async def produce():
+            from app.intent_radar.intelligence import reserve as reserve_tokens
+            from app.platform.provider_usage import operation
+            if len(json.dumps(inputs,ensure_ascii=False).encode())>20000:raise ai.AiOutputError('Targeting context exceeds the bounded draft input size.')
+            request_bytes=len(json.dumps(inputs,ensure_ascii=False).encode())+len(INSTRUCTION.encode())+len(json.dumps(models.SearchDraft.model_json_schema()).encode())
+            c.commit();reserve_tokens(max(6000,(request_bytes+2048+512)*2))
             from app.platform.ai_usage import reserve
             reserve('INTENT_RADAR',10,50,'Intent Radar AI drafts')
-            proposal=await asyncio.wait_for(ai.provider(c).structured(INSTRUCTION,inputs,models.SearchDraft,max_output_tokens=2048,timeout_seconds=20),timeout=25)
+            with operation('INTENT_RADAR_DRAFT'):
+                proposal=await asyncio.wait_for(ai.provider(c).structured(INSTRUCTION,inputs,models.SearchDraft,max_output_tokens=2048,timeout_seconds=20,attempts_per_provider=1),timeout=25)
             validate(c,proposal.configuration)
             return proposal
         def checked(proposal):

@@ -30,7 +30,7 @@ def normalize(item):
             'observed_at': observed, 'retrieved_at': datetime.now(timezone.utc).isoformat(), 'removed': False}
 
 class HackerNews:
-    async def fetch(self, offset=0, permit=None, feeds=None, comments=False):
+    async def fetch(self, offset=0, permit=None, feeds=None, comments=False,limit=20,seen_ids=None):
         if not 0 <= offset <= 180: raise ValueError('Recent source offset is outside the supported window.')
         deadline = time.monotonic() + 27
         requests = 0
@@ -61,11 +61,14 @@ class HackerNews:
             # Round-robin coverage prevents a large feed from hiding selected feeds.
             from itertools import zip_longest
             ids=list(dict.fromkeys(x for group in zip_longest(*batches) for x in group if x is not None))
+            if seen_ids and not comments:ids=[key for key in ids if str(key) not in set(seen_ids)]
+            window=max(1,min(20,limit));processed=[]
             results = []
-            for key in ids[offset:offset + 20]:
+            for key in ids[offset:offset + window]:
                 if requests>=22 and feeds==['ask'] and not comments:raise TimeoutError('Source request budget exhausted.')
                 if time.monotonic() >= deadline or requests>=22: break
                 native=await get(f'item/{key}.json')
+                processed.append(str(key))
                 if isinstance(native,dict) and native.get('type')=='job' and 'jobs' in feeds:native={**native,'type':'story'}
                 item = normalize(native)
                 if item: results.append(item)
@@ -77,7 +80,7 @@ class HackerNews:
                             normalized=normalize({**reply,'type':'story','title':item['title']})
                             if normalized:normalized['discussion_id']=str(key);results.append(normalized)
                 await asyncio.sleep(.1)
-        return {'items': results, 'requests': requests, 'scanned': len(results), 'next_offset': offset + 20 if len(ids) > offset + 20 else None,
+        return {'items': results, 'requests': requests, 'scanned': len(results), 'next_offset': offset + window if len(ids) > offset + window else None,'cursor':{'seen_ids':list(dict.fromkeys([*processed,*(seen_ids or [])]))[:600]},
                 'coverage': 'Bounded recent '+', '.join(feeds)+' feeds; maximum 22 requests, depth-one comments only when requested. No historical/full-text search.'}
 
 def catalog(c=None):

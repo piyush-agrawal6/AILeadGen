@@ -121,6 +121,8 @@ def test_each_read_only_radar_tool_returns_owned_records_and_rejects_foreign_ids
             'list_intent_sources': {},
             'get_intent_analysis': {'id':signal['id']},
             'get_intent_run': {'id':job['id']},
+            'get_intent_source_health': {},
+            'get_intent_workspace_context': {},
         }
         assert set(cases)==set(tools.READ)
         for tool, arguments in cases.items():

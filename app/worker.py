@@ -96,6 +96,14 @@ if __name__ == "__main__":
         raise SystemExit(0)
     mode=os.environ.get('LEADENGINE_AUTOMATION_MODE')
     if mode:
+        if mode=='intent-radar-dispatch':
+            settings=get_settings()
+            if settings.intent_radar_stage=='Disabled' or not settings.intent_radar_schedules_enabled:
+                raise SystemExit('Intent Radar recurring dispatch is disabled.')
+            with db_session() as c:verify_schema(c)
+            from app.intent_radar.schedules import tick
+            asyncio.run(tick())
+            raise SystemExit(0)
         if mode=='webhooks-dispatch':
             from app.webhooks.service import enabled
             enabled()

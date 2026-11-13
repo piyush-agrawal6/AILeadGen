@@ -6,5 +6,5 @@ export default defineConfig([
   ...nextVitals,
   ...nextTypescript,
   { rules: { "react-hooks/set-state-in-effect": "off", "react-hooks/refs": "off" } },
-  globalIgnores([".next/**", "node_modules/**", "next-env.d.ts", "playwright-report/**", "test-results/**"]),
+  globalIgnores([".next*/**", "node_modules/**", "next-env.d.ts", "playwright-report/**", "test-results/**"]),
 ]);

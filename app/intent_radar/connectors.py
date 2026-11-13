@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from urllib.parse import urlencode, urlsplit, urlunsplit,parse_qsl
 from xml.etree import ElementTree as ET
+from typing import Any,Awaitable,Callable,Protocol
 from fastapi import HTTPException
 from app.config.settings import get_settings
 from app.database.connection import db_session
@@ -73,19 +74,28 @@ def catalog(c=None):
         ('stack_exchange','Stack Exchange','Available' if s.intent_radar_stackexchange_enabled else 'Requires approval','Official API 2.3','https://api.stackexchange.com/docs',['keyword_search'],['sites','tags','date','keywords'],3,'Configured professional communities; bounded question search, not the whole network.'),
         ('discourse','Approved Discourse','Available' if any(x['family']=='discourse' and x['enabled'] for x in configs) else 'Not configured','Approved public RSS/Atom','https://meta.discourse.org',['recent_feed'],['approved_feeds','date_local','keywords_local'],4,'Only configured public topic feeds; no private posts or general forum search.'),
         ('rss','RSS / Atom','Available' if any(x['family']=='rss' and x['enabled'] for x in configs) else 'Not configured','Approved public RSS/Atom','https://www.rssboard.org/rss-specification',['recent_feed'],['approved_feeds','date_local','keywords_local'],4,'Approved publication/community feed windows only; no website crawling.')]
-    return [dict(id=i,name=n,state=state,access=access,documentation=doc,discovery_modes=modes,filters=filters,request_limit_per_check=cap,coverage=coverage,
+    result=[dict(id=i,name=n,state=state,access=access,documentation=doc,discovery_modes=modes,filters=filters,request_limit_per_check=cap,coverage=coverage,
         category='Public discussion' if i!='rss' else 'Publication',authentication='Optional server application key' if i=='stack_exchange' else 'Public only',
         approved_scope='No posting, private content or author profiling',pagination='Bounded native offset/page; feed snapshot',concurrency=1,
         rate_policy='Durable IP/method cooldown; minimum 60s identical requests' if i=='stack_exchange' else 'Bounded sequential requests; configured polling interval',
         retry_policy='No retry within source job; retry after reported cooldown',attribution='Original link and source; CC BY-SA attribution for Stack Exchange',
         retention='Metadata and permitted excerpts only; feed retention configured up to 30 days',freshness='Source snapshot, no global completeness claim',
         language='Unverified',geography='Unknown',request_cost='No purchased quota; monetary cost unmeasured') for i,n,state,access,doc,modes,filters,cap,coverage in definitions]
+    for source in result:
+        key=source['id'];source['configured']=source['state']=='Available'
+        source['capabilities']=source['discovery_modes']+source['filters']
+        source['permission']='Official public API; no private access or posting.' if key=='hacker_news' else 'Owner-approved commercial API terms, site scope and CC BY-SA attribution; optional server application key.' if key=='stack_exchange' else 'Publisher-approved public feed endpoint, terms reference, attribution and retention policy required.'
+        source['missing']=[] if source['configured'] else ['INTENT_RADAR_STACKEXCHANGE_ENABLED after commercial approval'] if key=='stack_exchange' else ['An enabled reviewed '+key+' workspace feed configuration']
+        if key in ('rss','discourse') and not s.intent_radar_approved_feed_hosts:source['missing'].append('INTENT_RADAR_APPROVED_FEED_HOSTS')
+        if key=='hacker_news':source['retry_policy']='At most one short 429/503 retry inside the 22-request budget; longer cooldowns surface as errors.'
+    return result
 
 def validate(c,q):
     states={x['id']:x for x in catalog(c)}
     for key in q.sources:
         if states[key]['state']!='Available':raise HTTPException(409,states[key]['name']+': '+states[key]['state'])
     if q.semantic and not q.offerings:raise HTTPException(422,'Semantic candidate collection requires explicit relevant offerings.')
+    if q.semantic:context(c,True,True)
     if q.tags and 'stack_exchange' not in q.sources:raise HTTPException(422,'Tag search is supported only by the selected Stack Exchange connector.')
     if q.hn_comments and 'hacker_news' not in q.sources:raise HTTPException(422,'HN comment collection requires Hacker News selection.')
     if 'stack_exchange' in q.sources and (not q.sites or any(site not in get_settings().intent_radar_stackexchange_sites.split(';') for site in q.sites)):raise HTTPException(422,'Select configured Stack Exchange sites.')
@@ -123,15 +133,22 @@ def normalized(source,key,url,title,excerpt,published,**metadata):
 
 class StackExchange:
     async def fetch(self,c,q,permit):
-        org=context(c).organization_id;items=[];requests=0;quota=None
+        org=context(c).organization_id;items=[];requests=0;quota=None;cursor={'sites':{}}
         for site in q.sites:
-            permit();params={'site':site,'q':' '.join(q.keywords),'pagesize':20,'page':1,'sort':'creation','order':'desc','filter':'withbody'}
+            old=q._collection_cursor.get('sites',{}).get(site,{})
+            permit();params={'site':site,'q':' '.join(q.keywords),'pagesize':max(1,min(20,q.result_limit//max(1,len(q.sources)*len(q.sites)))),'page':old.get('page',1),'sort':'creation','order':'desc','filter':'withbody'}
             if q.tags:params['tagged']=';'.join(q.tags)
             for field,day in (('fromdate',q.from_date),('todate',q.to_date)):
                 if day:params[field]=int(datetime.combine(day,datetime.min.time(),timezone.utc).timestamp())+(86399 if field=='todate' else 0)
             fingerprint=hashlib.sha256(json.dumps(params,sort_keys=True).encode()).hexdigest()
+            if old.get('since'):params['fromdate']=max(params.get('fromdate',0),int(old['since']))
+            fingerprint=hashlib.sha256(json.dumps(params,sort_keys=True).encode()).hexdigest()
             row=c.execute('SELECT result_json FROM intent_source_cache WHERE organization_id=? AND fingerprint=? AND expires_at>?',(org,fingerprint,now())).fetchone()
-            if row:items.extend(json.loads(row[0]));continue
+            if row:
+                saved=json.loads(row[0])
+                items.extend(saved if isinstance(saved,list) else saved['items'])
+                if isinstance(saved,dict):cursor['sites'][site]=saved['cursor']
+                continue
             cooldown('stack_exchange:ip',1);cooldown('stack_exchange:search/advanced',1)
             cooldown('stack_exchange:query:'+fingerprint,60)
             key=get_settings().intent_radar_stackexchange_key.get_secret_value()
@@ -147,6 +164,9 @@ class StackExchange:
             quota=data.get('quota_remaining')
             if quota==0:cooldown('stack_exchange:ip',86400,{'quota_remaining':0})
             if data.get('error_id'):raise SourceUnavailable('PROVIDER_ERROR')
+            times=[native.get('creation_date',0) for native in data.get('items',[]) if type(native.get('creation_date')) is int]
+            newest=max([*times,old.get('newest',0),old.get('since',0)])
+            cursor['sites'][site]={'page':params['page']+1 if data.get('has_more') else 1,'since':params.get('fromdate',0) if data.get('has_more') else max(0,newest-120),'newest':newest if data.get('has_more') else 0}
             batch=[]
             for native in data.get('items',[])[:20]:
                 if type(native.get('question_id')) is not int:continue
@@ -156,12 +176,12 @@ class StackExchange:
             items.extend(batch)
             # No transaction is opened during network calls; caller commits cache safely.
             cache_fence(permit)
-            c.execute('INSERT INTO intent_source_cache(organization_id,fingerprint,result_json,expires_at) VALUES(?,?,?,?) ON CONFLICT(organization_id,fingerprint) DO UPDATE SET result_json=excluded.result_json,expires_at=excluded.expires_at',(org,fingerprint,json.dumps(batch),(datetime.now(timezone.utc)+timedelta(minutes=5)).isoformat()))
+            c.execute('INSERT INTO intent_source_cache(organization_id,fingerprint,result_json,expires_at) VALUES(?,?,?,?) ON CONFLICT(organization_id,fingerprint) DO UPDATE SET result_json=excluded.result_json,expires_at=excluded.expires_at',(org,fingerprint,json.dumps({'items':batch,'cursor':cursor['sites'][site]}),(datetime.now(timezone.utc)+timedelta(minutes=5)).isoformat()))
             c.commit()
             if site!=q.sites[-1]:
                 import asyncio
                 await asyncio.sleep(1.05)
-        return {'items':items,'requests':requests,'scanned':len(items),'next_offset':None,'quota_remaining':quota,'coverage':'Official question search, first bounded page for '+', '.join(q.sites)}
+        return {'items':items,'requests':requests,'scanned':len(items),'next_offset':None,'quota_remaining':quota,'cursor':cursor,'coverage':'Official bounded question search with resumable page/date cursors for '+', '.join(q.sites)}
 
 def parse_feed(content,config):
     if len(content)>500000 or b'<!DOCTYPE' in content.upper() or b'<!ENTITY' in content.upper():raise ValueError('Unsafe or oversized feed.')
@@ -220,10 +240,21 @@ class Feed:
                 from app.intent_radar.discovery import ExecutionInvalidated
                 if isinstance(exc,ExecutionInvalidated):raise
                 errors.append({'feed_id':config['id'],'code':getattr(exc,'code','UNAVAILABLE'),'retry_at':getattr(exc,'retry_at',None)})
-        return {'items':items,'requests':meter['requests'],'scanned':len(items),'next_offset':None,'errors':errors,'status':'PARTIAL' if errors and items else 'UNAVAILABLE' if errors else 'COMPLETE','coverage':'Configured public feed snapshots only; no historical search.'+(f' {len(errors)} selected feed(s) failed.' if errors else '')}
+        seen=q._collection_cursor.get('seen_ids',[])
+        ids=lambda item:hashlib.sha256((item['source_record_id']+'\n'+item['content_fingerprint']).encode()).hexdigest()
+        candidates=[item for item in items if ids(item) not in seen]
+        selected=candidates[:max(1,(q.result_limit+len(q.sources)-1)//len(q.sources))]
+        return {'items':selected,'requests':meter['requests'],'scanned':len(items),'next_offset':None,'cursor':{'seen_ids':list(dict.fromkeys([*(ids(item) for item in selected),*seen]))[:600]},'errors':errors,'status':'PARTIAL' if errors and selected else 'UNAVAILABLE' if errors else 'COMPLETE','coverage':'Configured public feed snapshots with incremental observation IDs; no historical search.'+(f' {len(errors)} selected feed(s) failed.' if errors else '')}
 
-async def fetch(c,q,key,permit):
+class SourceCollector(Protocol):
+    def __call__(self,c:Any,q:models.Search,key:str,permit:Callable[[],bool])->Awaitable[models.SourceResult]:...
+
+async def fetch(c:Any,q:models.Search,key:str,permit:Callable[[],bool])->models.SourceResult:
+    return models.SourceResult.model_validate(await _fetch(c,q,key,permit))
+
+async def _fetch(c,q,key,permit):
     if key=='hacker_news':
+        if q._collection_cursor or len(q.sources)>1 or q.result_limit!=20:return await providers.HackerNews().fetch(permit=permit,feeds=q.hn_feeds,comments=q.hn_comments,limit=max(1,(q.result_limit+len(q.sources)-1)//len(q.sources)),seen_ids=q._collection_cursor.get('seen_ids',[]))
         # Keep Phase 1 transport/testing contract intact for the original default.
         if q.hn_feeds==['ask'] and not q.hn_comments:return await providers.HackerNews().fetch(permit=permit)
         return await providers.HackerNews().fetch(permit=permit,feeds=q.hn_feeds,comments=q.hn_comments)

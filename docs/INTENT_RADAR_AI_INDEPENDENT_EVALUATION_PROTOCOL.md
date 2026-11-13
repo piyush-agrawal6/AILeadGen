@@ -26,16 +26,16 @@ Two independent human reviewers label category, explicit-commercial evidence, in
 | Cross-workspace contamination / injection side effects | 0 |
 | Deterministic fallback authorized, bounded and honestly labeled | 1.00 |
 | Analysis p95 latency | ≤ 30 seconds in the approved bounded environment |
-| Cost per successful analysis | Owner-approved budget required before execution; current gateway does not report actual currency/tokens |
+| Cost per successful analysis | Owner-approved budget/pricing required before execution; actual returned provider token fields now available; currency remains an estimate requiring reviewed pricing |
 
 Use Wilson confidence intervals for binary quality metrics; report raw numerators/denominators, per-source/language/industry slices and failure cases. Small subgroup samples do not establish language-wide quality. Record actual configured provider, project/region identifier, model, prompt/schema/scoring versions, settings, source revision, latency and provider attempts.
 
 ## Current blockers
 
 - No independent human reviewers, owner-agreed labels or approved 120-case dataset are supplied.
-- No accepted multilingual language list or translation implementation exists; non-English results cannot be advertised as verified coverage.
-- Actual tokens/currency are not exposed by the existing gateway, so measured cost acceptance remains unavailable.
-- Current semantic discovery is bounded candidate retention plus on-demand interpretation; it is not an independently evaluated semantic retrieval/reranking engine.
-- The current live eight-case run failed its existing exact-category gate (7/8), despite zero high-intent false positives. Do not revise that threshold after observing the result.
+- Supported-language detection, language filtering and opt-in quote translation are now implemented with original-evidence validation; no independent approved language corpus establishes language-wide quality.
+- Actual provider-reported tokens now reach the shared ledger. Reviewed model pricing is absent, so currency acceptance remains unavailable.
+- Current semantic discovery now performs bounded cited candidate evaluation/reranking and semantic exclusions. Independent retrieval/ranking quality acceptance remains pending.
+- Historical live eight-case gate failed at 7/8. The current unchanged-label live rerun now passes 8/8 exact categories, with zero high-intent/high-score false positives; this remains an English-only, single-reviewer authored smoke benchmark, not independent acceptance. Thresholds and labels were not revised to obtain the pass.
 
 **Decision: broader AI production-quality acceptance remains blocked.** No larger result, model training or independently calibrated purchase probability is claimed.

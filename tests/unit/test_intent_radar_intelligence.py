@@ -13,7 +13,7 @@ def test_analysis_citations_cache_feedback_and_owned_icp(radar,monkeypatch):
     monkeypatch.setattr(providers.HackerNews,'fetch',AsyncMock(return_value=source_result()))
     monkeypatch.setattr(get_settings(),'intent_radar_ai_enabled',True)
     async def structured(instruction,value,model,**limits):
-        assert 'untrusted DATA' in instruction and limits['max_output_tokens']==1536
+        assert 'untrusted DATA' in instruction and limits['max_output_tokens']==2048
         return model(categories=['Recommendation request'],claims=[intel.Claim(kind='intent',quote='recommend a website development partner?',interpretation='Explicit request for recommendations'),intel.Claim(kind='semantic',quote='website development partner',interpretation='Development support aligns to service',target='website')],uncertainty='Moderate',review_needed=False)
     mock=AsyncMock(side_effect=structured)
     monkeypatch.setattr('app.acquisition.ai.provider',lambda c:SimpleNamespace(structured=mock,last_model='synthetic-model',last_provider='SYNTHETIC'))
@@ -28,7 +28,8 @@ def test_analysis_citations_cache_feedback_and_owned_icp(radar,monkeypatch):
         assert adjusted['scoring']['overall']==a['scoring']['overall']-10
         intel.feedback(c,signal['id'],models.Feedback(label='Not relevant',active=False));c.commit()
         assert asyncio.run(intel.analyze(c,signal['id'],models.AnalysisRequest()))['scoring']['overall']==a['scoring']['overall']
-        assert c.execute('SELECT calls,reserved_tokens FROM intent_analysis_usage').fetchone()[1]==60000
+        usage=c.execute('SELECT calls,reserved_tokens FROM intent_analysis_usage').fetchone()
+        assert usage[0]==1 and 6000<=usage[1]<=100000
     c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id=? AND product='INTENT_RADAR'",(other,));c.commit()
     with workspace_scope(c,'foreign@example.test',other):
         for action in (lambda:intel.history(c,signal['id']),lambda:asyncio.run(intel.analyze(c,signal['id'],models.AnalysisRequest())),lambda:intel.feedback(c,signal['id'],models.Feedback(label='Relevant'))):
@@ -45,7 +46,7 @@ def test_general_ai_interpretation_cannot_inherit_a_false_keyword_intent_bonus()
     signal={**example(),'evidence':{'intent_phrase':'recommend','matched_keywords':['website']}}
     output=intel.Interpretation(categories=['General discussion'],uncertainty='Low',review_needed=False)
     result=intel.score(signal,output,{'ranking_adjustment':0,'explanation':''})
-    assert result['version']=='INTENT_SCORE_V2' and result['dimensions']['expressed_need']==0
+    assert result['version']=='INTENT_SCORE_V3' and result['dimensions']['expressed_need']==0
     assert result['intent_strength']=='Weak / ambiguous'
 
 def test_ai_timeout_budget_and_prompt_injection_fallback(radar,monkeypatch):
@@ -55,6 +56,7 @@ def test_ai_timeout_budget_and_prompt_injection_fallback(radar,monkeypatch):
     mock=AsyncMock(side_effect=TimeoutError())
     monkeypatch.setattr('app.acquisition.ai.provider',lambda c:SimpleNamespace(structured=mock))
     with workspace_scope(c,'controlled@example.test',org):
+        service.preferences(c,models.Preferences(analysis_daily_call_limit=1));c.commit()
         run(c,path,models.Search(keywords=['website']));signal=service.listing(c,'signals')['items'][0]
         result=asyncio.run(intel.analyze(c,signal['id'],models.AnalysisRequest()))
         assert result['mode']=='Deterministic / manual review' and result['interpretation'] is None

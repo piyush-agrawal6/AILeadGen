@@ -15,6 +15,18 @@ from app.platform.context import workspace_scope
 
 HOURS={'Daily':24,'12 hours':12,'6 hours':6}
 
+def eligible_sql(alias,actor=None):
+    """Prune unavailable history before bounded selection; never grant authority."""
+    org=alias+'.organization_id'
+    clauses=["EXISTS(SELECT 1 FROM organization_products grant_row WHERE grant_row.organization_id="+org+" AND grant_row.product='INTENT_RADAR' AND grant_row.enabled=1)"]
+    args=[]
+    if get_settings().intent_radar_stage=='Internal Preview':
+        approved=[value for value in get_settings().intent_radar_internal_workspaces.split(',') if value]
+        clauses.append(org+' IN ('+','.join('?' for _ in approved)+')' if approved else '1=0');args.extend(approved)
+    if actor:
+        clauses.append("EXISTS(SELECT 1 FROM organization_memberships member_row WHERE member_row.organization_id="+org+" AND member_row.user_id="+alias+'.'+actor+" AND member_row.status='ACTIVE' AND member_row.role IN ('OWNER','ADMIN','MEMBER'))")
+    return ' AND '.join(clauses),args
+
 def next_run(key,frequency,zone='UTC',stamp=None):
     stamp=stamp or datetime.now(timezone.utc)
     # UTC intervals remain fixed across DST; timezone is retained for display.
@@ -39,7 +51,8 @@ def update(c,key,body):
 def enqueue_due(c):
     if not get_settings().intent_radar_schedules_enabled or get_settings().intent_radar_stage=='Disabled':return []
     # Selection never grants authority. Each persisted owner is reverified below.
-    candidates=c.execute("SELECT id,organization_id,created_by FROM intent_monitors WHERE status='Active' AND next_run_at<=? ORDER BY next_run_at LIMIT 10",(now(),)).fetchall()
+    eligible,args=eligible_sql('m','created_by')
+    candidates=c.execute("SELECT m.id,m.organization_id,m.created_by,m.next_run_at FROM intent_monitors m WHERE m.status='Active' AND m.next_run_at<=? AND "+eligible+" ORDER BY m.next_run_at,m.id LIMIT 10",[now(),*args]).fetchall()
     result=[]
     for candidate in candidates:
         try:
@@ -61,16 +74,32 @@ def enqueue_due(c):
             c.rollback()
             if exc.status_code!=429:continue
             # Leave authority/quota failures visible and avoid hot-looping requests.
-            c.execute('UPDATE intent_monitors SET next_run_at=? WHERE id=? AND organization_id=?',( (datetime.now(timezone.utc)+timedelta(hours=1)).isoformat(),candidate['id'],candidate['organization_id']))
-            c.commit()
+            try:
+                with workspace_scope(c,candidate['created_by'],candidate['organization_id']):
+                    context(c,True,True)
+                    c.execute('UPDATE intent_monitors SET next_run_at=? WHERE id=? AND organization_id=? AND next_run_at=?',((datetime.now(timezone.utc)+timedelta(hours=1)).isoformat(),candidate['id'],candidate['organization_id'],candidate['next_run_at']))
+                    c.commit()
+            except HTTPException:c.rollback()
     return result
 
 async def tick():
+    if get_settings().intent_radar_stage=='Disabled':return
+    # Rotation prevents an abandoned workspace or a large nonexpiring prefix
+    # from starving retention. Every candidate is reauthorized before writes.
+    with db_session() as c:
+        eligible,args=eligible_sql('m')
+        candidates=c.execute("SELECT m.organization_id,MIN(m.user_id) actor FROM organization_memberships m LEFT JOIN intent_retention_cursors r ON r.organization_id=m.organization_id WHERE m.status='ACTIVE' AND m.role IN ('OWNER','ADMIN') AND "+eligible+" GROUP BY m.organization_id,r.updated_at ORDER BY COALESCE(r.updated_at,''),m.organization_id LIMIT 10",args).fetchall()
+        for candidate in candidates:
+            try:
+                with workspace_scope(c,candidate['actor'],candidate['organization_id']):service.expire_content(c)
+                c.commit()
+            except HTTPException:c.rollback()
     with db_session() as c:pending=enqueue_due(c)
     # Recover queued dispatch and expired leases after process interruption.
     # Persisted job ownership is resolved again; no implicit workspace context.
     with db_session() as c:
-        stalled=c.execute("SELECT id,organization_id,created_by FROM intelligence_jobs WHERE kind='INTENT_DISCOVER' AND attempts<3 AND (status='QUEUED' OR (status='RUNNING' AND lease_until<?)) ORDER BY created_at LIMIT 2",(now(),)).fetchall()
+        eligible,args=eligible_sql('j','created_by')
+        stalled=c.execute("SELECT j.id,j.organization_id,j.created_by FROM intelligence_jobs j WHERE j.kind='INTENT_DISCOVER' AND j.attempts<3 AND (j.status='QUEUED' OR (j.status='RUNNING' AND j.lease_until<?)) AND "+eligible+" ORDER BY j.created_at,j.id LIMIT 2",[now(),*args]).fetchall()
         for row in stalled:
             try:
                 with workspace_scope(c,row['created_by'],row['organization_id']):
@@ -79,9 +108,12 @@ async def tick():
                     c.commit();pending.append({'id':row['id'],'actor':row['created_by'],'organization_id':row['organization_id']})
             except HTTPException:c.rollback()
     from app.intelligence.dispatch import launch
+    pending=list({item['id']:item for item in pending}.values())
     for item in pending:
         with db_session() as c:
             with workspace_scope(c,item['actor'],item['organization_id']):await launch(item['id'])
+    with db_session() as c:
+        c.execute('INSERT INTO intent_worker_health(worker_id,last_tick_at,state,detail_json) VALUES(?,?,?,?) ON CONFLICT(worker_id) DO UPDATE SET last_tick_at=excluded.last_tick_at,state=excluded.state,detail_json=excluded.detail_json',('intent-scheduler',now(),'READY',json.dumps({'dispatch_candidates':len(pending)})))
 
 async def loop():
     while True:

@@ -17,7 +17,10 @@ from app.developer import keys
 
 
 def configure(tmp_path,monkeypatch):
+ monkeypatch.setenv('MCP_ALLOWED_HOSTS','testserver')
+ monkeypatch.setenv('MCP_ALLOWED_ORIGINS','http://testserver')
  settings=get_settings();monkeypatch.setattr(settings,'database_path',str(tmp_path/'mcp.db'));monkeypatch.setattr(settings,'allowed_user_emails','owner@example.test,foreign@example.test');monkeypatch.setattr(settings,'heysow_developer_api_enabled',True);monkeypatch.setattr(settings,'heysow_mcp_enabled',True);monkeypatch.setattr(settings,'heysow_workspace_management_enabled',True)
+ monkeypatch.setattr(settings,'mcp_allowed_hosts','testserver');monkeypatch.setattr(settings,'mcp_allowed_origins','http://testserver')
  return settings
 
 def seed():
@@ -67,3 +70,23 @@ async def test_mcp_foreign_ids_disabled_scope_and_rebinding_are_denied(tmp_path,
    bad_origin=await http.post('/api/v1/mcp',headers={'origin':'https://untrusted.example','accept':'application/json, text/event-stream'},json={'jsonrpc':'2.0','id':2,'method':'ping'});assert bad_origin.status_code==403
    monkeypatch.setattr(settings,'heysow_mcp_enabled',False)
    assert (await http.post('/api/v1/mcp',json={})).status_code==503
+
+@pytest.mark.asyncio
+async def test_radar_sdk_reads_nine_tool_contract_and_denies_disabled_product(tmp_path,monkeypatch):
+ settings=configure(tmp_path,monkeypatch)
+ monkeypatch.setattr(settings,'intent_radar_stage','Beta');monkeypatch.setattr(settings,'intent_radar_schedules_enabled',False)
+ application=create_app()
+ async with application.router.lifespan_context(application):
+  with db_session() as c:
+   c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id=? AND product='INTENT_RADAR'",(INTERNAL,))
+   with workspace_scope(c,'owner@example.test',INTERNAL):key=keys.create(c,keys.Create(name='Radar SDK client',scopes=['mcp:use','intent:read']))
+  async with httpx2.AsyncClient(transport=httpx2.ASGITransport(app=application),base_url='http://testserver',headers={'authorization':'Bearer '+key['token']},timeout=15) as http:
+   async with Client(streamable_http_client('http://testserver/api/v1/mcp',http_client=http,terminate_on_close=False),read_timeout_seconds=10) as client:
+    from app.intent_radar.tools import READ
+    available={tool.name for tool in (await client.list_tools()).tools};assert set(READ)<=available and len(READ)==9
+    health=await client.call_tool('get_intent_source_health',{});assert not health.is_error and len(health.structured_content['items'])==4
+    workspace=await client.call_tool('get_intent_workspace_context',{});assert not workspace.is_error and workspace.structured_content['organization_id']==INTERNAL
+    assert 'credentials' not in workspace.structured_content
+    denied=await client.call_tool('search_contacts',{});assert denied.is_error
+    with db_session() as c:c.execute("UPDATE organization_products SET enabled=0 WHERE organization_id=? AND product='INTENT_RADAR'",(INTERNAL,))
+    denied=await client.call_tool('get_intent_source_health',{});assert denied.is_error

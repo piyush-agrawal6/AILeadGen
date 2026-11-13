@@ -13,3 +13,7 @@ docs
 .pytest_cache
 
 tmp
+deploy/*.zip
+deploy/*.tar
+deploy/*.tar.gz
+coverage

@@ -1,0 +1,17 @@
+steps:
+  - id: api
+    name: gcr.io/cloud-builders/docker
+    args: [build, -f, deploy/Dockerfile.api, -t, '${_API_IMAGE}', .]
+  - id: worker
+    name: gcr.io/cloud-builders/docker
+    waitFor: ['-']
+    args: [build, -f, deploy/Dockerfile.beta-worker, --build-arg, 'BASE_IMAGE=${_BASE_WORKER_IMAGE}', -t, '${_WORKER_IMAGE}', .]
+  - id: locked-runtime-check
+    name: gcr.io/cloud-builders/docker
+    waitFor: [api]
+    args: [run, --rm, --entrypoint, python, '${_API_IMAGE}', -m, pip, check]
+images: ['${_API_IMAGE}', '${_WORKER_IMAGE}']
+timeout: 1200s
+logsBucket: gs://querryside-leadengine-build-logs
+options:
+  logging: GCS_ONLY
