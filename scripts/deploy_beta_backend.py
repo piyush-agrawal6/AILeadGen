@@ -17,7 +17,12 @@ FLAGS.update(ALLOWED_USER_EMAILS='planebyte@gmail.com',INTENT_RADAR_STAGE='Beta'
 
 def command(args,*,data=None):
     p=subprocess.run([CLI,*args,'--project='+PROJECT,'--format=json','--quiet'],input=data,capture_output=True,text=True,timeout=420)
-    if p.returncode:raise RuntimeError('Cloud operation failed: '+' '.join(args[:4]))
+    if p.returncode:
+        diagnostic=p.stderr
+        for key,value in dotenv_values(ROOT/'.env',interpolate=False).items():
+            if value and len(value)>=16 and any(part in key for part in ('SECRET','PASSWORD','TOKEN','KEY','DATABASE_URL')):diagnostic=diagnostic.replace(value,'[REDACTED]')
+        if STATE.exists():(STATE/'last-cloud-error.log').write_text(diagnostic)
+        raise RuntimeError('Cloud operation failed: '+' '.join(args[:4]))
     return json.loads(p.stdout) if p.stdout.strip() else {}
 
 def save(name,value):
@@ -51,6 +56,15 @@ def encryption_secret():
         command(['secrets','add-iam-policy-binding',name,'--member=serviceAccount:'+identity+'@querryside.iam.gserviceaccount.com','--role=roles/secretmanager.secretAccessor'])
     return name+':'+version
 
+def owner_policy_secret(ref):
+    # Keep the existing secret-backed type. Cloud Run cannot atomically replace
+    # that type with a literal in an ordinary environment update.
+    p=subprocess.run([CLI,'secrets','versions','access',ref['key'],'--secret='+ref['name'],'--project='+PROJECT],capture_output=True,text=True,timeout=30)
+    if p.returncode:raise RuntimeError('Existing access policy secret unavailable.')
+    version=ref['key']
+    if p.stdout.strip()!='planebyte@gmail.com':version=command(['secrets','versions','add',ref['name'],'--data-file=-'],data='planebyte@gmail.com')['name'].rsplit('/',1)[-1]
+    return ref['name']+':'+version
+
 def release():
     tests=ET.parse(EVIDENCE/'backend-locked-pg18-final.xml').getroot()
     suites=list(tests) if tests.tag=='testsuites' else [tests]
@@ -70,12 +84,15 @@ def release():
     finally:c.close()
     save('migration-and-grant.json',{'schema_before':before,'migrations_applied':applied,'schema_after':44,'verified_beta_grant':access})
     print(json.dumps({'schema':44,'migrations_applied':applied,'verified_beta_workspace':access['organization_id']}),flush=True)
-    secret=encryption_secret();environment='^~^'+'~'.join(key+'='+value for key,value in FLAGS.items())
+    secret=encryption_secret()
     for kind,name,image in [('jobs','leadengine-worker','worker'),('jobs','leadengine-acquisition','worker'),('jobs','leadengine-quota-canary','worker'),('services','leadengine-api','api')]:
         old=json.loads((STATE/(name+'.json')).read_text());spec=old['spec']['template']['spec'];spec=spec if kind=='services' else spec['template']['spec']
         oldenv={r['name']:r for r in spec['containers'][0].get('env',[])}
-        args=['run',kind,'update',name,'--region='+REGION,'--image=asia-south1-docker.pkg.dev/querryside/leadengine/'+image+':beta-20261113-r1','--update-env-vars='+environment,'--update-secrets=HEYSOW_INTEGRATION_ENCRYPTION_KEY='+secret]
-        if 'valueFrom' in oldenv.get('ALLOWED_USER_EMAILS',{}):args+=['--remove-secrets=ALLOWED_USER_EMAILS']
+        flags=dict(FLAGS);bindings=['HEYSOW_INTEGRATION_ENCRYPTION_KEY='+secret]
+        if 'valueFrom' in oldenv.get('ALLOWED_USER_EMAILS',{}):
+            flags.pop('ALLOWED_USER_EMAILS');bindings.append('ALLOWED_USER_EMAILS='+owner_policy_secret(oldenv['ALLOWED_USER_EMAILS']['valueFrom']['secretKeyRef']))
+        environment='^~^'+'~'.join(key+'='+value for key,value in flags.items())
+        args=['run',kind,'update',name,'--region='+REGION,'--image=asia-south1-docker.pkg.dev/querryside/leadengine/'+image+':beta-20261113-r1','--update-env-vars='+environment,'--update-secrets='+','.join(bindings)]
         if name=='leadengine-acquisition':args+=['--command=python','--args=-m,app.acquisition.worker']
         if kind=='services':args+=['--no-traffic','--tag=beta']
         updated=command(args);save(name+'-updated.json',updated)

@@ -102,3 +102,24 @@ def test_signature_binds_query_and_body(secured):
 def test_request_body_bounded_before_parsing(secured):
     client, _ = secured
     assert client.post("/api/scans", content=b"x" * 1_048_577).status_code == 413
+
+
+def test_workspace_verification_releases_connection_before_handler(secured,monkeypatch):
+    from app.database import connection
+    from app.platform.context import current
+    client,settings=secured;original=connection.db_session;active={'count':0}
+    @contextmanager
+    def tracked(*args,**kwargs):
+        with original(*args,**kwargs) as c:
+            active['count']+=1
+            try:yield c
+            finally:active['count']-=1
+    monkeypatch.setattr(connection,'db_session',tracked)
+    path='/api/organization/connection-probe'
+    @client.app.get(path)
+    def probe():
+        assert active['count']==0, 'Middleware must not reserve a pool slot throughout the downstream request.'
+        assert current().actor=='founder@example.com'
+        return {'verified':bool(current().organization_id)}
+    response=client.get(path,headers=signed(settings,path=path))
+    assert response.status_code==200 and response.json()['verified']

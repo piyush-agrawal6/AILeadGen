@@ -1,0 +1,10 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: [build, -t, '${_IMAGE}', .]
+  - name: gcr.io/cloud-builders/docker
+    args: [run, --rm, --entrypoint, python, '${_IMAGE}', -m, pip, check]
+images: ['${_IMAGE}']
+timeout: 600s
+logsBucket: gs://querryside-leadengine-build-logs
+options:
+  logging: GCS_ONLY

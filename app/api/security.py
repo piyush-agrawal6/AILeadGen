@@ -6,6 +6,7 @@ import time
 import asyncio
 import threading
 import logging
+from contextlib import ExitStack
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.config.settings import get_settings
@@ -84,9 +85,12 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
         if state is None:
             return await read_cache.handle(request,call_next)
         from app.platform.context import workspace_scope
-        with db_session() as c:
-            with workspace_scope(c,request.state.user_email,state['organization_id']):
-                response=await read_cache.handle(request,call_next)
+        with ExitStack() as scopes:
+            with db_session() as c:
+                scopes.enter_context(workspace_scope(c,request.state.user_email,state['organization_id']))
+            # Verification is complete; retain the trusted context, not an idle
+            # pooled connection, while handlers obtain their own connections.
+            response=await read_cache.handle(request,call_next)
         return response
     async def dispatch(self, request, call_next):
         if request.url.path == "/api/health" or re.fullmatch(r"/api/tracking/(?:o|c|u)/[A-Za-z0-9_.-]{1,100}", request.url.path):
