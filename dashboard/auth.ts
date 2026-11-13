@@ -4,7 +4,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import {admitGoogle} from "@/lib/server/admission";
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [Google],
+  providers: [Google({authorization:{params:{prompt:'select_account'}}})],
   pages: { signIn: "/login", error: "/login" },
   session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
   trustHost: true,

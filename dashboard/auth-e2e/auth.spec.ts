@@ -52,4 +52,5 @@ test('keyboard access and actual Auth.js Google action preserve the protected OA
  await expect(page.getByRole('button',{name:'Continue with Google'})).toBeFocused();await page.keyboard.press('Enter');await page.waitForURL('https://accounts.google.com/**');
  const url=new URL(page.url());expect(url.searchParams.get('client_id')).toBe('heysow-local-fixture');expect(url.searchParams.get('response_type')).toBe('code');expect(url.searchParams.get('code_challenge')).toBeTruthy();
  expect(url.searchParams.get('redirect_uri')).toBe('http://127.0.0.1:13001/api/auth/callback/google');
+ expect(url.searchParams.get('prompt')).toBe('select_account');
 });
