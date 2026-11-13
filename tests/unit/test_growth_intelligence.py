@@ -70,6 +70,9 @@ def test_leased_fallback_research_persists_exports_and_suppression_history(growt
         assert detail['comparison']['percentage_change'] is None
         assert service.save(c,result['id'],models.Save(revision=result['revision']))['saved_at']
         assert c.execute('SELECT COUNT(*) FROM email_messages').fetchone()[0]==before
+        c.execute('UPDATE intent_signals SET retrieved_at=? WHERE id=?',((datetime.now(timezone.utc)+timedelta(seconds=1)).isoformat(),result['snapshot']['evidence'][0]['id']));c.commit()
+        assert service.detail(c,result['id'])['evidence_current']
+        assert exports.render(c,result['id'],'md')[0]
         c.execute("UPDATE intent_signals SET available=0 WHERE id=?",(result['snapshot']['evidence'][0]['id'],));c.commit()
         assert not service.detail(c,result['id'])['evidence_current']
         with pytest.raises(HTTPException):exports.render(c,result['id'],'md')

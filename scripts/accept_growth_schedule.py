@@ -55,7 +55,16 @@ async def main():
         proof['acceptance_watchlist_paused']=paused['status']=='Paused'
         (OUT/'scheduled-watchlist.json').write_text(json.dumps(proof,indent=2));print(json.dumps(proof))
         if not proof['pass']:raise RuntimeError('Controlled scheduled watchlist acceptance did not pass.')
-    finally:await a.client.aclose()
+    finally:
+        # A failed acceptance must not leave a second standing paid/CPU task.
+        # Only the persisted, exactly named owner-controlled resource is paused.
+        try:
+            if a.state.get('watchlist_id'):
+                current=await a.request('GET','/api/intent-radar/monitors/'+a.state['watchlist_id'])
+                if current['name']=='Owner-controlled Growth schedule verification' and current['status']=='Active':
+                    body={k:current.get(k,'') for k in ('name','description','goal')}
+                    await a.request('PUT','/api/intent-radar/monitors/'+current['id'],{**body,'configuration':current['configuration'],'status':'Paused','revision':current['revision'],'request_id':a.state['watchlist_request']})
+        finally:await a.client.aclose()
 if __name__=='__main__':
     try:asyncio.run(main())
     except Exception as error:print(json.dumps({'status':'FAILED','error_type':type(error).__name__,'detail':str(error) if isinstance(error,RuntimeError) else 'Inspect restricted acceptance state; no credentials printed.'}));raise SystemExit(1)

@@ -137,7 +137,9 @@ def detail(c,key):
         current=current_rows.get(signal['id'])
         if not current:retained=False;break
         current=dict(current);current['evidence']=json.loads(current['evidence_json'])
-        if not current['available'] or radar.expired(current,retention) or any(current[k]!=signal[k] for k in ('title','excerpt','source','source_url','observed_at','retrieved_at')):retained=False;break
+        # A routine re-fetch is not a source-content change. Keep the original
+        # snapshot collection time, while validating the current authorized copy.
+        if not current['available'] or radar.expired(current,retention) or any(current[k]!=signal[k] for k in ('title','excerpt','source','source_url','observed_at')):retained=False;break
     if snapshot.get('workspace_context') and snapshot['workspace_context']!=context_profile(c,models.Scope.model_validate(request['scope'])):retained=False
     if not retained:
         snapshot['evidence']=[];output={'mode':'Stale source evidence','limitations':['Underlying source changed, expired or was withdrawn. Regenerate before sharing.']}
