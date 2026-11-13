@@ -99,11 +99,12 @@ async def tick():
     # Persisted job ownership is resolved again; no implicit workspace context.
     with db_session() as c:
         eligible,args=eligible_sql('j','created_by')
-        stalled=c.execute("SELECT j.id,j.organization_id,j.created_by FROM intelligence_jobs j WHERE j.kind='INTENT_DISCOVER' AND j.attempts<3 AND (j.status='QUEUED' OR (j.status='RUNNING' AND j.lease_until<?)) AND "+eligible+" ORDER BY j.created_at,j.id LIMIT 2",[now(),*args]).fetchall()
+        kinds="('INTENT_DISCOVER','GROWTH_ANALYZE')" if get_settings().intent_radar_growth_enabled else "('INTENT_DISCOVER')"
+        stalled=c.execute("SELECT j.id,j.kind,j.organization_id,j.created_by FROM intelligence_jobs j WHERE j.kind IN "+kinds+" AND j.attempts<3 AND (j.status='QUEUED' OR (j.status='RUNNING' AND j.lease_until<?)) AND "+eligible+" ORDER BY j.created_at,j.id LIMIT 2",[now(),*args]).fetchall()
         for row in stalled:
             try:
                 with workspace_scope(c,row['created_by'],row['organization_id']):
-                    context(c,True)
+                    context(c,True,manager=row['kind']=='GROWTH_ANALYZE')
                     c.execute("UPDATE intelligence_jobs SET status='QUEUED',execution_name=NULL,lease_owner=NULL,lease_until=NULL WHERE id=? AND organization_id=? AND (status='QUEUED' OR (status='RUNNING' AND lease_until<?))",(row['id'],row['organization_id'],now()))
                     c.commit();pending.append({'id':row['id'],'actor':row['created_by'],'organization_id':row['organization_id']})
             except HTTPException:c.rollback()

@@ -1,0 +1,10 @@
+{
+  "sampling_seed": "intent-radar-independent-v1",
+  "protocol_approved_at": "2026-11-13: owner approval in project conversation",
+  "implementation_authors": ["Codex implementation authors; ineligible for independent review"],
+  "source_windows": {},
+  "reviewer_ids": [],
+  "adjudicator_id": null,
+  "reviewed_pricing_reference": null,
+  "approved_cost_per_analysis": null
+}

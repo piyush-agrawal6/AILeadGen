@@ -1,4 +1,5 @@
 from app.database.intent_radar_schema import INTENT_RADAR_SQL
+from app.database.growth_intelligence_schema import GROWTH_SQL
 from app.database.intent_radar_completion_schema import INTENT_RADAR_COMPLETION_SQL
 from app.database.intent_radar_23_schema import INTENT_RADAR_23_SQL
 from app.database.intent_radar_fencing_schema import INTENT_RADAR_FENCING_SQL
@@ -333,6 +334,7 @@ MIGRATIONS: List[str] = [
     , INTENT_RADAR_FENCING_SQL
     , INTENT_RADAR_23_SQL
     , INTENT_RADAR_COMPLETION_SQL
+    , GROWTH_SQL
 ]
 
 

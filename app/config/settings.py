@@ -55,6 +55,7 @@ class ExportConfig(BaseModel):
 
 class Settings(BaseSettings):
     intent_radar_stage:Literal['Disabled','Internal Preview','Beta']=Field('Disabled',alias='INTENT_RADAR_STAGE')
+    intent_radar_growth_enabled:bool=Field(False,alias='INTENT_RADAR_GROWTH_ENABLED')
     intent_radar_internal_workspaces:str=Field('',alias='INTENT_RADAR_INTERNAL_WORKSPACES')
     intent_radar_daily_searches:int=Field(20,ge=1,le=50)
     intent_radar_global_daily_searches:int=Field(100,ge=1,le=200)

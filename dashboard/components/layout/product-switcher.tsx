@@ -9,8 +9,8 @@ export function ProductSwitcher({onNavigate}:{onNavigate?:()=>void}){
  const path=usePathname(),access=useProducts();
  const radar=!!(path.startsWith('/intent-radar')&&access.data?.intent_radar.enabled);
  const products=[
-   {name:'Lead Engine',description:'Prospecting and sales intelligence',href:'/',icon:Layers,active:!radar,badge:undefined},
-   ...(access.data?.intent_radar.enabled?[{name:'Intent Radar',description:'Buyer-intent intelligence',href:'/intent-radar',icon:Radar,active:radar,badge:access.data.intent_radar.stage}]:[]),
+   ...(access.data?.intent_radar.enabled?[{name:'Intent Radar',description:'Buyer intent and Growth Intelligence',href:'/intent-radar',icon:Radar,active:radar,badge:access.data.intent_radar.stage}]:[]),
+   ...(access.data?.lead_engine?[{name:'Lead Engine',description:'Company research and prospecting',href:'/',icon:Layers,active:!radar,badge:undefined}]:[]),
  ];
  return <Menu.Root>
   <Menu.Trigger className="shell-product product-switcher-trigger" aria-label="Switch PlaneByte product" title={radar?'Intent Radar':'Lead Engine'}>

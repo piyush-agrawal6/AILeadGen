@@ -11,7 +11,7 @@ from app.people.service import ctx,company,get as person,save,Person
 from app.config.settings import get_settings
 class Start(BaseModel):
     model_config=ConfigDict(extra='forbid')
-    kind:Literal['COMPANY_ENRICH','CONTACT_DISCOVER','CONTACT_ENRICH','CONTACT_VERIFY','COMPANY_SUMMARIZE','ASSISTANT_TURN','INTENT_DISCOVER']
+    kind:Literal['COMPANY_ENRICH','CONTACT_DISCOVER','CONTACT_ENRICH','CONTACT_VERIFY','COMPANY_SUMMARIZE','ASSISTANT_TURN','INTENT_DISCOVER','GROWTH_ANALYZE']
     resource_ids:list[Annotated[str,Field(min_length=1,max_length=60)]]=Field(min_length=1,max_length=100)
     request_id:uuid.UUID=Field(default_factory=uuid.uuid4)
     reuse_days:int=Field(7,ge=0,le=90)
@@ -22,6 +22,9 @@ def owned(c,key):
     if row['kind']=='INTENT_DISCOVER':
         from app.intent_radar.permissions import context as radar_context
         radar_context(c)
+    if row['kind']=='GROWTH_ANALYZE':
+        from app.growth_intelligence.analytics import access
+        access(c)
     return dict(row)
 
 def detail(c,key,page=1,size=25):
@@ -32,12 +35,14 @@ def detail(c,key,page=1,size=25):
     for item in result['items']:item.pop('result_json')
     result['usage']={'requested_records':result['total'],'provider':'STORED_EVIDENCE_THEN_PUBLIC_WEBSITE_OR_DNS','monetary_cost':None,'cost_state':'NOT_REPORTED','recipient_delivery_verified':False}
     if result['kind']=='INTENT_DISCOVER':result['usage']={'provider':'Authorized public APIs and approved feeds','maximum_requests_per_attempt':33,'maximum_attempts':3,'automatic_posting':False}
+    if result['kind']=='GROWTH_ANALYZE':result['usage']={'provider':'Existing AI gateway or explicitly labeled lexical fallback','maximum_evidence_per_analysis':12,'maximum_attempts':3,'automatic_posting':False,'monetary_cost':None}
     return result
 
 def listing(c,status='',page=1,size=25):
     org=ctx(c).organization_id;where='organization_id=?';args=[org]
     from app.intent_radar.permissions import availability
     if not availability(c,org)['enabled']:where+=" AND kind<>'INTENT_DISCOVER'"
+    if not get_settings().intent_radar_growth_enabled:where+=" AND kind<>'GROWTH_ANALYZE'"
     if status:where+=' AND status=?';args.append(status)
     total=c.execute('SELECT COUNT(*) FROM intelligence_jobs WHERE '+where,args).fetchone()[0]
     rows=c.execute('SELECT id,kind,status,created_at,updated_at,completed_at,error_code,attempts FROM intelligence_jobs WHERE '+where+' ORDER BY created_at DESC,id LIMIT ? OFFSET ?',[*args,size,(page-1)*size]).fetchall()
@@ -48,6 +53,11 @@ def create(c,body):
     if body.kind=='INTENT_DISCOVER':
         expected=str(uuid.uuid5(uuid.NAMESPACE_URL,context.organization_id+':intent-search:'+str(body.request_id)))
         if ids!=[expected] or body.reuse_days!=0:raise HTTPException(422,'Intent jobs require one reviewed discovery and its original request ID.')
+    if body.kind=='GROWTH_ANALYZE':
+        from app.growth_intelligence.analytics import access
+        access(c,True,True)
+        expected=str(uuid.uuid5(uuid.NAMESPACE_URL,context.organization_id+':growth:'+str(body.request_id)))
+        if ids!=[expected] or body.reuse_days!=0:raise HTTPException(422,'Growth jobs require their original reviewed request identity.')
     if body.kind=='COMPANY_SUMMARIZE':
         from app.api.organization import require_role
         require_role(c,context.actor,context.organization_id,('OWNER','ADMIN'))
@@ -57,6 +67,9 @@ def create(c,body):
             from app.intent_radar.service import get
             from app.intent_radar.permissions import context as radar_context
             radar_context(c,True);get(c,'discoveries',key)
+        elif body.kind=='GROWTH_ANALYZE':
+            from app.growth_intelligence.service import owned as growth_owned
+            growth_owned(c,key)
         elif body.kind=='ASSISTANT_TURN':
             from app.assistant.service import turn
             from app.api.organization import require_role
@@ -84,6 +97,9 @@ def create(c,body):
 
 def control(c,key,action):
     ctx(c,True);row=owned(c,key)
+    if row['kind']=='GROWTH_ANALYZE':
+        from app.growth_intelligence.analytics import access
+        access(c,True,True)
     if action=='cancel':c.execute("UPDATE intelligence_jobs SET status='CANCELLED',updated_at=? WHERE id=? AND organization_id=? AND status IN ('RUNNING','QUEUED')",(now(),key,row['organization_id']))
     elif action=='retry':
         if row['attempts']>=3 or row['dispatch_attempts']>=3:raise HTTPException(409,'Retry limit reached; review the recorded failures.')
@@ -94,6 +110,9 @@ def control(c,key,action):
 
 async def run_item(c,row,item,configuration):
     kind=row['kind'];resource=item['resource_id'];ctx(c,True)
+    if kind=='GROWTH_ANALYZE':
+        from app.growth_intelligence.service import process
+        return await process(c,resource,row['id'],row['lease_owner'])
     if kind=='INTENT_DISCOVER':
         from app.intent_radar.discovery import process
         return await process(c,resource,row['id'],row['lease_owner'])
@@ -183,7 +202,7 @@ async def _execute(key,db_path):
             if not valid_lease(active,lease):return
             ctx(c,True);c.execute("UPDATE intelligence_job_items SET status='PROCESSING',updated_at=? WHERE id=?",(now(),item['id']));c.commit()
             try:
-                result=await asyncio.wait_for(run_item(c,row,dict(item),configuration),timeout=125 if row['kind']=='INTENT_DISCOVER' else 35)
+                result=await asyncio.wait_for(run_item(c,row,dict(item),configuration),timeout=125 if row['kind'] in ('INTENT_DISCOVER','GROWTH_ANALYZE') else 35)
                 active=owned(c,key)
                 if not valid_lease(active,lease):c.rollback();return
                 c.execute('UPDATE intelligence_job_items SET status=?,result_json=?,error_code=NULL,updated_at=? WHERE id=?',(result.pop('status'),json.dumps(result),now(),item['id']));c.commit()

@@ -1,6 +1,6 @@
 # Intent Radar independent AI-quality acceptance protocol
 
-Protocol proposed 2026-11-11 **before any larger independent set is scored**. Owner approval and independent reviewers are required; this document is not an acceptance result. The earlier eight authored examples remain a single-reviewer smoke test.
+Protocol proposed 2026-11-11 **before any larger independent set is scored**, and approved unchanged by the owner on 2026-11-13. Independent reviewers and an adjudicator remain required; this document is not an acceptance result. The earlier eight authored examples remain a single-reviewer smoke test. The exportable blind-review workflow is documented in `INTENT_RADAR_HUMAN_REVIEW_GUIDE.md`.
 
 ## Sampling and provenance
 

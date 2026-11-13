@@ -38,6 +38,9 @@ def require_legacy():
     if organization()!=PLANEBYTE_ORGANIZATION_ID:raise HTTPException(404,'Not found.')
 
 def guard_route(path,*,organization_id,role,method='GET'):
+    if path.startswith('/api/intent-radar/growth'):
+        from app.config.settings import get_settings
+        if not get_settings().intent_radar_growth_enabled:raise HTTPException(404,'Growth Intelligence is unavailable.')
     if path=='/api/intent-radar' or path.startswith('/api/intent-radar/'):
         from app.database.connection import db_session
         from app.intent_radar.permissions import availability

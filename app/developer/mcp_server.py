@@ -39,7 +39,7 @@ def invoke(headers,name,arguments,scopes):
                     elif name=='proposal_status':result=approvals.status(c,arguments['id'])
                     else:
                         from app.intent_radar import tools as radar_tools
-                        if name in radar_tools.READ:
+                        if name in radar_tools.READ or name in radar_tools.GROWTH_READ:
                             keys.require('intent:read')
                             result=radar_tools.read(c,name,arguments)
                         else:result=tools.read(c,name,arguments)
@@ -92,6 +92,15 @@ def build():
     @mcp.tool(structured_output=True,description='List saved customer profiles. Requires icps:read.')
     async def list_icps(ctx:Context)->dict[str,Any]:return await run(ctx,'list_icps',{},['icps:read'])
     if get_settings().intent_radar_stage!='Disabled':
+        if get_settings().intent_radar_growth_enabled:
+            @mcp.tool(structured_output=True,description='List stored market themes from authorized evidence. Requires intent:read. Interpretations are not market-wide facts. No AI or discovery starts.')
+            async def list_market_themes(ctx:Context,search:str='',page:int=1)->dict[str,Any]:return await run(ctx,'list_market_themes',{'search':search,'page':page},['intent:read'])
+            @mcp.tool(structured_output=True,description='Read one saved research snapshot and its current authorized citations. Requires intent:read. No generation starts.')
+            async def get_growth_research(ctx:Context,id:str)->dict[str,Any]:return await run(ctx,'get_growth_research',{'id':id},['intent:read'])
+            @mcp.tool(structured_output=True,description='Read bounded collected-conversation metrics with coverage limitations. Requires intent:read. No market-size or purchasing probability inference.')
+            async def get_market_overview(ctx:Context)->dict[str,Any]:return await run(ctx,'get_market_overview',{},['intent:read'])
+            @mcp.tool(structured_output=True,description='Read stored growth watchlists and schedule status. Requires intent:read. No collection starts.')
+            async def list_growth_watchlists(ctx:Context)->dict[str,Any]:return await run(ctx,'list_growth_watchlists',{},['intent:read'])
         @mcp.tool(structured_output=True,description='Search stored public intent evidence. Requires intent:read and workspace Intent Radar access. No discovery starts; scores are interpretations.')
         async def search_intent_signals(ctx:Context,search:str='',page:int=1)->dict[str,Any]:return await run(ctx,'search_intent_signals',{'search':search,'page':page},['intent:read'])
         @mcp.tool(structured_output=True,description='List workspace-owned intent monitors. Requires intent:read. Does not run checks.')

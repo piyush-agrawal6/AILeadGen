@@ -89,4 +89,29 @@ async def test_radar_sdk_reads_nine_tool_contract_and_denies_disabled_product(tm
     assert 'credentials' not in workspace.structured_content
     denied=await client.call_tool('search_contacts',{});assert denied.is_error
     with db_session() as c:c.execute("UPDATE organization_products SET enabled=0 WHERE organization_id=? AND product='INTENT_RADAR'",(INTERNAL,))
-    denied=await client.call_tool('get_intent_source_health',{});assert denied.is_error
+    # Revoking the product now invalidates the credential before MCP dispatch.
+    # This is a stronger denial than an in-protocol tool error.
+    from mcp.shared.exceptions import MCPError
+    with pytest.raises(MCPError):await client.call_tool('get_intent_source_health',{})
+    assert (await http.post('/api/v1/mcp',json={'jsonrpc':'2.0','id':10,'method':'ping'})).status_code==404
+
+@pytest.mark.asyncio
+async def test_growth_sdk_works_with_intent_only_product_and_cannot_read_companies(tmp_path,monkeypatch):
+ settings=configure(tmp_path,monkeypatch)
+ monkeypatch.setattr(settings,'intent_radar_stage','Beta');monkeypatch.setattr(settings,'intent_radar_growth_enabled',True)
+ application=create_app()
+ async with application.router.lifespan_context(application):
+  with db_session() as c:
+   c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id=? AND product='INTENT_RADAR'",(INTERNAL,))
+   c.execute("UPDATE organization_products SET enabled=0 WHERE organization_id=? AND product='LEADGEN'",(INTERNAL,))
+   with workspace_scope(c,'owner@example.test',INTERNAL):key=keys.create(c,keys.Create(name='Growth SDK client',scopes=['mcp:use','intent:read']))
+  async with httpx2.AsyncClient(transport=httpx2.ASGITransport(app=application),base_url='http://testserver',headers={'authorization':'Bearer '+key['token']},timeout=15) as http:
+   async with Client(streamable_http_client('http://testserver/api/v1/mcp',http_client=http,terminate_on_close=False),read_timeout_seconds=10) as client:
+    from app.intent_radar.tools import GROWTH_READ
+    available={tool.name for tool in (await client.list_tools()).tools};assert set(GROWTH_READ)<=available and len(GROWTH_READ)==4
+    result=await client.call_tool('get_market_overview',{});assert not result.is_error and result.structured_content['sample_size']==0
+    denied=await client.call_tool('search_companies',{});assert denied.is_error
+    assert (await http.get('/api/v1/intent-radar/growth/overview')).status_code==200
+    assert (await http.get('/api/v1/companies')).status_code==403
+    monkeypatch.setattr(settings,'intent_radar_growth_enabled',False)
+    denied=await client.call_tool('get_market_overview',{});assert denied.is_error

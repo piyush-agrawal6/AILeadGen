@@ -42,6 +42,20 @@ def manager(c):
     return context
 
 
+def scope_access(c, organization_id, scopes):
+    """Credentials cannot grant a product the workspace does not own."""
+    from app.api.organization import products
+    from app.intent_radar.permissions import availability
+    leadgen = products(c, organization_id).get('LEADGEN', False)
+    radar = availability(c, organization_id)['enabled']
+    if set(scopes) - {'intent:read', 'mcp:use'} and not leadgen:
+        raise HTTPException(404, 'Lead Engine is unavailable for these credential scopes.')
+    if 'intent:read' in scopes and not radar:
+        raise HTTPException(404, 'Intent Radar is unavailable for this workspace.')
+    if not leadgen and not radar:
+        raise HTTPException(404, 'No enabled product is available for this credential.')
+
+
 def visible(row):
     result=dict(row);result.pop('token_hash',None);result['scopes']=json.loads(result.pop('scopes_json'));return result
 
@@ -49,7 +63,10 @@ def visible(row):
 def listing(c):
     context=manager(c)
     from app.intent_radar.permissions import availability
-    available=[scope for scope in SCOPES if (scope!='mcp:use' or get_settings().heysow_mcp_enabled) and (scope!='intent:read' or availability(c,context.organization_id)['enabled'])]
+    from app.api.organization import products
+    leadgen=products(c,context.organization_id).get('LEADGEN',False)
+    radar=availability(c,context.organization_id)['enabled']
+    available=[scope for scope in SCOPES if (scope=='mcp:use' and get_settings().heysow_mcp_enabled and (leadgen or radar)) or (scope=='intent:read' and radar) or (scope not in ('mcp:use','intent:read') and leadgen)]
     return {'items':[visible(row) for row in c.execute('SELECT * FROM workspace_api_keys WHERE organization_id=? ORDER BY created_at DESC LIMIT 100',(context.organization_id,)).fetchall()],'available_scopes':available,'rate_limit_per_minute':get_settings().developer_key_requests_per_minute}
 
 
@@ -69,6 +86,7 @@ def create(c,body,rotated_from=None):
         radar_context(c)
     context=manager(c)
     lock(c,context.organization_id)
+    scope_access(c,context.organization_id,body.scopes)
     if c.execute('SELECT COUNT(*) FROM workspace_api_keys WHERE organization_id=? AND revoked_at IS NULL AND expires_at>?',(context.organization_id,now())).fetchone()[0]>=20:raise HTTPException(429,'Revoke an unused API key before creating more.')
     key=str(uuid.uuid4());token='pbk_'+key+'.'+secrets.token_urlsafe(32);expires=(datetime.now(timezone.utc)+timedelta(days=body.lifetime_days)).isoformat()
     c.execute('INSERT INTO workspace_api_keys(id,organization_id,created_by,name,token_hash,scopes_json,created_at,expires_at,rotated_from) VALUES(?,?,?,?,?,?,?,?,?)',(key,context.organization_id,context.actor,body.name,hashlib.sha256(token.encode()).hexdigest(),json.dumps(sorted(set(body.scopes))),now(),expires,rotated_from));audit(c,key,'API_KEY_CREATED')
@@ -100,8 +118,7 @@ def authenticate(c,authorization,*,consume=True):
         if not membership_role(c,row['created_by'],row['organization_id']):raise HTTPException(403,'Active workspace membership is required.')
         onboarded=c.execute("SELECT 1 FROM organization_onboarding WHERE organization_id=? AND status='COMPLETED'",(row['organization_id'],)).fetchone()
         if not onboarded:raise HTTPException(403,'Finish workspace onboarding before using the developer API.')
-        product=c.execute("SELECT enabled FROM organization_products WHERE organization_id=? AND product='LEADGEN'",(row['organization_id'],)).fetchone()
-        if not product or not product[0]:raise HTTPException(404,'Lead Engine is unavailable for this workspace.')
+        scope_access(c,row['organization_id'],json.loads(row['scopes_json']))
     if not consume:return Grant(key,row['organization_id'],row['created_by'],tuple(json.loads(row['scopes_json'])))
     lock(c,row['organization_id'])
     current_row=c.execute('SELECT revoked_at,expires_at FROM workspace_api_keys WHERE id=?',(key,)).fetchone()

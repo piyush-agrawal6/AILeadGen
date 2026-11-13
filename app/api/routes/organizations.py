@@ -44,8 +44,10 @@ def product_access(request:Request,c=Depends(get_db,scope='function')):
     state=resolve(c,request.state.user_email)
     from app.intent_radar.permissions import availability
     from app.api.organization import products
+    from app.config.settings import get_settings
     org=state['organization_id'] if state else None
-    return {'organization_id':org,'lead_engine':bool(org and products(c,org).get('LEADGEN')),'intent_radar':availability(c,org)}
+    radar=availability(c,org)
+    return {'organization_id':org,'lead_engine':bool(org and products(c,org).get('LEADGEN')),'intent_radar':{**radar,'growth_enabled':bool(radar['enabled'] and get_settings().intent_radar_growth_enabled)}}
 
 @router.put('/active',response_model=Selection)
 def active(body:Selection,request:Request,c=Depends(get_db,scope='function')):

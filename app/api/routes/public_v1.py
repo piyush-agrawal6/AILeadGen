@@ -8,6 +8,21 @@ from app.developer.keys import require
 from app.prospecting import tools
 router=APIRouter(prefix='/v1',tags=['Public Lead Engine API v1'])
 
+@router.get('/intent-radar/growth/overview')
+def growth_overview(grant=Depends(lambda:require('intent:read')),c=Depends(get_db,scope='function')):
+    from app.growth_intelligence import analytics,models
+    return analytics.overview(c,models.Scope())
+
+@router.get('/intent-radar/growth/research/{key}')
+def growth_research(key:UUID,grant=Depends(lambda:require('intent:read')),c=Depends(get_db,scope='function')):
+    from app.growth_intelligence.service import detail
+    return detail(c,str(key))
+
+@router.get('/intent-radar/growth/themes')
+def growth_themes(search:str=Query('',max_length=120),page:int=Query(1,ge=1,le=10000),grant=Depends(lambda:require('intent:read')),c=Depends(get_db,scope='function')):
+    from app.growth_intelligence.service import themes
+    return themes(c,search=search,page=page,size=20)
+
 def scope(value):
     def checked():return require(value)
     return Depends(checked)

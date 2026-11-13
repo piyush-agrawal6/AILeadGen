@@ -8,8 +8,15 @@ class Search(Strict):
 class SignalID(Strict):id:UUID
 class Empty(Strict):pass
 READ={'search_intent_signals':Search,'list_intent_monitors':Search,'get_intent_signal':SignalID,'list_intent_opportunities':Search,'list_intent_sources':Empty,'get_intent_analysis':SignalID,'get_intent_run':SignalID,'get_intent_source_health':Empty,'get_intent_workspace_context':Empty}
+GROWTH_READ={'list_market_themes':Search,'get_growth_research':SignalID,'get_market_overview':Empty,'list_growth_watchlists':Empty}
 def read(c,name,arguments):
-    args=READ[name].model_validate(arguments)
+    args=(READ|GROWTH_READ)[name].model_validate(arguments)
+    if name in ('list_market_themes','get_growth_research','get_market_overview','list_growth_watchlists'):
+        from app.growth_intelligence import service as growth,analytics,models
+        if name=='list_market_themes':return growth.themes(c,search=args.search,page=args.page,size=20)
+        if name=='get_growth_research':return growth.detail(c,str(args.id))
+        if name=='get_market_overview':return analytics.overview(c,models.Scope())
+        return growth.watchlists(c)
     if name=='get_intent_source_health':
         from app.intent_radar.operations import source_health
         return source_health(c)

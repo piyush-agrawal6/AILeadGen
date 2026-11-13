@@ -13,7 +13,8 @@ router=APIRouter(prefix='/intent-radar',tags=['Intent Radar'])
 def capabilities(c=Depends(get_db,scope='function')):
     ctx=context(c)
     from app.api.organization import membership_role
-    return {**availability(c,ctx.organization_id),'sources':providers.catalog(c),'can_write':membership_role(c,ctx.actor,ctx.organization_id)!='VIEWER','can_manage':membership_role(c,ctx.actor,ctx.organization_id) in ('OWNER','ADMIN'),'usage':discovery.usage(c)}
+    from app.config.settings import get_settings
+    return {**availability(c,ctx.organization_id),'growth_enabled':get_settings().intent_radar_growth_enabled,'sources':providers.catalog(c),'can_write':membership_role(c,ctx.actor,ctx.organization_id)!='VIEWER','can_manage':membership_role(c,ctx.actor,ctx.organization_id) in ('OWNER','ADMIN'),'usage':discovery.usage(c)}
 
 @router.get('/sources/configurations')
 def source_configs(c=Depends(get_db,scope='function')):
