@@ -212,3 +212,14 @@ def test_additive_billing_bridge_requires_46_before_enabling(billing,monkeypatch
     with pytest.raises(RuntimeError):migrations.verify_schema(c)
     assert migrations.run_migrations(c)==1
     migrations.verify_schema(c);assert migrations.run_migrations(c)==0;c.close()
+
+def test_verified_test_plan_mapping_install_is_scoped_and_idempotent(billing):
+    from scripts.prepare_razorpay_test_plans import install
+    c,path,org,_=billing
+    state={code:{'status':'VERIFIED','test_only':True,'provider_plan_id':'plan_'+code,'catalog_hash':'verified-'+code} for code in ('starter','growth','scale')}
+    install(c,state,organization=org,owner='controlled@example.test');install(c,state,organization=org,owner='controlled@example.test')
+    assert c.execute('SELECT COUNT(*) FROM billing_plan_mappings').fetchone()[0]==3
+    with pytest.raises(RuntimeError):install(c,state,organization=org,owner='foreign@example.test')
+    state['growth']['provider_plan_id']='plan_other'
+    with pytest.raises(RuntimeError):install(c,state,organization=org,owner='controlled@example.test')
+    c.rollback();assert c.execute("SELECT provider_plan_id FROM billing_plan_mappings WHERE code='growth'").fetchone()[0]=='plan_growth'

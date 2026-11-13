@@ -52,3 +52,37 @@ Do not strip arbitrary schema statements or claim this failed restore passed.
 
 See [PostgreSQL 18.7 release](https://www.postgresql.org/docs/release/18.7/)
 and [attribute catalog](https://www.postgresql.org/docs/18/catalog-pg-attribute.html).
+
+## Subsequent verified checks
+
+The repaired complete isolated suite passed **958 tests**, with one intentional
+live-email skip and seven warnings. Real PostgreSQL quota-concurrency and restricted
+backup/migration tests were included. Later billing bridge/worker security checks
+passed (52-test subset); the complete billing-specific suite now passes **14 tests**.
+
+Both billing browser checks passed: owner catalog/handoff review and mobile
+pending/cancelled states. No checkout or provider network was mocked as a real
+payment. Both Next.js applications built independently; marketing was not deployed.
+Lint reported zero errors and two internal-navigation warnings in the new UI.
+
+A new full source-schema-45 snapshot, SHA-256
+`54b1feea0d9c4f6006aa171cdae51f580f02eeae2263dbe3e7122f70428500ea`,
+118,441,670 bytes, restored exactly using checksum-verified PostgreSQL 18.7 tools.
+A read-only SELECT keepalive preserved the exported snapshot without changing
+production transaction/security timeouts. Local migration 45→46 applied once;
+a second run applied zero. All **164 original tables' original columns** matched
+exactly; no row loss and no differences. Earlier failed rehearsals remain recorded
+and were not represented as successful.
+
+## Deployed webhook acceptance
+
+Schema 46 and restricted Test Mode backend commit
+`fd4d17ce25c2f644e90bbb6cb6796c5f84ea7d3b` deployed successfully.
+Production webhook URL:
+`https://leadengine-api-befca7xg4a-el.a.run.app/api/billing/webhooks/razorpay`.
+Invalid raw signature returned **400**; valid controlled signature for an unlinked
+subscription returned **202 / ignored**. No fake financial record was inserted.
+Merchant-originated delivery remains pending owner Dashboard registration.
+Final real Razorpay authentication still returned **401**. No real provider
+subscription lifecycle acceptance is claimed. Final frontend units: **149 passed**,
+including rejected/uncertain creation handling; billing-specific backend: **14 passed**.

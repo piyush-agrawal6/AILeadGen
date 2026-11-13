@@ -36,3 +36,28 @@ Remaining owner actions: correct the matching Razorpay Test Mode key pair; confi
 the exact deployed webhook URL and matching independent secret after endpoint
 verification; arrange the approved reviewers/adjudicator; approve commercial pricing
 and live billing separately if a later paid launch is desired.
+
+## Billing backend rollout verified
+
+Backend release commit `fd4d17ce25c2f644e90bbb6cb6796c5f84ea7d3b` is live as
+`leadengine-api-00126-qox`. A billing-disabled compatible API/worker bridge was
+promoted first (`leadengine-api-00124-wiz`), then the recovery-tested additive
+migration 45→46 was applied once. Existing workers use the matching committed
+image, with existing identities/commands preserved. The existing Intent Radar
+scheduler was restored to its previously enabled state; outreach/acquisition
+schedulers and real email remain disabled. No frontend Cloud Run service was added.
+
+Verified webhook:
+https://leadengine-api-befca7xg4a-el.a.run.app/api/billing/webhooks/razorpay
+
+Actual HTTPS probes: invalid signature **400**; correctly signed unlinked controlled
+probe **202**, safely ignored. This is endpoint security acceptance, not a real
+merchant webhook, payment or paid entitlement. Test Mode secrets are backend-only
+Secret Manager references. Only the previously verified owner workspace is enabled
+for sandbox billing. Public checkout remains false and live mode is rejected.
+
+A final real Test Mode plan-list authentication request still returned **401**.
+Three internal plans, real subscriptions, payments, renewals and cancellations
+remain unverified/blocked. The owner has received the exact webhook URL, ten event
+names and the instruction to match the server-only webhook secret. No test
+subscription or payment was fabricated to make the production ledger look ready.

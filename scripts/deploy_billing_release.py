@@ -150,4 +150,13 @@ def promote():
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('action',choices=['prepare','bridge','activate','promote']);a=p.parse_args()
     try:globals()[a.action]()
-    except Exception as error:print(json.dumps({'status':'BLOCKED','error_type':type(error).__name__,'detail':str(error) if isinstance(error,RuntimeError) else 'Inspect restricted release evidence; credentials withheld.'}));raise SystemExit(1)
+    except Exception as error:
+        # Preserve the previously authorized recurring service after a failed
+        # rollout. The bridge is compatible before any DDL; outreach is excluded.
+        previous=STATE/'schedulers-before.json'
+        if previous.exists():
+            for job in json.loads(previous.read_text()):
+                if job['name'].endswith('/leadengine-intent-radar-dispatch') and job['state']=='ENABLED':
+                    try:command(['scheduler','jobs','resume',job['name'],'--location='+REGION])
+                    except Exception:pass
+        print(json.dumps({'status':'BLOCKED','error_type':type(error).__name__,'detail':str(error) if isinstance(error,RuntimeError) else 'Inspect restricted release evidence; credentials withheld.'}));raise SystemExit(1)
