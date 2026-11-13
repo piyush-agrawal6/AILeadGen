@@ -1,101 +1,182 @@
-# PlaneByte beta activation — release in progress, 2026-11-13
+# PlaneByte production release — 2026-11-13
 
-**Current verdict: NO-GO. Production activation has not been claimed.**
+**LIMITED GO — the owner-only production release is live.** Genuine backend,
+source, AI, scheduled-worker and MCP acceptance passed. Browser acceptance is
+reserved for the owner, who explicitly requested that browser testing stop.
+This is not a certification of unrestricted signup, every optional integration,
+AI accuracy, commercial licensing, load capacity or a full customer journey.
 
-The owner approved `planebyte@gmail.com` as the only permitted SaaS login and
-approved Intent Radar only for their verified existing PlaneByte admin workspace.
-Marketing at `https://planebyte.com` is outside this rollout and remains untouched.
+## A. What was fixed
 
-## Repairs and verified diagnosis
+- Published the repaired source history without force-pushing shared history.
+  Generated Next caches, backups, credentials and validation artifacts were
+  excluded. All preexisting source changes were preserved.
+- Connected the existing Vercel `leadengine` project to
+  `piyush-agrawal6/AILeadGen`, production branch `main`, root `dashboard`, Node 24.
+  Latest source was built by that actual GitHub integration and promoted normally.
+- Configured the only allowed login as `planebyte@gmail.com` on frontend/backend.
+  Public signup, invitation admission and other admitted-customer access remain
+  off. Existing Google OAuth/session/gateway credentials were retained.
+- Added Google's explicit account chooser. The existing verified-email allowlist,
+  PKCE, secure session cookies and server-side membership checks remain intact.
+- Removed idle middleware database connections before downstream handlers obtain
+  their own connections, while retaining the verified request workspace context.
+- Corrected the database probe: PostgreSQL startup options caused the earlier
+  diagnostic timeout. Standard connections and explicit read-only transactions
+  work; the earlier result was not a confirmed database outage.
+- Recovery-tested the additive schema 15 → 44 upgrade, then applied its 29 pending
+  migrations once in production. Resumed rollout detected schema 44 and applied
+  zero additional migrations. No reset, truncation or broad deletion occurred.
+- Verified the existing legacy owner's ADMIN identity, then the actual persisted
+  backfilled PlaneByte OWNER membership, completed onboarding and product rows.
+  Granted Beta only to that verified workspace, with an idempotent audit record.
+- Deployed the existing API, worker, acquisition and canary resources, preserving
+  their identities and unrelated Gmail/storage/provider settings. Preserved the
+  acquisition worker's actual Python module entrypoint.
+- Fixed a rollout failure caused by trying to replace a secret-backed allowlist
+  with a literal: retained its secret-backed type and set its authorized value.
+- Published the existing valid integration encryption key through server-only
+  Secret Manager access for the existing identities. No JSON service-account key
+  or replacement AI integration was created.
+- Restored inbox synchronization after maintenance and installed the missing
+  Radar dispatcher against the existing worker and existing service identity.
+- Removed a real credential from an uncommitted example environment edit. The
+  server credential was preserved; no credential value was committed or printed
+  in the release audits.
+- Reverted all dashboard Cloud Run source changes introduced during an incorrect
+  hosting interpretation and removed the unused image. No dashboard Cloud Run
+  service, load balancer, DNS change or marketing-site change was created.
 
-- Preserved the earlier source-only Git history repair and all uncommitted work.
-  No force push, reset, customer deletion or secret rotation.
-- Removed a real provider credential from an uncommitted example environment
-  file; the existing server secret was preserved. Release scans report variable
-  names and paths only, never credential values.
-- Corrected a PostgreSQL diagnostic: startup connection options caused the earlier
-  probe timeout. Standard connections and explicit read-only transactions pass.
-  This was not a confirmed production database outage.
-- Added read-only runtime/provider probes and an owner-only, dry-run-first
-  entitlement operation that verifies persisted membership and completed setup.
-- Prepared source-only API and worker images using existing Google Cloud services,
-  pinned dependencies and the existing working worker browser image.
-- Restored the exact locked `cryptography==50.0.2` runtime locally; its Intel Mac
-  wheel is unavailable, so the package was compiled against project-local OpenSSL.
-- Updated only the authorized root access-policy settings. Production enforcement
-  still requires rollout: one owner allowlist; public/invited/customer admission off.
+## B. What is live
 
-## Actual production state last verified
-
-| Component | Observed state |
+| Component | Verified production state |
 |---|---|
-| SaaS frontend | `https://app.planebyte.com`; existing Vercel `leadengine` project; November 5 deployment; redirects to login |
-| Vercel plan | Existing team `piyushagrawal6s-projects` still reports Hobby; commercial upgrade pending |
-| Backend | `https://leadengine-api-befca7xg4a-el.a.run.app`; revision `leadengine-api-00114-soh`; old November 5 image; liveness and signed legacy safety read pass |
-| PostgreSQL | Existing Neon PostgreSQL 18.6; schema 15; latest code requires schema 44; no production migration performed |
-| Workers | Existing worker/acquisition jobs preserved; no dedicated Radar dispatcher deployed |
-| Google authentication | Existing credentials preserved; new release's actual owner sign-in not yet accepted |
-| Lead Engine | Existing old deployment retained; latest source passes local regressions; latest live workflow pending |
-| Intent Radar | Not yet activated in production; new routes absent from old backend |
-| Vertex AI | Genuine local and attached worker-identity inference pass; actual new API/Radar persisted analysis pending |
-| Sources | Bounded genuine Hacker News retrieval passes; additional publisher approvals/configuration unresolved |
-| Recurring monitoring | Source and isolated tests exist; production scheduled-monitor acceptance pending |
-| MCP | Isolated official-client tests pass; deployed authenticated handshake pending |
-| Single-owner restriction | Root policy prepared; not yet claimed active on the deployed application |
+| SaaS | https://app.planebyte.com — existing Vercel project; new release promoted |
+| Frontend source | `4c43940fd2cc3ed4e697ff524a443328719ba85a` |
+| Vercel deployment | `dpl_Ac9v2oMHRqZ3W8P9Dgb5AFLu9YHc`, READY; https://leadengine-qkoriha40-piyushagrawal6s-projects.vercel.app |
+| Backend | https://leadengine-api-befca7xg4a-el.a.run.app |
+| Backend revision/image | `leadengine-api-00118-yok`; `api:beta-20261113-r2` in existing Artifact Registry |
+| Workers | Existing `leadengine-worker`, `leadengine-acquisition`, `leadengine-quota-canary`; `worker:beta-20261113-r1` |
+| Database | Existing Neon PostgreSQL 18.6; schema 44; retained original customer/history data |
+| Authentication | Owner-only policy deployed; approved-owner browser session not independently completed |
+| Lead Engine | Product available to the owner; signed workspace/product/safety reads pass; local workflow regressions pass |
+| Intent Radar | Stage `Beta`; enabled only for the verified PlaneByte workspace below |
+| Vertex | Real API service-identity structured inference HEALTHY; real signal interpretation persisted as `VERTEX_AI`, `gemini-3.6-flash` |
+| Hacker News | Real bounded production discovery COMPLETED; genuine signal saved and opportunity created |
+| Monitoring | Actual Google Scheduler → existing worker → scheduled discovery COMPLETED; saved six-hour policy retained |
+| MCP | Official client handshake passes; 18 tools discovered; permitted Radar read passes; temporary key revoked and rejected with 401 |
+| Gmail | Existing account CONNECTED; SMTP READY, IMAP READY; inbox sync enabled; sending disabled |
+| Other Radar sources | Stack Exchange requires approval; RSS/Atom/Discourse require approved configured publisher endpoints |
+| Marketing | Existing Netlify site unchanged |
 
-Production has no organization tables yet. Its legacy owner record is
-`planebyte@gmail.com` with ADMIN role. The additive migration creates/backfills the
-workspace; its actual persisted ID and membership must be read and verified before
-any Beta grant. No workspace grant has been made based on an assumed ID.
+Verified workspace: `e5ffc3dc-241e-5558-acd4-84f5fe354ca7`, stored name PlaneByte,
+active OWNER `planebyte@gmail.com`, completed onboarding. No other active member
+or workspace received a Beta grant.
 
-## Verification evidence
+The existing Vercel team remains Hobby. Vercel accepted both the production build
+and promotion. The owner explicitly directed continued use of that project and
+no subscription changes; billing was not treated as a technical deployment error.
+No subscription was changed or hosting migration performed.
 
-Artifacts are under `data/artifacts/verification/beta-activation-20261113/`.
-These are local/private artifacts and must not be committed or uploaded publicly.
+## C. Safety and preservation
 
-| Check | Actual result |
+- Fresh restricted PostgreSQL custom backup was restored into private local
+  PostgreSQL 18. Every original row/column across 91 original tables matched after
+  migration, allowing only the documented legacy workspace-ID backfill.
+- Maintenance-window backup SHA-256:
+  `085d4db6fe55685f4990ff2f7c04bf96f568d2706d483d479154b37bad6ff5bc`.
+  Backup/recovery/config snapshots remain private under `data/backups/`.
+- Final production counts: prospects 7; contacted recipients 34; permanent send
+  records 44; email messages 2; pipeline runs 5. Suppression table/history retained.
+  **Zero outbound messages were sent during this release.**
+- `AUTO_SCAN_ENABLED=false`, `AUTO_EMAIL_ENABLED=false`,
+  `EMAIL_SENDING_ENABLED=false`; customer live sending and public admission off.
+- Outreach/acquisition schedulers remain paused. Inbox sync is enabled every five
+  minutes. The separate Radar dispatcher is enabled every ten minutes; each saved
+  monitor remains subject to its actual minimum six-hour schedule and usage caps.
+- Controlled recurring acceptance advanced only its named monitor's next due
+  timestamp, with a scoped audit record. The actual worker completed job
+  `82052719-e751-4c22-a8b1-884bf4c69385`; next run was persisted for
+  `2026-11-13T16:19:38.665002+00:00` (21:49 Asia/Kolkata). This was an expedited
+  due-time test, not a claim that six hours elapsed during acceptance.
+- No prospect acquisition, active vulnerability testing, real outreach, new
+  customer admission or deletion was performed. The Radar test collected public
+  discussions, not contactable prospect records.
+- Vercel sensitive values are intentionally non-readable. Their presence and
+  successful policy writes were verified without claiming list responses reveal
+  their values. Automatic review rejected declassifying them; that action was
+  not executed. Sensitive storage remained unchanged.
+
+## D. Tests and actual failures
+
+Private evidence directory: `data/artifacts/verification/beta-activation-20261113/`.
+
+| Verification | Actual result |
 |---|---|
-| Earlier full backend, PostgreSQL 16, prior installed crypto runtime | 916 passed, one intentional live-email skip, seven warnings |
-| Exact locked runtime + PostgreSQL 18 full suite | Running; earlier result is not substituted for it |
-| Frontend units | 143 passed |
-| Supported Node 24 production build | Passed |
-| Frontend lint | Zero errors, 12 warnings |
-| Owner grant/runtime-probe units | Six passed before additional locking hardening; rerun pending |
-| Radar phase 2/3 browser | One passed |
-| Radar product browser | Four passed |
+| Full exact-lock backend + PostgreSQL 18 | 922 passed, 1 intentional live-email skip, 7 warnings |
+| Connection-fix security/workspace/PostgreSQL/recovery subset | 112 passed, 2 warnings |
+| Final release-policy/owner grant/probe units | 9 passed |
+| Frontend units before final chooser-only change | 143 passed |
+| Final auth policy/UI units | 25 passed; TypeScript passed |
+| Final account-chooser/OAuth handoff browser fixtures | 3 passed; not a real owner Google login |
+| Supported Node 24 optimized build | Local build passed; actual GitHub/Vercel production builds READY |
+| Lint | 0 errors, 12 warnings |
+| Radar phase 2/3 browser | 1 passed |
+| Radar product browser | 4 passed |
 | Lead Engine workflow browser | 29 passed |
-| Developer API, official MCP client, webhook browser | Two passed |
-| Authentication browser/OAuth handoff fixture | Three passed; not a real Google login |
-| Gmail lifecycle and safety browser fixture | Two passed; no real customer messages sent |
-| Production backup/restore/schema upgrade rehearsal | Running in private local PostgreSQL 18; production source read-only |
-| Release image build | Build `03a25369-aeae-463c-8b48-9d30328442f5` succeeded; no service promotion yet |
+| Developer/MCP/webhook browser fixtures | 2 passed |
+| Gmail lifecycle/safety browser fixtures | 2 passed; no actual send |
+| Recovery | Exact restore, 29 additive migrations, second run zero, no original row/column loss |
+| Live security | Anonymous protected pages redirect to login; signed unapproved API actor denied 401; sending false |
+| Live AI | Attached API identity structured inference and persisted Radar interpretation passed; no fallback used |
+| Live source | One bounded five-item HN collection completed and returned genuine matching evidence |
+| Live MCP | Handshake/read passed, temporary credential revoked, subsequent request 401 |
+| Live scheduler | Real scheduled job COMPLETED, future due time and history persisted |
+| Owner browser acceptance | Delegated to the owner at their explicit request; not claimed complete |
 
-## Genuine owner actions
+Historical failures were retained rather than suppressed: initial backup timeout
+(corrected bounded allowance); PostgreSQL 16 dump tool against server 18 (matching
+18 tools fixed it); secret/literal allowlist type mismatch (fixed preserving the
+secret-backed type); initial 20-second capability probe timeout (longer diagnostic
+succeeded, followed by the verified connection-lifetime fix). Observed authenticated
+responses can still take several seconds across current regions; no scale/SLA or
+load-capacity claim is made.
 
-1. Complete the previously approved Vercel team upgrade to a commercial-eligible
-   plan. A successful CLI login does not change the plan.
-2. Approve exact additional publisher endpoints and usage/retention terms before
-   Stack Exchange, RSS/Atom or Discourse activation. Public availability and a key
-   alone are not approval. Hacker News acceptance is tracked separately.
-3. Complete the real Google sign-in/consent handoff if the browser requires owner
-   interaction. No replacement credentials or service-account keys are requested.
+Preview deployments lack separate preview environment secrets and have failed
+configuration checks. Production-target deployments use the existing production
+secrets and are READY. Production secrets were not copied into arbitrary preview
+branches to hide those preview failures.
 
-Independent AI evaluation, reviewed acceptance thresholds and pricing inputs remain
-separate quality/cost limitations; local functional success is not a quality or
-commercial-readiness certification.
+## E. GitHub and deployment
 
-## GitHub and deployment record
+- Release branch: `codex/production-beta-20261113`; intended remote:
+  https://github.com/piyush-agrawal6/AILeadGen.
+- Source/history recovery `601f6c4` preserved remote ancestor `03398f6`; no force
+  push. Source release `cb23a1a`; architecture correction `dc3e510`; guarded rollout
+  `9b92d37`; connection fix `a06729c`; final frontend account chooser `4c43940`.
+- Main received and Vercel built exact frontend commit
+  `4c43940fd2cc3ed4e697ff524a443328719ba85a` through the GitHub integration.
+- Production domain assignment was verified using Vercel's actual alias API,
+  independently of deployment READY status. Explicit promotion remains enabled
+  as the release procedure; no DNS changes were needed.
+- API/worker release build `03a25369-aeae-463c-8b48-9d30328442f5`; focused API build
+  `34440ea0-a9b2-4b3e-8c47-b7463bd323d7`; both succeeded with pinned runtime checks.
+- Runtime identities were preserved. Frontend uses Node 24 on Vercel; backend/jobs
+  use Python 3.12 and the current lock on the existing Google Cloud project.
 
-- Current source baseline: `601f6c4aedfb37d44add8bf42b2addd48fa1b8f2`.
-- Remote main last verified: `03398f62a3c040e2220157fd7726d7c1233c6969`.
-- Current release changes are not yet committed/pushed. Outgoing baseline scan
-  found no oversized, generated/private or current-credential-bearing blobs.
-- Vercel live URL remains the old deployment above; no new Vercel deployment is
-  represented as live.
-- Release images: existing Artifact Registry `querryside/leadengine`, tags
-  `api:beta-20261113-r1` and `worker:beta-20261113-r1`; Python 3.12, current lockfile.
-- Dashboard runtime: Node 24; existing Google OAuth/session and signed API gateway.
+## F. Exact remaining owner actions / limitations
 
-Live outreach, new acquisition runs, public signup, retired SEO/security audit
-modules and unapproved sources are outside this activation. Existing contact and
-suppression history must survive the recovery-tested additive upgrade.
+1. Open https://app.planebyte.com and select **planebyte@gmail.com** in the Google
+   account chooser. The previous browser attempt returned AccessDenied without
+   recording the selected account's identity. Do not assume that proves the
+   approved owner succeeded or failed. Browser testing is now owner-controlled.
+2. Additional source activation requires exact publisher-approved endpoints,
+   policy/attribution/retention scope and, for Stack Exchange, approved commercial
+   site scope. This does not block the active HN-only beta.
+3. Independent AI quality/calibration and reviewed currency pricing remain
+   unverified. Scores are evidence-backed interpretations, not calibrated buying
+   probabilities. Monetary estimates stay unknown without approved pricing.
+
+No missing secret is currently requested. No Pro upgrade, alternate frontend host,
+public signup or live sending is part of this release. Full browser acceptance and
+optional source/quality certification remain unclaimed.

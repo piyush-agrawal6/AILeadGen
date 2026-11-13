@@ -92,7 +92,8 @@ def release():
         if 'valueFrom' in oldenv.get('ALLOWED_USER_EMAILS',{}):
             flags.pop('ALLOWED_USER_EMAILS');bindings.append('ALLOWED_USER_EMAILS='+owner_policy_secret(oldenv['ALLOWED_USER_EMAILS']['valueFrom']['secretKeyRef']))
         environment='^~^'+'~'.join(key+'='+value for key,value in flags.items())
-        args=['run',kind,'update',name,'--region='+REGION,'--image=asia-south1-docker.pkg.dev/querryside/leadengine/'+image+':beta-20261113-r1','--update-env-vars='+environment,'--update-secrets='+','.join(bindings)]
+        tag='beta-20261113-r2' if image=='api' else 'beta-20261113-r1'
+        args=['run',kind,'update',name,'--region='+REGION,'--image=asia-south1-docker.pkg.dev/querryside/leadengine/'+image+':'+tag,'--update-env-vars='+environment,'--update-secrets='+','.join(bindings)]
         if name=='leadengine-acquisition':args+=['--command=python','--args=-m,app.acquisition.worker']
         if kind=='services':args+=['--no-traffic','--tag=beta']
         updated=command(args);save(name+'-updated.json',updated)
