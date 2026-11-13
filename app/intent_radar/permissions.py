@@ -29,7 +29,8 @@ def persistence_context(c,manager=False):
     if not c.execute("UPDATE organization_memberships SET role=role WHERE organization_id=? AND user_id=? AND status='ACTIVE' AND "+role,(ctx.organization_id,ctx.actor)).rowcount:
         raise HTTPException(403,'Workspace write permission was revoked before persistence.')
     if not c.execute("UPDATE organization_products SET enabled=enabled WHERE organization_id=? AND product='INTENT_RADAR' AND enabled=1",(ctx.organization_id,)).rowcount:
-        raise HTTPException(404,'Intent Radar access was revoked before persistence.')
+        from app.billing.service import fence_grant
+        if not fence_grant(c,ctx.organization_id):raise HTTPException(404,'Intent Radar access was revoked before persistence.')
     if not c.execute("UPDATE organization_onboarding SET status=status WHERE organization_id=? AND status='COMPLETED'",(ctx.organization_id,)).rowcount:
         raise HTTPException(404,'Workspace access changed before persistence.')
     return ctx

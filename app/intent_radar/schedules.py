@@ -20,6 +20,10 @@ def eligible_sql(alias,actor=None):
     org=alias+'.organization_id'
     clauses=["EXISTS(SELECT 1 FROM organization_products grant_row WHERE grant_row.organization_id="+org+" AND grant_row.product='INTENT_RADAR' AND grant_row.enabled=1)"]
     args=[]
+    if get_settings().billing_enabled:
+        from app.billing.service import eligibility_sql
+        paid,values=eligibility_sql(org)
+        clauses[0]='('+clauses[0]+' OR '+paid+')';args.extend(values)
     if get_settings().intent_radar_stage=='Internal Preview':
         approved=[value for value in get_settings().intent_radar_internal_workspaces.split(',') if value]
         clauses.append(org+' IN ('+','.join('?' for _ in approved)+')' if approved else '1=0');args.extend(approved)
@@ -83,6 +87,9 @@ def enqueue_due(c):
     return result
 
 async def tick():
+    if get_settings().billing_enabled:
+        from app.billing.webhooks import tick as billing_tick
+        await asyncio.to_thread(billing_tick,2)
     if get_settings().intent_radar_stage=='Disabled':return
     # Rotation prevents an abandoned workspace or a large nonexpiring prefix
     # from starving retention. Every candidate is reauthorized before writes.

@@ -29,6 +29,7 @@ def seed():
   with workspace_scope(c,'owner@example.test',INTERNAL):
    run=PipelineRun(market='Bristol',vertical='dentists',target=1);PipelineRunRepository(c).create(run,organization=INTERNAL);b=Business(name='Controlled MCP company',normalized_name='controlled mcp company',vertical='dentists',run_id=run.id);BusinessRepository(c).insert(b);ProspectRepository(c).observe(b,organization=INTERNAL)
    first=keys.create(c,keys.Create(name='Controlled MCP client',scopes=['mcp:use','companies:read','lists:write']))
+  c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id=? AND product='LEADGEN'",(other,))
   with workspace_scope(c,'foreign@example.test',other):second=keys.create(c,keys.Create(name='Foreign MCP client',scopes=['mcp:use','companies:read','contacts:read']))
  return b,first,second
 

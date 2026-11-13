@@ -5,6 +5,10 @@ os.environ["APP_ENV"] = "test"
 # supply an explicit MockTransport and fixture configuration instead.
 os.environ["UPSTASH_REDIS_REST_URL"] = ""
 os.environ["UPSTASH_REDIS_REST_TOKEN"] = ""
+# Isolated financial tests never inherit live sandbox credentials.
+for _key in ("RAZORPAY_KEY_ID","RAZORPAY_KEY_SECRET","RAZORPAY_WEBHOOK_SECRET"):
+    os.environ[_key]=""
+os.environ["BILLING_ENABLED"]="false"
 import pytest
 
 

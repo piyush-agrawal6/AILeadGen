@@ -20,6 +20,9 @@ from app.acquisition.pipeline import CandidateCoordinator
 def owned(tmp_path,monkeypatch):
  path=tmp_path/'companies.db';c=get_connection(path);run_migrations(c)
  org=create_organization(c,'controlled@example.test','Controlled company')['organization_id'];other=create_organization(c,'foreign@example.test','Foreign company')['organization_id']
+ # These fixtures represent previously authorized Lead Engine customers. New
+ # customer creation intentionally does not enroll them in Lead Engine.
+ c.execute("UPDATE organization_products SET enabled=1 WHERE product='LEADGEN' AND organization_id IN (?,?)",(org,other))
  monkeypatch.setenv('ARTIFACT_LOCAL_ROOT',str(tmp_path/'artifacts'));c.commit();yield c,path,org,other;c.close()
 
 def batch(c,org,source='FILE_IMPORT'):

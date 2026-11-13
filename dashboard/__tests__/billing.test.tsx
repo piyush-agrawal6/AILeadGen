@@ -1,0 +1,10 @@
+import {render,screen,fireEvent,waitFor} from '@testing-library/react';
+import {QueryClient,QueryClientProvider} from '@tanstack/react-query';
+import {afterEach,expect,it,vi} from 'vitest';
+import {BillingWorkspace} from '@/components/workspaces/billing';
+import {planDestination} from '@/lib/plan-intent';
+vi.mock('@/components/workspaces/use-products',()=>({useProducts:()=>({data:{organization_id:'controlled-workspace'}})}));
+const response={mode:'test',provider_configured:false,webhook_configured:false,controlled_workspace:true,can_manage:true,checkout_available:false,public_checkout_enabled:false,plans:[{code:'starter',name:'Starter — internal test',amount:10000,currency:'INR',period:'monthly',internal_test_only:true,provider_plan_id:null,limits:{searches:20,ai_calls:10,ai_tokens:100000,monitors:3,team_members:1,api_requests:1000}}],subscriptions:[],usage:[],payments:[],plan_changes:'Cancel before switching test plans.'};
+afterEach(()=>vi.unstubAllGlobals());
+it('keeps marketing selections inert and rejects unknown products and return URLs',()=>{expect(planDestination('intent-radar','growth')).toBe('/billing?plan=growth');expect(planDestination('lead-engine','growth')).toBeNull();expect(planDestination('intent-radar','https://evil.example')).toBeNull();});
+it('labels sandbox pricing, requires consent and blocks unconfigured checkout',async()=>{const fetch=vi.fn().mockResolvedValue(new Response(JSON.stringify(response),{headers:{'content-type':'application/json'}}));vi.stubGlobal('fetch',fetch);render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><BillingWorkspace selectedPlan="starter"/></QueryClientProvider>);expect(await screen.findByText('Starter — internal test')).toBeVisible();expect(screen.getByText(/No real money is collected/)).toBeVisible();const submit=screen.getByRole('button',{name:'Start test subscription'});expect(submit).toBeDisabled();fireEvent.click(screen.getByRole('checkbox'));expect(submit).toBeDisabled();expect(fetch.mock.calls.every(([,options])=>!options?.method||options.method==='GET')).toBe(true);});

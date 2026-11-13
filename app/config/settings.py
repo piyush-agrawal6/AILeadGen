@@ -54,6 +54,22 @@ class ExportConfig(BaseModel):
 
 
 class Settings(BaseSettings):
+    # Billing is additive and sandbox-only. Public checkout is fail-closed.
+    billing_enabled:bool=False
+    billing_provider:Literal['razorpay']='razorpay'
+    billing_test_mode:bool=True
+    billing_public_checkout_enabled:bool=False
+    billing_test_workspaces:str=''
+    billing_catalog_json:str=''
+    razorpay_mode:Literal['test']='test'
+    razorpay_key_id:str=Field('',repr=False)
+    razorpay_key_secret:SecretStr=SecretStr('')
+    razorpay_webhook_secret:SecretStr=SecretStr('')
+    razorpay_test_plan_id_starter:str=''
+    razorpay_test_plan_id_growth:str=''
+    razorpay_test_plan_id_scale:str=''
+    lead_engine_public_enabled:bool=False
+
     intent_radar_stage:Literal['Disabled','Internal Preview','Beta']=Field('Disabled',alias='INTENT_RADAR_STAGE')
     intent_radar_growth_enabled:bool=Field(False,alias='INTENT_RADAR_GROWTH_ENABLED')
     intent_radar_internal_workspaces:str=Field('',alias='INTENT_RADAR_INTERNAL_WORKSPACES')

@@ -25,7 +25,13 @@ def owned(c,key):
     if row['kind']=='GROWTH_ANALYZE':
         from app.growth_intelligence.analytics import access
         access(c)
+    if row['kind'] not in ('INTENT_DISCOVER','GROWTH_ANALYZE'):
+        require_leadgen(c,context.organization_id)
     return dict(row)
+
+def require_leadgen(c,org):
+    from app.api.organization import products
+    if not products(c,org).get('LEADGEN'):raise HTTPException(404,'Lead Engine is unavailable for this workspace.')
 
 def detail(c,key,page=1,size=25):
     result=owned(c,key);result.pop('fingerprint');result.pop('lease_owner');result['configuration']=json.loads(result.pop('configuration_json'))
@@ -43,6 +49,8 @@ def listing(c,status='',page=1,size=25):
     from app.intent_radar.permissions import availability
     if not availability(c,org)['enabled']:where+=" AND kind<>'INTENT_DISCOVER'"
     if not get_settings().intent_radar_growth_enabled:where+=" AND kind<>'GROWTH_ANALYZE'"
+    from app.api.organization import products
+    if not products(c,org).get('LEADGEN'):where+=" AND kind IN ('INTENT_DISCOVER','GROWTH_ANALYZE')"
     if status:where+=' AND status=?';args.append(status)
     total=c.execute('SELECT COUNT(*) FROM intelligence_jobs WHERE '+where,args).fetchone()[0]
     rows=c.execute('SELECT id,kind,status,created_at,updated_at,completed_at,error_code,attempts FROM intelligence_jobs WHERE '+where+' ORDER BY created_at DESC,id LIMIT ? OFFSET ?',[*args,size,(page-1)*size]).fetchall()
@@ -50,6 +58,7 @@ def listing(c,status='',page=1,size=25):
 
 def create(c,body):
     context=ctx(c,True);ids=list(dict.fromkeys(body.resource_ids))
+    if body.kind not in ('INTENT_DISCOVER','GROWTH_ANALYZE'):require_leadgen(c,context.organization_id)
     if body.kind=='INTENT_DISCOVER':
         expected=str(uuid.uuid5(uuid.NAMESPACE_URL,context.organization_id+':intent-search:'+str(body.request_id)))
         if ids!=[expected] or body.reuse_days!=0:raise HTTPException(422,'Intent jobs require one reviewed discovery and its original request ID.')

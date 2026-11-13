@@ -17,7 +17,7 @@ def developer(tmp_path,monkeypatch):
  settings=get_settings();monkeypatch.setattr(settings,'database_path',str(tmp_path/'developer.db'));monkeypatch.setattr(settings,'allowed_user_emails','owner@example.test,foreign@example.test');monkeypatch.setattr(settings,'heysow_developer_api_enabled',True);monkeypatch.setattr(settings,'heysow_workspace_management_enabled',True)
  with TestClient(app) as http:
   with db_session() as c:
-   foreign=create_organization(c,'foreign@example.test','Other company')['organization_id'];c.execute("UPDATE organization_onboarding SET status='COMPLETED' WHERE organization_id=?",(foreign,))
+   foreign=create_organization(c,'foreign@example.test','Other company')['organization_id'];c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id=? AND product='LEADGEN'",(foreign,));c.execute("UPDATE organization_onboarding SET status='COMPLETED' WHERE organization_id=?",(foreign,))
    with workspace_scope(c,'owner@example.test',INTERNAL):
     run=PipelineRun(market='London',vertical='dentists',target=1);PipelineRunRepository(c).create(run,organization=INTERNAL);b=Business(name='Controlled API company',normalized_name='controlled api company',vertical='dentists',run_id=run.id);BusinessRepository(c).insert(b);ProspectRepository(c).observe(b,organization=INTERNAL)
   yield http,settings,b,foreign

@@ -128,6 +128,9 @@ def authenticate(c,authorization,*,consume=True):
         counter=c.execute('SELECT requests FROM developer_request_windows WHERE owner_key=? AND window_start=?',(bucket,window)).fetchone()
         if counter and counter[0]>=limit:raise HTTPException(429,'API request limit reached. Retry after the current minute.')
         c.execute('INSERT INTO developer_request_windows(owner_key,window_start,requests) VALUES(?,?,1) ON CONFLICT(owner_key,window_start) DO UPDATE SET requests=developer_request_windows.requests+1',(bucket,window))
+    from app.billing.usage import reserve
+    with workspace_scope(c,row['created_by'],row['organization_id']):
+        reserve(c,{'api_requests':1},str(uuid.uuid4()))
     c.execute('DELETE FROM developer_request_windows WHERE window_start<?',(window-10,));c.execute('UPDATE workspace_api_keys SET last_used_at=? WHERE id=? AND revoked_at IS NULL',(now(),key))
     return Grant(key,row['organization_id'],row['created_by'],tuple(json.loads(row['scopes_json'])))
 

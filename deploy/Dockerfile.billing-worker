@@ -1,0 +1,6 @@
+FROM asia-south1-docker.pkg.dev/querryside/leadengine/worker:growth-20261113-r1
+ARG SOURCE_REV
+LABEL org.opencontainers.image.revision=$SOURCE_REV
+COPY --chown=10001:10001 app /opt/leadengine/app
+COPY --chown=10001:10001 scripts /opt/leadengine/scripts
+RUN python -c "from app.database.migrations import MIGRATIONS; assert len(MIGRATIONS) == 46"

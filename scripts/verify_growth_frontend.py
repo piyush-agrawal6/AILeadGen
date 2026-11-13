@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 NODE=ROOT/'data/artifacts/runtime/node-v24.22.2-darwin-x64/bin'
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('check',choices=['build','browser','units','types']);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('check',choices=['build','browser','billing-browser','units','types']);args=parser.parse_args()
     env={**os.environ,'PATH':str(NODE)+os.pathsep+os.environ['PATH']}
     env.update(APP_ENV='test',DATABASE_BACKEND='sqlite',DATABASE_URL='',UPSTASH_REDIS_REST_URL='',UPSTASH_REDIS_REST_TOKEN='',
       AUTH_SECRET='fixture-session-secret-only-for-local-tests-123456789',LEADENGINE_API_SIGNING_SECRET='fixture-signing-secret-only-for-local-tests-123456789',
@@ -14,6 +14,7 @@ def main():
       INTENT_RADAR_GROWTH_ENABLED='true',INTENT_RADAR_STAGE='Beta',INTENT_RADAR_AI_ENABLED='false',HEYSOW_WORKSPACE_MANAGEMENT_ENABLED='true')
     command={'build':['../scripts/local_frontend.cjs','build','--webpack'],
       'browser':['node_modules/@playwright/test/cli.js','test','--config=playwright.growth.config.ts'],
+      'billing-browser':['node_modules/@playwright/test/cli.js','test','--config=playwright.billing.config.ts'],
       'units':['node_modules/vitest/vitest.mjs','run','--maxWorkers=2'],
       'types':['node_modules/typescript/bin/tsc','--noEmit']}[args.check]
     raise SystemExit(subprocess.run([str(NODE/'node'),*command],cwd=ROOT/'dashboard',env=env,timeout=1200).returncode)

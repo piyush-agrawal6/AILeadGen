@@ -87,12 +87,20 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
         from app.platform.context import workspace_scope
         with ExitStack() as scopes:
             with db_session() as c:
+                if request.url.path not in self.SETUP_CONFIGURATION_PATHS and request.url.path not in self.SETUP_REFERENCE_PATHS:
+                    from app.platform.modules import guard_product_route
+                    try:guard_product_route(c,request.url.path,state['organization_id'])
+                    except HTTPException as exc:return JSONResponse({'detail':exc.detail},status_code=exc.status_code)
                 scopes.enter_context(workspace_scope(c,request.state.user_email,state['organization_id']))
             # Verification is complete; retain the trusted context, not an idle
             # pooled connection, while handlers obtain their own connections.
             response=await read_cache.handle(request,call_next)
         return response
     async def dispatch(self, request, call_next):
+        if request.url.path=='/api/billing/webhooks/razorpay' and request.method=='POST':
+            # This one provider callback uses its own bounded raw-body HMAC;
+            # arbitrary billing/API prefixes never bypass signed authentication.
+            return await call_next(request)
         if request.url.path == "/api/health" or re.fullmatch(r"/api/tracking/(?:o|c|u)/[A-Za-z0-9_.-]{1,100}", request.url.path):
             return await call_next(request)
         if request.url.path.startswith('/api/v1/'):

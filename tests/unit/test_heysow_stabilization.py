@@ -148,6 +148,7 @@ def test_api_ownership_viewer_denial_and_revoked_primary_account(tmp_path,monkey
     with TestClient(app) as client:
         with db_session() as c:
             other=create_organization(c,'second@example.test','Second API Company')['organization_id']
+            c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id=? AND product='LEADGEN'",(other,))
             from app.api.organization import complete_onboarding
             complete_onboarding(c,other)
             with workspace_scope(c,'second@example.test',other):

@@ -24,6 +24,9 @@ def change_role(c,actor,email,role):
     if before=='OWNER' and role!='OWNER':
         owners=c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND role='OWNER' AND status='ACTIVE'",(org,)).fetchone()[0]
         if owners<=1:raise HTTPException(409,'The workspace must retain at least one active owner.')
+    if not before:
+        from app.billing.usage import capacity
+        capacity(c,'team_members',c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0])
     ensure_user(c,email)
     stamp=now()
     c.execute("""INSERT INTO organization_memberships(id,organization_id,user_id,role,status,created_at,updated_at)

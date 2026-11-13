@@ -61,6 +61,9 @@ def reserve(tokens=60000):
         elif not c.in_transaction:c.execute('BEGIN IMMEDIATE')
         row=c.execute('SELECT * FROM intent_analysis_usage WHERE organization_id=? AND day=?',(ctx.organization_id,day)).fetchone()
         if row and (row['calls']>=call_limit or row['reserved_tokens']+tokens>token_limit) or tokens>token_limit:raise HTTPException(429,'Intent analysis budget exhausted; deterministic evidence remains available.')
+        from app.billing.usage import reserve as reserve_plan
+        import uuid
+        reserve_plan(c,{'ai_calls':1,'ai_tokens':tokens},str(uuid.uuid4()))
         c.execute('INSERT INTO intent_analysis_usage(organization_id,day,reserved_tokens,calls) VALUES(?,?,?,1) ON CONFLICT(organization_id,day) DO UPDATE SET reserved_tokens=intent_analysis_usage.reserved_tokens+excluded.reserved_tokens,calls=intent_analysis_usage.calls+1',(ctx.organization_id,day,tokens))
     from app.platform.ai_usage import reserve as shared_reserve
     shared_reserve('INTENT_ANALYSIS',s.intent_radar_ai_daily_calls,50,'Intent analysis')

@@ -1,5 +1,6 @@
 from app.database.intent_radar_schema import INTENT_RADAR_SQL
 from app.database.growth_intelligence_schema import GROWTH_SQL
+from app.database.billing_schema import BILLING_SQL
 from app.database.intent_radar_completion_schema import INTENT_RADAR_COMPLETION_SQL
 from app.database.intent_radar_23_schema import INTENT_RADAR_23_SQL
 from app.database.intent_radar_fencing_schema import INTENT_RADAR_FENCING_SQL
@@ -335,6 +336,7 @@ MIGRATIONS: List[str] = [
     , INTENT_RADAR_23_SQL
     , INTENT_RADAR_COMPLETION_SQL
     , GROWTH_SQL
+    , BILLING_SQL
 ]
 
 
@@ -411,8 +413,12 @@ def verify_schema(conn=None,minimum_version=None):
     conn = conn or get_connection()
     try:
         version = conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
-        # Schema14 remains compatible during the additive registry rollout.
-        if not (minimum_version or (14 if len(MIGRATIONS)==15 else len(MIGRATIONS))) <= (version or 0) <= len(MIGRATIONS):
+        # The additive billing bridge runs on 45 only while billing is disabled.
+        # This permits a compatible API/worker rollout before migration 46, and
+        # a flag-off rollback afterward without ever downgrading stored data.
+        from app.config.settings import get_settings
+        compatible = 45 if len(MIGRATIONS)==46 and not get_settings().billing_enabled else (14 if len(MIGRATIONS)==15 else len(MIGRATIONS))
+        if not (minimum_version or compatible) <= (version or 0) <= len(MIGRATIONS):
             raise RuntimeError("Database schema is out of date; run the explicit migration command")
     finally:
         if close:

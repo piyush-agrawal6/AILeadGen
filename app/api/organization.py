@@ -82,6 +82,10 @@ def resolve(c, email):
 def products(c, organization_id):
     rows = c.execute("SELECT product,enabled FROM organization_products WHERE organization_id=?", (organization_id,)).fetchall()
     enabled = {r[0] for r in rows if r[1]}
+    from app.config.settings import get_settings
+    if get_settings().billing_enabled:
+        from app.billing.service import granted
+        enabled.update(granted(c,organization_id))
     return {product: (product in enabled) for product in PRODUCTS}
 
 
@@ -121,7 +125,8 @@ def create_organization(c, email, name, *, setup_method='MANUAL'):
               "VALUES(?,?,?,?, 'ACTIVE',?,?)", (str(uuid.uuid4()), organization_id, email, 'OWNER', stamp, stamp))
     c.execute("INSERT INTO organization_onboarding(organization_id,status,current_step,setup_method,created_at,updated_at) "
               "VALUES(?,'IN_PROGRESS','COMPANY',?,?,?)", (organization_id, setup_method, stamp, stamp))
-    for product, enabled in (('LEADGEN', 1), ('INTENT_RADAR', 0), ('SEARCH_VISIBILITY', 0)):
+    from app.config.settings import get_settings
+    for product, enabled in (('LEADGEN', int(get_settings().lead_engine_public_enabled)), ('INTENT_RADAR', 0), ('SEARCH_VISIBILITY', 0)):
         c.execute("INSERT INTO organization_products(organization_id,product,enabled,created_at,updated_at) "
                   "VALUES(?,?,?,?,?) ON CONFLICT(organization_id,product) DO NOTHING",
                   (organization_id, product, enabled, stamp, stamp))

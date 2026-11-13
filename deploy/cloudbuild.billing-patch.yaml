@@ -1,0 +1,14 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '--build-arg', 'SOURCE_REV=${_SOURCE_REV}', '-t', '${_API_IMAGE}', '-f', 'Dockerfile.api', '.']
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '--build-arg', 'SOURCE_REV=${_SOURCE_REV}', '-t', '${_WORKER_IMAGE}', '-f', 'Dockerfile.worker', '.']
+  - name: gcr.io/cloud-builders/docker
+    args: ['run', '--rm', '--entrypoint', 'python', '${_API_IMAGE}', '-m', 'pip', 'check']
+  - name: gcr.io/cloud-builders/docker
+    args: ['run', '--rm', '--entrypoint', 'python', '${_WORKER_IMAGE}', '-m', 'pip', 'check']
+images: ['${_API_IMAGE}', '${_WORKER_IMAGE}']
+options:
+  logging: GCS_ONLY
+logsBucket: gs://querryside-leadengine-build-logs
+timeout: 900s

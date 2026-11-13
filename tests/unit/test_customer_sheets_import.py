@@ -71,6 +71,8 @@ def test_customer_sheets_http_mapping_and_owned_worker_are_connected(workspace,m
  from app.platform.workspaces import select_workspace
  from app.api.organization import complete_onboarding
  c,first,second,path=workspace;reader=provider(monkeypatch)
+ # Existing customer integration remains authorized for Lead Engine.
+ c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id IN (?,?) AND product='LEADGEN'",(first,second));c.commit()
  with workspace_scope(c,OWNER,first):key=connect(c,first)
  complete_onboarding(c,first);complete_onboarding(c,second);select_workspace(c,OWNER,first);c.execute('UPDATE automation_controls SET scan_paused=0 WHERE id=1');c.commit()
  launcher=AsyncMock();monkeypatch.setattr('app.api.routes.acquisition.launch',launcher)

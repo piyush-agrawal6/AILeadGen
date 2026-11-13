@@ -7,7 +7,7 @@ import { headers,cookies } from "next/headers";
 import {currentUser} from '@/lib/server/session';
 
 export const metadata: Metadata = {
-  title: "PlaneByte | Lead Engine",
+  title: "Intent Radar | PlaneByte",
   description: brand.description,
   icons: { icon: brand.mark, apple: brand.mark },
 };

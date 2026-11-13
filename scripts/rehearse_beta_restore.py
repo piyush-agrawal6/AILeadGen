@@ -2,7 +2,7 @@
 
 Never restores to production. Credentials stay in process memory/child environment.
 """
-import hashlib,json,os,subprocess
+import hashlib,json,os,subprocess,time
 from datetime import datetime,timezone
 from pathlib import Path
 from urllib.parse import urlsplit,unquote
@@ -13,7 +13,7 @@ from app.database.postgres import PostgresConnection,session_url
 from app.database.migrations import run_migrations,verify_schema
 
 ROOT=Path(__file__).resolve().parents[1]
-BIN=ROOT/'data/artifacts/runtime/postgres18-install/bin'
+BIN=Path(os.environ.get('HEYSOW_PG_TEST_BIN',str(ROOT/'data/artifacts/runtime/postgres18-install/bin')))
 LOCAL='postgresql://planebyte@/postgres?host=/private/tmp/planebyte-beta-pg18&port=15433'
 
 def fingerprint(c,tables=None):
@@ -25,10 +25,21 @@ def fingerprint(c,tables=None):
         result[table]={'count':len(rows),'sha256':hashlib.sha256('\n'.join(digests).encode()).hexdigest()}
     return result
 
-def run(name,args,env,folder):
+def run(name,args,env,folder,keepalive=None):
     with (folder/(name+'.log')).open('w') as log:
-        p=subprocess.run([str(BIN/name),*args],env=env,stdout=log,stderr=log,timeout=900)
-    if p.returncode:raise RuntimeError(name+' failed; inspect restricted backup log locally.')
+        with subprocess.Popen([str(BIN/name),*args],env=env,stdout=log,stderr=log) as process:
+            deadline=time.monotonic()+900
+            try:
+                while True:
+                    try:
+                        code=process.wait(timeout=min(30,max(0.1,deadline-time.monotonic())))
+                        break
+                    except subprocess.TimeoutExpired:
+                        if time.monotonic()>=deadline:raise RuntimeError(name+' exceeded the bounded recovery timeout.')
+                        if keepalive:keepalive()
+            except BaseException:
+                process.kill();process.wait();raise
+    if code:raise RuntimeError(name+' failed; inspect restricted backup log locally.')
 
 def main():
     os.umask(0o077)
@@ -45,8 +56,10 @@ def main():
         snapshot=c.execute('SELECT pg_export_snapshot()').fetchone()[0]
         before=fingerprint(c)
         version=c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0]
-        run('pg_dump',['--format=custom','--compress=none','--snapshot='+snapshot,'--file='+str(dump)],env,folder)
+        run('pg_dump',['--format=custom','--compress=none','--snapshot='+snapshot,'--file='+str(dump)],env,folder,keepalive=lambda:c.execute('SELECT 1'))
         c.execute('ROLLBACK')
+    (folder/'source-fingerprints.json').write_text(json.dumps(before,indent=2))
+    (folder/'snapshot-checkpoint.json').write_text(json.dumps({'source_schema':version,'backup_sha256':hashlib.sha256(dump.read_bytes()).hexdigest(),'backup_bytes':dump.stat().st_size,'tool_bin':str(BIN),'production_written':False},indent=2))
     db='beta_restore_'+stamp.lower()
     with psycopg.connect(LOCAL,autocommit=True) as c:c.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(db)))
     target=LOCAL.replace('/postgres?','/'+db+'?')

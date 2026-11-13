@@ -1161,3 +1161,35 @@ def test_postgres_reviewed_customer_sheet_export_snapshot_and_worker(owned_postg
     transport=httpx.MockTransport(receive);asyncio.run(exports.execute(job['id'],transport=transport));asyncio.run(exports.execute(job['id'],transport=transport))
     assert exports.owned(c,job['id'])['status']=='COMPLETED' and len(calls)==1
     assert c.execute('SELECT COUNT(*) FROM email_messages').fetchone()[0]==0
+
+def test_billing_cycle_quota_atomicity_under_real_postgres_concurrency(postgres,monkeypatch):
+    import concurrent.futures,json,time,threading
+    from app.billing import catalog,usage
+    from app.platform.context import workspace_scope
+    from app.database.prospects import now
+    c=postgres;run_migrations(c);org=PLANEBYTE_ORGANIZATION_ID
+    owner=c.execute('SELECT created_by_user_id FROM organizations WHERE id=?',(org,)).fetchone()[0]
+    s=get_settings();monkeypatch.setattr(s,'billing_enabled',True);monkeypatch.setattr(s,'billing_test_workspaces',org)
+    key=str(uuid.uuid4());start=int(time.time())-60;end=start+3600;p=catalog.plan('starter');stamp=now()
+    c.execute('INSERT INTO billing_subscriptions(id,organization_id,created_by,mode,request_id,plan_code,plan_json,provider_id,status,current_start,current_end,paid_start,paid_end,next_reconcile_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(key,org,owner,'test',str(uuid.uuid4()),'starter',p.model_dump_json(),'sub_postgresfixture','active',start,end,start,end,stamp,stamp,stamp))
+    c.execute('INSERT INTO billing_workspace_slots(organization_id,mode,subscription_id) VALUES(?,?,?)',(org,'test',key));c.commit()
+    barrier=threading.Barrier(2)
+    def spend(request,amount):
+        conn=PostgresConnection(s.database_url,schema=c.schema)
+        try:
+            with workspace_scope(conn,owner,org):
+                barrier.wait(timeout=15);usage.reserve(conn,{'searches':amount},request);conn.commit();return 'RESERVED'
+        except Exception as error:
+            conn.rollback()
+            from fastapi import HTTPException
+            if isinstance(error,HTTPException) and error.status_code==429:return 'QUOTA'
+            raise
+        finally:conn.close()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        results=list(pool.map(lambda value:spend(value,15),('operation-a','operation-b')))
+    assert sorted(results)==['QUOTA','RESERVED']
+    assert c.execute("SELECT used FROM billing_usage WHERE organization_id=? AND dimension='searches'",(org,)).fetchone()[0]==15
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda _:spend('same-retry',1),range(2)))
+    assert results==['RESERVED','RESERVED']
+    assert c.execute("SELECT used FROM billing_usage WHERE organization_id=? AND dimension='searches'",(org,)).fetchone()[0]==16
+    assert c.execute('SELECT COUNT(*) FROM billing_reservations WHERE organization_id=?',(org,)).fetchone()[0]==2

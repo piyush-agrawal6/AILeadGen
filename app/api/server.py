@@ -121,6 +121,8 @@ def create_app() -> FastAPI:
     app.include_router(intent_radar.router,prefix='/api')
     from app.api.routes import growth_intelligence
     app.include_router(growth_intelligence.router,prefix='/api')
+    from app.api.routes import billing
+    app.include_router(billing.router,prefix='/api')
     app.include_router(automation.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(markets.router, prefix="/api")

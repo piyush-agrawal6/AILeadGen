@@ -58,3 +58,12 @@ def guard_route(path,*,organization_id,role,method='GET'):
     if not legacy_enabled() or organization_id!=PLANEBYTE_ORGANIZATION_ID:raise HTTPException(404,'Not found.')
     if role!='OWNER':raise HTTPException(403,'This archive requires the workspace owner.')
     if method not in ('GET','HEAD'):raise HTTPException(409,'This experiment is a read-only archive; no new jobs or messages can be started.')
+
+
+def guard_product_route(c,path,organization_id):
+    """Separate product enrollment from account/setup/legacy availability gates."""
+    lead_routes=('/api/acquisition','/api/workflow','/api/operations','/api/people','/api/discovery','/api/campaigns','/api/scans','/api/sales','/api/intelligence','/api/leads','/api/reports','/api/client-reports','/api/email','/api/automation')
+    shared_job=path=='/api/intelligence/jobs' or path.startswith('/api/intelligence/jobs/')
+    if not shared_job and any(path==p or path.startswith(p+'/') for p in lead_routes):
+        from app.api.organization import products
+        if not organization_id or not products(c,organization_id).get('LEADGEN'):raise HTTPException(404,'Lead Engine is unavailable for this workspace.')

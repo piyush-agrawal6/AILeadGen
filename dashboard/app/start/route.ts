@@ -1,0 +1,7 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {planDestination,approvedPlan} from '@/lib/plan-intent';
+import {encodeIntent,intentCookie} from '@/lib/server/plan-intent';
+import {currentUser} from '@/lib/server/session';
+import {serverEnv} from '@/lib/server/env';
+export const runtime='nodejs';
+export async function GET(request:NextRequest){const product=request.nextUrl.searchParams.get('product'),plan=approvedPlan(request.nextUrl.searchParams.get('plan'));const destination=planDestination(product,plan);if(!destination||!plan)return NextResponse.json({detail:'Choose an available Intent Radar plan.'},{status:400});const env=serverEnv();if(!process.env.AUTH_SECRET)return NextResponse.json({detail:'Secure plan selection is unavailable.'},{status:503});const origin=env.production?'https://app.planebyte.com':new URL(process.env.AUTH_URL||'http://localhost:3000').origin;if(!env.production&&!['localhost','127.0.0.1'].includes(new URL(origin).hostname))return NextResponse.json({detail:'Local handoff requires a configured localhost origin.'},{status:503});const user=await currentUser();const response=NextResponse.redirect(new URL(user?destination:'/login',origin));response.cookies.set(intentCookie,encodeIntent(plan,process.env.AUTH_SECRET),{httpOnly:true,secure:env.production,sameSite:'lax',path:'/',maxAge:7200});response.headers.set('Cache-Control','no-store');response.headers.set('Referrer-Policy','no-referrer');return response;}

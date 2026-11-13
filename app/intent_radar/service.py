@@ -182,8 +182,11 @@ def save_monitor(c, body, key=None):
     encoded = json.dumps(config, sort_keys=True)
     fingerprint = hashlib.sha256(json.dumps([body.name,body.description,body.goal,config,body.status],sort_keys=True).encode()).hexdigest()
     lock(c)
+    from app.billing.usage import capacity
+    count=c.execute("SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status<>'Archived'",(ctx.organization_id,)).fetchone()[0]
     if key:
         old = get(c,'monitors',key)
+        if old['status']=='Archived' and body.status!='Archived':capacity(c,'monitors',count)
         if old['status']=='Archived' and body.status!='Archived' and c.execute("SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status<>'Archived'",(ctx.organization_id,)).fetchone()[0]>=get_settings().intent_radar_monitor_limit:raise HTTPException(429,'Monitor limit reached; archive an unused monitor before restoring this one.')
         if body.revision != old['revision']: raise HTTPException(409, 'Monitor changed. Reload before editing.')
         changed = c.execute('UPDATE intent_monitors SET name=?,description=?,goal=?,configuration_json=?,status=?,revision=revision+1,updated_at=? WHERE id=? AND organization_id=? AND revision=?', (body.name,body.description,body.goal,encoded,body.status,now(),key,ctx.organization_id,body.revision)).rowcount
@@ -195,6 +198,7 @@ def save_monitor(c, body, key=None):
             if old['fingerprint'] != fingerprint: raise HTTPException(409,'Request ID belongs to different monitor content.')
             return get(c,'monitors',old['id'])
         if c.execute("SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status<>'Archived'",(ctx.organization_id,)).fetchone()[0] >= get_settings().intent_radar_monitor_limit: raise HTTPException(429,'Monitor limit reached; archive an unused monitor.')
+        capacity(c,'monitors',count)
         key = str(uuid.uuid4())
         c.execute('INSERT INTO intent_monitors(id,organization_id,created_by,name,description,goal,configuration_json,status,request_id,fingerprint,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(key,ctx.organization_id,ctx.actor,body.name,body.description,body.goal,encoded,body.status,str(body.request_id),fingerprint,now(),now()))
     audit(c,'MONITOR_SAVED',key)
@@ -257,6 +261,8 @@ def opportunity(c,key,body=None):
     else:
         get(c,'signals',key)
         signal_id = key; key = str(uuid.uuid5(uuid.NAMESPACE_URL,ctx.organization_id + ':intent-opportunity:' + signal_id))
+        from app.billing.usage import reserve
+        reserve(c,{'opportunities':1},key)
         c.execute('INSERT INTO intent_opportunities(id,organization_id,signal_id,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(organization_id,signal_id) DO NOTHING',(key,ctx.organization_id,signal_id,ctx.actor,now(),now()))
         c.execute("UPDATE intent_signals SET status='Reviewed',revision=revision+1 WHERE id=? AND organization_id=? AND status<>'Reviewed'",(signal_id,ctx.organization_id))
     audit(c,'OPPORTUNITY_UPDATED',key)
