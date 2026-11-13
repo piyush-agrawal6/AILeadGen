@@ -80,6 +80,17 @@ corrected test waits for a persisted note record and verifies it after reload.
 The full first regression run recorded 940 passes/two MCP-contract failures; both
 are repaired and a fresh complete regression run is required before rollout.
 
+Final complete regression: 945 passed, one explicit live-email skip, seven recorded
+warnings. The real browser confirmed owner `planebyte@gmail.com` sign-in and the
+Lead Engine dashboard. It exposed missing Vercel capability flags and a 10-second
+server product-access timeout despite a correct backend entitlement response at
+17.32 seconds. Production UI flags were configured without credential or domain
+changes. Duplicate route-level workspace resolution was removed (middleware's
+verified state remains authoritative), and the bounded server wait was raised to
+25 seconds. The resulting targeted auth/workspace/MCP/Growth set passes 62 tests;
+the final frontend build passes. This is a functional timeout repair, not an SLA
+or claim of low production latency.
+
 Manual theme merge/split, global semantic retrieval, independent multilingual
 quality calibration, external alert delivery and additional vendor sources are
 not claimed complete. Current production source permissions remain unchanged.

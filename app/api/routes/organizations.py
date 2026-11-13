@@ -41,7 +41,9 @@ def workspaces(request:Request,c=Depends(get_db,scope='function')):
 
 @router.get('/products')
 def product_access(request:Request,c=Depends(get_db,scope='function')):
-    state=resolve(c,request.state.user_email)
+    # Middleware already resolved membership and reverified the workspace scope.
+    # Never repeat that remote lookup or accept a browser-supplied workspace ID.
+    state=getattr(request.state,'organization',None)
     from app.intent_radar.permissions import availability
     from app.api.organization import products
     from app.config.settings import get_settings

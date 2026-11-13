@@ -99,5 +99,6 @@ class Acceptance(Base):
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('phase',choices=['smoke','research','mcp']);parser.add_argument('--origin',default=ORIGIN);args=parser.parse_args()
     if args.origin not in (ORIGIN,'https://growth---leadengine-api-befca7xg4a-el.a.run.app'):raise SystemExit('Only the existing production API and its controlled revision tag are allowed.')
+    if args.origin!=ORIGIN and args.phase!='smoke':raise SystemExit('Only read-only smoke checks are allowed on the revision tag.')
     try:asyncio.run(Acceptance(args.origin).run(args.phase))
     except Exception as error:print(json.dumps({'status':'FAILED','error_type':type(error).__name__,'detail':str(error) if isinstance(error,RuntimeError) else 'Inspect restricted acceptance state; no credentials printed.'}));raise SystemExit(1)
