@@ -3,6 +3,7 @@ import { NextRequest,NextResponse } from "next/server";
 import { isPublicBrandAsset } from "@/lib/auth-policy";
 import {isDeveloperApiPath} from "@/lib/developer-path";
 import { isPublicPage } from "@/lib/auth-experience";
+import {leadEngineEnabled,isLeadEnginePage} from '@/lib/product-availability';
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const developerApi=process.env.HEYSOW_DEVELOPER_API_ENABLED==='true'&&isDeveloperApiPath(pathname);
@@ -18,6 +19,10 @@ export async function proxy(request: NextRequest) {
   const csp = ["default-src 'self'", `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`, "style-src 'self' 'unsafe-inline'", "img-src 'self' data: https://lh3.googleusercontent.com", "font-src 'self'", `connect-src 'self'${paymentConnect}${dev ? " ws: http://localhost:*" : ""}`, `frame-src 'self'${paymentFrame}`, "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'"].join("; ");
   const headers = new Headers(request.headers); headers.set("x-nonce", nonce); headers.set("Content-Security-Policy", csp);
   headers.set('x-heysow-public-page',isPublicPage(pathname)?'1':'0');
+  if(!leadEngineEnabled(process.env.LEAD_ENGINE_AVAILABLE)&&isLeadEnginePage(pathname)){
+    const response=NextResponse.redirect(new URL('/intent-radar',request.url));
+    response.headers.set('Content-Security-Policy',csp);response.headers.set('Cache-Control','no-store');return response;
+  }
   // Deny disabled archives before the product shell starts streaming a 200.
   const disabledArchive=(pathname==='/outreach/results'||pathname==='/experiments/nov-2026')&&process.env.HEYSOW_INTERNAL_EXPERIMENTS_ENABLED!=='true';
   const response = disabledArchive?NextResponse.rewrite(new URL('/_not-found',request.url),{status:404,request:{headers}}):NextResponse.next({ request: { headers } }); response.headers.set("Content-Security-Policy", csp); response.headers.set("Cache-Control", "no-store"); return response;

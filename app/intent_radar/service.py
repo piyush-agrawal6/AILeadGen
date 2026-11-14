@@ -288,7 +288,7 @@ def overview(c):
     retention,retention_args=retention_sql(c,preferences(c)['source_retention_days'])
     return {'new_signals':count('intent_signals'," AND status='New' AND available=1 AND "+retention,retention_args),'reviewed_signals':count('intent_signals'," AND status='Reviewed'"),'high_relevance':count('intent_signals',' AND '+rank_expression()+'>=85 AND available=1 AND '+retention,retention_args),
             'active_monitors':count('intent_monitors'," AND status='Active'"),'saved_opportunities':count('intent_opportunities'," AND status='Saved'"),'unread_alerts':count('intent_alerts',' AND read_at IS NULL'),'operations':operational_overview(c),
-            'trends':[dict(r) for r in c.execute('SELECT SUBSTR(observed_at,1,10) day,COUNT(*) volume FROM intent_signals WHERE organization_id=? AND available=1 GROUP BY SUBSTR(observed_at,1,10) ORDER BY day DESC LIMIT 14',(org,)).fetchall()],
+            'trends':[dict(r) for r in c.execute('SELECT SUBSTR(observed_at,1,10) AS "day",COUNT(*) volume FROM intent_signals WHERE organization_id=? AND available=1 GROUP BY SUBSTR(observed_at,1,10) ORDER BY "day" DESC LIMIT 14',(org,)).fetchall()],
              'recent_signals':listing(c,'signals',size=5)['items'],'monitors':listing(c,'monitors',size=5)['items'],'opportunities':listing(c,'opportunities',size=5)['items'],'alerts':listing(c,'alerts',size=5)['items']}
 
 def remove_source(c,key):

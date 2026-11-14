@@ -174,3 +174,19 @@ def test_postgres_global_source_reservations_serialize_across_workspaces(pg_rada
     with ThreadPoolExecutor(max_workers=2) as workers:results=list(workers.map(reserve,[org,other]))
     assert sorted(results)==['DENIED','RESERVED']
     assert c.execute('SELECT SUM(reserved_requests) FROM intent_source_usage').fetchone()[0]==22
+
+
+def test_postgres_overview_trend_alias_and_empty_workspace_are_valid(pg_radar,monkeypatch):
+    """The deployed overview must execute on PostgreSQL, not just SQLite."""
+    c,org,other=pg_radar
+    monkeypatch.setattr(connectors,'fetch',AsyncMock(return_value=source_result()))
+    with workspace_scope(c,'radar-pg@example.test',org):
+        assert service.overview(c)['trends']==[]
+        job=discovery.create(c,models.Discovery(configuration=models.Search(keywords=['website'])));c.commit();jobs.execute(job['id'])
+        result=service.overview(c)
+        assert result['new_signals']==1
+        assert len(result['trends'])==1 and result['trends'][0]['volume']==1
+        assert len(result['trends'][0]['day'])==10
+        assert len(result['recent_signals'])==1
+    with workspace_scope(c,'radar-pg@example.test',other):
+        assert service.overview(c)['trends']==[]

@@ -11,7 +11,7 @@ beforeEach(()=>vi.resetAllMocks());
 it('resumes review and completes only the saved revision without discovery or sending',async()=>{
  mocked.mockImplementation(async(path,options)=>path==='/organization/profile'?{name:'Controlled company',version:'saved'}:path==='/organization/icps/owned'?{id:'owned',name:'Customers',status:'ACTIVE'}:options?.method==='POST'?{status:'COMPLETED',discovery_started:false,outreach_started:false}:progress);
  mount();fireEvent.click(await screen.findByRole('button',{name:'Finish setup'}));
- expect(await screen.findByText('Setup is complete. No discovery or outreach has started.')).toBeVisible();
+ expect(await screen.findByText('Setup is complete. No background job has started.')).toBeVisible();
  const mutation=mocked.mock.calls.find(([,options])=>options?.method==='POST');
  expect(mutation?.[0]).toBe('/organization/onboarding/complete');expect(JSON.parse(String(mutation?.[1]?.body))).toEqual({revision:3});
  expect(mocked.mock.calls.every(([path])=>path.startsWith('/organization/'))).toBe(true);

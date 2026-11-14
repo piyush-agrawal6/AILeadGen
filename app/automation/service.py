@@ -142,6 +142,8 @@ def recover_attempts(c,at):
 
 def outreach_tick(c,*,execution_id=None):
     """One durable attempt per tick. Ambiguous failures require operator review."""
+    from app.config.settings import get_settings
+    if not get_settings().lead_engine_available:return {'status':'PRODUCT_UNAVAILABLE'}
     from app.platform.context import organization
     from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
     if organization()!=PLANEBYTE_ORGANIZATION_ID:
@@ -249,6 +251,8 @@ def acquisition_tick(c):
 
 def legacy_acquisition_tick(c):
     """Schedule at most one existing scan; subsequent ticks reconcile its result."""
+    from app.config.settings import get_settings
+    if not get_settings().lead_engine_available:return {'status':'PRODUCT_UNAVAILABLE'}
     from app.platform.context import require_internal_mailbox
     org=require_internal_mailbox().organization_id
     from app.database.models import PipelineRun

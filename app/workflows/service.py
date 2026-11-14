@@ -255,6 +255,8 @@ def detail(c,rid,page=1,page_size=25,status="",search=""):
  return r
 
 async def dispatch(c):
+ # Availability freezes execution; existing schedules and run state stay intact.
+ if not get_settings().lead_engine_available:return {'scheduled_runs_started':[]}
  from app.platform.context import current,workspace_scope
  try:context=current()
  except HTTPException:context=None

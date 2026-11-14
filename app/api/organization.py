@@ -86,6 +86,8 @@ def products(c, organization_id):
     if get_settings().billing_enabled:
         from app.billing.service import granted
         enabled.update(granted(c,organization_id))
+    if not get_settings().lead_engine_available:
+        enabled.discard('LEADGEN')
     return {product: (product in enabled) for product in PRODUCTS}
 
 

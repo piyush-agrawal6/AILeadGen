@@ -30,6 +30,7 @@ for name in ('AUTH_GOOGLE_ID','AUTH_GOOGLE_SECRET','AUTH_SECRET','ALLOWED_USER_E
 environment.update({
     'APP_ENV':'development','DATABASE_BACKEND':'sqlite','DATABASE_URL':'',
     'HEYSOW_LOCAL_PREVIEW':'true',
+    'LEAD_ENGINE_AVAILABLE':'true',
     'SCAN_EXECUTOR':'local',
     'STORAGE_BACKEND':'local',
     'DATABASE_PATH':str(root/'data/e2e/local-preview/workspace.db'),

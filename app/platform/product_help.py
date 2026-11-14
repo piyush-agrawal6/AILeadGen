@@ -16,6 +16,19 @@ TOPICS = [
 
 
 def search(query='',limit=5):
+    from app.config.settings import get_settings
+    topics=TOPICS if get_settings().lead_engine_available else RADAR_TOPICS
     terms=query.casefold().split()[:15]
-    ranked=sorted(TOPICS,key=lambda item:sum(term in (item['title']+' '+item['body']).casefold() for term in terms),reverse=True)
+    ranked=sorted(topics,key=lambda item:sum(term in (item['title']+' '+item['body']).casefold() for term in terms),reverse=True)
     return [item for item in ranked if not terms or any(term in (item['title']+' '+item['body']).casefold() for term in terms)][:limit]
+
+RADAR_TOPICS=[
+ {'id':'getting-started','title':'Set up Intent Radar','category':'Workspace','body':'Review your company context, customer profile and workspace access. Setup never starts research automatically. Your organization owner manages membership and permissions.','href':'/onboarding'},
+ {'id':'signals','title':'Discover and review intent signals','category':'Intent Radar','body':'Choose permitted public sources and bounded search criteria. Open original evidence, review uncertainty and save useful signals. Scores are interpretations, not verified purchasing events.','href':'/intent-radar/discover'},
+ {'id':'monitors','title':'Manage monitors and alerts','category':'Intent Radar','body':'Save a monitor and review its schedule, source coverage and resource limits. Pausing future checks preserves collected evidence. Alerts are available in the workspace.','href':'/intent-radar/monitors'},
+ {'id':'research','title':'Growth Intelligence research','category':'Growth Intelligence','body':'Explore stored market themes and conversation trends, then request evidence-linked research within your workspace allowance. Limited coverage is not a market-wide trend or revenue forecast.','href':'/intent-radar/growth'},
+ {'id':'icp','title':'ICP and relevance preferences','category':'Intent Radar','body':'Review your company offerings and ideal customer profile. Suggested segments remain editable assumptions until reviewed. Discovery still requires explicit action.','href':'/settings/icp'},
+ {'id':'developer','title':'Integrations and MCP','category':'Connections','body':'An owner or administrator can issue scoped credentials for authorized Intent Radar read tools. Every request rechecks workspace access; revoking a key stops future use.','href':'/intent-radar/integrations'},
+ {'id':'access','title':'Account access and security','category':'Account','body':'Use your permitted verified Google account. Public registration remains closed. Keep credentials private and contact your workspace owner for access changes.','href':'/account/security'},
+ {'id':'billing','title':'Billing and usage','category':'Account','body':'Intent Radar includes Growth Intelligence. Current internal subscription acceptance uses Razorpay Test Mode only. No live payment or public commercial checkout is enabled. Workspace and provider safety limits still apply.','href':'/billing'},
+]

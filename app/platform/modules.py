@@ -37,9 +37,17 @@ def require_legacy():
     from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
     if organization()!=PLANEBYTE_ORGANIZATION_ID:raise HTTPException(404,'Not found.')
 
+LEAD_ROUTES=('/api/dashboard','/api/assistant','/api/qualification','/api/deletions','/api/organization/integrations','/api/organization/developer/approvals','/api/acquisition','/api/workflow','/api/operations','/api/people','/api/discovery','/api/campaigns','/api/scans','/api/sales','/api/intelligence','/api/leads','/api/reports','/api/client-reports','/api/email','/api/automation','/api/settings','/api/markets','/api/verticals')
+
+def lead_engine_route(path):
+    shared_job=path=='/api/intelligence/jobs' or path.startswith('/api/intelligence/jobs/')
+    foundation_lead=any(path==prefix or path.startswith(prefix+'/') for prefix in ('/api/foundation/repeat','/api/foundation/campaigns','/api/foundation/contacts','/api/foundation/history','/api/foundation/efficiency','/api/foundation/market-groups','/api/foundation/quality','/api/foundation/reviews','/api/foundation/duplicates','/api/foundation/usage','/api/foundation/cache'))
+    return not shared_job and (foundation_lead or any(path==prefix or path.startswith(prefix+'/') for prefix in LEAD_ROUTES))
+
 def guard_route(path,*,organization_id,role,method='GET'):
+    if not get_settings().lead_engine_available and lead_engine_route(path):
+        raise HTTPException(404,'This product is unavailable.')
     if path.startswith('/api/intent-radar/growth'):
-        from app.config.settings import get_settings
         if not get_settings().intent_radar_growth_enabled:raise HTTPException(404,'Growth Intelligence is unavailable.')
     if path=='/api/intent-radar' or path.startswith('/api/intent-radar/'):
         from app.database.connection import db_session
@@ -62,8 +70,7 @@ def guard_route(path,*,organization_id,role,method='GET'):
 
 def guard_product_route(c,path,organization_id):
     """Separate product enrollment from account/setup/legacy availability gates."""
-    lead_routes=('/api/acquisition','/api/workflow','/api/operations','/api/people','/api/discovery','/api/campaigns','/api/scans','/api/sales','/api/intelligence','/api/leads','/api/reports','/api/client-reports','/api/email','/api/automation')
     shared_job=path=='/api/intelligence/jobs' or path.startswith('/api/intelligence/jobs/')
-    if not shared_job and any(path==p or path.startswith(p+'/') for p in lead_routes):
+    if not shared_job and lead_engine_route(path):
         from app.api.organization import products
         if not organization_id or not products(c,organization_id).get('LEADGEN'):raise HTTPException(404,'Lead Engine is unavailable for this workspace.')

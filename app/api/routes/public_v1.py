@@ -168,7 +168,10 @@ def campaigns(c=Depends(get_db,scope='function')):return tools.read(c,'campaigns
 @router.get('/openapi.json',include_in_schema=False)
 def openapi_document():
     from fastapi.openapi.utils import get_openapi
-    document=get_openapi(title='PlaneByte Lead Engine API',version='1.0.0',routes=router.routes)
+    from app.config.settings import get_settings
+    available=get_settings().lead_engine_available
+    routes=router.routes if available else [route for route in router.routes if route.path.startswith('/v1/intent-radar/')]
+    document=get_openapi(title='PlaneByte Lead Engine API' if available else 'PlaneByte Intent Radar API',version='1.0.0',routes=routes)
     document.setdefault('components',{}).setdefault('securitySchemes',{})['WorkspaceKey']={'type':'http','scheme':'bearer','bearerFormat':'Scoped API key'}
     document['servers']=[{'url':'/api','description':'Same-origin API base'}]
     for path in document['paths'].values():

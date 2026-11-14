@@ -35,7 +35,9 @@ export interface Overview { total_leads: number; assessed_leads: number; unasses
 
 async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
 
-  const response = await fetch(`/api${path}`, { ...options, headers: { "Content-Type": "application/json", ...options?.headers } });
+  const timeout=AbortSignal.timeout(60000);
+  const signal=options?.signal?AbortSignal.any([options.signal,timeout]):timeout;
+  const response = await fetch(`/api${path}`, { ...options, signal, headers: { "Content-Type": "application/json", ...options?.headers } });
 
   if (!response.ok) {
 

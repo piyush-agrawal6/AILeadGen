@@ -9,7 +9,7 @@ from app.api.organization import require_role,membership_role,slugify
 from app.database.prospects import now
 from app.platform.context import current,organization
 
-Objective=Literal['FIND_CUSTOMERS','FIND_DECISION_MAKERS','BUILD_LISTS','ENTER_MARKETS','ENRICH_LEADS','MANAGE_OUTREACH','MONITOR_SALES']
+Objective=Literal['FIND_CUSTOMERS','FIND_DECISION_MAKERS','BUILD_LISTS','ENTER_MARKETS','ENRICH_LEADS','MANAGE_OUTREACH','MONITOR_SALES','RESEARCH_MARKETS','UNDERSTAND_CUSTOMER_NEEDS','MONITOR_BUYING_CONTEXT']
 
 class Service(BaseModel):
     model_config=ConfigDict(extra='forbid',str_strip_whitespace=True)

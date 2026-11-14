@@ -1,6 +1,9 @@
 """Explicit offline test mode; production startup rejects local auth bypasses."""
 import os
 os.environ["APP_ENV"] = "test"
+# Existing Lead Engine regressions exercise its preserved, enabled implementation.
+# Intent-only availability tests explicitly turn this gate off and verify denial.
+os.environ['LEAD_ENGINE_AVAILABLE']='true'
 # Offline tests must not inherit the owner's live Redis connection. Cache tests
 # supply an explicit MockTransport and fixture configuration instead.
 os.environ["UPSTASH_REDIS_REST_URL"] = ""
