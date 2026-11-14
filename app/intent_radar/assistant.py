@@ -133,7 +133,7 @@ async def process(c,key,body,job_id,lease):
         c.commit()
         from app.intent_radar.intelligence import reserve
         from app.platform.provider_usage import operation
-        reserve(max(6000,(request_bytes+2000)*2))
+        reserve(max(6000,(request_bytes+2000)*2),operation_id='assistant:'+key)
         # Reservation changes usage; record a verified pre-answer snapshot.
         refs,rows,data=references(c,body);payload['references']=refs
         if len(json.dumps(payload).encode())+len(PROMPT.encode())+len(json.dumps(Answer.model_json_schema()).encode())>24000:raise ai.AiOutputError('Assistant context exceeded the safe bound.')

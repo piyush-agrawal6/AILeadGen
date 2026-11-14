@@ -125,7 +125,7 @@ async def generate(c,row,active):
     await asyncio.to_thread(active)
     async def produce():
         await asyncio.to_thread(active,'ANALYZING')
-        ai_usage.reserve_company()
+        ai_usage.reserve_company(operation_id='company-profile:'+row['id'],tokens=ai_usage.estimate(INSTRUCTION,{'sources':sources,'website':row['website'] or None},Extraction,4096))
         return await asyncio.wait_for(ai.provider(c).structured(INSTRUCTION,{'sources':sources,'website':row['website'] or None},Extraction,max_output_tokens=4096,timeout_seconds=25),timeout=30)
     result,hit=await ai.cached(c,current().actor,'COMPANY_PROFILE_V1',{'sources':sources,'website':row['website']},produce,Extraction,lambda value:(preview_from_result(value,sources,row['website']) and value))
     preview=preview_from_result(result,sources,row['website']);preview['cached']=hit

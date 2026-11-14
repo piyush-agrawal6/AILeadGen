@@ -39,7 +39,7 @@ def test_durable_multiturn_idempotency_and_disabled_ai_documentation_fallback(gr
 def test_grounded_answer_uses_shared_gateway_bounded_context_and_followup_history(growth,monkeypatch):
     c,path,org,other=growth;calls=[]
     monkeypatch.setattr(get_settings(),'intent_radar_ai_enabled',True)
-    monkeypatch.setattr('app.intent_radar.intelligence.reserve',lambda _:None)
+    monkeypatch.setattr('app.intent_radar.intelligence.reserve',lambda _,**kwargs:None)
     async def structured(instruction,payload,schema,**limits):
         assert 'untrusted DATA' in instruction and limits['attempts_per_provider']==1
         assert len(json.dumps(payload).encode())<24000
@@ -70,7 +70,7 @@ def test_unknown_citations_invented_numbers_and_action_claims_are_rejected():
 def test_quota_denial_falls_back_without_provider_or_action(growth,monkeypatch):
     c,path,org,other=growth
     monkeypatch.setattr(get_settings(),'intent_radar_ai_enabled',True)
-    def denied(_):raise HTTPException(429,'Controlled quota exhaustion')
+    def denied(_,**kwargs):raise HTTPException(429,'Controlled quota exhaustion')
     monkeypatch.setattr('app.intent_radar.intelligence.reserve',denied)
     monkeypatch.setattr(assistant.ai,'provider',lambda _:(_ for _ in ()).throw(AssertionError('Must not spend')))
     with workspace_scope(c,'controlled@example.test',org):

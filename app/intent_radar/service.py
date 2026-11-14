@@ -207,6 +207,10 @@ def save_monitor(c, body, key=None):
         old = get(c,'monitors',key)
         if old['status']=='Archived' and body.status!='Archived':capacity(c,'monitors',count)
         if old['status']=='Archived' and body.status!='Archived' and c.execute("SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status<>'Archived'",(ctx.organization_id,)).fetchone()[0]>=get_settings().intent_radar_monitor_limit:raise HTTPException(429,'Monitor limit reached; archive an unused monitor before restoring this one.')
+        if body.status=='Active' and old['status']!='Active':
+            from app.billing.commercial_usage import capacity as commercial_capacity
+            active_count=c.execute("SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status='Active'",(ctx.organization_id,)).fetchone()[0]
+            commercial_capacity(c,ctx.organization_id,'monitors',active_count)
         if body.revision != old['revision']: raise HTTPException(409, 'Monitor changed. Reload before editing.')
         changed = c.execute('UPDATE intent_monitors SET name=?,description=?,goal=?,configuration_json=?,status=?,revision=revision+1,updated_at=? WHERE id=? AND organization_id=? AND revision=?', (body.name,body.description,body.goal,encoded,body.status,now(),key,ctx.organization_id,body.revision)).rowcount
         if not changed: raise HTTPException(409,'Monitor changed. Reload before editing.')
@@ -218,6 +222,10 @@ def save_monitor(c, body, key=None):
             return get(c,'monitors',old['id'])
         if c.execute("SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status<>'Archived'",(ctx.organization_id,)).fetchone()[0] >= get_settings().intent_radar_monitor_limit: raise HTTPException(429,'Monitor limit reached; archive an unused monitor.')
         capacity(c,'monitors',count)
+        if body.status=='Active':
+            from app.billing.commercial_usage import capacity as commercial_capacity
+            active_count=c.execute("SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status='Active'",(ctx.organization_id,)).fetchone()[0]
+            commercial_capacity(c,ctx.organization_id,'monitors',active_count)
         key = str(uuid.uuid4())
         c.execute('INSERT INTO intent_monitors(id,organization_id,created_by,name,description,goal,configuration_json,status,request_id,fingerprint,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(key,ctx.organization_id,ctx.actor,body.name,body.description,body.goal,encoded,body.status,str(body.request_id),fingerprint,now(),now()))
     audit(c,'MONITOR_SAVED',key)

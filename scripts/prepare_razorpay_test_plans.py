@@ -13,7 +13,8 @@ ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'data/artifacts/verification/razorpay'
 
 def install(c,state,organization='e5ffc3dc-241e-5558-acd4-84f5fe354ca7',owner='planebyte@gmail.com'):
-    if c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0]!=46:raise RuntimeError('Install mappings only after the verified additive billing migration.')
+    from app.database.migrations import MIGRATIONS
+    if not 46<=c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0]<=len(MIGRATIONS):raise RuntimeError('Install mappings only after the verified additive billing migration.')
     if not c.execute("SELECT 1 FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id WHERE m.organization_id=? AND m.user_id=? AND m.status='ACTIVE' AND m.role='OWNER' AND o.status='ACTIVE'",(organization,owner)).fetchone():raise RuntimeError('The approved workspace owner could not be verified.')
     from app.database.prospects import now
     for code in ('starter','growth','scale'):

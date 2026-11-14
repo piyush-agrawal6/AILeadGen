@@ -20,7 +20,7 @@ def eligible_sql(alias,actor=None):
     org=alias+'.organization_id'
     clauses=["EXISTS(SELECT 1 FROM organization_products grant_row WHERE grant_row.organization_id="+org+" AND grant_row.product='INTENT_RADAR' AND grant_row.enabled=1)"]
     args=[]
-    if get_settings().billing_enabled:
+    if get_settings().billing_enabled or get_settings().payu_billing_enabled:
         from app.billing.service import eligibility_sql
         paid,values=eligibility_sql(org)
         clauses[0]='('+clauses[0]+' OR '+paid+')';args.extend(values)
@@ -45,6 +45,8 @@ def update(c,key,body):
     s=get_settings()
     if body.frequency!='Manual':
         if not s.intent_radar_schedules_enabled:raise HTTPException(409,'Scheduled monitoring is disabled by the platform operator.')
+        from app.billing.commercial_usage import interval
+        interval(c,HOURS[body.frequency])
         if HOURS[body.frequency]<s.intent_radar_min_schedule_hours:raise HTTPException(429,'This monitoring frequency exceeds the configured usage policy.')
         if old['status']!='Active':raise HTTPException(409,'Activate the monitor before enabling a schedule.')
     due=next_run(key,body.frequency,body.timezone) if body.frequency!='Manual' else None
@@ -67,6 +69,8 @@ def enqueue_due(c):
                 if not old['next_run_at'] or old['next_run_at']>now() or old['status']!='Active':c.rollback();continue
                 schedule=old['schedule']
                 if schedule.get('frequency') not in HOURS:c.rollback();continue
+                from app.billing.commercial_usage import interval
+                interval(c,HOURS[schedule['frequency']])
                 if HOURS[schedule['frequency']]<get_settings().intent_radar_min_schedule_hours:c.rollback();continue
                 if c.execute("SELECT 1 FROM intelligence_jobs WHERE organization_id=? AND id=? AND status IN ('QUEUED','RUNNING')",(candidate['organization_id'],old['last_job_id'])).fetchone():c.rollback();continue
                 body=models.Discovery(configuration=old['configuration'],monitor_id=old['id'],request_id=uuid.uuid5(uuid.NAMESPACE_URL,old['id']+':scheduled:'+old['next_run_at']))
@@ -87,7 +91,7 @@ def enqueue_due(c):
     return result
 
 async def tick():
-    if get_settings().billing_enabled:
+    if get_settings().billing_enabled or get_settings().payu_billing_enabled:
         from app.billing.webhooks import tick as billing_tick
         await asyncio.to_thread(billing_tick,2)
     if get_settings().intent_radar_stage=='Disabled':return

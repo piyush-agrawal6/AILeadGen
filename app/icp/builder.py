@@ -183,7 +183,7 @@ def _persist(c, source, inputs, output, hit, version=None, changes=None):
 
 async def _call(c, task, payload, schema, instruction, validator):
     async def produce():
-        ai_usage.reserve_icp()
+        ai_usage.reserve_icp(tokens=ai_usage.estimate(instruction,payload,schema,7000))
         return await asyncio.wait_for(gateway.provider(c).structured(
             instruction, payload, schema, max_output_tokens=7000, timeout_seconds=25,
             max_response_bytes=60000, retry_transient=False), timeout=30)

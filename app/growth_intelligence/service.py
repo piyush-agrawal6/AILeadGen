@@ -40,6 +40,9 @@ def start(c,body):
     if old:
         if old[0]!=encoded:raise HTTPException(409,'Request ID belongs to a different research scope.')
         return detail(c,key)
+    if body.kind=='REPORT':
+        from app.billing.commercial_usage import reserve as reserve_commercial
+        reserve_commercial(c,{'reports':1,'ai_calls':1},'report:'+key)
     stamp=now();c.execute('INSERT INTO growth_research(id,organization_id,created_by,kind,question,title,scope_json,input_hash,request_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(key,ctx.organization_id,ctx.actor,body.kind,body.question,body.title,encoded,fingerprint(encoded),str(body.request_id),stamp,stamp))
     from app.intelligence import jobs
     job=jobs.create(c,jobs.Start(kind='GROWTH_ANALYZE',resource_ids=[key],request_id=body.request_id,reuse_days=0))
@@ -113,7 +116,7 @@ async def process(c,key,job_id,lease):
                 from app.intent_radar.intelligence import reserve
                 request_bytes=len(json.dumps(payload).encode())+len(PROMPT.encode())+len(json.dumps(models.Interpretation.model_json_schema()).encode())
                 if request_bytes>18000:raise ai.AiOutputError('Research exceeds bounded context size.')
-                c.commit();reserve(max(6000,(request_bytes+3000)*2));gateway=ai.provider(c)
+                c.commit();reserve(max(6000,(request_bytes+3000)*2),operation_id=('report:'+key) if body.kind=='REPORT' else 'growth:'+key+':'+digest);gateway=ai.provider(c)
                 with operation('GROWTH_'+body.kind):
                     proposed=await asyncio.wait_for(gateway.structured(PROMPT,payload,models.Interpretation,max_output_tokens=3000,timeout_seconds=25,attempts_per_provider=1),timeout=32)
                 output=validate(proposed,rows).model_dump(mode='json');mode='AI semantic interpretation — review required'

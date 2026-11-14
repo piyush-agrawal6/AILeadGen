@@ -55,7 +55,7 @@ def test_normalized_crossposts_do_not_count_as_independent_evidence():
 def test_leased_fallback_research_persists_exports_and_suppression_history(growth,monkeypatch):
     c,path,org,other=growth
     monkeypatch.setattr('app.growth_intelligence.service.ai.provider',lambda c:SimpleNamespace(structured=AsyncMock(side_effect=RuntimeError('No provider should be called'))))
-    monkeypatch.setattr('app.intent_radar.intelligence.reserve',lambda tokens:(_ for _ in ()).throw(HTTPException(429,'Controlled quota')))
+    monkeypatch.setattr('app.intent_radar.intelligence.reserve',lambda tokens,**kwargs:(_ for _ in ()).throw(HTTPException(429,'Controlled quota')))
     with workspace_scope(c,'controlled@example.test',org):
         before=c.execute('SELECT COUNT(*) FROM email_messages').fetchone()[0]
         body=models.Start(title='Reviewed real evidence fixture');result=execute(c,path,body)
@@ -105,7 +105,7 @@ def test_watchlists_reuse_draft_monitors_and_do_not_auto_start(growth):
 def test_ai_uses_exact_citations_and_reuses_owned_cache(growth,monkeypatch):
     c,path,org,other=growth;calls=[]
     monkeypatch.setattr(get_settings(),'intent_radar_ai_enabled',True)
-    monkeypatch.setattr('app.intent_radar.intelligence.reserve',lambda tokens:None)
+    monkeypatch.setattr('app.intent_radar.intelligence.reserve',lambda tokens,**kwargs:None)
     async def structured(instruction,payload,schema,**limits):
         calls.append(payload);row=payload['evidence'][0]
         assert limits['attempts_per_provider']==1 and len(payload['evidence'])<=12
@@ -149,7 +149,7 @@ def test_foreign_theme_competitor_and_notes_cannot_cross_workspace(growth):
 def test_cancelled_job_cannot_persist_ai_results(growth,monkeypatch):
     c,path,org,_=growth
     monkeypatch.setattr(get_settings(),'intent_radar_ai_enabled',True)
-    monkeypatch.setattr('app.intent_radar.intelligence.reserve',lambda tokens:None)
+    monkeypatch.setattr('app.intent_radar.intelligence.reserve',lambda tokens,**kwargs:None)
     async def structured(instruction,payload,schema,**limits):
         with get_connection(path) as other:
             with workspace_scope(other,'controlled@example.test',org):jobs.control(other,job_id,'cancel');other.commit()

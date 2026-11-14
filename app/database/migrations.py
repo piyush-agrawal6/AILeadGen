@@ -1,3 +1,4 @@
+from app.database.commercial_schema import COMMERCIAL_SQL
 from app.database.intent_radar_schema import INTENT_RADAR_SQL
 from app.database.growth_intelligence_schema import GROWTH_SQL
 from app.database.billing_schema import BILLING_SQL
@@ -337,6 +338,7 @@ MIGRATIONS: List[str] = [
     , INTENT_RADAR_COMPLETION_SQL
     , GROWTH_SQL
     , BILLING_SQL
+    , COMMERCIAL_SQL
 ]
 
 
@@ -417,7 +419,7 @@ def verify_schema(conn=None,minimum_version=None):
         # This permits a compatible API/worker rollout before migration 46, and
         # a flag-off rollback afterward without ever downgrading stored data.
         from app.config.settings import get_settings
-        compatible = 45 if len(MIGRATIONS)==46 and not get_settings().billing_enabled else (14 if len(MIGRATIONS)==15 else len(MIGRATIONS))
+        compatible = (47 if get_settings().payu_billing_enabled else 46 if get_settings().billing_enabled else 45) if len(MIGRATIONS)==47 else 45 if len(MIGRATIONS)==46 and not get_settings().billing_enabled else (14 if len(MIGRATIONS)==15 else len(MIGRATIONS))
         if not (minimum_version or compatible) <= (version or 0) <= len(MIGRATIONS):
             raise RuntimeError("Database schema is out of date; run the explicit migration command")
     finally:

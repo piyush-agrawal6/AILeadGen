@@ -18,7 +18,8 @@ def overview(c):
     ai=c.execute('SELECT calls,reserved_tokens FROM intent_analysis_usage WHERE organization_id=? AND day=?',(org,today)).fetchone()
     counts=c.execute("""SELECT (SELECT COUNT(*) FROM intent_discoveries WHERE organization_id=? AND created_at>=?) searches,
       (SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status<>'Archived') monitors,
-      (SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE') seats""",(org,today,org,org)).fetchone()
+      (SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE') seats,
+      (SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status='Active') active_monitors""",(org,today,org,org,org)).fetchone()
     preferences=c.execute('SELECT configuration_json FROM intent_preferences WHERE organization_id=?',(org,)).fetchone();prefs=json.loads(preferences[0]) if preferences else {}
     limits=[('searches',counts['searches'],s.intent_radar_daily_searches,'Requested searches today',reset,'daily reservation'),('ai_calls',ai['calls'] if ai else 0,min(s.intent_radar_ai_daily_calls,prefs.get('analysis_daily_call_limit',s.intent_radar_ai_daily_calls)),'AI reservations today',reset,'daily reservation'),('ai_tokens',ai['reserved_tokens'] if ai else 0,min(s.intent_radar_ai_daily_tokens,prefs.get('analysis_daily_token_limit',s.intent_radar_ai_daily_tokens)),'AI token capacity reserved',reset,'reserved upper bound; not billed tokens'),('monitors',counts['monitors'],s.intent_radar_monitor_limit,'Stored non-archived monitors',None,'capacity')]
     items=[{'dimension':key,'used':used,'limit':limit,'remaining':max(0,limit-used),'label':label,'resets_at':at,'basis':basis,'enforced':True,'near_limit':used>=limit*.8} for key,used,limit,label,at,basis in limits]
@@ -28,7 +29,22 @@ def overview(c):
     from app.platform.provider_usage import summary
     actual=summary(c)
     sources=[dict(r) for r in c.execute('SELECT provider,reserved_requests FROM intent_source_usage WHERE organization_id=? AND day=?',(org,today)).fetchall()]
-    from app.billing import commercial
+    from app.billing import commercial,contracts
+    paid=contracts.active(c,org)
+    if paid:
+        saved=contracts.snapshot(paid);monthly={r['dimension']:dict(r) for r in c.execute('SELECT * FROM commercial_usage WHERE organization_id=? AND contract_id=? AND period_start=?',(org,paid['id'],paid['paid_start'])).fetchall()}
+        period_end=datetime.fromtimestamp(paid['paid_end'],timezone.utc).isoformat()
+        for definition in commercial.catalog()['limit_definitions']:
+            dim=definition['key'];limit=saved['limits'][dim]
+            if dim in contracts.CAPACITY:
+                used=counts['active_monitors'] if dim=='monitors' else counts['seats'];reserved=0;basis='capacity under saved subscription terms'
+            else:
+                value=monthly.get(dim,{})
+                used=value.get('used',0);reserved=value.get('reserved',0);basis='verified paid period; includes reserved capacity'
+            items.append({'dimension':'plan_'+dim,'used':used+reserved,'reserved':reserved,'limit':limit,'remaining':max(0,limit-used-reserved),'label':definition['label'],'resets_at':period_end if dim not in contracts.CAPACITY else None,'basis':basis,'enforced':True,'near_limit':used+reserved>=limit*.8})
+        total=lambda dim:monthly.get(dim,{}).get('used',0)+monthly.get(dim,{}).get('reserved',0)
+        search_breakdown={'manual_searches':max(0,total('searches')-total('monitor_executions')),'scheduled_checks':total('monitor_executions'),'total_searches':total('searches'),'reset_at':period_end}
+    else:search_breakdown=None
     payments=[{'provider':'razorpay',**dict(r)} for r in c.execute('SELECT provider_id,mode,amount,currency,status,recorded_at FROM billing_payments WHERE organization_id=? ORDER BY recorded_at DESC,provider_id DESC LIMIT 50',(org,)).fetchall()] if role in ('OWNER','ADMIN') else []
     commercial_data={'catalog':commercial.catalog(),'provider':'payu','checkout_enabled':False,'blockers':commercial.checkout_blockers(),'historical_payments':payments}
-    return {'access':{'kind':'Approved Beta' if manual and manual[0] else 'Sandbox subscription' if subscription else 'Restricted','intent_radar':bool(manual and manual[0] or subscription),'growth_intelligence':bool(s.intent_radar_growth_enabled and (manual and manual[0] or subscription)),'commercial_subscription':False},'subscription':{'status':subscription['status'],'mode':'test','period_end':subscription['paid_end']} if subscription else None,'usage':items,'provider_usage':actual,'source_requests':sources,'team_seats':counts['seats'],'commercial_pricing_approved':True,'commercial':commercial_data,'live_payments_enabled':False,'sandbox_tools_available':role=='OWNER' and service.test_allowed(org),'billing_timezone':'UTC','unmetered':['Exports are bounded per request; no separate export-plan allowance is claimed.','Research and reports consume the shared AI allowance; no separate report allowance is claimed.'],'support_url':'mailto:contact@planebyte.com?subject=Workspace%20access%20and%20allowances'}
+    return {'access':{'kind':'Commercial subscription' if paid else 'Approved Beta' if manual and manual[0] else 'Sandbox subscription' if subscription else 'Restricted','intent_radar':bool(manual and manual[0] or subscription or paid),'growth_intelligence':bool(s.intent_radar_growth_enabled and (manual and manual[0] or subscription or paid)),'commercial_subscription':bool(paid)},'subscription':{'status':paid['status'],'mode':paid['mode'],'period_end':paid['paid_end'],'catalog_version':paid['catalog_version']} if paid else {'status':subscription['status'],'mode':'test','period_end':subscription['paid_end']} if subscription else None,'search_usage':search_breakdown,'usage':items,'provider_usage':actual,'source_requests':sources,'team_seats':counts['seats'],'commercial_pricing_approved':True,'commercial':commercial_data,'live_payments_enabled':False,'sandbox_tools_available':role=='OWNER' and service.test_allowed(org),'billing_timezone':'UTC','unmetered':['Exports are bounded per request; no separate export-plan allowance is claimed.','Commercial reports consume both report and shared AI allowances; Beta access retains independent operator limits.'],'support_url':'mailto:contact@planebyte.com?subject=Workspace%20access%20and%20allowances'}

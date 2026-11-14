@@ -8,6 +8,8 @@ from app.database.prospects import now
 
 def reserve(c,amounts,request_id):
     org=organization()
+    from app.billing.commercial_usage import reserve as commercial_reserve
+    if commercial_reserve(c,amounts,str(request_id)):return True
     if not service.test_allowed(org):return False
     if not request_id or len(str(request_id))>200 or not amounts or set(amounts)-set(catalog.DIMENSIONS) or any(type(n) is not int or n<=0 for n in amounts.values()):raise ValueError('A bounded, stable operation reservation is required.')
     lock(c,org);row=service.active(c,org)
@@ -35,5 +37,7 @@ def capacity(c,dimension,current_count):
 def capacity_for_workspace(c,org,dimension,current_count):
     # Internal target comes from a verified invitation, never a request's org ID.
     if dimension not in ('monitors','team_members'):raise ValueError('Unsupported capacity dimension.')
+    from app.billing.commercial_usage import capacity as commercial_capacity
+    if dimension!='monitors' and commercial_capacity(c,org,dimension,current_count):return
     lock(c,org);row=service.active(c,org)
     if row and current_count>=json.loads(row['plan_json'])['limits'][dimension]:raise HTTPException(429,'The current test plan '+dimension.replace('_',' ')+' capacity is exhausted.')

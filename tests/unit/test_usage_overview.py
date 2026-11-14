@@ -13,7 +13,7 @@ def test_customer_usage_requires_membership_and_has_nonchargeable_catalog(radar)
         assert result['access']['kind']=='Approved Beta'
         assert result['commercial_pricing_approved'] and not result['live_payments_enabled']
         assert result['commercial']['provider']=='payu' and not result['commercial']['checkout_enabled']
-        assert all(p['limits'] is None for p in result['commercial']['catalog']['plans'])
+        assert result['commercial']['catalog']['plans'][0]['limits']['reports']==5
         assert result['provider_usage']['estimated_cost_usd'] is None
         assert result['team_seats']==1 and all(i['enforced'] for i in result['usage'])
     with workspace_scope(c,'foreign@example.test',other):

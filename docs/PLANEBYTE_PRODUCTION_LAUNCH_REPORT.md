@@ -5,7 +5,7 @@ local gates:998 backend passes,1 intentional live-mail skip,159 frontend unit
 passes, successful TypeScript/build and7 product browser passes across six
 viewport sizes. Lead Engine implementation, historical data, Gmail safeguards,
 membership checks, admission restrictions and old payment records are retained.
-No migration is included in this verified changeset.
+The previous verified checkpoint contains no migration. The current approved-allowance update includes additive migration47; production application requires fresh recovery and compatible-image rollout first.
 
 Production deployment IDs and post-rollout measurements must be added after
 actual deployment. Existing production API revision is`leadengine-api-00135-paw`;
@@ -42,3 +42,13 @@ an adjudicator are still needed for the approved120-case AI evaluation.
 
 Current verdict: **NO-GO for commercial payments**. Product-only limited release
 is pending its staged/production checks. No public signup or prospect sending.
+
+
+## Approved pilot update in progress
+
+Prices and numeric pilot allocations are approved, catalog2026-11-14.2. Monthly
+commercial accounting and PayU dated verification are implemented; broader frozen
+regressions and fresh production-backup recovery are running. No production
+migration, new PayU mandate, real charge or public checkout is claimed here.
+The public recurring launch remains blocked on merchant-specific PayU capabilities
+and genuine lifecycle acceptance. Independent non-payment deployment continues.

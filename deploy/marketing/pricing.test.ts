@@ -7,9 +7,10 @@ test('launch catalog has approved monthly USD prices and excludes Lead Engine',(
  assert.equal(catalog.product,'intent-radar');assert.equal(catalog.list_currency,'USD');assert.equal(catalog.interval,'monthly');
  assert.equal(catalog.prices_approved,true);assert.deepEqual(catalog.excluded_products,['lead-engine']);
 });
-test('unapproved quotas, annual discounts, trials and payment activation stay closed',()=>{
- assert.equal(catalog.allowances_approved,false);assert.equal(catalog.checkout_enabled,false);assert.equal(catalog.annual_billing,false);assert.equal(catalog.free_trial,false);
- assert.ok(catalog.plans.every((p:{limits:null})=>p.limits===null));
+test('approved pilot allowances are explicit while annual discounts, trials and payment activation stay closed',()=>{
+ assert.equal(catalog.allowances_approved,true);assert.equal(catalog.checkout_enabled,false);assert.equal(catalog.annual_billing,false);assert.equal(catalog.free_trial,false);
+ assert.deepEqual(catalog.plans.slice(0,3).map((p:{limits:{searches:number;reports:number;ai_calls:number;api_requests:number}})=>[p.limits.searches,p.limits.reports,p.limits.ai_calls,p.limits.api_requests]),[[100,5,20,500],[300,15,60,2000],[600,30,120,5000]]);
+ assert.equal(catalog.plans[3].limits,null);
 });
 test('public comparison renders the canonical file and cannot create payment in marketing',()=>{
  const component=readFileSync(new URL('../src/components/family-pricing.tsx',import.meta.url),'utf8');

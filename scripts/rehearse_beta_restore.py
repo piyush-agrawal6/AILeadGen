@@ -61,7 +61,7 @@ def main():
     (folder/'source-fingerprints.json').write_text(json.dumps(before,indent=2))
     (folder/'snapshot-checkpoint.json').write_text(json.dumps({'source_schema':version,'backup_sha256':hashlib.sha256(dump.read_bytes()).hexdigest(),'backup_bytes':dump.stat().st_size,'tool_bin':str(BIN),'production_written':False},indent=2))
     db='beta_restore_'+stamp.lower()
-    with psycopg.connect(LOCAL,autocommit=True) as c:c.execute(sql.SQL('CREATE DATABASE {}').format(sql.Identifier(db)))
+    with psycopg.connect(LOCAL,autocommit=True) as c:c.execute(sql.SQL("CREATE DATABASE {} WITH TEMPLATE template0 ENCODING 'UTF8'").format(sql.Identifier(db)))
     target=LOCAL.replace('/postgres?','/'+db+'?')
     # Discard inherited remote DB variables; the restore can only target our socket.
     local_env={k:v for k,v in os.environ.items() if not k.startswith('PG')}

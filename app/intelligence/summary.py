@@ -24,7 +24,7 @@ async def generate(c,facts):
     pages=facts.get('pages',[])[:3]
     if not pages:return {'status':'UNAVAILABLE','reason':'ENRICH_COMPANY_INFORMATION_FIRST'}
     data={'pages':[{'source_index':index,'url':page.get('url'),'excerpt':page.get('excerpt','')[:4000]} for index,page in enumerate(pages)]}
-    ai_usage.reserve_company()
+    ai_usage.reserve_company(tokens=ai_usage.estimate(INSTRUCTION,data,Proposal,2000))
     draft=await asyncio.wait_for(ai.provider(c).structured(INSTRUCTION,data,Proposal,max_output_tokens=2000,timeout_seconds=20),timeout=25)
     claims=[];seen=set()
     for item in draft.excerpts:

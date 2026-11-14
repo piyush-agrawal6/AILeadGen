@@ -1,32 +1,155 @@
 {
-  "version": "2026-11-14.1",
+  "version": "2026-11-14.2",
   "product": "intent-radar",
   "name": "Intent Radar + Growth Intelligence",
   "list_currency": "USD",
   "interval": "monthly",
   "prices_approved": true,
-  "allowances_approved": false,
+  "allowances_approved": true,
   "checkout_enabled": false,
   "annual_billing": false,
   "free_trial": false,
   "plans": [
-    {"code":"starter","name":"Starter","monthly_minor":5900,"audience":"Individuals and small teams starting with intent intelligence","limits":null},
-    {"code":"growth","name":"Growth","monthly_minor":14900,"audience":"Growing businesses and agencies using intelligence regularly","limits":null},
-    {"code":"scale","name":"Scale","monthly_minor":37900,"audience":"Established growth and revenue teams requiring higher capacity","limits":null},
-    {"code":"enterprise","name":"Enterprise","monthly_minor":null,"audience":"Tailored capacity, permissions and support under a separate agreement","limits":null}
+    {
+      "code": "starter",
+      "name": "Starter",
+      "monthly_minor": 5900,
+      "audience": "Individuals and small teams starting with intent intelligence",
+      "limits": {
+        "searches": 100,
+        "ai_calls": 20,
+        "ai_tokens": 600000,
+        "monitors": 2,
+        "monitor_executions": 60,
+        "reports": 5,
+        "team_members": 1,
+        "api_requests": 500,
+        "monitor_interval_hours": 24
+      }
+    },
+    {
+      "code": "growth",
+      "name": "Growth",
+      "monthly_minor": 14900,
+      "audience": "Growing businesses and agencies using intelligence regularly",
+      "limits": {
+        "searches": 300,
+        "ai_calls": 60,
+        "ai_tokens": 1200000,
+        "monitors": 5,
+        "monitor_executions": 150,
+        "reports": 15,
+        "team_members": 3,
+        "api_requests": 2000,
+        "monitor_interval_hours": 24
+      }
+    },
+    {
+      "code": "scale",
+      "name": "Scale",
+      "monthly_minor": 37900,
+      "audience": "Established growth and revenue teams requiring higher capacity",
+      "limits": {
+        "searches": 600,
+        "ai_calls": 120,
+        "ai_tokens": 1800000,
+        "monitors": 10,
+        "monitor_executions": 300,
+        "reports": 30,
+        "team_members": 5,
+        "api_requests": 5000,
+        "monitor_interval_hours": 24
+      }
+    },
+    {
+      "code": "enterprise",
+      "name": "Enterprise",
+      "monthly_minor": null,
+      "audience": "Tailored capacity, permissions and support under a separate agreement",
+      "limits": null
+    }
   ],
   "capabilities": [
-    {"id":"discovery","name":"Public conversation discovery","description":"Search configured and authorized sources; results retain original evidence links."},
-    {"id":"growth","name":"Growth Intelligence","description":"Research collected discussions, themes and opportunity context with referenced evidence."},
-    {"id":"monitoring","name":"Monitoring and watchlists","description":"Run bounded searches on configured sources at supported intervals."},
-    {"id":"research","name":"Saved research and reports","description":"Keep and export workspace research; AI interpretation is labeled separately from evidence."},
-    {"id":"developer","name":"Developer API and MCP","description":"Scoped developer access where enabled for the workspace; tier allocation awaits approval."}
+    {
+      "id": "discovery",
+      "name": "Public conversation discovery",
+      "description": "Search configured and authorized sources; results retain original evidence links."
+    },
+    {
+      "id": "growth",
+      "name": "Growth Intelligence",
+      "description": "Research collected discussions, themes and opportunity context with referenced evidence."
+    },
+    {
+      "id": "monitoring",
+      "name": "Monitoring and watchlists",
+      "description": "Run bounded searches on configured sources at supported intervals."
+    },
+    {
+      "id": "research",
+      "name": "Saved research and reports",
+      "description": "Keep and export workspace research; AI interpretation is labeled separately from evidence."
+    },
+    {
+      "id": "developer",
+      "name": "Developer API and MCP",
+      "description": "Scoped developer API and MCP reads share the plan request allowance."
+    }
   ],
-  "excluded_products":["lead-engine"],
+  "excluded_products": [
+    "lead-engine"
+  ],
   "disclosures": [
-    "Monthly USD list prices are approved. Numeric plan allowances await final approval.",
+    "Initial versioned pilot allowances; existing subscription terms are preserved when the catalog changes.",
+    "Scheduled monitoring checks consume the monthly search allowance once. Manual searches and scheduled checks are shown separately.",
+    "Reports consume both the report allowance and shared AI operations and reserved-token capacity. Provider and daily safety caps also apply.",
+    "Only configured, authorized data sources are available. AI capacity is reserved before requests; actual provider tokens are reported separately.",
     "The actual PayU charge currency, recurring-payment availability and tax treatment must be confirmed before checkout opens.",
     "No annual discounts, free trial or setup fee is offered.",
     "Lead Engine is a separate future launch and is not included."
+  ],
+  "allowance_policy": "pilot-v1",
+  "allowances_approved_at": "2026-11-14",
+  "limit_definitions": [
+    {
+      "key": "searches",
+      "label": "Monthly searches",
+      "description": "Includes scheduled monitoring checks."
+    },
+    {
+      "key": "ai_calls",
+      "label": "Shared AI operations",
+      "description": "Reports and the Intelligence Assistant share this allowance."
+    },
+    {
+      "key": "ai_tokens",
+      "label": "Shared reserved AI token capacity",
+      "description": "Capacity reserved before requests; not measured or billed tokens."
+    },
+    {
+      "key": "monitors",
+      "label": "Active monitors",
+      "description": "Daily checks; provider safety caps also apply."
+    },
+    {
+      "key": "monitor_executions",
+      "label": "Monthly monitoring checks",
+      "description": "Included within monthly searches, not additional searches."
+    },
+    {
+      "key": "reports",
+      "label": "Monthly reports",
+      "description": "Each generated report also consumes the shared AI allowance."
+    },
+    {
+      "key": "team_members",
+      "label": "Team seats",
+      "description": "Active workspace members."
+    },
+    {
+      "key": "api_requests",
+      "label": "Developer API requests",
+      "description": "Scoped MCP reads consume the same request allowance."
+    }
   ]
 }

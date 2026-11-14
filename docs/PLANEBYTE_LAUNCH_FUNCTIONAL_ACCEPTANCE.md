@@ -60,3 +60,15 @@ the enabled merchant contract, commercial quotas and charge terms are verified.
 Two real reviewers and an adjudicator are still required for the approved
 120-case independent AI evaluation. Automated fixtures cannot substitute for
 their blind labels or adjudication.
+
+## Approved pilot release verification — November 14
+
+- Backend frozen app: **1,029 passed, 1 intentional live-email skip, 0 failures/errors**, 8 warnings; `backend-approved.xml`, 487.24s. Includes real disposable PostgreSQL concurrency and preservation checks, tenant isolation, existing Lead Engine/Gmail regressions and shared AI quotas.
+- Frontend: **159 units**, typecheck and production build pass; **7 product browser checks**, 22 routes across six widths, no unexpected/flaky outcomes.
+- Marketing: **15 units**, production build, inert plan-selection browser check and **6 pricing viewport checks** pass. Approved catalog copies are byte-identical.
+- Fresh production backup:118472311 bytes, SHA256 `a1b38fbd83040da1cdde0bc11e4fb60389495c82677708cfbe91841dcf8ac12f`.
+- Recovery initially exposed SQL_ASCII restore-database encoding. The recovery helper now explicitly creates UTF-8 databases. The same fresh backup restored exactly; migration46→47 was applied locally once and a second run applied zero. All173 original data-table fingerprints were identical; only `schema_migrations` changed among174 original tables. Production was not written during rehearsal.
+- PayU Live v3 verification: HTTP200/status1 with expected nonexistent-transaction result. This does not certify a mandate, charge currency or recurring lifecycle. No payment was initiated.
+- Source credential scans: zero current credential matches, generated artifacts, private database/artifact paths or oversized outgoing blobs.
+
+Public recurring checkout remains closed. Paid activation requires merchant-specific PayU capabilities and controlled lifecycle/live acceptance; independent human AI evaluation is still pending actual reviewers. Do not describe either gate as passed.

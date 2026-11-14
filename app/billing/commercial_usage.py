@@ -1,0 +1,71 @@
+"""Atomic monthly capacity accounting, scoped to a verified paid contract.
+
+Reservations count once, including worker retries. Released pre-provider work
+can be retried under its original operation; unknown outcomes remain reserved.
+Monitoring increments one search plus its classification, never two searches.
+"""
+import json
+from fastapi import HTTPException
+from app.billing import contracts
+from app.database.prospects import now
+from app.developer.keys import lock
+
+def reserve(c,amounts,operation_id):
+    from app.config.settings import get_settings
+    if not get_settings().payu_billing_enabled:return False
+    org=contracts.verified_workspace(c)
+    if not isinstance(operation_id,str) or not 1<=len(operation_id)<=200 or not amounts or any(type(v) is not int or v<=0 for v in amounts.values()):
+        raise ValueError('A stable bounded operation reservation is required.')
+    if set(amounts)-set((*contracts.METERED,'opportunities')):raise ValueError('Unknown usage dimension.')
+    lock(c,org);row=contracts.active(c,org)
+    if not row:return False
+    # No approved monthly opportunity quota: preserve ordinary saved-record work.
+    values={k:v for k,v in amounts.items() if k in contracts.METERED}
+    limits=contracts.snapshot(row)['limits'];pending=[]
+    for dim,n in sorted(values.items()):
+        previous=c.execute('SELECT * FROM commercial_reservations WHERE organization_id=? AND operation_id=? AND dimension=?',(org,operation_id,dim)).fetchone()
+        if previous:
+            if previous['amount']!=n:raise HTTPException(409,'Usage operation was reused with different capacity.')
+            if previous['state']!='RELEASED':continue
+            if previous['contract_id']!=row['id'] or previous['period_start']!=row['paid_start']:
+                raise HTTPException(409,'Released work belongs to a previous subscription period.')
+        counter=c.execute('SELECT reserved,used FROM commercial_usage WHERE organization_id=? AND contract_id=? AND period_start=? AND dimension=?',(org,row['id'],row['paid_start'],dim)).fetchone()
+        if (counter['reserved']+counter['used'] if counter else 0)+n>limits[dim]:
+            raise HTTPException(429,'Monthly '+dim.replace('_',' ')+' allowance exhausted. Saved records remain available; review usage or upgrade.')
+        pending.append((dim,n,bool(previous)))
+    stamp=now()
+    for dim,n,previous in pending:
+        c.execute('INSERT INTO commercial_usage(organization_id,contract_id,period_start,period_end,dimension,reserved) VALUES(?,?,?,?,?,?) ON CONFLICT(organization_id,contract_id,period_start,dimension) DO UPDATE SET reserved=commercial_usage.reserved+excluded.reserved',(org,row['id'],row['paid_start'],row['paid_end'],dim,n))
+        if previous:c.execute("UPDATE commercial_reservations SET state='RESERVED',actual_amount=NULL,updated_at=? WHERE organization_id=? AND operation_id=? AND dimension=?",(stamp,org,operation_id,dim))
+        else:c.execute("INSERT INTO commercial_reservations(organization_id,contract_id,period_start,operation_id,dimension,amount,state,created_at,updated_at) VALUES(?,?,?,?,?,?,'RESERVED',?,?)",(org,row['id'],row['paid_start'],operation_id,dim,n,stamp,stamp))
+    return True
+
+def settle(c,operation_id,*,actual=None,release=False):
+    """Internal completion only. Release only when no provider work was attempted."""
+    org=contracts.verified_workspace(c);lock(c,org)
+    rows=c.execute('SELECT * FROM commercial_reservations WHERE organization_id=? AND operation_id=? ORDER BY dimension',(org,operation_id)).fetchall()
+    if not rows:return False
+    if actual is not None and (not isinstance(actual,dict) or set(actual)!={r['dimension'] for r in rows}):raise ValueError('Complete actual usage attribution required.')
+    # Validate every dimension before any write (callers may catch exceptions).
+    for r in rows:
+        n=0 if release else (actual[r['dimension']] if actual is not None else r['amount'])
+        if type(n) is not int or not 0<=n<=r['amount']:raise ValueError('Actual usage exceeds reserved capacity.')
+        state='RELEASED' if release else 'COMMITTED'
+        if r['state']!='RESERVED' and (r['state']!=state or r['actual_amount']!=n):raise HTTPException(409,'Usage completion conflicts with its recorded outcome.')
+    for r in rows:
+        if r['state']!='RESERVED':continue
+        n=0 if release else (actual[r['dimension']] if actual is not None else r['amount'])
+        c.execute('UPDATE commercial_usage SET reserved=reserved-?,used=used+? WHERE organization_id=? AND contract_id=? AND period_start=? AND dimension=?',(r['amount'],n,org,r['contract_id'],r['period_start'],r['dimension']))
+        c.execute('UPDATE commercial_reservations SET state=?,actual_amount=?,updated_at=? WHERE organization_id=? AND operation_id=? AND dimension=?',('RELEASED' if release else 'COMMITTED',n,now(),org,operation_id,r['dimension']))
+    return True
+
+def capacity(c,org,dimension,count):
+    if dimension not in contracts.CAPACITY:raise ValueError('Unknown capacity dimension.')
+    lock(c,org);row=contracts.active(c,org)
+    if row and count>=contracts.snapshot(row)['limits'][dimension]:raise HTTPException(429,'Monthly plan '+dimension.replace('_',' ')+' capacity exhausted.')
+    return bool(row)
+
+def interval(c,hours):
+    org=contracts.verified_workspace(c);row=contracts.active(c,org)
+    if row and hours<contracts.snapshot(row)['limits']['monitor_interval_hours']:
+        raise HTTPException(429,'The current plan supports daily monitoring. Existing saved records remain available.')

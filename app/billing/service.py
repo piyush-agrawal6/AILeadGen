@@ -79,20 +79,24 @@ def active(c,org):
 
 def granted(c,org):
     row=active(c,org)
-    return {'INTENT_RADAR'} if row else set()
+    from app.billing.contracts import active as commercial_active
+    return {'INTENT_RADAR'} if row or commercial_active(c,org) else set()
 
 def eligibility_sql(org):
     # SQL identifiers are fixed by scheduler code, never caller input.
     if org not in ('m.organization_id','j.organization_id'):raise ValueError('Internal scheduler alias required.')
     s=get_settings();approved=[value.strip() for value in s.billing_test_workspaces.split(',') if value.strip()][:100]
-    if not s.billing_enabled or not s.billing_test_mode or not approved:return '0=1',[]
+    from app.billing.contracts import eligibility_sql as commercial_eligibility
+    commercial_sql,commercial_args=commercial_eligibility(org)
+    if not s.billing_enabled or not s.billing_test_mode or not approved:return commercial_sql,commercial_args
     stamp=int(time.time());marks=','.join('?' for _ in approved)
     sql="EXISTS(SELECT 1 FROM billing_subscriptions b JOIN billing_workspace_slots slot ON slot.organization_id=b.organization_id AND slot.subscription_id=b.id AND slot.mode=b.mode WHERE b.organization_id="+org+" AND b.organization_id IN ("+marks+") AND b.mode='test' AND b.status='active' AND b.paid_start=b.current_start AND b.paid_end=b.current_end AND b.paid_start<=? AND b.paid_end>?)"
-    return sql,[*approved,stamp,stamp]
+    return '('+sql+' OR '+commercial_sql+')', [*approved,stamp,stamp,*commercial_args]
 
 def fence_grant(c,org):
     lock(c,org)
-    return bool(active(c,org))
+    from app.billing.contracts import active as commercial_active
+    return bool(active(c,org) or commercial_active(c,org))
 
 def info(c):
     ctx=access(c);s=get_settings();rows=c.execute('SELECT * FROM billing_subscriptions WHERE organization_id=? ORDER BY created_at DESC,id DESC LIMIT 20',(ctx.organization_id,)).fetchall()

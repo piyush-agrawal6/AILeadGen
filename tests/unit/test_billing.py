@@ -277,7 +277,7 @@ def test_additive_billing_bridge_requires_46_before_enabling(billing,monkeypatch
     monkeypatch.setattr(get_settings(),'billing_enabled',False);migrations.verify_schema(c)
     monkeypatch.setattr(get_settings(),'billing_enabled',True)
     with pytest.raises(RuntimeError):migrations.verify_schema(c)
-    assert migrations.run_migrations(c)==1
+    assert migrations.run_migrations(c)==len(full)-45
     migrations.verify_schema(c);assert migrations.run_migrations(c)==0;c.close()
 
 def test_verified_test_plan_mapping_install_is_scoped_and_idempotent(billing):

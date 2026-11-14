@@ -9,6 +9,8 @@ it('shows approved USD prices and inert preserved selection without inventing qu
  expect(screen.getByText(/Your selection is saved/)).toBeVisible();
  expect(screen.getByRole('link',{name:'Request Growth access'})).toHaveAttribute('href',expect.stringContaining('mailto:'));
  expect(screen.queryByRole('button',{name:/pay|checkout|subscribe/i})).not.toBeInTheDocument();
- expect(screen.getAllByText('Pending approval').length).toBeGreaterThan(0);
+ expect(screen.getByText('600,000')).toBeVisible();
+ expect(screen.getByText('Monthly monitoring checks')).toBeVisible();
+ expect(screen.queryByText('Pending approval')).not.toBeInTheDocument();
  expect(screen.queryByText(/internal test|₹100|₹200|₹300/i)).not.toBeInTheDocument();
 });

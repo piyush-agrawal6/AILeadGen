@@ -2,7 +2,7 @@
 
 ## Approved catalog
 
-Canonical file: `app/billing/commercial_catalog.json`, version `2026-11-14.1`.
+Canonical file: `app/billing/commercial_catalog.json`, version `2026-11-14.2`.
 Starter USD59/month; Growth USD149/month; Scale USD379/month; Enterprise custom.
 Intent Radar includes Growth Intelligence; Lead Engine is excluded. No approved
 annual plan, discount, setup fee or trial. Existing subscription snapshots are
@@ -70,7 +70,7 @@ Reviewed 2026-11-14:
    mandates, pre-debit responsibilities and permitted payment methods.
 3. A reproducible owner-approved conversion policy if recurring INR is required;
    never silently convert the approved USD prices.
-4. Approved numeric plan allowances, supported tier capabilities and tax terms.
+4. Tax terms and supported merchant capabilities. Numeric pilot allowances are approved; do not request their approval again.
 5. Real sandbox lifecycle acceptance, then exact amount/currency/method approval
    for one restricted live transaction. Public checkout needs separate approval.
 
@@ -90,3 +90,29 @@ belong in the existing Secret Manager; the frontend and Netlify must receive no
 merchant salt. Additional Zion credentials must be requested only when PayU
 confirms its actual contract. Production secret installation remains to be
 verified; root credential presence is not a production configuration claim.
+
+
+## November 14 approved-allowance update
+
+The owner approved the full pilot table; see `PLANEBYTE_USAGE_AND_ENTITLEMENTS.md`.
+The shared marketing/application catalog now contains explicit versioned limits.
+Migration47 and scoped commercial accounting are implemented locally. This is
+separate from provider lifecycle activation: no real PayU contract is created.
+
+The current PayU v2 dated-JSON / v3 verification protocol is implemented with
+exact-body SHA512 signing, fixed endpoints, bounded reads and no blind POST retries.
+A genuine Live v3 lookup returned HTTP200/status1 with one expected unknown
+transaction. Original-currency/amount/workspace checks reject absent or mismatched
+currency, surcharges, discounts and unsettled payments. A captured payment still
+never proves a recurring mandate. Hosted URL validation only accepts the configured
+mode's official PayU HTTPS host. No checkout or charge was created by these probes.
+
+The owner confirmed a verified Live merchant profile and is obtaining Zion/SI
+activation, account-specific authentication/webhook instructions, permitted
+recurring currency and international recurring-card support from PayU. No
+additional secret name is invented until that contract specifies one. The existing
+merchant key and salt must not be requested again without an actual rejection.
+
+References:
+- https://docs.payu.in/v2/reference/collect-payment-api-payu-hosted-v2-_payment
+- https://docs.payu.in/v2/reference/v2_verify_payment_api

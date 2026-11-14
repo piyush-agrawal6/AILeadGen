@@ -9,7 +9,7 @@ def _enabled(c, organization_id, row):
     enabled=bool(row and row['organization_status']=='ACTIVE' and row['onboarding_status']=='COMPLETED' and stage!='Disabled')
     if enabled and not row['manual_grant']:
         from app.billing.service import granted
-        enabled='INTENT_RADAR' in granted(c,organization_id) if settings.billing_enabled else False
+        enabled='INTENT_RADAR' in granted(c,organization_id) if settings.billing_enabled or settings.payu_billing_enabled else False
     if stage=='Internal Preview' and organization_id not in settings.intent_radar_internal_workspaces.split(','):enabled=False
     return enabled
 

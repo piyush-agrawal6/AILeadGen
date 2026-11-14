@@ -28,14 +28,14 @@ def save(path,value):
 def gate():
     frozen=json.loads((OUT/'frozen-source.json').read_text())
     if app_hash()!=frozen['app_sha256']:raise RuntimeError('Backend changed after the frozen test run.')
-    report=ET.parse(OUT/'backend-verified.xml').getroot();suites=list(report) if report.tag=='testsuites' else [report]
-    if sum(int(s.get('tests',0)) for s in suites)<998 or any(int(s.get('failures',0))+int(s.get('errors',0)) for s in suites):raise RuntimeError('Full backend gate is not passing.')
+    report=ET.parse(OUT/'backend-approved.xml').getroot();suites=list(report) if report.tag=='testsuites' else [report]
+    if sum(int(s.get('tests',0)) for s in suites)<1030 or any(int(s.get('failures',0))+int(s.get('errors',0)) for s in suites):raise RuntimeError('Full backend gate is not passing.')
     browser=json.loads((OUT/'browser-results.json').read_text())['stats']
     if browser.get('unexpected',1) or browser.get('expected')!=7:raise RuntimeError('Product assistant and six-viewport browser gate is not passing.')
-    if 'Compiled successfully' not in (OUT/'frontend-verified.log').read_text():raise RuntimeError('Verified frontend build missing.')
-    for name in ('types-final.log',):
+    if 'Compiled successfully' not in (OUT/'frontend-approved.log').read_text():raise RuntimeError('Verified frontend build missing.')
+    for name in ('types-approved.log',):
         if (OUT/name).read_text().strip():raise RuntimeError('Frontend type gate is not passing.')
-    if 'failed' in (OUT/'units-verified.log').read_text().lower():raise RuntimeError('Frontend unit gate is not passing.')
+    if 'failed' in (OUT/'units-approved.log').read_text().lower():raise RuntimeError('Frontend unit gate is not passing.')
     if subprocess.check_output(['git','status','--porcelain','--','app'],cwd=ROOT,text=True).strip():raise RuntimeError('Backend application must be committed exactly before staging.')
     if subprocess.check_output(['git','diff','--diff-filter=D','--name-only','a608210','HEAD'],cwd=ROOT,text=True).strip():raise RuntimeError('Unexpected source deletion requires investigation.')
     return subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
@@ -87,7 +87,7 @@ def stage():
             if revision!=updated['status']['latestCreatedRevisionName']:raise RuntimeError('Staged API is not ready.')
             # Read smoke is complete before changing any worker image.
             save(folder/'staged-read-smoke.json',smoke('https://intent-only---leadengine-api-befca7xg4a-el.a.run.app'))
-    result={'source_commit':source,'revision':revision,'schema':46,'migration_run':False,'production_traffic_promoted':False,'checkpoint':str(folder)}
+    result={'source_commit':source,'revision':revision,'schema':46,'code_schema':47,'migration_run':False,'production_traffic_promoted':False,'checkpoint':str(folder)}
     save(OUT/'staged-release.json',result);print(json.dumps(result))
 
 def promote():

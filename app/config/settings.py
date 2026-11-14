@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     razorpay_test_plan_id_scale:str=''
     # Hosted PayU credentials remain server-only. Configuring keys does not
     # authorize charges, establish recurring capability, or select a currency.
+    payu_billing_enabled:bool=False
     payu_mode:Literal['test','live']='test'
     payu_merchant_key:str=Field('',repr=False)
     payu_merchant_salt:SecretStr=SecretStr('')

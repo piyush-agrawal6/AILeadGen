@@ -48,7 +48,7 @@ def test_cited_ai_summary_uses_shared_gateway_validates_quotes_and_reuses_eviden
  from app.acquisition import ai
  c,path,org,other=owned;monkeypatch.setattr(get_settings(),'heysow_company_ai_enabled',True)
  provider=AsyncMock();provider.structured.return_value=summary.Proposal(excerpts=[{'source_index':0,'quote':'We provide public business services.'}]);monkeypatch.setattr(ai,'provider',lambda _:provider)
- monkeypatch.setattr(summary.ai_usage,'reserve_company',lambda:None)
+ monkeypatch.setattr(summary.ai_usage,'reserve_company',lambda **kwargs:None)
  with workspace_scope(c,'controlled@example.test',org):
   b=seed(c,org);facts={'pages':[{'url':'https://controlled.example/about','excerpt':'We provide public business services. Based in Bristol.'}]}
   c.execute('UPDATE businesses SET source_tags_json=? WHERE id=?',(json.dumps({'company_intelligence':facts}),b.id));c.commit()

@@ -1221,3 +1221,47 @@ def test_billing_pending_history_catchup_and_provider_transaction_release(postgr
         assert (saved['period_start'],saved['period_end'])==(start,end)
         service.reconcile(c,row['id'])
         assert c.execute('SELECT COUNT(*) FROM billing_payments').fetchone()[0]==1
+
+def test_commercial_monthly_atomicity_and_retry_under_postgres(postgres,monkeypatch):
+    from fastapi import HTTPException
+    import concurrent.futures,json,time,threading
+    from app.billing import commercial,commercial_usage,contracts
+    from app.platform.context import workspace_scope
+    from app.database.prospects import now
+    c=postgres;run_migrations(c);org=PLANEBYTE_ORGANIZATION_ID
+    owner=c.execute('SELECT created_by_user_id FROM organizations WHERE id=?',(org,)).fetchone()[0]
+    settings=get_settings();monkeypatch.setattr(settings,'payu_billing_enabled',True);monkeypatch.setattr(settings,'payu_mode','test');monkeypatch.setattr(settings,'billing_test_workspaces',org)
+    key=str(uuid.uuid4());start=int(time.time())-60;end=start+3600;stamp=now();plan=commercial.plan('starter')
+    c.execute("INSERT INTO commercial_contracts(id,organization_id,provider,mode,provider_subscription_id,plan_code,catalog_version,plan_json,status,mandate_verified,paid_start,paid_end,verified_at,created_at,updated_at) VALUES(?,?,'payu','test',?,'starter',?,?,'ACTIVE',1,?,?,?,?,?)",(key,org,'pg-synthetic-'+key,commercial.catalog()['version'],json.dumps(plan),start,end,stamp,stamp,stamp))
+    c.execute("INSERT INTO commercial_workspace_slots(organization_id,mode,contract_id) VALUES(?,'test',?)",(org,key));c.commit()
+    barrier=threading.Barrier(2)
+    def spend(operation,amount):
+        conn=PostgresConnection(settings.database_url,schema=c.schema)
+        try:
+            with workspace_scope(conn,owner,org):
+                barrier.wait(timeout=15);commercial_usage.reserve(conn,{'searches':amount},operation);conn.commit();return 'RESERVED'
+        except HTTPException as error:
+            conn.rollback()
+            if error.status_code==429:return 'QUOTA'
+            raise
+        finally:conn.close()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda op:spend(op,60),('a','b')))
+    assert sorted(results)==['QUOTA','RESERVED']
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda _:spend('same-retry',1),range(2)))
+    assert results==['RESERVED','RESERVED']
+    assert c.execute("SELECT reserved FROM commercial_usage WHERE organization_id=? AND dimension='searches'",(org,)).fetchone()[0]==61
+    assert c.execute('SELECT COUNT(*) FROM commercial_reservations WHERE organization_id=?',(org,)).fetchone()[0]==2
+
+
+def test_commercial_upgrade_preserves_existing_postgres_rows_and_billing_history(postgres,monkeypatch):
+    import app.database.migrations as migrations
+    c=postgres;full=migrations.MIGRATIONS
+    monkeypatch.setattr(migrations,'MIGRATIONS',full[:46]);run_migrations(c)
+    tables=[r[0] for r in c.execute("SELECT tablename FROM pg_tables WHERE schemaname=? ORDER BY tablename",(c.schema,)).fetchall()]
+    def fingerprints():
+        import hashlib,json
+        return {t:hashlib.sha256(json.dumps(sorted([json.dumps(dict(r),sort_keys=True,default=str) for r in c.execute('SELECT * FROM "'+t+'"').fetchall()])).encode()).hexdigest() for t in tables if t!='schema_migrations'}
+    before=fingerprints();monkeypatch.setattr(migrations,'MIGRATIONS',full)
+    assert run_migrations(c)==1 and run_migrations(c)==0
+    assert fingerprints()==before
+    assert c.execute('SELECT COUNT(*) FROM commercial_contracts').fetchone()[0]==0

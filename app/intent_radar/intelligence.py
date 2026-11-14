@@ -48,7 +48,7 @@ def input_hash(signal,query,icp):
     s=settings()
     return hashlib.sha256(json.dumps([VERSION,INSTRUCTION,signal['title'],signal['excerpt'],query,icp,s.primary_provider,s.vertex_project,s.vertex_location,s.vertex_model,s.gemini_model],sort_keys=True,default=str).encode()).hexdigest()
 
-def reserve(tokens=60000):
+def reserve(tokens=60000,*,operation_id=None):
     ctx=context_for_budget();s=get_settings();day=datetime.now(timezone.utc).date().isoformat()
     # Upper byte-based input reservation plus output, across at most two shared
     # router attempts. This is reserved capacity, not measured/billed tokens.
@@ -63,7 +63,7 @@ def reserve(tokens=60000):
         if row and (row['calls']>=call_limit or row['reserved_tokens']+tokens>token_limit) or tokens>token_limit:raise HTTPException(429,'Intent analysis budget exhausted; deterministic evidence remains available.')
         from app.billing.usage import reserve as reserve_plan
         import uuid
-        reserve_plan(c,{'ai_calls':1,'ai_tokens':tokens},str(uuid.uuid4()))
+        reserve_plan(c,{'ai_calls':1,'ai_tokens':tokens},operation_id or str(uuid.uuid4()))
         c.execute('INSERT INTO intent_analysis_usage(organization_id,day,reserved_tokens,calls) VALUES(?,?,?,1) ON CONFLICT(organization_id,day) DO UPDATE SET reserved_tokens=intent_analysis_usage.reserved_tokens+excluded.reserved_tokens,calls=intent_analysis_usage.calls+1',(ctx.organization_id,day,tokens))
     from app.platform.ai_usage import reserve as shared_reserve
     shared_reserve('INTENT_ANALYSIS',s.intent_radar_ai_daily_calls,50,'Intent analysis')
@@ -190,7 +190,7 @@ async def analyze(c,key,body,*,candidate_monitor=False,persistence_fence=None):
         try:
             if len(json.dumps(value,ensure_ascii=False))>5000:raise ai.AiOutputError('Analysis context exceeds bounded input size.')
             request_bytes=len(json.dumps(value,ensure_ascii=False).encode())+len(INSTRUCTION.encode())+len(json.dumps(Interpretation.model_json_schema()).encode())
-            c.commit();reserve(max(6000,(request_bytes+2048+512)*2));gateway=ai.provider(c)
+            c.commit();reserve(max(6000,(request_bytes+2048+512)*2),operation_id='signal:'+key+':'+digest);gateway=ai.provider(c)
             from app.platform.provider_usage import operation
             with operation('INTENT_ANALYSIS'):
                 output=validated(await asyncio.wait_for(gateway.structured(INSTRUCTION,value,Interpretation,max_output_tokens=2048,timeout_seconds=20,attempts_per_provider=1),timeout=25),signal,targets)

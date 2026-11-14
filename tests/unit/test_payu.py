@@ -18,9 +18,10 @@ def callback(fields,**changes):
 def test_catalog_approved_prices_not_arbitrary_test_amounts_or_binding_limits():
     catalog=commercial.catalog()
     assert [(p['code'],p['monthly_minor']) for p in catalog['plans']]==[('starter',5900),('growth',14900),('scale',37900),('enterprise',None)]
-    assert catalog['prices_approved'] and not catalog['allowances_approved'] and not catalog['checkout_enabled']
+    assert catalog['prices_approved'] and catalog['allowances_approved'] and not catalog['checkout_enabled']
     assert not catalog['annual_billing'] and not catalog['free_trial']
-    assert all(p['limits'] is None for p in catalog['plans'])
+    assert catalog['plans'][0]['limits']['searches']==100
+    assert catalog['plans'][-1]['limits'] is None
     assert catalog['excluded_products']==['lead-engine']
 
 def test_hosted_request_and_consent_hash_exact_pipe_order(fields):
@@ -77,3 +78,31 @@ def test_missing_credentials_fail_closed_without_network(monkeypatch):
     from fastapi import HTTPException
     with pytest.raises(HTTPException):payu.verify_payment('valid')
     network.assert_not_called()
+
+def test_v2_authentication_signs_exact_bytes_with_fixed_date(fields):
+    from app.billing import payu_v2
+    body,headers=payu_v2.encode({'txnId':['pbfixture123']},'Sat, 14 Nov 2026 01:00:00 GMT')
+    expected=hashlib.sha512(body+b'|Sat, 14 Nov 2026 01:00:00 GMT|fixturesalt').hexdigest()
+    assert 'signature="'+expected+'"' in headers['authorization']
+    assert json.loads(body)=={'txnId':['pbfixture123']}
+
+def v2_payment(fields):
+    return {'txnId':fields['txnid'],'originalAmount':'59.00','amount':'59.00','netDebitAmount':'59.00',
+      'additionalCharges':'0.00','discount':'0','originalCurrency':'USD','productInfo':fields['productinfo'],
+      'status':'success','unmappedStatus':'captured','mihpayId':'123456',**{k:fields[k] for k in payu.UDFS}}
+
+@pytest.mark.parametrize('field,value',[('originalCurrency','INR'),('originalCurrency',None),('originalAmount','58'),('amount','60'),('netDebitAmount','60'),('additionalCharges','1'),('discount','1'),('udf1','foreign'),('udf3','live'),('udf4','unknown'),('status','pending'),('unmappedStatus','auth')])
+def test_v2_rejects_currency_money_attribution_and_unsettled_payments(fields,field,value):
+    from app.billing import payu_v2
+    item=v2_payment(fields);item[field]=value
+    with pytest.raises(payu.PayURejected):payu_v2.validate(item,fields)
+
+def test_v2_captured_payment_never_proves_recurring_or_exposes_card_fields(fields):
+    from app.billing import payu_v2
+    result=payu_v2.validate({**v2_payment(fields),'cardNo':'sensitive-fixture'},fields)
+    assert result['payment_verified'] and not result['recurring_verified'] and 'cardNo' not in result
+
+@pytest.mark.parametrize('url',['http://test.payu.in/pay','https://test.payu.in.attacker.test/pay','https://secure.payu.in/pay','https://user@test.payu.in/pay','https://test.payu.in:444/pay','https://test.payu.in/pay#fragment'])
+def test_v2_checkout_url_is_mode_bound_and_not_an_open_redirect(fields,url):
+    from app.billing import payu_v2
+    with pytest.raises(payu.PayURejected):payu_v2.checkout_url({'result':{'checkoutUrl':url}})

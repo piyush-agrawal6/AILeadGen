@@ -88,7 +88,7 @@ def products(c, organization_id):
     rows = c.execute("SELECT product,enabled FROM organization_products WHERE organization_id=?", (organization_id,)).fetchall()
     enabled = {r[0] for r in rows if r[1]}
     from app.config.settings import get_settings
-    if get_settings().billing_enabled:
+    if get_settings().billing_enabled or get_settings().payu_billing_enabled:
         from app.billing.service import granted
         enabled.update(granted(c,organization_id))
     if not get_settings().lead_engine_available:
