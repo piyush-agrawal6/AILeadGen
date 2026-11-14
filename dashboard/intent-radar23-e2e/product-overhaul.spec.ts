@@ -1,0 +1,29 @@
+import {test,expect,type BrowserContext} from '@playwright/test';
+import {encode} from 'next-auth/jwt';
+const origin='http://127.0.0.1:13000';
+async function session(context:BrowserContext){const email='founder@leadengine.example';await context.addCookies([{name:'authjs.session-token',value:await encode({token:{sub:email,email},secret:'fixture-session-secret-only-for-local-tests-123456789',salt:'authjs.session-token',maxAge:3600}),url:origin,httpOnly:true,sameSite:'Lax'}]);}
+test('global assistant persists grounded multi-turn guidance without executing actions',async({page,context})=>{
+ test.setTimeout(90000);await session(context);
+ const response=await context.request.post('/api/intent-radar/discover',{headers:{origin},data:{configuration:{keywords:['website']}}});expect(response.status()).toBe(202);const job=(await response.json()).id;
+ await expect.poll(async()=>(await(await context.request.get('/api/intent-radar/jobs/'+job)).json()).status).toBe('COMPLETED');
+ await page.goto('/intent-radar');await page.getByRole('button',{name:'Ask PlaneByte',exact:true}).click();
+ await expect(page.getByRole('dialog')).toBeVisible();await page.getByRole('textbox',{name:'Ask PlaneByte',exact:true}).fill('What source evidence is collected here?');
+ await page.getByRole('button',{name:'Send question',exact:true}).click();
+ await expect(page.getByText('AI guidance — review required',{exact:true})).toBeVisible({timeout:45000});
+ await expect(page.getByRole('dialog').getByText('Evidence',{exact:true})).toBeVisible();
+ await page.getByRole('textbox',{name:'Ask PlaneByte',exact:true}).fill('What should I review next?');await page.getByRole('button',{name:'Send question',exact:true}).click();
+ await expect(page.getByText('AI guidance — review required',{exact:true})).toHaveCount(2,{timeout:45000});
+ await page.getByRole('button',{name:'Close intelligence assistant'}).click();await page.goto('/billing');
+ await page.getByRole('button',{name:'Ask PlaneByte',exact:true}).click();await expect(page.getByText('What should I review next?',{exact:true})).toBeVisible();
+ for(const width of [390,320]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);await expect(page.getByRole('button',{name:'Close intelligence assistant'})).toBeVisible();}
+});
+for(const width of [1440,1280,1024,768,390,320])test(`product routes remain usable without horizontal overflow at ${width}px`,async({page,context},info)=>{
+ test.setTimeout(180000);await session(context);await page.setViewportSize({width,height:900});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ for(const path of ['/intent-radar','/intent-radar/discover','/intent-radar/signals','/intent-radar/opportunities','/intent-radar/saved','/intent-radar/monitors','/intent-radar/alerts','/intent-radar/growth','/intent-radar/growth/themes','/intent-radar/growth/trends','/intent-radar/growth/research','/intent-radar/growth/watchlists','/intent-radar/growth/competitors','/intent-radar/growth/reports','/intent-radar/integrations','/settings','/settings/company','/settings/icp','/account/profile','/account/security','/billing','/help']){
+  await page.goto(path);await expect(page.locator('main').first()).toBeVisible();await expect(page.getByRole('button',{name:'Ask PlaneByte',exact:true})).toBeVisible();
+  await expect(page.locator('[role="alert"]').filter({hasText:/could not|unavailable|failed to load/i})).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),path).toBe(true);
+  await page.screenshot({path:info.outputPath(path.replaceAll('/','_')+'-'+width+'.png'),fullPage:true});
+ }
+ expect(errors).toEqual([]);
+});

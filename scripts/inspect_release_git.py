@@ -29,7 +29,7 @@ generated=[];private=[];secrets=[]
 values={}
 for path in [ROOT/'.env',ROOT/'dashboard/.env.local',ROOT/'dashboard/.env']:
     if path.is_file():
-        values.update({k:v for k,v in dotenv_values(path,interpolate=False).items() if v and len(v)>=16 and re.search(r'SECRET|PASSWORD|TOKEN|(?:^|_)KEY$|DATABASE_URL',k)})
+        values.update({k:v for k,v in dotenv_values(path,interpolate=False).items() if v and len(v)>=16 and re.search(r'SECRET|PASSWORD|TOKEN|SALT|(?:^|_)KEY$|DATABASE_URL',k)})
 for row in tree.split(b'\0'):
     if not row:continue
     metadata,name=row.split(b'\t',1);name=name.decode();oid=metadata.decode().split()[2]

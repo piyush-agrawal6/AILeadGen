@@ -33,3 +33,25 @@ def test_postgres_growth_persistence_scoping_revision_exports_and_existing_histo
         with pytest.raises(HTTPException) as denied:exports.render(c,research['id'],'json')
         assert denied.value.status_code==404
         assert not service.listing(c)['items']
+
+def test_postgres_assistant_real_reservation_private_history_and_recovery(pg_radar,monkeypatch):
+    from types import SimpleNamespace
+    from app.intent_radar import assistant
+    c,org,other=pg_radar
+    monkeypatch.setattr(get_settings(),'intent_radar_growth_enabled',True)
+    monkeypatch.setattr(get_settings(),'intent_radar_ai_enabled',True)
+    async def structured(instruction,payload,schema,**kwargs):
+        ref=next(r for r in payload['references'] if r['id'].startswith('help:'))
+        return schema(blocks=[{'kind':'Guidance','text':ref['text'][:100],'citations':[{'reference':ref['id'],'quote':ref['text'][:150]}]}])
+    monkeypatch.setattr(assistant.ai,'provider',lambda _:SimpleNamespace(structured=structured,last_provider='SYNTHETIC'))
+    with workspace_scope(c,'radar-pg@example.test',org):
+        body=assistant.Turn(prompt='How can I review source evidence?')
+        turn=assistant.start(c,body);c.commit();jobs.execute(turn['job_id'])
+        result=service.detail(c,turn['id']);assert result['status']=='COMPLETE'
+        assert assistant.start(c,body)['id']==turn['id']
+        assert len(assistant.listing(c)['items'])==1 and len(assistant.history(c,turn['id'])['turns'])==1
+        assert service.listing(c)['total']==0
+        assert c.execute('SELECT calls FROM intent_analysis_usage WHERE organization_id=?',(org,)).fetchone()[0]==1
+    with workspace_scope(c,'radar-pg@example.test',other):
+        assert not assistant.listing(c)['items']
+        with pytest.raises(HTTPException):assistant.history(c,turn['id'])

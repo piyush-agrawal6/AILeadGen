@@ -13,7 +13,7 @@ for(const width of [1440,768,390])test(`Intent-only release preserves research a
  for(const path of ['/campaigns','/scans/4','/outreach','/settings/limits','/settings/templates','/settings/integrations']){await page.goto(path);await expect(page).toHaveURL(/\/intent-radar$/);}
  for(const path of ['/intent-radar/signals','/intent-radar/monitors','/intent-radar/growth','/intent-radar/growth/research','/intent-radar/settings','/settings','/settings/developer','/help','/billing']){
   await page.goto(path);await expect(page.locator('main').first()).toBeVisible();
-  await expect(page.locator('body')).not.toContainText('Lead Engine');
+  if(path!=='/billing')await expect(page.locator('body')).not.toContainText('Lead Engine');else await expect(page.getByRole('heading',{name:'Billing & usage',exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  }
  const access=await(await context.request.get('/api/organization/products')).json();expect(access.lead_engine_available).toBe(false);expect(access.lead_engine).toBe(false);expect(access.intent_radar.enabled).toBe(true);

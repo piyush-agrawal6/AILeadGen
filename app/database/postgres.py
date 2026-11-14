@@ -1,5 +1,5 @@
 """Small PostgreSQL DB-API adapter retaining the existing parameterized repositories."""
-import re,os,threading
+import re,os,threading,time
 import psycopg
 from urllib.parse import urlsplit,urlunsplit
 
@@ -83,7 +83,11 @@ class PostgresConnection:
         if self.raw.info.transaction_status == psycopg.pq.TransactionStatus.IDLE:
             # SET LOCAL is reapplied after every commit, even when a transaction
             # pooler chooses a different backend. Schema names are validated.
-            self.raw.execute(f"SET LOCAL search_path TO {self.schema}; SET LOCAL TIME ZONE 'UTC'; SET LOCAL statement_timeout = '30s'")
+            started=time.monotonic()
+            try:self.raw.execute(f"SET LOCAL search_path TO {self.schema}; SET LOCAL TIME ZONE 'UTC'; SET LOCAL statement_timeout = '30s'")
+            finally:
+                from app.platform.request_metrics import database
+                database(time.monotonic()-started)
 
     def execute(self, statement, parameters=()):
         self._prepare_transaction()
@@ -93,7 +97,11 @@ class PostgresConnection:
         returning = insert and insert.group(1).lower() in ID_TABLES and "RETURNING" not in statement.upper()
         if returning:
             statement = statement.rstrip().rstrip(";") + " RETURNING id"
-        cursor = self.raw.execute(statement, parameters)
+        started=time.monotonic()
+        try:cursor = self.raw.execute(statement, parameters)
+        finally:
+            from app.platform.request_metrics import database
+            database(time.monotonic()-started)
         last_id = None
         if returning:
             row = cursor.fetchone()

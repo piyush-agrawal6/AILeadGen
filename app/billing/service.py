@@ -102,10 +102,11 @@ def info(c):
         limits=json.loads(selected['plan_json'])['limits']
         counters={r['dimension']:r['used'] for r in c.execute('SELECT dimension,used FROM billing_usage WHERE organization_id=? AND subscription_id=? AND period_start=?',(ctx.organization_id,selected['id'],selected['paid_start'])).fetchall()}
         usage=[{'dimension':d,'used':counters.get(d,0),'limit':limits[d],'remaining':max(0,limits[d]-counters.get(d,0))} for d in catalog.DIMENSIONS]
-    return {'mode':'test','provider':'razorpay','provider_configured':provider.configured(),'webhook_configured':bool(s.razorpay_webhook_secret.get_secret_value()),'controlled_workspace':test_allowed(ctx.organization_id),'can_manage':membership_role(c,ctx.actor,ctx.organization_id)=='OWNER','checkout_available':membership_role(c,ctx.actor,ctx.organization_id)=='OWNER' and test_allowed(ctx.organization_id) and provider.configured(),'public_checkout_enabled':False,'commercial_pricing_approved':False,'provider_health':'Credentials present; live Test Mode acceptance not certified' if provider.configured() else 'Not configured','plans':[p.model_dump() for p in catalog.plans(c).values()],'subscriptions':[public(dict(row)) for row in rows],'payments':[dict(row) for row in payments],'usage':usage,'manual_access_preserved':True,'plan_changes':'Cancel the existing subscription before selecting another sandbox plan. In-place proration is not enabled.'}
+    return {'mode':'test','provider':'razorpay','provider_configured':provider.configured(),'webhook_configured':bool(s.razorpay_webhook_secret.get_secret_value()),'controlled_workspace':test_allowed(ctx.organization_id),'can_manage':membership_role(c,ctx.actor,ctx.organization_id)=='OWNER','checkout_available':s.app_env!='production' and membership_role(c,ctx.actor,ctx.organization_id)=='OWNER' and test_allowed(ctx.organization_id) and provider.configured(),'public_checkout_enabled':False,'commercial_pricing_approved':False,'provider_health':'Credentials present; live Test Mode acceptance not certified' if provider.configured() else 'Not configured','plans':[p.model_dump() for p in catalog.plans(c).values()],'subscriptions':[public(dict(row)) for row in rows],'payments':[dict(row) for row in payments],'usage':usage,'manual_access_preserved':True,'plan_changes':'Cancel the existing subscription before selecting another sandbox plan. In-place proration is not enabled.'}
 
 def checkout(c,key):
     row=owned(c,key,True)
+    if get_settings().app_env=='production':raise HTTPException(410,'New Razorpay checkout is retired. Historical billing remains available.')
     if not test_allowed(row['organization_id']):raise HTTPException(403,'Test checkout is restricted to approved workspaces.')
     s=provider.guard()
     if row['status'] not in ('created','authenticated') or not row['provider_id']:raise HTTPException(409,'Reconcile this subscription before opening checkout.')
@@ -114,6 +115,7 @@ def checkout(c,key):
 
 def create(c,body):
     ctx=access(c,True)
+    if get_settings().app_env=='production':raise HTTPException(410,'New Razorpay subscriptions are retired. No payment has been initiated.')
     if not test_allowed(ctx.organization_id):raise HTTPException(403,'Test checkout is restricted to approved workspaces.')
     provider.guard();p=catalog.plan(body.plan_code,c)
     if not p.provider_plan_id or not p.amount:raise HTTPException(409,'This test plan has no verified provider mapping. No payment has been initiated.')

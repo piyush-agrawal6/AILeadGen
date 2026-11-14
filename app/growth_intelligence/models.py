@@ -15,6 +15,11 @@ class Scope(Strict):
     competitor_id:UUID|None=None
     icp_id:UUID|None=None
 
+class AssistantContext(Strict):
+    thread_id:UUID|None=None
+    page:Literal['overview','discover','opportunities','growth','monitors','integrations','billing','settings','library']='overview'
+    signal_ids:list[UUID]=Field(default_factory=list,max_length=5)
+
 class Start(Strict):
     kind:Literal['THEMES','RESEARCH','REPORT']='THEMES'
     report_type:Literal['Market overview','Emerging demand','Competitor alternatives','Intent summary','Opportunity shortlist','Watchlist activity','Market comparison']='Market overview'
@@ -22,6 +27,7 @@ class Start(Strict):
     question:str=Field('',max_length=1500)
     scope:Scope=Field(default_factory=Scope)
     request_id:UUID=Field(default_factory=uuid4)
+    assistant:AssistantContext|None=None
 
 class Citation(Strict):
     signal_id:UUID

@@ -17,16 +17,22 @@ def rank_expression(alias='intent_signals'):
     value=f'({base}+{delta})'
     return f'CASE WHEN {value}>100 THEN 100 WHEN {value}<0 THEN 0 ELSE {value} END'
 
+def ranked_signals(c,items):
+    if not items:return items
+    org=context(c).organization_id
+    if len(items)>100 or any(item['organization_id']!=org for item in items):raise HTTPException(404,'Signal batch is outside this workspace.')
+    marks=','.join('?' for _ in items)
+    rows=c.execute("SELECT s.id,"+rank_expression('s')+" adjusted_score,(SELECT r.explanation_json FROM intent_rankings r WHERE r.organization_id=s.organization_id AND r.signal_id=s.id AND (r.icp_id IS NULL OR EXISTS(SELECT 1 FROM ideal_customer_profiles i WHERE i.organization_id=r.organization_id AND i.id=r.icp_id AND i.revision=r.icp_revision)) AND NOT EXISTS(SELECT 1 FROM organization_profiles p WHERE p.organization_id=r.organization_id AND p.updated_at>r.updated_at)) explanation FROM intent_signals s WHERE s.organization_id=? AND s.id IN ("+marks+")",[org,*[item['id'] for item in items]]).fetchall()
+    ranks={r['id']:r for r in rows}
+    for item in items:
+        item['keyword_score']=item['score'];row=ranks.get(item['id'])
+        if not row:raise HTTPException(404,'Signal not found in this workspace.')
+        if not item['available']:item['score']=0;item['ranking']={'basis':'Public source evidence is unavailable; no current relevance claim.'};continue
+        item['score']=row['adjusted_score'];item['ranking']=json.loads(row['explanation']) if row['explanation'] else {'version':'DETERMINISTIC_V3','basis':'Keyword evidence + bounded active workspace feedback'}
+    return items
+
 def ranked_signal(c,item):
-    item['keyword_score']=item['score']
-    if not item['available']:
-        item['score']=0;item['ranking']={'basis':'Public source evidence is unavailable; no current relevance claim.'}
-        return item
-    rank=c.execute('SELECT '+rank_expression()+' FROM intent_signals WHERE organization_id=? AND id=?',(item['organization_id'],item['id'])).fetchone()
-    item['score']=rank[0] if rank else item['score']
-    row=c.execute('SELECT r.explanation_json FROM intent_rankings r WHERE r.organization_id=? AND r.signal_id=? AND (r.icp_id IS NULL OR EXISTS(SELECT 1 FROM ideal_customer_profiles i WHERE i.organization_id=r.organization_id AND i.id=r.icp_id AND i.revision=r.icp_revision)) AND NOT EXISTS(SELECT 1 FROM organization_profiles p WHERE p.organization_id=r.organization_id AND p.updated_at>r.updated_at)',(item['organization_id'],item['id'])).fetchone()
-    item['ranking']=json.loads(row[0]) if row else {'version':'DETERMINISTIC_V3','basis':'Keyword evidence + bounded active workspace feedback'}
-    return item
+    return ranked_signals(c,[item])[0]
 
 def audit(c, action, key):
     ctx = context(c)
@@ -151,12 +157,24 @@ def listing(c,kind,**filters):
     else:
         if filters.get('read_state')=='Unread':where.append('read_at IS NULL')
         if filters.get('read_state')=='Read':where.append('read_at IS NOT NULL')
-        if filters.get('alert_kind')=='Source issues':where.append("event_key LIKE 'source-failure:%'")
-        if filters.get('alert_kind')=='Monitor activity':where.append("event_key NOT LIKE 'source-failure:%'")
+        if filters.get('alert_kind')=='Source issues':where.append('event_key LIKE ?');args.append('source-failure:%')
+        if filters.get('alert_kind')=='Monitor activity':where.append('event_key NOT LIKE ?');args.append('source-failure:%')
         order='created_at DESC,id'
     sql=' AND '.join(where);total=c.execute('SELECT COUNT(*) FROM '+TABLES[kind]+' WHERE '+sql,args).fetchone()[0]
     rows=c.execute('SELECT * FROM '+TABLES[kind]+' WHERE '+sql+' ORDER BY '+order+' LIMIT ? OFFSET ?',[*args,size,(page-1)*size]).fetchall()
-    if kind!='signals':items=[get(c,kind,r['id']) for r in rows]
+    if kind=='opportunities':
+        items=[decode(r) for r in rows];signal_ids=list(dict.fromkeys(item['signal_id'] for item in items));signals={}
+        if signal_ids:
+            marks=','.join('?' for _ in signal_ids);days=preferences(c)['source_retention_days']
+            signal_items=[decode(r) for r in c.execute('SELECT * FROM intent_signals WHERE organization_id=? AND id IN ('+marks+')',[org,*signal_ids]).fetchall()]
+            for item in signal_items:
+                if expired(item,days):item.update(available=0,title='Source item unavailable',excerpt='',evidence={})
+            signals={item['id']:item for item in ranked_signals(c,signal_items)}
+        for item in items:
+            signal=signals.get(item['signal_id'])
+            if not signal:raise HTTPException(404,'Signal not found in this workspace.')
+            item['score']=signal['score'];item['ranking']=signal['ranking'];item['signal']=signal
+    elif kind!='signals':items=[decode(r) for r in rows]
     else:
         items=[]
         retention_days=preferences(c)['source_retention_days']
@@ -164,7 +182,8 @@ def listing(c,kind,**filters):
         for row in rows:
             item=decode(row)
             if expired(item,retention_days):item.update(available=0,title='Source item unavailable',excerpt='',evidence={})
-            ranked_signal(c,item);items.append(item)
+            items.append(item)
+        ranked_signals(c,items)
         ids=[i['id'] for i in items]
         links={key:[] for key in ids};saved_ids=set()
         if ids:
@@ -228,7 +247,18 @@ def saved(c,*,page=1,size=25,search='',collection='',sort='newest'):
     orders={'newest':'saved_at DESC,signal_id','oldest':'saved_at,signal_id','collection':'collection,signal_id'}
     if sort not in orders:raise HTTPException(422,'Unsupported saved sort.')
     collections=[r[0] for r in c.execute('SELECT DISTINCT collection FROM intent_saved_signals WHERE organization_id=? ORDER BY collection LIMIT 100',(org,)).fetchall()]
-    return {'items':[decode(r) for r in c.execute('SELECT * FROM intent_saved_signals WHERE '+where+' ORDER BY '+orders[sort]+' LIMIT ? OFFSET ?',[*args,size,(page-1)*size]).fetchall()],'page':page,'page_size':size,'total':total,'collections':collections}
+    items=[decode(r) for r in c.execute('SELECT * FROM intent_saved_signals WHERE '+where+' ORDER BY '+orders[sort]+' LIMIT ? OFFSET ?',[*args,size,(page-1)*size]).fetchall()]
+    ids=[item['signal_id'] for item in items]
+    if ids:
+        days=preferences(c)['source_retention_days']
+        signals=[decode(r) for r in c.execute('SELECT * FROM intent_signals WHERE organization_id=? AND id IN ('+','.join('?' for _ in ids)+')',[org,*ids]).fetchall()]
+        for signal in signals:
+            if not signal['available'] or expired(signal,days):signal.update(available=0,title='Source item unavailable',excerpt='',evidence={})
+        by_id={signal['id']:signal for signal in ranked_signals(c,signals)}
+        for item in items:
+            if item['signal_id'] not in by_id:raise HTTPException(404,'Saved source not found in this workspace.')
+            item['signal']=by_id[item['signal_id']]
+    return {'items':items,'page':page,'page_size':size,'total':total,'collections':collections}
 
 def bookmark(c, key, body=None, remove=False):
     ctx = context(c,True); get(c,'signals',key); lock(c)
@@ -284,10 +314,16 @@ def alert(c,event_key,title,description,monitor_id=None,signal_id=None,actor=Non
 def overview(c):
     org=context(c).organization_id
     from app.intent_radar.operations import overview as operational_overview
-    count=lambda table,where='',args=():c.execute(f'SELECT COUNT(*) FROM {table} WHERE organization_id=?'+where,(org,*args)).fetchone()[0]
     retention,retention_args=retention_sql(c,preferences(c)['source_retention_days'])
-    return {'new_signals':count('intent_signals'," AND status='New' AND available=1 AND "+retention,retention_args),'reviewed_signals':count('intent_signals'," AND status='Reviewed'"),'high_relevance':count('intent_signals',' AND '+rank_expression()+'>=85 AND available=1 AND '+retention,retention_args),
-            'active_monitors':count('intent_monitors'," AND status='Active'"),'saved_opportunities':count('intent_opportunities'," AND status='Saved'"),'unread_alerts':count('intent_alerts',' AND read_at IS NULL'),'operations':operational_overview(c),
+    counts=dict(c.execute("""SELECT
+        (SELECT COUNT(*) FROM intent_signals WHERE organization_id=? AND status='New' AND available=1 AND """+retention+""" ) new_signals,
+        (SELECT COUNT(*) FROM intent_signals WHERE organization_id=? AND status='Reviewed') reviewed_signals,
+        (SELECT COUNT(*) FROM intent_signals WHERE organization_id=? AND """+rank_expression()+""">=85 AND available=1 AND """+retention+""") high_relevance,
+        (SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status='Active') active_monitors,
+        (SELECT COUNT(*) FROM intent_opportunities WHERE organization_id=? AND status='Saved') saved_opportunities,
+        (SELECT COUNT(*) FROM intent_alerts WHERE organization_id=? AND read_at IS NULL) unread_alerts""",
+        (org,*retention_args,org,org,*retention_args,org,org,org)).fetchone())
+    return {**counts,'operations':operational_overview(c,include_sources=False),
             'trends':[dict(r) for r in c.execute('SELECT SUBSTR(observed_at,1,10) AS "day",COUNT(*) volume FROM intent_signals WHERE organization_id=? AND available=1 GROUP BY SUBSTR(observed_at,1,10) ORDER BY "day" DESC LIMIT 14',(org,)).fetchall()],
              'recent_signals':listing(c,'signals',size=5)['items'],'monitors':listing(c,'monitors',size=5)['items'],'opportunities':listing(c,'opportunities',size=5)['items'],'alerts':listing(c,'alerts',size=5)['items']}
 

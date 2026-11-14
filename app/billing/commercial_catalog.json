@@ -1,0 +1,32 @@
+{
+  "version": "2026-11-14.1",
+  "product": "intent-radar",
+  "name": "Intent Radar + Growth Intelligence",
+  "list_currency": "USD",
+  "interval": "monthly",
+  "prices_approved": true,
+  "allowances_approved": false,
+  "checkout_enabled": false,
+  "annual_billing": false,
+  "free_trial": false,
+  "plans": [
+    {"code":"starter","name":"Starter","monthly_minor":5900,"audience":"Individuals and small teams starting with intent intelligence","limits":null},
+    {"code":"growth","name":"Growth","monthly_minor":14900,"audience":"Growing businesses and agencies using intelligence regularly","limits":null},
+    {"code":"scale","name":"Scale","monthly_minor":37900,"audience":"Established growth and revenue teams requiring higher capacity","limits":null},
+    {"code":"enterprise","name":"Enterprise","monthly_minor":null,"audience":"Tailored capacity, permissions and support under a separate agreement","limits":null}
+  ],
+  "capabilities": [
+    {"id":"discovery","name":"Public conversation discovery","description":"Search configured and authorized sources; results retain original evidence links."},
+    {"id":"growth","name":"Growth Intelligence","description":"Research collected discussions, themes and opportunity context with referenced evidence."},
+    {"id":"monitoring","name":"Monitoring and watchlists","description":"Run bounded searches on configured sources at supported intervals."},
+    {"id":"research","name":"Saved research and reports","description":"Keep and export workspace research; AI interpretation is labeled separately from evidence."},
+    {"id":"developer","name":"Developer API and MCP","description":"Scoped developer access where enabled for the workspace; tier allocation awaits approval."}
+  ],
+  "excluded_products":["lead-engine"],
+  "disclosures": [
+    "Monthly USD list prices are approved. Numeric plan allowances await final approval.",
+    "The actual PayU charge currency, recurring-payment availability and tax treatment must be confirmed before checkout opens.",
+    "No annual discounts, free trial or setup fee is offered.",
+    "Lead Engine is a separate future launch and is not included."
+  ]
+}

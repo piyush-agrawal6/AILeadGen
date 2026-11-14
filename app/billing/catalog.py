@@ -67,4 +67,4 @@ def handoff(product,code):
     from fastapi import HTTPException
     if product!='intent-radar':raise HTTPException(422,'Only Intent Radar plan selection is supported.')
     p=plan(code)
-    return {'product':'intent-radar','plan':p.code,'destination':'/billing?plan='+p.code,'checkout_enabled':False,'requires_authenticated_workspace':True,'commercial_price_approved':False}
+    return {'product':'intent-radar','plan':p.code,'destination':'/billing?plan='+p.code,'checkout_enabled':False,'requires_authenticated_workspace':True,'commercial_price_approved':True}

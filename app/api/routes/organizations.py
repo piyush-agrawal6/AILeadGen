@@ -103,3 +103,8 @@ def invitation_revoke(invitation_id:UUID,c=Depends(get_db,scope='function')):
 def notification_list(c=Depends(get_db,scope='function')):
     require_enabled()
     return invitations.notifications(c)
+
+@router.get('/usage')
+def usage_overview(c=Depends(get_db,scope='function')):
+    from app.billing.overview import overview
+    return overview(c)

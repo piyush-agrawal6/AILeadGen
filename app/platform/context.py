@@ -44,9 +44,8 @@ def workspace_scope(conn, actor, organization_id):
             raise HTTPException(403,'Customer account access is not enabled.')
     if not actor or not organization_id or not membership_role(conn, actor, organization_id):
         raise HTTPException(403, "Active workspace membership is required.")
-    active = conn.execute("SELECT status FROM organizations WHERE id=?", (organization_id,)).fetchone()
-    if not active or active[0] != "ACTIVE":
-        raise HTTPException(403, "Active workspace membership is required.")
+    # membership_role joins the active organization in the same query; a
+    # second status read adds latency without an atomic authorization guarantee.
     previous = _active.get()
     if previous and previous.organization_id != organization_id:
         raise HTTPException(403, "A task cannot switch its workspace context.")

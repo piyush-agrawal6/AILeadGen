@@ -7,7 +7,8 @@ import {useQuery} from '@tanstack/react-query';
 import {ArrowRight, ArrowUpRight, BookOpen, Check, LockKeyhole, Radio, ShieldCheck, SlidersHorizontal} from 'lucide-react';
 import {request} from '@/lib/intelligence';
 import {useWorkspace} from '@/components/workspaces/use-workspace';
-import {useRadarCapabilities} from './provider';
+import {useRadarCapabilities,useMcpEndpoint} from './provider';
+import {copilotConfiguration} from '@/lib/mcp-configuration';
 import {Badge, EmptyState, Field, Modal, PageHeading} from './ui';
 import {ProviderLogo} from './provider-logo';
 import './integrations.css';
@@ -48,10 +49,12 @@ function MCPFlow() {
 }
 
 function MCPDetails({entry, status}: {entry: Entry; status: string}) {
-  const capabilities=useRadarCapabilities();
+  const capabilities=useRadarCapabilities(),endpoint=useMcpEndpoint(),[copy,setCopy]=useState('');
+  async function clipboard(value:string,label:string){try{await navigator.clipboard.writeText(value);setCopy(label+' copied.')}catch{setCopy('Clipboard unavailable. Select the displayed text and copy it manually.')}}
   return <>
     <div className="ir-market-notice"><ShieldCheck size={20}/><p><strong>{status}.</strong> Client connection is not verified. Use shared Developer access to review the current gates and available scopes.</p></div>
-    <div className="ir-market-fields"><Field label="Backend endpoint path" hint="Your administrator must confirm the deployed HTTPS API origin and client reachability."><input readOnly value="/api/v1/mcp"/></Field><Field label="Required scopes" hint="A key is bound to one workspace and its issuing member’s current access."><input readOnly value="mcp:use + intent:read"/></Field></div>
+    <div className="ir-market-fields"><Field label="Configured backend endpoint" hint="Configuration alone does not verify an external client connection."><input readOnly value={endpoint||'/api/v1/mcp'}/></Field><Field label="Required scopes" hint="A key is bound to one workspace and its issuing member’s current access."><input readOnly value="mcp:use + intent:read"/></Field></div>
+    {endpoint&&<><div className="ir-actions"><button onClick={()=>void clipboard(endpoint,'Endpoint')}>Copy endpoint</button><button onClick={()=>void clipboard(copilotConfiguration(endpoint),'Copilot configuration')}>Copy Copilot configuration</button></div><details><summary>Copilot configuration and credential setup</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{copilotConfiguration(endpoint)}</pre><p>Use the native Copilot mcp-config.json format. Set PLANEBYTE_MCP_KEY securely in the environment of the host running Copilot. The copied file contains an environment reference, never your actual key. No input prompt or OAuth connection is claimed.</p><a href="https://code.visualstudio.com/docs/agents/reference/mcp-configuration" target="_blank" rel="noopener noreferrer">Official configuration and secret handling</a></details>{copy&&<p role="status">{copy}</p>}</>}
     <h3>Set up a read-only client</h3>
     <ol className="ir-market-steps"><li>Ask a workspace owner or administrator to review Developer access. Both the developer API and MCP gates must be enabled, and the workspace must have Intent Radar access and completed onboarding. Only the enabled Intent Radar read scopes are needed for these tools.</li><li>Create an expiring scoped key in shared settings, selecting <code>mcp:use</code> and <code>intent:read</code> only when those scopes are offered. Store the one-time key securely in your client’s supported secret storage.</li><li>Configure a compatible Streamable HTTP client with the administrator-confirmed endpoint and an Authorization bearer header. This page does not provide an OAuth sign-in or collect credentials.</li><li>Discover the tools and verify a read call such as <code>list_intent_monitors</code>. Inspect the returned workspace data before treating the client as connected.</li></ol>
     <h3>Implemented read contracts</h3><dl className="ir-market-tools">{[...tools,...(capabilities.data?.growth_enabled?growthTools:[])].map(([name, explanation]) => <div key={name}><dt><code>{name}</code></dt><dd>{explanation}</dd></div>)}</dl>

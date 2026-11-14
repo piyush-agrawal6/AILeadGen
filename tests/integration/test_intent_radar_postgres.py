@@ -108,6 +108,17 @@ def test_postgres_recovered_source_checkpoint_is_not_fetched_again(pg_radar,monk
         assert service.listing(c,'signals')['total']==1
         assert restored['sources'][0]['signals']
 
+def test_postgres_alert_kind_filters_bind_wildcards_and_preserve_workspace_scope(pg_radar):
+    c,org,other=pg_radar
+    with workspace_scope(c,'radar-pg@example.test',org):
+        service.alert(c,'source-failure:fixture','Source check failed','Controlled fixture')
+        service.alert(c,'monitor-complete:fixture','Monitor complete','Controlled fixture')
+        assert service.listing(c,'alerts',alert_kind='Source issues')['total']==1
+        assert service.listing(c,'alerts',alert_kind='Monitor activity')['total']==1
+        assert service.listing(c,'alerts',alert_kind='All')['total']==2
+    with workspace_scope(c,'radar-pg@example.test',other):
+        assert service.listing(c,'alerts',alert_kind='Source issues')['total']==0
+
 def test_postgres_radar_analysis_cache_feedback_and_durable_budget(pg_radar,monkeypatch):
     c,org,_=pg_radar
     monkeypatch.setattr(get_settings(),'intent_radar_ai_enabled',True)

@@ -96,7 +96,18 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
             # pooled connection, while handlers obtain their own connections.
             response=await read_cache.handle(request,call_next)
         return response
-    async def dispatch(self, request, call_next):
+    async def dispatch(self,request,call_next):
+        from app.platform import request_metrics
+        started=time.monotonic();token=request_metrics.begin()
+        try:
+            response=await self._dispatch(request,call_next)
+            if getattr(request.state,'user_email',None):
+                previous=response.headers.get('Server-Timing','')
+                response.headers['Server-Timing']=', '.join(filter(None,(previous,request_metrics.header(),f'app;dur={(time.monotonic()-started)*1000:.1f}')))
+            return response
+        finally:request_metrics.finish(token)
+
+    async def _dispatch(self, request, call_next):
         if request.url.path=='/api/billing/webhooks/razorpay' and request.method=='POST':
             # This one provider callback uses its own bounded raw-body HMAC;
             # arbitrary billing/API prefixes never bypass signed authentication.

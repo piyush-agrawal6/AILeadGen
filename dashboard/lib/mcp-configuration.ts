@@ -1,0 +1,3 @@
+/** Public transport metadata only. No server signing or provider secret enters it. */
+export function publicMcpEndpoint(base:string){try{const u=new URL(base);if(u.username||u.password||u.search||u.hash||u.pathname!=='/'||!(u.protocol==='https:'||u.protocol==='http:'&&['localhost','127.0.0.1'].includes(u.hostname)))return '';return u.origin+'/api/v1/mcp'}catch{return ''}}
+export function copilotConfiguration(endpoint:string){const u=new URL(endpoint);if(publicMcpEndpoint(u.origin)!==endpoint)throw new Error('Invalid MCP endpoint');return JSON.stringify({mcpServers:{planeByte:{type:'http',url:endpoint,headers:{Authorization:'Bearer ${PLANEBYTE_MCP_KEY}'},tools:['search_intent_signals','list_intent_monitors','get_intent_signal']}}},null,2)}

@@ -56,7 +56,7 @@ class ExportConfig(BaseModel):
 class Settings(BaseSettings):
     # Billing is additive and sandbox-only. Public checkout is fail-closed.
     billing_enabled:bool=False
-    billing_provider:Literal['razorpay']='razorpay'
+    billing_provider:Literal['razorpay','payu']='razorpay'
     billing_test_mode:bool=True
     billing_public_checkout_enabled:bool=False
     billing_test_workspaces:str=''
@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     razorpay_test_plan_id_starter:str=''
     razorpay_test_plan_id_growth:str=''
     razorpay_test_plan_id_scale:str=''
+    # Hosted PayU credentials remain server-only. Configuring keys does not
+    # authorize charges, establish recurring capability, or select a currency.
+    payu_mode:Literal['test','live']='test'
+    payu_merchant_key:str=Field('',repr=False)
+    payu_merchant_salt:SecretStr=SecretStr('')
     lead_engine_public_enabled:bool=False
     # Reversible product availability, independent of preserved paid/manual grants.
     lead_engine_available:bool=False

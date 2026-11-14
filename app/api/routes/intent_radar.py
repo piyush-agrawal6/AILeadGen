@@ -163,3 +163,16 @@ def icps(c=Depends(get_db,scope='function')):
     context(c)
     from app.icp.service import listing
     return listing(c)
+
+# The global assistant reuses the existing asynchronous research/job pipeline.
+from app.intent_radar import assistant
+@router.get('/assistant/conversations')
+def assistant_conversations(c=Depends(get_db,scope='function')):return assistant.listing(c)
+@router.get('/assistant/conversations/{key}')
+def assistant_conversation(key:UUID,c=Depends(get_db,scope='function')):return assistant.history(c,str(key))
+@router.post('/assistant/turns',status_code=202)
+async def assistant_turn(body:assistant.Turn,c=Depends(get_db,scope='function')):
+    result=assistant.start(c,body);c.commit()
+    from app.intelligence.dispatch import launch
+    await launch(result['job_id'])
+    return result

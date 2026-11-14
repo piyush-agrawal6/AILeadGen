@@ -55,27 +55,32 @@ def resolve(c, email):
     The gated personal preference is always rechecked against live membership.
     Legacy deployments retain their established earliest-membership behavior.
     """
-    rows = memberships(c, email)
-    if not rows:
-        return None
-    active = rows[0]
+    # Resolve memberships, saved selection and onboarding in one current SQL
+    # snapshot. No permission result is cached across requests or provider work.
     from app.config.settings import get_settings
+    records=[dict(r) for r in c.execute("""SELECT m.id,m.organization_id,m.role,m.status,m.created_at,
+        o.name,o.slug,o.status AS organization_status,p.active_organization_id preferred_id,
+        b.status onboarding_status,b.current_step onboarding_current_step
+        FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id
+        LEFT JOIN user_profiles p ON p.user_id=m.user_id
+        LEFT JOIN organization_onboarding b ON b.organization_id=m.organization_id
+        WHERE m.user_id=? AND m.status='ACTIVE' AND o.status='ACTIVE'
+        ORDER BY m.created_at,m.id""",(email,)).fetchall()]
+    if not records:return None
+    active=records[0]
     if get_settings().heysow_workspace_management_enabled:
-        preferred=c.execute('SELECT active_organization_id FROM user_profiles WHERE user_id=?',(email,)).fetchone()
-        if preferred and preferred[0]:
-            active=next((row for row in rows if row['organization_id']==preferred[0]),None)
-            if active is None:return None  # Revocation never silently switches tenants.
-        elif len(rows)>1:
-            return None  # Explicit selection is required when membership is ambiguous.
-    state = onboarding(c, active['organization_id']) or {}
+        preferred=records[0]['preferred_id']
+        if preferred:
+            active=next((r for r in records if r['organization_id']==preferred),None)
+            if active is None:return None
+        elif len(records)>1:return None
+    private={'preferred_id','onboarding_status','onboarding_current_step'}
+    rows=[{key:value for key,value in r.items() if key not in private} for r in records]
     return {
-        'organization_id': active['organization_id'],
-        'organization_name': active['name'],
-        'organization_slug': active['slug'],
-        'role': active['role'],
-        'memberships': rows,
-        'onboarding_status': state.get('status') or 'NOT_STARTED',
-        'onboarding_current_step': state.get('current_step'),
+        'organization_id':active['organization_id'],'organization_name':active['name'],
+        'organization_slug':active['slug'],'role':active['role'],'memberships':rows,
+        'onboarding_status':active['onboarding_status'] or 'NOT_STARTED',
+        'onboarding_current_step':active['onboarding_current_step'],
     }
 
 
