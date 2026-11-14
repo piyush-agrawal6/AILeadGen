@@ -1193,3 +1193,31 @@ def test_billing_cycle_quota_atomicity_under_real_postgres_concurrency(postgres,
     assert results==['RESERVED','RESERVED']
     assert c.execute("SELECT used FROM billing_usage WHERE organization_id=? AND dimension='searches'",(org,)).fetchone()[0]==16
     assert c.execute('SELECT COUNT(*) FROM billing_reservations WHERE organization_id=?',(org,)).fetchone()[0]==2
+
+def test_billing_pending_history_catchup_and_provider_transaction_release(postgres,monkeypatch):
+    from pydantic import SecretStr
+    from psycopg.pq import TransactionStatus
+    from app.billing import service
+    from app.platform.context import workspace_scope
+    from test_billing import mock_provider
+    c=postgres;run_migrations(c);org=PLANEBYTE_ORGANIZATION_ID
+    owner=c.execute('SELECT created_by_user_id FROM organizations WHERE id=?',(org,)).fetchone()[0]
+    settings=get_settings()
+    for name,value in {'billing_enabled':True,'billing_test_workspaces':org,'billing_test_mode':True,'razorpay_mode':'test','razorpay_key_id':'rzp_test_fixture','razorpay_key_secret':SecretStr('synthetic-api-secret'),'razorpay_test_plan_id_starter':'plan_fixture1'}.items():monkeypatch.setattr(settings,name,value)
+    state,invoice,payment,api,start,end=mock_provider(monkeypatch)
+    with workspace_scope(c,owner,org):
+        row=service.create(c,service.Create(plan_code='starter',request_id=uuid.uuid4(),confirm_test_mode=True))
+        original=api.side_effect
+        def outside_transaction(*args,**kwargs):
+            assert c.raw.info.transaction_status==TransactionStatus.IDLE
+            return original(*args,**kwargs)
+        api.side_effect=outside_transaction
+        state.update(status='pending',paid_count=1,customer_id='cust_fixture1',current_start=end,current_end=end+3600)
+        result=service.reconcile(c,row['id'])
+        assert result['status']=='pending' and not result['settled_current_period'] and result['paid_start'] is None
+        assert not service.active(c,org)
+        saved=c.execute('SELECT organization_id,subscription_id,period_start,period_end FROM billing_payments').fetchone()
+        assert saved['organization_id']==org and saved['subscription_id']==row['id']
+        assert (saved['period_start'],saved['period_end'])==(start,end)
+        service.reconcile(c,row['id'])
+        assert c.execute('SELECT COUNT(*) FROM billing_payments').fetchone()[0]==1

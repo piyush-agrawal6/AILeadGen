@@ -89,3 +89,9 @@ subscription. Webhook delivery and the remaining renewal/failure/cancellation
 acceptance remain in progress. Public checkout, unrestricted registration and
 real outreach remain disabled. Independent human AI evaluation remains pending;
 the launch verdict therefore remains LIMITED GO for the authorized owner beta.
+
+Backend/worker patch `e82ce0d59dbb074fbedaf854f353e9dfbc7129f7` is subsequently live,
+API revision `leadengine-api-00128-faq`. Schema remains 46 with no migration;
+existing configuration and scheduler state were preserved. Genuine failed-charge
+simulation correctly removes sandbox paid entitlement while keeping payment
+history. See PAYMENT_TEST_RESULTS.md for the remaining provider lifecycle gates.

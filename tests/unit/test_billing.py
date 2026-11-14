@@ -121,6 +121,44 @@ def test_cycle_quotas_replays_renewals_and_capacity(billing,monkeypatch):
         assert c.execute("SELECT COUNT(*) FROM billing_usage WHERE dimension='searches'").fetchone()[0]==2
         state['status']='pending';service.reconcile(c,row['id']);assert not service.active(c,org)
 
+def test_pending_mandate_catches_up_missed_paid_history_without_grant(billing,monkeypatch):
+    c,_,org,_=billing;state,inv,pay,api,start,end=mock_provider(monkeypatch)
+    with workspace_scope(c,'controlled@example.test',org):
+        row=create(c);activate(c,row,state,start,end)
+        inv.update(id='inv_fixture2',payment_id='pay_fixture2',billing_start=end,billing_end=end+3600)
+        pay.update(id='pay_fixture2',invoice_id='inv_fixture2')
+        state.update(status='pending',paid_count=2,current_start=end+3600,current_end=end+7200)
+        result=service.reconcile(c,row['id'])
+        assert result['status']=='pending' and result['paid_start'] is None and not result['settled_current_period']
+        assert not service.active(c,org)
+        assert c.execute('SELECT COUNT(*) FROM billing_payments').fetchone()[0]==2
+        saved=c.execute("SELECT period_start,period_end FROM billing_payments WHERE provider_id='pay_fixture2'").fetchone()
+        assert (saved['period_start'],saved['period_end'])==(end,end+3600)
+        service.reconcile(c,row['id']);assert c.execute('SELECT COUNT(*) FROM billing_payments').fetchone()[0]==2
+
+def test_history_catchup_bounds_provider_reads_and_prioritizes_current_period(billing,monkeypatch):
+    c,_,org,_=billing;state,inv,pay,api,start,end=mock_provider(monkeypatch)
+    with workspace_scope(c,'controlled@example.test',org):
+        row=create(c);original=api.side_effect
+        invoices=[dict(inv,id='inv_history'+str(i),payment_id='pay_history'+str(i),billing_start=start+i*3600,billing_end=end+i*3600) for i in range(6)]
+        payments={i['payment_id']:dict(pay,id=i['payment_id'],invoice_id=i['id']) for i in invoices}
+        def history(method,path,payload=None,params=None):
+            assert not c.in_transaction,'Provider I/O must not retain an idle transaction.'
+            if path=='invoices':return {'items':invoices}
+            if path.startswith('payments/'):return payments[path.split('/')[1]]
+            return original(method,path,payload,params)
+        api.side_effect=history
+        state.update(status='active',customer_id='cust_fixture1',paid_count=6,current_start=invoices[0]['billing_start'],current_end=invoices[0]['billing_end'])
+        api.reset_mock();result=service.reconcile(c,row['id'])
+        assert result['settled_current_period']
+        assert [x.args[1] for x in api.call_args_list if x.args[1].startswith('payments/')][0]=='payments/pay_history0'
+        assert len([x for x in api.call_args_list if x.args[1].startswith('payments/')])==3
+        assert c.execute('SELECT COUNT(*) FROM billing_payments').fetchone()[0]==3
+        # Current settlement is always rechecked, leaving two bounded catch-up
+        # slots; old callbacks cannot multiply stored payment rows.
+        service.reconcile(c,row['id']);service.reconcile(c,row['id'])
+        assert c.execute('SELECT COUNT(*) FROM billing_payments').fetchone()[0]==6
+
 def test_raw_webhook_signature_duplicates_body_mismatch_and_no_direct_grant(billing,monkeypatch):
     c,_,org,_=billing;state,inv,pay,api,start,end=mock_provider(monkeypatch)
     with workspace_scope(c,'controlled@example.test',org):row=create(c)

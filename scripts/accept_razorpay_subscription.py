@@ -3,6 +3,7 @@
 No lead acquisition, outreach, real money, pricing approval or public enrollment.
 """
 import argparse,asyncio,json,uuid
+from datetime import datetime,timezone
 from pathlib import Path
 from scripts.accept_growth_production import Acceptance
 OUT=Path(__file__).resolve().parents[1]/'data/artifacts/verification/razorpay'
@@ -25,12 +26,20 @@ async def run(action):
             print(json.dumps({'mode':'test','created_status':row['status'],'idempotency_verified':True,'checkout_url':state['checkout_url'],'charges_created':False}))
         else:
             if not state.get('subscription_id'):raise RuntimeError('Create the controlled subscription first.')
-            row=await a.request('POST','/api/organization/billing/subscriptions/'+state['subscription_id']+'/reconcile')
+            if action=='cancel':
+                info=await a.request('GET','/api/organization/billing')
+                matching=[r for r in info['subscriptions'] if r['id']==state['subscription_id'] and r['mode']=='test' and r['plan_code']=='starter']
+                if info['mode']!='test' or not info['controlled_workspace'] or info['public_checkout_enabled'] or len(matching)!=1:raise RuntimeError('The exact controlled Test Mode subscription must be verified before cancellation.')
+                row=await a.request('POST','/api/organization/billing/subscriptions/'+state['subscription_id']+'/cancel',{'at_cycle_end':False,'confirm':True})
+                if row['status']!='cancelled':raise RuntimeError('Provider cancellation has not been confirmed; reconcile the same record.')
+            else:
+                row=await a.request('POST','/api/organization/billing/subscriptions/'+state['subscription_id']+'/reconcile')
             state['reconciled']=row
-            info=await a.request('GET','/api/organization/billing');state['payment_count']=len(info['payments']);save()
+            info=await a.request('GET','/api/organization/billing');state['payment_count']=sum(p['subscription_id']==state['subscription_id'] for p in info['payments'])
+            state.setdefault('checks',[]).append({'at':datetime.now(timezone.utc).isoformat(),'action':action,'status':row['status'],'settled_current_period':row['settled_current_period'],'verified_payment_count':state['payment_count']});save()
             print(json.dumps({'mode':'test','status':row['status'],'settled_current_period':row['settled_current_period'],'verified_payment_count':state['payment_count']}))
     finally:await a.client.aclose()
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('action',choices=['create','reconcile']);args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('action',choices=['create','reconcile','cancel']);args=p.parse_args()
     try:asyncio.run(run(args.action))
     except Exception as error:print(json.dumps({'status':'BLOCKED','error_type':type(error).__name__,'detail':str(error) if isinstance(error,RuntimeError) else 'Inspect private controlled state; no credentials printed.'}));raise SystemExit(1)

@@ -3,8 +3,10 @@
 Image-only updates preserve identities, environment/secret references, commands,
 flags and schedulers. No migrations, data cleanup or provider payment actions.
 """
+import hashlib
 import json
 import subprocess
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from scripts.deploy_beta_backend import command, REGION
 from scripts.deploy_growth_release import spec
@@ -19,6 +21,14 @@ RESOURCES = [('services', 'leadengine-api', 'api'),
 
 
 def main():
+    frozen = json.loads((OUT / 'billing-history-codehash.json').read_text())
+    digest = hashlib.sha256()
+    for path in sorted((ROOT / 'app').rglob('*.py')):
+        digest.update(str(path.relative_to(ROOT)).encode() + b'\0' + path.read_bytes() + b'\0')
+    suites = ET.parse(OUT.parent / frozen['test_report']).getroot()
+    suites = list(suites) if suites.tag == 'testsuites' else [suites]
+    if digest.hexdigest() != frozen['app_sha256'] or sum(int(s.get('tests', 0)) for s in suites) < 960 or any(int(s.get('failures', 0)) + int(s.get('errors', 0)) for s in suites):
+        raise RuntimeError('The full isolated suite must pass against this exact backend source.')
     source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     build = json.loads((OUT / 'build.json').read_text())
     verified = command(['builds', 'describe', build['build_id']])

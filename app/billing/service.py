@@ -151,6 +151,10 @@ def _reconcile(c,key,*,worker=False):
     provider.guard()
     if not row['provider_id']:raise HTTPException(409,'Creation outcome is unresolved. An operator must match provider notes to this exact local subscription before retrying.')
     p=catalog.Plan.model_validate(json.loads(row['plan_json']))
+    known={r[0] for r in c.execute("SELECT provider_id FROM billing_payments WHERE organization_id=? AND subscription_id=? AND mode='test' ORDER BY recorded_at DESC LIMIT 10",(row['organization_id'],key)).fetchall()}
+    # Provider latency must not retain an idle database transaction. The later
+    # workspace lock and revision check still fence concurrent state changes.
+    c.commit()
     sub=provider.request('GET','subscriptions/'+provider.identifier(row['provider_id'],'sub'))
     provider.verify_plan(p,provider.request('GET','plans/'+provider.identifier(p.provider_plan_id,'plan')))
     if sub.get('id')!=row['provider_id'] or sub.get('plan_id')!=p.provider_plan_id or sub.get('quantity')!=1 or sub.get('status') not in STATES:raise provider.ProviderRejected('Subscription state does not match the local record.')
@@ -161,17 +165,32 @@ def _reconcile(c,key,*,worker=False):
     if row['customer_id'] and row['customer_id']!=customer:raise provider.ProviderRejected('Subscription customer changed unexpectedly.')
     start,end=sub.get('current_start'),sub.get('current_end')
     period=type(start) is int and type(end) is int and 0<start<end
-    payment=None
-    # A nominal authorization payment is never a settled subscription period.
-    if sub['status']=='active' and period and sub.get('paid_count',0)>0:
+    paid_count=sub.get('paid_count',0)
+    if type(paid_count) is not int or paid_count<0:raise provider.ProviderRejected('Invalid subscription payment count.')
+    payment=None;verified=[]
+    # Catch up captured history even if a later charge has already moved the
+    # mandate to pending/cancelled. Only the exact active current period can grant
+    # access. A nominal authorization payment is never a settled billing period.
+    if paid_count>0:
         invoices=provider.request('GET','invoices',params={'subscription_id':sub['id'],'count':10,'skip':0})
         if not isinstance(invoices.get('items'),list) or len(invoices['items'])>10:raise provider.ProviderRejected('Invalid bounded invoice response.')
+        candidates=[]
         for invoice in invoices['items']:
-            if invoice.get('subscription_id')!=sub['id'] or invoice.get('status')!='paid' or invoice.get('billing_start')!=start or invoice.get('billing_end')!=end:continue
+            if not isinstance(invoice,dict):raise provider.ProviderRejected('Invalid invoice record.')
+            if invoice.get('subscription_id')!=sub['id'] or invoice.get('status')!='paid':continue
+            first,last=invoice.get('billing_start'),invoice.get('billing_end')
+            if type(first) is not int or type(last) is not int or not 0<first<last:raise provider.ProviderRejected('Invalid invoice billing period.')
+            current_period=sub['status']=='active' and period and first==start and last==end
+            if current_period or invoice.get('payment_id') not in known:candidates.append((current_period,invoice))
+        # Prioritize current settlement and verify at most three payments per
+        # pass. Further missed history catches up on later bounded worker reads.
+        candidates.sort(key=lambda item:(item[0],item[1]['billing_start']),reverse=True)
+        for current_period,invoice in candidates[:3]:
             if invoice.get('customer_id')!=customer or invoice.get('amount')!=p.amount or invoice.get('amount_paid')!=p.amount or invoice.get('amount_due')!=0 or invoice.get('currency')!=p.currency:raise provider.ProviderRejected('Invoice is inconsistent with the approved test plan.')
             pay=provider.request('GET','payments/'+provider.identifier(invoice.get('payment_id'),'pay'))
             if pay.get('id')!=invoice['payment_id'] or pay.get('status')!='captured' or pay.get('captured') is not True or pay.get('amount')!=p.amount or pay.get('currency')!=p.currency or pay.get('order_id')!=invoice.get('order_id') or pay.get('invoice_id')!=invoice.get('id') or pay.get('amount_refunded',0)!=0:raise provider.ProviderRejected('Payment settlement could not be independently verified.')
-            provider.identifier(invoice.get('id'),'inv');payment=(invoice,pay);break
+            provider.identifier(invoice.get('id'),'inv');verified.append((invoice,pay))
+            if current_period:payment=(invoice,pay)
     lock(c,row['organization_id'])
     latest=c.execute('SELECT * FROM billing_subscriptions WHERE id=? AND organization_id=?',(key,row['organization_id'])).fetchone()
     # Concurrent cancellation/reconciliation may have won while network I/O ran.
@@ -179,11 +198,10 @@ def _reconcile(c,key,*,worker=False):
     if customer:
         c.execute('INSERT INTO billing_customers(organization_id,mode,provider_id,created_at) VALUES(?,?,?,?) ON CONFLICT(organization_id,mode,provider_id) DO NOTHING',(row['organization_id'],'test',customer,now()))
     paid_start,paid_end=(start,end) if payment else (None,None)
-    if payment:
-        invoice,pay=payment
+    for invoice,pay in verified:
         prior=c.execute('SELECT organization_id,subscription_id FROM billing_payments WHERE mode=? AND provider_id=?',('test',pay['id'])).fetchone()
         if prior and (prior['organization_id']!=row['organization_id'] or prior['subscription_id']!=key):raise provider.ProviderRejected('Payment is already attributed elsewhere.')
-        c.execute('INSERT INTO billing_payments(mode,provider_id,organization_id,subscription_id,invoice_id,amount,currency,status,period_start,period_end,recorded_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(mode,provider_id) DO UPDATE SET status=excluded.status',('test',pay['id'],row['organization_id'],key,invoice['id'],pay['amount'],pay['currency'],'captured',start,end,now()))
+        c.execute('INSERT INTO billing_payments(mode,provider_id,organization_id,subscription_id,invoice_id,amount,currency,status,period_start,period_end,recorded_at) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(mode,provider_id) DO UPDATE SET status=excluded.status',('test',pay['id'],row['organization_id'],key,invoice['id'],pay['amount'],pay['currency'],'captured',invoice['billing_start'],invoice['billing_end'],now()))
     stamp=now();due=(datetime.now(timezone.utc)+timedelta(minutes=15)).isoformat()
     c.execute('UPDATE billing_subscriptions SET customer_id=?,status=?,current_start=?,current_end=?,paid_start=?,paid_end=?,last_reconciled_at=?,next_reconcile_at=?,failures=0,updated_at=? WHERE id=? AND organization_id=?',(customer,sub['status'],start if period else None,end if period else None,paid_start,paid_end,stamp,due,stamp,key,row['organization_id']))
     c.commit()

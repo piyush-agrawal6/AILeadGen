@@ -68,3 +68,24 @@ multiple matches requires operator review; never blindly retry a POST.
 Sandbox plans are internal fixtures, not commercial prices. The plan preparation
 script reuses matching verified IDs and journals creation before calling Razorpay.
 No live mode, real charge or public checkout is enabled by this release.
+
+## Observed production event-selection issue — 2026-11-14
+
+The registered endpoint receives correctly signed merchant notifications, but the
+observed types so far are `payment.authorized`, `payment.captured`, `order.paid`
+and `invoice.paid`. They are intentionally ignored by this subscription handler.
+No subscription receipt has yet been verified. Ensure the existing Test Mode
+webhook selects the ten `subscription.*` events listed above; adding payment-only
+events does not substitute for them. Preserve the URL and existing webhook secret.
+The event-type diagnosis is supported by safe deployed logs, not an inference
+that the API credentials or signing secret are invalid.
+
+Dashboard inspection confirmed two enabled duplicate endpoint entries, each with
+45 events and no subscription selections. The first entry was edited to exactly
+the required ten subscription lifecycle events; Razorpay confirmed the save.
+The existing URL, alert email and secret were retained. This resolves the observed
+event-selection configuration issue; actual merchant delivery must still pass.
+
+The second redundant Test Mode entry was disabled through its normal reversible
+status control. It was not deleted. Exactly one corrected subscription webhook
+remains enabled; no Live Mode webhook or other destination was changed.

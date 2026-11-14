@@ -61,3 +61,17 @@ The approved independent 120-case AI evaluation remains **not passed**: two huma
 reviewers and an adjudicator are still required. Commercial pricing/live payment
 authorization are separate future approvals. No unrestricted public launch is
 certified while critical acceptance gates remain outstanding.
+
+## Subsequent verified patch and failure acceptance
+
+Backend/worker source is now `e82ce0d59dbb074fbedaf854f353e9dfbc7129f7`, API revision
+`leadengine-api-00128-faq`. The image-only rollout preserved configuration,
+identities, secrets, schedulers and schema 46; no migration ran. All five deployed
+read/safety smoke checks returned 200. The focused release-security suite passed
+56 tests, including all 16 billing tests.
+
+A genuine provider Test Mode failed-charge simulation completed. The unpaid
+advanced period has no verified settlement, so paid-period fields and sandbox
+billing entitlement were cleared; original payment history remains. Merchant
+subscription webhook delivery, successful renewal and cancellation remain to be
+completed before claiming full Test Mode lifecycle acceptance.

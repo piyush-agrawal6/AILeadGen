@@ -141,3 +141,68 @@ Local worker optimization now excludes terminal mandates from periodic polling,
 while signed late events still reconcile them. All **16 billing tests pass**,
 including active recovery, terminal exclusion and late signed event processing.
 This change is not represented as deployed until a verified rollout is recorded.
+
+### Genuine failed-renewal simulation
+
+The merchant Test Mode dashboard exposed `Charge this now`, explicitly labeled
+as a test simulation with success/failure outcomes. `Charge as failure` returned
+`Charge marked as FAILURE` and created an issued/unpaid invoice. Production
+reconciliation retained the original captured-payment history, advanced to the
+provider's returned period and cleared `paid_start`/`paid_end`. Therefore
+`settled_current_period=false`; no sandbox paid entitlement remains. The provider
+continued reporting `active`, illustrating why that status alone is insufficient.
+No live charge or direct financial database write was made. Merchant subscription
+webhook receipts remain absent at this checkpoint.
+
+### Image-only patch deployed
+
+Commit `e82ce0d59dbb074fbedaf854f353e9dfbc7129f7` built successfully in Cloud Build
+`39bc751e-6ea5-45c4-a986-3dac8c2e5d00`; both image dependency checks passed.
+Existing API revision `leadengine-api-00128-faq` now serves the patch, with matching
+worker images. Only images changed: identities, commands, environment/Secret
+Manager references, scheduler configuration and disabled delivery/registration
+flags were compared and preserved. **No migration ran; schema remains 46.**
+Five signed/read smoke routes passed HTTP 200. The patch's focused billing and
+release-security set passed **56 tests**, including 16 billing cases. Terminal
+polling exclusion and safe ignored-event diagnostics are now deployed.
+
+### Webhook diagnosis and live security
+
+Safe deployed diagnostics observed actual `payment.authorized`, `payment.captured`,
+`order.paid` and `invoice.paid` notifications. The restricted subscription handler
+intentionally ignores those event types. No required `subscription.*` delivery
+has yet been verified. The URL and shared signing secret work; the merchant event
+selection still needs inspection/correction. Do not rotate working credentials.
+
+All nine live non-destructive security checks passed: health, unsigned denial,
+signed owner access, untrusted CORS denial, nonce replay denial, unapproved actor
+denial, invalid signature denial, private OpenAPI denial and oversized-body denial.
+The post-patch endpoint probes also passed invalid HMAC 400, signed unlinked 202
+ignored and adjacent-route 401. One controlled subscription, one independently
+verified payment and three mapped test plans are present. Real sending is false;
+manual owner Lead Engine and Intent Radar grants remain intact.
+
+### Missed-history repair and fresh database checks
+
+The real provider history contains a captured renewal payment for its second
+period. Subsequent accelerated charge attempts fail with the provider's exact
+reason `card_mandate_current_cycle_allowed_debit_exceeds`; further charge attempts
+have stopped. Correctly signed `subscription.pending` events now arrive and are
+processed once each by the deployed reconciliation worker.
+
+Acceptance exposed a real catch-up gap: pending subscriptions previously skipped
+paid invoices from earlier periods if their successful event had been missed.
+The repair independently verifies bounded historical invoices/payments, persists
+their own periods and grants access only for verified active current settlement.
+At most three payment reads occur per pass; existing history is reused and current
+settlement is prioritized/revalidated. Provider I/O retains no idle database
+transaction. No paid row is manufactured directly.
+
+The focused suite passes **73 tests**, including 18 billing tests. Both actual
+local PostgreSQL billing checks pass, including concurrency and history catch-up.
+The first local rerun could not start because yesterday's test server was absent;
+a new instance initially defaulted to SQL_ASCII, causing bytes/text fixture errors.
+That unsuitable run was stopped. A separate fresh UTF-8 test database fixed the
+environment; one missing import in the new test was also corrected. No production
+database was changed. The full frozen UTF-8 suite is running; this repair is not
+yet represented as deployed.
