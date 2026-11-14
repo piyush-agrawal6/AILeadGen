@@ -28,3 +28,17 @@ schema-45-only binary onto schema 46 or downgrade/drop tables. A billing-disable
 DDL; billing-enabled startup requires schema 46. Production migration
 requires a fresh schema-45 snapshot, exact restore, migration idempotency and
 original-column preservation proof; earlier 44→45 evidence does not substitute.
+
+Reconciliation also catches up missed captured-payment history after a mandate
+becomes pending or terminal. A bounded ten-invoice page is inspected; at most
+three independently verified payment reads run per pass, prioritizing current
+settlement and reusing already recorded history. Each payment retains its own
+invoice period. Historical capture alone never grants current access. Provider
+requests hold no idle database transaction; a later workspace lock and revision
+check fence concurrent reconciliation/cancellation. Terminal mandates are not
+periodically polled, while late signed events can still reconcile them.
+
+The billing view refreshes cached server state on tab focus and polls only an
+open mandate while visible. These reads do not initiate provider charges. Cache
+invalidation remains workspace-scoped; actual product permission is always
+rechecked by the backend.

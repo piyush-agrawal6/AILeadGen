@@ -206,3 +206,38 @@ That unsuitable run was stopped. A separate fresh UTF-8 test database fixed the
 environment; one missing import in the new test was also corrected. No production
 database was changed. The full frozen UTF-8 suite is running; this repair is not
 yet represented as deployed.
+
+### Wider regression triage
+
+The first complete UTF-8 rerun finished with **955 passed, 11 failed, 1 skipped**.
+Those failures were reproduced and classified, not ignored. Eight older existing-
+customer workflow cases lacked an explicit Lead Engine grant under the new default-
+off enrollment policy. Their shared existing-customer fixture now grants that
+product explicitly; new-customer denial tests and production guards remain intact.
+Three mail worker outcome tests depended on the real weekday and failed on Saturday.
+They now use explicit business-time clocks. A new weekend test confirms sending
+still stops before delivery and leaves the ready item intact.
+The repaired customer/billing regression set passes **80 tests**. A fresh complete
+frozen rerun is in progress; the earlier failed run is retained as evidence.
+
+### Billing UI refresh acceptance
+
+A real browser inspection exposed stale status after external provider updates.
+The UI now refreshes on tab focus and every 30 seconds only while an open mandate
+exists and the page is visible. Requests support cancellation; mutation outcomes
+invalidate only the owned billing and product-access caches. Frontend units pass
+**151 tests**, the isolated production build passes, and both desktop/mobile billing
+browser checks pass. This UI repair is not yet represented as deployed.
+
+### Final frozen regression result
+
+After the explicit entitlement and clock fixture repairs, the full UTF-8 backend
+and PostgreSQL suite passed **967 tests**, with **1 intentional live-email skip**
+and 7 recorded warnings, in 418 seconds. Backend source fingerprint matches the
+prepared `65718d8d0f0cff4dc1dd5b83af82a3921ce210c1` image source. The failed earlier
+runs remain recorded and are not presented as passes. No production access checks
+or weekend sending protections were weakened.
+
+Real existing Gmail preservation checks passed **SMTP READY / IMAP READY**,
+sync enabled, sending disabled, **zero emails sent**. The history patch rollout
+and final controlled cancellation are being verified separately.

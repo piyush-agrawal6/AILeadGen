@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 import pytest
 from fastapi import HTTPException
-from test_customer_gmail import mailbox, connect, approve, seed, payload, OWNER
+from test_customer_gmail import mailbox, connect, approve, seed, payload, OWNER, freeze_customer_clock
 from test_customer_integrations import workspace
 from app.platform.context import workspace_scope
 from app.integrations import gmail, service as connections
@@ -107,6 +107,7 @@ def prepared(c, org, row, monkeypatch):
 
 def test_worker_pre_reservation_throttle_retries_only_three_times(mailbox, monkeypatch):
     c, org, _, _, posts = mailbox
+    freeze_customer_clock(monkeypatch)
     with workspace_scope(c, OWNER, org):
         row, _ = connect(c); approve(c); run = prepared(c, org, row, monkeypatch)
         monkeypatch.setattr(mail, 'send', lambda *args, **kwargs: (_ for _ in ()).throw(HTTPException(429,'Synthetic mailbox limit')))
@@ -122,6 +123,7 @@ def test_worker_pre_reservation_throttle_retries_only_three_times(mailbox, monke
 
 def test_uncertain_worker_delivery_is_reserved_once_and_needs_review(mailbox, monkeypatch):
     c, org, _, _, posts = mailbox
+    freeze_customer_clock(monkeypatch)
     with workspace_scope(c, OWNER, org):
         row, _ = connect(c); approve(c); run = prepared(c, org, row, monkeypatch)
         original = gmail.api; calls = []
@@ -133,6 +135,15 @@ def test_uncertain_worker_delivery_is_reserved_once_and_needs_review(mailbox, mo
         assert customer.outreach_tick(c, run['id'])['status'] == 'EMPTY'
         assert calls == ['messages/send'] and posts == []
         assert c.execute("SELECT COUNT(*) FROM email_messages WHERE status='SENDING'").fetchone()[0] == 1
+
+def test_customer_worker_weekend_gate_preserves_ready_item_without_delivery(mailbox,monkeypatch):
+    c,org,_,_,posts=mailbox
+    freeze_customer_clock(monkeypatch,datetime(2026,11,14,12,tzinfo=timezone.utc))
+    with workspace_scope(c,OWNER,org):
+        row,_=connect(c);approve(c);run=prepared(c,org,row,monkeypatch)
+        assert customer.outreach_tick(c,run['id'])['status']=='OUTSIDE_BUSINESS_HOURS'
+        assert c.execute('SELECT status FROM outreach_run_items WHERE run_id=?',(run['id'],)).fetchone()[0]=='READY'
+        assert c.execute('SELECT COUNT(*) FROM email_messages').fetchone()[0]==0 and posts==[]
 
 
 def test_authenticated_soft_bounces_accumulate_per_tenant_and_hard_suppression_is_sticky(mailbox, monkeypatch):

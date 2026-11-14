@@ -17,6 +17,14 @@ from app.mail import service as mail,customer,bounces
 from test_customer_integrations import workspace,OWNER
 ORIGINAL_TOKEN_REQUEST=sheets.token_request
 
+def freeze_customer_clock(monkeypatch,at=None):
+    """Exercise worker outcomes during explicit business time, not wall time."""
+    stamp=at or datetime(2026,11,16,12,tzinfo=timezone.utc)
+    class Clock(datetime):
+        @classmethod
+        def now(cls,tz=None):return stamp.astimezone(tz) if tz else stamp.replace(tzinfo=None)
+    monkeypatch.setattr(customer,'datetime',Clock)
+
 @pytest.fixture
 def mailbox(workspace,monkeypatch):
     c,first,second,path=workspace;s=get_settings();posts=[]
@@ -238,6 +246,7 @@ def test_customer_worker_routes_owned_run_and_never_retries_uncertain_delivery(m
     from app.workflows import service as workflows
     from tests.workspace_fixtures import workspace_template
     c,first,second,path,posts=mailbox
+    freeze_customer_clock(monkeypatch)
     with workspace_scope(c,OWNER,first):
         row,_=connect(c);cid,b,pid=seed(c,first,monkeypatch);approve(c)
         customer.route_campaign(c,cid,row['account_id']);c.execute('UPDATE automation_controls SET email_paused=0');c.commit()

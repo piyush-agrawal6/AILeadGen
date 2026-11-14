@@ -29,7 +29,10 @@ def workspace(tmp_path,monkeypatch):
     config=AcquisitionSettings(_env_file=None,AUTH_GOOGLE_ID='fixture-client',AUTH_GOOGLE_SECRET='fixture-secret',GOOGLE_SHEETS_REDIRECT_URI='https://example.test/acquisition/sheets/callback')
     monkeypatch.setattr('app.acquisition.config.settings',lambda:config)
     c=get_connection(path);run_migrations(c)
-    first=create_organization(c,OWNER,'First customer')['organization_id'];second=create_organization(c,OWNER,'Second customer')['organization_id'];c.commit()
+    first=create_organization(c,OWNER,'First customer')['organization_id'];second=create_organization(c,OWNER,'Second customer')['organization_id']
+    # These are existing, authorized Lead Engine customer fixtures. New SaaS
+    # organizations intentionally receive no default Lead Engine entitlement.
+    c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id IN (?,?) AND product='LEADGEN'",(first,second));c.commit()
     yield c,first,second,path
     c.close()
 
