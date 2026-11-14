@@ -1,44 +1,63 @@
 # Intent Radar subscriptions — restricted release checkpoint
 
 **LIMITED GO for the approved owner beta; NO-GO for public paid subscriptions.**
+Updated 2026-11-14. This remains an acceptance checkpoint, not a completed
+subscription-lifecycle certificate.
 
-Existing backend deployment is live at
-https://leadengine-api-befca7xg4a-el.a.run.app, revision
+## Verified production
+
+Frontend https://app.planebyte.com uses the existing Vercel project, deployment
+`dpl_3Ngj5ooQM2Ea8jz7uKjHk7F19x1T`, source
+`7bda1d65db8a462f64525a26910bce82f54e76bd`.
+Backend https://leadengine-api-befca7xg4a-el.a.run.app is revision
 `leadengine-api-00126-qox`, source
 `fd4d17ce25c2f644e90bbb6cb6796c5f84ea7d3b`, additive schema 46.
-The migration followed exact backup/restore and all-original-column preservation.
-Existing API/worker identities, Gmail, manual grants and customer data are preserved.
+Existing workers use that matching backend source. No hosting migration,
+marketing deployment, public signup, prospect scan or real outreach was performed.
 
-Verified public webhook URL:
+The exact schema-45 backup restored successfully, migrated locally once to 46,
+then applied zero migrations on replay. All original columns in 164 tables were
+preserved exactly before the production additive migration. Manual product grants,
+customer history, Gmail and existing runtime identities remain intact.
+
+## Real Razorpay Test Mode progress
+
+- Payments, Plans and Subscriptions APIs: **HTTP 200**. The earlier product-scoped
+  401 restriction is resolved; existing working keys were retained.
+- Three internal Starter/Growth/Scale test plans: created, independently verified
+  and mapped. Prices are integration fixtures, not approved commercial offers.
+- One owner-controlled Starter subscription: created; same-request replay returns
+  the same mandate, without duplicate creation.
+- Real deployed Checkout: opened with Test Mode banner; owner completed sandbox
+  authorization. The actual signature handler returned successfully.
+- Independent settlement: one captured Test Mode payment, matching paid invoice
+  and active current subscription period verified in production persistence.
+- Merchant webhook receipt, renewal, failed-charge recovery and cancellation:
+  acceptance still in progress. Do not infer these from initial payment success.
+
+Public webhook, deployed and raw-signature-tested:
 https://leadengine-api-befca7xg4a-el.a.run.app/api/billing/webhooks/razorpay
 
-Actual signature probes passed (invalid 400, valid unlinked 202/ignored). Dashboard
-registration and genuine merchant deliveries remain pending. Exact events and
-separate secret configuration are in RAZORPAY_INTEGRATION.md.
+Invalid signature returned 400; correctly signed unlinked probe returned
+202/ignored. The owner reports Dashboard registration complete. These controlled
+probes are distinct from actual merchant delivery.
 
-Real Razorpay API authentication is **BLOCKED: HTTP 401**, including the final
-request after the owner corrected credentials and backend Secret Manager setup.
-No plans, subscriptions or charges were created by failed attempts. Successful and
-failed payments, actual renewal/cancellation and paid-entitlement activation are
-**NOT RUN**. Isolated fixtures do not substitute for these gates.
+## Verification and restrictions
 
-Implemented: strict server catalog/mode separation; owner-managed creation;
-unknown-outcome recovery without duplicate mandates; official Checkout integration;
-server-owned signature validation; independent invoice/payment verification;
-durable signed/idempotent webhooks; bounded existing-worker reconciliation;
-workspace/cycle quotas and capacity; safe marketing plan-intent handoff; retained
-Lead Engine grants with new public enrollment disabled. In-place proration/live
-mode/public checkout remain unavailable. Growth Intelligence stays inside Intent Radar.
+Full isolated backend: **958 passed, 1 intentional live-mail skip**; frontend:
+**149 passed**; optimized SaaS and independent marketing builds passed. Two billing
+and two Growth browser checks passed with isolated signed-backend fixtures.
+Real owner Growth and billing browser read acceptance passed. Subsequent terminal
+polling regression: **16 billing tests passed** locally; deployment of that small
+worker optimization is tracked separately. No production polling claim is based
+on an unshipped local change.
 
-Verified tests: full backend **958 passed / 1 intentional live-mail skip**;
-additional billing suite **14 passed**; frontend **149 passed**; optimized SaaS and
-independent marketing builds passed; two billing and two Growth browser checks
-passed using isolated signed-backend fixtures. Real owner Growth browser acceptance
-also passed. See PAYMENT_TEST_RESULTS.md for initial failures and subsequent repairs.
+Only the verified PlaneByte owner workspace is approved for Test Mode billing.
+Public checkout and live mode are blocked. Lead Engine remains available to its
+previously authorized owner at `/lead-engine`; new enrollment is disabled.
+Growth Intelligence stays inside Intent Radar.
 
-Remaining owner actions: supply an active matching Razorpay Test Mode API pair
-that the provider accepts; register the verified webhook with the existing separate
-secret and listed events; complete genuine sandbox lifecycle acceptance; arrange
-the approved independent human reviewers/adjudicator. Commercial pricing and live
-payment authorization are separate future approvals. Do not enable unrestricted
-registration or represent the independent AI evaluation as passed.
+The approved independent 120-case AI evaluation remains **not passed**: two human
+reviewers and an adjudicator are still required. Commercial pricing/live payment
+authorization are separate future approvals. No unrestricted public launch is
+certified while critical acceptance gates remain outstanding.

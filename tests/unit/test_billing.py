@@ -188,6 +188,35 @@ def test_paid_subscription_scheduler_eligibility_and_worker_leadgen_denial(billi
         assert products(c,org)['INTENT_RADAR'] and not products(c,org)['LEADGEN']
         with pytest.raises(HTTPException):jobs.create(c,jobs.Start(kind='COMPANY_ENRICH',resource_ids=['123']))
 
+def test_terminal_subscriptions_stop_polling_but_signed_events_still_reconcile(billing,monkeypatch):
+    c,path,org,_=billing;state,inv,pay,api,start,end=mock_provider(monkeypatch)
+    with workspace_scope(c,'controlled@example.test',org):row=create(c)
+    for status in service.TERMINAL:
+        c.execute("UPDATE billing_subscriptions SET status=?,next_reconcile_at='2000-01-01' WHERE id=?",(status,row['id']));c.commit()
+        api.reset_mock();webhooks.tick(1);api.assert_not_called()
+    # Active mandates still recover missing webhooks, but without renewing any
+    # terminal mandate. A genuine receipt can safely refresh a terminal record.
+    c.execute("UPDATE billing_subscriptions SET status='created' WHERE id=?",(row['id'],));c.commit()
+    webhooks.tick(1);assert api.called
+    state['status']='cancelled'
+    c.execute("UPDATE billing_subscriptions SET status='cancelled',next_reconcile_at='2000-01-01' WHERE id=?",(row['id'],));c.commit()
+    raw=json.dumps({'event':'subscription.cancelled','payload':{'subscription':{'entity':{'id':state['id']}}}}).encode()
+    webhooks.receive(c,raw,hmac.new(b'synthetic-webhook-secret',raw,hashlib.sha256).hexdigest(),'terminal_receipt');c.commit()
+    api.reset_mock();assert webhooks.tick(1)['processed']==1
+    assert api.call_count==2
+    assert c.execute('SELECT status FROM billing_subscriptions WHERE id=?',(row['id'],)).fetchone()[0]=='cancelled'
+
+def test_ignored_webhook_diagnostics_exclude_payload_and_untrusted_log_text(billing,caplog):
+    c,_,org,_=billing
+    caplog.set_level('INFO',logger='app.billing.webhooks')
+    for kind in ('payment.captured','payment.captured\nforged-log'):
+        raw=json.dumps({'event':kind,'private':'must-not-be-logged'}).encode()
+        signature=hmac.new(b'synthetic-webhook-secret',raw,hashlib.sha256).hexdigest()
+        assert webhooks.receive(c,raw,signature,'ignored_type')['ignored']
+    assert 'payment.captured' in caplog.text and 'UNKNOWN' in caplog.text
+    assert 'must-not-be-logged' not in caplog.text and 'forged-log' not in caplog.text
+    assert not c.execute('SELECT 1 FROM billing_webhook_events').fetchone()
+
 def test_new_workspaces_cannot_bypass_lead_engine_via_direct_workers(billing,monkeypatch):
     from app.database.models import PipelineRun
     from app.database.repositories import PipelineRunRepository

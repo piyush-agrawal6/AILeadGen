@@ -26,3 +26,11 @@ Before release: verify exact Git SHA, full security/data/regression checks, isol
 Next build, migration recovery and original-column preservation, owner login,
 wrong-workspace denial, raw webhook invalid-signature denial and actual Razorpay
 Test Mode transaction/lifecycle evidence. Record unverified gates as blocked.
+
+## Applied restricted release
+
+The recovery-tested schema 46 is live. `BILLING_ENABLED=true` is deployed only
+with `BILLING_TEST_MODE=true`, `RAZORPAY_MODE=test`, public checkout false and the
+single verified owner workspace allowlist. Three test plan mappings are stored
+in the database; no duplicate plan environment names or frontend secrets were
+introduced. This supersedes the earlier pre-migration disabled state above.

@@ -3,7 +3,26 @@
 This file separates isolated implementation verification from real provider
 acceptance. It is not a live-payment or public-launch certificate.
 
-## Real Razorpay Test Mode
+## Current diagnosis — product-scoped restriction
+
+**The current credentials are valid.** The same pair returned HTTP **200** from
+both `/v1/payments?count=1` and `/v1/customers?count=1`.
+Only subscription operations failed: `GET /v1/plans`, `GET /v1/subscriptions`
+and one journaled `POST /v1/plans` returned **401**. The Cloud worker independently
+reproduced the Plans 401 using its deployed Secret Manager references. Therefore
+an earlier blanket invalid-key interpretation was too broad; do **not** rotate
+working keys on that basis. The outstanding issue is Subscriptions API access or
+provisioning for the merchant, whose exact account-side cause needs Razorpay confirmation.
+
+In the real Test Mode Dashboard, Subscriptions initially showed Get Started.
+That setup entry was opened; after one retry, the Subscriptions dashboard appeared.
+The bounded subsequent API list/create attempts still returned 401. No live mode,
+financial transaction or legal agreement was accepted during this setup inspection.
+The owner reports registering the deployed webhook. Merchant-originated delivery
+still needs a genuine subscription event. Read-only endpoint probes alone do not
+certify it.
+
+## Earlier scoped plan-list checks
 
 Credentials were loaded from the existing root `.env` in memory. The key ID has
 the Test Mode prefix. A minimal authenticated `GET /v1/plans?count=1` returned
@@ -17,7 +36,7 @@ or multiple-account workaround was implemented.
 
 Real subscription creation, Checkout authorization, successful/failed Test Mode
 payments, renewal, cancellation and merchant-originated webhook delivery are
-**BLOCKED / NOT RUN** until Razorpay accepts the configured credentials. Fixture
+**BLOCKED / NOT RUN** until Razorpay permits the subscription operations. Fixture
 results below do not count as successful provider acceptance.
 
 ## Isolated verification
@@ -86,3 +105,39 @@ Merchant-originated delivery remains pending owner Dashboard registration.
 Final real Razorpay authentication still returned **401**. No real provider
 subscription lifecycle acceptance is claimed. Final frontend units: **149 passed**,
 including rejected/uncertain creation handling; billing-specific backend: **14 passed**.
+
+## Actual production frontend and owner browser
+
+Vercel deployment `dpl_3Ngj5ooQM2Ea8jz7uKjHk7F19x1T`, commit
+`7bda1d65db8a462f64525a26910bce82f54e76bd`, was promoted through the existing
+project. The real authenticated owner browser loaded `/billing`, showing internal
+Test Mode catalog fixtures, no subscription, no verified payments and disabled
+checkout while provider mappings remain absent. This verifies the actual deployed
+read interface; it does not imply successful checkout.
+
+## Current acceptance update — 2026-11-14 (supersedes earlier blockers)
+
+The earlier product-specific restriction has resolved. The same current Test keys
+returned **200** from Payments, Plans and Subscriptions. No key rotation was
+needed. Three real internal test plans were created/verified and mapped through
+the journaled preparation script. The earlier zero-plan figures describe failed
+attempts only, not current state.
+
+One real controlled Starter subscription was created through the deployed API.
+A repeat using the same request ID returned the same subscription. The actual
+Vercel checkout opened Razorpay's official SDK with its Test Mode banner. The
+owner completed the final authorization step using the documented sandbox card.
+The browser reached the success route only after the deployed verification handler
+returned successfully. Independent production reconciliation persisted **one
+captured Test Mode payment** against the matching paid invoice and active current
+period. This is genuine sandbox evidence, not a fixture or a real-money payment.
+
+As of the first post-checkout read, the merchant webhook ledger contained zero
+receipts for this controlled subscription. Owner registration is reported but
+actual delivery remains under investigation. Renewal, failed-charge recovery,
+cancellation and actual merchant replay are not yet claimed as passed.
+
+Local worker optimization now excludes terminal mandates from periodic polling,
+while signed late events still reconcile them. All **16 billing tests pass**,
+including active recovery, terminal exclusion and late signed event processing.
+This change is not represented as deployed until a verified rollout is recorded.
