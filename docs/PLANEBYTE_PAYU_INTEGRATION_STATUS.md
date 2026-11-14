@@ -116,3 +116,16 @@ merchant key and salt must not be requested again without an actual rejection.
 References:
 - https://docs.payu.in/v2/reference/collect-payment-api-payu-hosted-v2-_payment
 - https://docs.payu.in/v2/reference/v2_verify_payment_api
+
+## Production deployment verified
+
+Application commit `0077fe32d1a0dc8b36daec38be03d0d89980c452` is live on
+API revision `leadengine-api-00138-suf` and the existing workers. The Vercel
+production domain is promoted to `dpl_FtEzeN1F8dzQhw2XFda54nrMabwX`.
+The existing Live key/salt are pinned server-side in Secret Manager for the API
+and billing worker. An authenticated production usage read confirms credentials
+are recognized, catalog2026-11-14.2/hash matches marketing, and public recurring
+checkout is disabled. No real charge, mandate or paid entitlement was created.
+Production schema remains46; the47 migration is prepared and recovery-tested.
+See `PLANEBYTE_PRODUCTION_LAUNCH_REPORT.md` for exact release evidence and
+remaining lifecycle, performance, independent-review and account-capability gates.
