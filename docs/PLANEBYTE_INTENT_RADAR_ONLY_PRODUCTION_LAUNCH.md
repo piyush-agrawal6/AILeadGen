@@ -1,6 +1,6 @@
 # Intent Radar-only production release
 
-Status: release verification in progress. This is not public-launch approval.
+Status: **LIMITED GO — existing authorized owner Beta deployed. Public commercial launch: NO-GO.** This is not public-launch approval.
 
 ## Preservation baseline
 
@@ -74,8 +74,7 @@ entry was reversibly disabled. Genuine pending events were received and processe
 ## Release gates and evidence
 
 Private evidence: `data/artifacts/verification/intent-only/`.
-Exact source/deployment identifiers and final results will be appended after
-verification. Interrupted diagnostic runs and actual failures are retained.
+Exact source/deployment identifiers and final results are recorded below. Interrupted diagnostic runs and actual failures are retained.
 A full suite, production build, responsive acceptance and live owner browser
 acceptance must pass before promotion is described as verified.
 
@@ -121,3 +120,81 @@ Then redeploy the verified existing Vercel project with that configuration,
 verify the exact Git commit and promote its READY deployment to the existing
 production domain. No new frontend provider or database operation is required.
 Existing product grants and global delivery safeguards still apply.
+
+
+## Deployed release and final verification
+
+- Production: **https://app.planebyte.com**; existing Vercel project `leadengine`.
+- Application release commit: `ca4e374742a5e49f25e05e2a1a51d8a9bc700cd3`, pushed
+  normally to GitHub main; no force push.
+- Vercel deployment: `dpl_7ZxaDYsLyXzBdjwDXA8mAjTym9Da`, READY and explicitly
+  promoted. The production domain's alias was independently verified against
+  that exact deployment. The preview URL retains Vercel deployment protection.
+- FastAPI: `leadengine-api-00132-kas`, 100% production traffic in the existing
+  Cloud Run service. API/worker image tags: `intent-only-ca4e374742`.
+- Existing `leadengine-worker`, `leadengine-acquisition`, and
+  `leadengine-quota-canary` use the verified worker image. Commands, identities,
+  other environment variables and Secret Manager references were compared with
+  their pre-release snapshots and remain unchanged.
+- All nine older tagged API URLs now route to the same verified revision, closing
+  stale-version entry points. Historical revisions were retained; their previous
+  routing is recorded in the private rollback evidence. No service was deleted.
+- PostgreSQL remains **schema 46**, all **174 original tables** are present, and
+  counts for all 51 checked Lead Engine-related tables did not decrease. Stored
+  Lead Engine grants are exactly unchanged. There were **zero tracked file
+  deletions**. A focused blob comparison confirms **132 core Lead Engine, Gmail,
+  discovery, integration, worker and database implementation files unchanged**.
+- No production migration, cleanup, outbound email, prospect discovery or real
+  payment was initiated by this release. Existing no-send/no-acquisition flags,
+  closed registration and restricted billing controls remain intact. Scheduler
+  configuration/state was compared and preserved. Existing inbox sync continues.
+
+### Actual production checks
+
+Ten authentication/security checks passed: unsigned/invalid/unapproved/replayed
+requests denied, approved signed owner request allowed, untrusted CORS not
+granted, API schema hidden, oversized input rejected, Razorpay HMAC required,
+and neighboring webhook routes remain authenticated.
+
+Thirteen staged read smoke checks passed, including shared company/ICP setup,
+Radar capabilities/overview, Growth overview and Test Mode billing. Lead Engine
+workflow, mailbox, provider configuration, settings and assistant APIs return
+404 under this release policy. The live login returns 200 with Intent Radar
+branding and security headers; anonymous root requests redirect to login.
+
+Native Chrome acceptance used the existing real `planebyte@gmail.com` Google
+session: the new static Intent Radar identity and absent product selector were
+visible, the overview rendered actual stored signals (5 new, 1 reviewed, 1 active
+monitor), and the Growth research reports screen rendered. No new search, AI
+job, message or checkout was started in these final browser checks. The complete
+signed local workflow regressions above use explicit fixtures; they are distinct
+from these real production observations.
+
+The actual controlled Razorpay cancellation event is **PROCESSED**. Captured
+sandbox payment history remains intact. API reads report the controlled
+subscription cancelled and two verified payments. No new mandate was created.
+
+### Remaining gates and limitations
+
+This is a functional restricted owner Beta, **not an unrestricted public launch**:
+
+1. Production overview latency measured **48.32 seconds**. A read of
+   `/api/intent-radar/sources/health` exceeded its **65-second** client timeout.
+   Public performance/source-health acceptance therefore remains **NOT PASSED**.
+   Diagnose and reduce the read/query work, then repeat deployed measurements.
+   These observations do not establish that any particular upstream provider is
+   offline. The client has bounded requests and explicit retry/error states.
+2. The approved 120-case independent AI evaluation needs two independent human
+   reviewers and an adjudicator. Its existing quality thresholds are unchanged;
+   there is no fabricated human labeling or pass result.
+3. Public commercial pricing, live payment authorization and canonical public
+   legal/privacy terms still require owner approval. Razorpay Test Mode is not a
+   public paid offering. Public registration and public checkout remain closed.
+4. Vertex configuration/gateway and source adapters are preserved. Previous
+   controlled runtime acceptance remains recorded; this release did not consume
+   additional AI/discovery credits to repeat it. No fresh-provider-readiness
+   claim is substituted for the timed-out source-health check.
+
+Lead Engine can be restored through the approved configuration-only steps above,
+without rebuilding any features or recovering deleted data. Full public launch
+is deliberately not declared complete while these gates remain outstanding.

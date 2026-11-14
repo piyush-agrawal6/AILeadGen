@@ -4,7 +4,7 @@ Availability is independent of persisted entitlement rows. Only the source image
 and LEAD_ENGINE_AVAILABLE may change. Auth, mail, billing, identities, scheduler
 configuration and secret references are compared before promotion.
 """
-import argparse, hashlib, hmac, json, os, secrets, subprocess, time
+import argparse, copy, hashlib, hmac, json, os, secrets, subprocess, time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 import httpx
@@ -72,12 +72,12 @@ def release():
     for name,value in previous.items():save(checkpoint/(name+'-before.json'),value)
     schedulers=command(['scheduler','jobs','list','--location='+REGION]);save(checkpoint/'schedulers-before.json',schedulers)
     def update(kind,name,image):
-        before=spec(previous[name],kind);env={e['name']:e for e in before['containers'][0].get('env',[])}
+        before=copy.deepcopy(spec(previous[name],kind));env={e['name']:e for e in before['containers'][0].get('env',[])}
         for flag in ('AUTO_SCAN_ENABLED','AUTO_EMAIL_ENABLED','EMAIL_SENDING_ENABLED','HEYSOW_PUBLIC_REGISTRATION_ENABLED','BILLING_PUBLIC_CHECKOUT_ENABLED'):
             if env.get(flag,{}).get('value')!='false':raise RuntimeError('A release safety guard is not explicitly false.')
         args=['run',kind,'update',name,'--region='+REGION,'--image='+image,'--update-env-vars=LEAD_ENGINE_AVAILABLE=false']
         if kind=='services':args+=['--no-traffic','--tag=intent-only']
-        updated=command(args);after=spec(updated,kind)
+        updated=command(args);after=copy.deepcopy(spec(updated,kind))
         for runtime in (before,after):
             runtime['containers'][0].pop('image',None)
             runtime['containers'][0]['env']=[e for e in runtime['containers'][0].get('env',[]) if e['name']!='LEAD_ENGINE_AVAILABLE']
