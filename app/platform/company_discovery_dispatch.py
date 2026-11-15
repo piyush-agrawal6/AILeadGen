@@ -19,15 +19,15 @@ def _claim(key):
         active=c.execute("SELECT COUNT(*) FROM organization_profile_jobs WHERE status IN ('QUEUED','RUNNING') AND execution_name IS NOT NULL AND (lease_expires_at IS NULL OR lease_expires_at>?)",(now(),)).fetchone()[0]
         if active>=2 or row['status']!='QUEUED' or row['execution_name']:return False
         token=str(uuid.uuid4());expiry=(datetime.now(timezone.utc)+timedelta(seconds=90)).isoformat()
-        changed=c.execute("UPDATE organization_profile_jobs SET execution_name='DISPATCHING',lease_owner=?,lease_expires_at=? WHERE id=? AND organization_id=? AND status='QUEUED' AND execution_name IS NULL",(token,expiry,key,organization())).rowcount
+        changed=c.execute("UPDATE organization_profile_jobs SET execution_name=?,lease_owner=?,lease_expires_at=? WHERE id=? AND organization_id=? AND status='QUEUED' AND execution_name IS NULL",('DISPATCHING:'+token,token,expiry,key,organization())).rowcount
         return token if changed==1 else None
 
 
 def _record(key,token,operation=None,failed=False):
     from app.platform.context import organization
     with db_session() as c:
-        if failed:c.execute("UPDATE organization_profile_jobs SET status='FAILED',error_code='REVIEW_DISPATCH_FAILED',execution_name=NULL,lease_owner=NULL,lease_expires_at=NULL WHERE id=? AND organization_id=? AND status='QUEUED' AND execution_name='DISPATCHING' AND lease_owner=?",(key,organization(),token))
-        else:c.execute("UPDATE organization_profile_jobs SET execution_name=? WHERE id=? AND organization_id=? AND execution_name='DISPATCHING' AND lease_owner=?",(operation,key,organization(),token))
+        if failed:c.execute("UPDATE organization_profile_jobs SET status='FAILED',error_code='REVIEW_DISPATCH_FAILED',execution_name=NULL,lease_owner=NULL,lease_expires_at=NULL WHERE id=? AND organization_id=? AND status='QUEUED' AND execution_name=?",(key,organization(),'DISPATCHING:'+token))
+        else:c.execute("UPDATE organization_profile_jobs SET execution_name=? WHERE id=? AND organization_id=? AND execution_name=?",(operation,key,organization(),'DISPATCHING:'+token))
 
 
 async def launch(key):

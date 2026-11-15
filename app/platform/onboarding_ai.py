@@ -10,6 +10,7 @@ from app.platform.context import current,organization
 from app.platform import onboarding as setup,company_discovery as reviews
 from app.platform.company_profiles import CompanyUpdate,read_profile,save_profile
 from app.api.organization import require_role
+from app.platform.company_autofill import FieldName
 
 RADAR_OBJECTIVES={'RESEARCH_MARKETS','UNDERSTAND_CUSTOMER_NEEDS','MONITOR_BUYING_CONTEXT','MONITOR_COMPETITORS','EXPLORE_OPPORTUNITIES'}
 class Strict(BaseModel):model_config=ConfigDict(extra='forbid',str_strip_whitespace=True)
@@ -63,7 +64,13 @@ class Advice(Strict):
     answer:str=Field(min_length=10,max_length=2400)
     suggestions:list[str]=Field(default_factory=list,max_length=6)
     limitations:list[str]=Field(default_factory=list,max_length=6)
-    source_fields:list[str]=Field(default_factory=list,max_length=12)
+    source_fields:list[FieldName]=Field(default_factory=list,max_length=12)
+    @field_validator('source_fields',mode='before')
+    @classmethod
+    def qualified_profile_fields(cls,values):
+        # Both spellings refer to the same supplied DATA field. Never accept
+        # arbitrary nested paths or silently discard an unsupported reference.
+        return [value.removeprefix('saved_company.') if isinstance(value,str) else value for value in values] if isinstance(values,list) else values
 
 
 def editable(c,revision=None):

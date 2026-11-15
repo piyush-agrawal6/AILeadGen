@@ -237,8 +237,15 @@ def execute(key,db_path=None):
                     from app.platform.company_autofill import generate
                     with db_session(db_path) as c:result=asyncio.run(asyncio.wait_for(generate(c,row,active),timeout=65))
                 else:result=asyncio.run(asyncio.wait_for(fetch_preview(row['website']),timeout=25))
-            except Exception:
-                with db_session(db_path) as c:c.execute("UPDATE organization_profile_jobs SET status='FAILED',progress_stage='FAILED',error_code='WEBSITE_REVIEW_FAILED',lease_owner=NULL,lease_expires_at=NULL,updated_at=? WHERE id=? AND organization_id=? AND lease_owner=? AND status='RUNNING'",(now(),key,organization(),lease))
+            except Exception as error:
+                code='WEBSITE_REVIEW_FAILED'
+                if row['source_kind'] in ('ICP_RECOMMENDATIONS','ONBOARDING_ADVICE'):
+                    from app.acquisition.ai import AiOutputError
+                    from pydantic import ValidationError
+                    code='SETUP_AI_OUTPUT_INVALID' if isinstance(error,(AiOutputError,ValidationError)) else 'SETUP_REVIEW_TIMEOUT' if isinstance(error,TimeoutError) else {403:'SETUP_ACCESS_REVOKED',409:'SETUP_CONTEXT_CHANGED',429:'SETUP_LIMIT_EXHAUSTED',503:'SETUP_AI_UNAVAILABLE'}.get(getattr(error,'status_code',None),'SETUP_REVIEW_FAILED')
+                    import logging
+                    logging.getLogger(__name__).warning('Setup review failed',extra={'job_id':key,'error_type':type(error).__name__,'error_code':code})
+                with db_session(db_path) as c:c.execute("UPDATE organization_profile_jobs SET status='FAILED',progress_stage='FAILED',error_code=?,lease_owner=NULL,lease_expires_at=NULL,updated_at=? WHERE id=? AND organization_id=? AND lease_owner=? AND status='RUNNING'",(code,now(),key,organization(),lease))
                 return
             with db_session(db_path) as c:
                 # A revoked/cancelled job cannot apply a late result.

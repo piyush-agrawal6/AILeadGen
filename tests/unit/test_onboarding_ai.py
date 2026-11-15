@@ -147,7 +147,8 @@ def test_dispatch_claim_is_bounded_recoverable_and_fenced_from_late_acknowledgem
             jobs.control(c,key,'RETRY');c.commit()
             replacement=dispatch._claim(key);assert replacement and replacement!=token
             dispatch._record(key,token,'late-operation')
-            assert jobs.owned(c,key)['execution_name']=='DISPATCHING'
+            assert jobs.owned(c,key)['execution_name']=='DISPATCHING:'+replacement
+            c.execute("UPDATE organization_profile_jobs SET status='RUNNING',lease_owner='worker-lease' WHERE id=?",(key,));c.commit()
             dispatch._record(key,replacement,'current-operation')
             assert jobs.owned(c,key)['execution_name']=='current-operation'
     provider.structured.assert_not_called();crawl.assert_not_called()
@@ -169,3 +170,17 @@ def test_global_setup_dispatch_capacity_has_a_bounded_queue_without_provider_wor
             dispatch._record(keys[0],first,failed=True)
             assert dispatch._claim(keys[2])
     provider.structured.assert_not_called();crawl.assert_not_called()
+
+
+def test_qualified_saved_profile_references_are_normalized_but_unknown_fields_fail(setup_client):
+    http,provider,_,_,_,_=setup_client
+    from app.platform.onboarding_ai import Advice
+    from pydantic import ValidationError
+    provider.structured.side_effect=None
+    provider.structured.return_value=Advice(answer='Review these suggested audience needs against your offering.',source_fields=['saved_company.products_services','saved_company.target_customers'])
+    response=http.post(BASE+'/assistant',headers=OWNER,json={'prompt':'What should I review in my customer profiles?','request_id':str(uuid.uuid4())});assert response.status_code==202,response.text
+    reviewed=http.get(BASE+'/reviews/'+response.json()['job']['id'],headers=OWNER).json()
+    assert reviewed['status']=='READY',reviewed
+    assert reviewed['preview']['source_fields']==['products_services','target_customers']
+    with pytest.raises(ValidationError):Advice(answer='Unsupported reference should never be accepted.',source_fields=['saved_company.credentials'])
+    with pytest.raises(ValidationError):Advice(answer='Nested arbitrary paths should never be accepted.',source_fields=['saved_company.products_services.secret'])
