@@ -11,7 +11,14 @@ import {leadEngineEnabled} from '@/lib/product-availability';
 export const metadata: Metadata = {
   title: "Intent Radar | PlaneByte",
   description: "Evidence-linked intent discovery and Growth Intelligence for your workspace.",
-  icons: { icon: brand.mark, apple: brand.mark },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: brand.mark, type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  manifest: "/site.webmanifest",
 };
 
 export default async function RootLayout({
