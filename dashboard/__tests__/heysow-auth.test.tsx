@@ -16,7 +16,7 @@ describe('PlaneByte authentication experience',()=>{
  });
  it('uses PlaneByte branding and real product capabilities without legacy wording',()=>{
   render(<AuthFrame><h2>Welcome back</h2></AuthFrame>);
-  expect(screen.getByRole('heading',{name:'Welcome back'})).toBeTruthy();expect(screen.getByText('Discover relevant companies')).toBeTruthy();
+  expect(screen.getByRole('heading',{name:'Welcome back'})).toBeTruthy();expect(screen.getAllByText(/Discover relevant/).length).toBeGreaterThan(0);
   expect(screen.getByRole('link',{name:'Privacy Policy'}).getAttribute('href')).toBe('/privacy');expect(screen.getAllByText('PlaneByte')).toHaveLength(2);expect(screen.queryByText(/HeySow/)).toBeNull();
  });
  it('prevents duplicate submissions while connecting and shows server errors',async()=>{

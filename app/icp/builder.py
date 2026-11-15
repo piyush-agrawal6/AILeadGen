@@ -181,11 +181,11 @@ def _persist(c, source, inputs, output, hit, version=None, changes=None):
             'review_required': True, 'profile_created': False, 'discovery_started': False}
 
 
-async def _call(c, task, payload, schema, instruction, validator):
+async def _call(c, task, payload, schema, instruction, validator,operation_id=None):
     async def produce():
-        operation_id=ai_usage.reserve_icp(tokens=ai_usage.estimate(instruction,payload,schema,7000))
+        operation_id_value=ai_usage.reserve_icp(operation_id=operation_id,tokens=ai_usage.estimate(instruction,payload,schema,7000))
         from app.platform.provider_usage import operation
-        with operation('ICP_RECOMMENDATIONS',operation_id=operation_id):
+        with operation('ICP_RECOMMENDATIONS',operation_id=operation_id_value):
             return await asyncio.wait_for(gateway.provider(c).structured(
                 instruction, payload, schema, max_output_tokens=7000, timeout_seconds=25,
                 max_response_bytes=60000, retry_transient=False,attempts_per_provider=1), timeout=30)
@@ -195,7 +195,7 @@ async def _call(c, task, payload, schema, instruction, validator):
         raise HTTPException(503, 'AI could not prepare reliable targeting suggestions. Your saved profiles are unchanged. Retry or use the manual builder.') from None
 
 
-async def generate(c, body: Generate):
+async def generate(c, body: Generate, *, operation_id=None):
     _allowed(c)
     profile = read_profile(c)
     # read_profile is saved owner-approved information, not an unapplied website proposal.
@@ -209,7 +209,7 @@ async def generate(c, body: Generate):
               'mode': body.mode}
     services = [item['name'] for item in profile['products_services']]
     result, hit = await _call(c, 'ICP_RECOMMENDATIONS_V1', inputs, Suggestions, INSTRUCTION,
-                              lambda value: _check_suggestions(value, body.candidate_count, services))
+                              lambda value: _check_suggestions(value, body.candidate_count, services),operation_id=operation_id)
     from app.config.locations import country
     approved_countries = set()
     for value in profile['countries_served']:

@@ -1,7 +1,12 @@
-"use client";
-import {useState} from 'react';
-import {useQuery} from '@tanstack/react-query';
-import {request} from '@/lib/intelligence';
-import {Table,Pagination,type Paged} from '@/components/operations/ui';
-type Audit={id:string;actor:string;action:string;entity:string;result:string;created_at:string};
-export default function Access(){const [page,setPage]=useState(1),[message,setMessage]=useState('');const me=useQuery({queryKey:['my-role'],queryFn:()=>request<{role:string}>('/foundation/me')});const roles=useQuery({queryKey:['roles'],queryFn:()=>request<{email:string;role:string;primary_owner:boolean}[]>('/foundation/roles'),enabled:me.data?.role==='OWNER'});const audit=useQuery({queryKey:['audit',page],queryFn:()=>request<Paged<Audit>>('/foundation/audit?page='+page),enabled:['OWNER','ADMIN'].includes(me.data?.role||'')});return <main className="space-y-6"><h1 className="text-2xl font-semibold">Roles & Audit</h1><p className="text-sm">Your role: {me.data?.role||'Loading…'}</p>{roles.data&&<Table head={['Account','Role']}>{roles.data.map(r=><tr key={r.email}><td>{r.email}{r.primary_owner&&<small>Last active owner</small>}</td><td><select className="control" value={r.role} disabled={r.primary_owner} onChange={async e=>{try{await request('/foundation/roles',{method:'PUT',body:JSON.stringify({email:r.email,role:e.target.value})});await roles.refetch();setMessage('Role saved.')}catch(e){setMessage(e instanceof Error?e.message:'Could not save role.')}}}>{['OWNER','ADMIN','OPERATOR','VIEWER'].map(role=><option key={role}>{role}</option>)}</select></td></tr>)}</Table>}<h2 className="text-lg font-semibold">Important operations</h2><Table head={['When','Actor','Action','Entity','Result']}>{audit.data?.items.map(a=><tr key={a.id}><td>{new Date(a.created_at).toLocaleString()}</td><td>{a.actor}</td><td>{a.action}</td><td className="max-w-40 break-words">{a.entity}</td><td>{a.result}</td></tr>)}</Table><Pagination page={page} total={audit.data?.total||0} size={25} onChange={setPage}/>{(message||audit.error)&&<p role="status">{message||audit.error?.message}</p>}</main>}
+import { Suspense } from "react";
+import { notFound } from "next/navigation";
+import { UnifiedSettingsCenter } from "@/components/settings/unified-settings-center";
+
+export default function AccessPage() {
+  if (process.env.HEYSOW_WORKSPACE_MANAGEMENT_ENABLED !== "true") notFound();
+  return (
+    <Suspense fallback={<p role="status" className="p-8 text-sm text-muted-foreground">Loading roles & audit…</p>}>
+      <UnifiedSettingsCenter initialCategory="team" initialTab="roles" />
+    </Suspense>
+  );
+}

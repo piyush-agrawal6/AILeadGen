@@ -18,7 +18,7 @@ class Review(BaseModel):
     updated_at:str
     preview:dict[str,Any]|None
     can_retry:bool
-    source_kind:Literal['WEBSITE','DESCRIPTION']='WEBSITE'
+    source_kind:Literal['WEBSITE','DESCRIPTION','ICP_RECOMMENDATIONS','ONBOARDING_ADVICE']='WEBSITE'
     progress_stage:str=''
 
 class Control(BaseModel):

@@ -91,3 +91,9 @@ def test_postgres_overview_summary_matches_scoped_counts_and_retention(pg_radar,
     with workspace_scope(c,'radar-pg@example.test',other):
         summary=service.overview(c,include_previews=False)
         assert summary['new_signals']==0 and summary['trends']==[] and summary['operations']['jobs_by_status']==[]
+
+
+def test_postgres_overview_snapshot_equivalence_retention_and_tenant_scope(pg_radar):
+    from test_overview_snapshot import snapshot_contract
+    c,org,other=pg_radar
+    snapshot_contract(c,org,other,'radar-pg@example.test')

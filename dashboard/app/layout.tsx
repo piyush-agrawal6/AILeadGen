@@ -24,8 +24,27 @@ export default async function RootLayout({
   const collapsed=(await cookies()).get('planebyte-sidebar')?.value==='collapsed';
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-background text-foreground antialiased overflow-hidden">
-        {publicPage?children:<Providers><Shell user={user?{name:user.name,email:user.email,image:'image' in user?user.image as string|null:undefined}:undefined} initialCollapsed={collapsed} workspaceManagementEnabled={process.env.HEYSOW_WORKSPACE_MANAGEMENT_ENABLED==='true'} capabilities={{leadEngineAvailable:leadEngineEnabled(process.env.LEAD_ENGINE_AVAILABLE),companyDiscovery:process.env.HEYSOW_COMPANY_DISCOVERY_ENABLED==='true',customerIntegrations:process.env.HEYSOW_CUSTOMER_INTEGRATIONS_ENABLED==='true',leadAssistant:process.env.HEYSOW_LEAD_ASSISTANT_ENABLED==='true',developerApi:process.env.HEYSOW_DEVELOPER_API_ENABLED==='true'}}>{children}</Shell></Providers>}
+      <body className={`min-h-screen bg-background text-foreground antialiased ${publicPage ? "overflow-y-auto min-h-dvh" : "overflow-hidden"}`}>
+        <Providers>
+          {publicPage ? (
+            children
+          ) : (
+            <Shell
+              user={user ? { name: user.name, email: user.email, image: 'image' in user ? (user.image as string | null) : undefined } : undefined}
+              initialCollapsed={collapsed}
+              workspaceManagementEnabled={process.env.HEYSOW_WORKSPACE_MANAGEMENT_ENABLED === 'true'}
+              capabilities={{
+                leadEngineAvailable: leadEngineEnabled(process.env.LEAD_ENGINE_AVAILABLE),
+                companyDiscovery: process.env.HEYSOW_COMPANY_DISCOVERY_ENABLED === 'true',
+                customerIntegrations: process.env.HEYSOW_CUSTOMER_INTEGRATIONS_ENABLED === 'true',
+                leadAssistant: process.env.HEYSOW_LEAD_ASSISTANT_ENABLED === 'true',
+                developerApi: process.env.HEYSOW_DEVELOPER_API_ENABLED === 'true',
+              }}
+            >
+              {children}
+            </Shell>
+          )}
+        </Providers>
       </body>
     </html>
   );

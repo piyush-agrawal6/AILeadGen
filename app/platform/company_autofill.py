@@ -85,14 +85,37 @@ async def collect_sources(website,active):
     from app.utils.urls import is_safe_url,_tld_extractor
     original=_tld_extractor(urlsplit(website).hostname or '').top_domain_under_public_suffix
     sources=[];candidates=[];semaphore=asyncio.Semaphore(2)
-    async with SafeAsyncClient(timeout=8,max_bytes=400000,redirect_limit=3) as client:
+    policies={};policy_lock=asyncio.Lock();last_page={}
+    from urllib.robotparser import RobotFileParser
+    from time import monotonic
+    agent=get_settings().crawler_user_agent
+    async with SafeAsyncClient(timeout=8,max_bytes=400000,redirect_limit=3,headers={'user-agent':agent}) as client:
+        async def permitted(url):
+            origin=urlsplit(url).scheme+'://'+urlsplit(url).netloc
+            async with policy_lock:
+                if origin not in policies:
+                    if len(policies)>=2:raise ValueError('Too many business website origins')
+                    policy_response=await client.get(origin+'/robots.txt',allowed_domain=original,require_https=True)
+                    if policy_response.status_code in (404,410):policy=None
+                    elif policy_response.status_code==200 and 'html' not in policy_response.headers.get('content-type','').lower():
+                        policy=RobotFileParser();policy.parse(policy_response.text.splitlines())
+                    else:raise ValueError('Publisher crawling permission could not be established')
+                    policies[origin]=policy
+                policy=policies[origin]
+                if policy and not policy.can_fetch(agent,url):raise ValueError('Publisher robots policy disallows this page')
+                delay=policy.crawl_delay(agent) if policy else None
+                if delay and delay>5:raise ValueError('Publisher requires a longer crawl interval; use manual setup')
+                if delay:await asyncio.sleep(max(0,delay-(monotonic()-last_page.get(origin,0))))
+                last_page[origin]=monotonic()
         async def fetch(url):
             async with semaphore:
                 await asyncio.to_thread(active)
-                response=await client.get(url,allowed_domain=original);response.raise_for_status();final=str(response.url)
+                response=await client.get(url,allowed_domain=original,require_https=True,before_request=permitted);response.raise_for_status();final=str(response.url)
                 if _tld_extractor(urlsplit(final).hostname or '').top_domain_under_public_suffix!=original:raise ValueError('Different company domain')
                 if 'html' not in response.headers.get('content-type','').lower():raise ValueError('HTML required')
                 soup=BeautifulSoup(response.text,'html.parser')
+                restrictions=response.headers.get('x-robots-tag','')+' '+ ' '.join(str(meta.get('content','')) for meta in soup.find_all('meta',attrs={'name':re.compile('robots',re.I)}))
+                if re.search(r'\b(?:noai|no-content-ai|nosnippet|noarchive)\b',restrictions,re.I):raise ValueError('Publisher content-use restrictions prevent AI research')
                 links=[urljoin(final,str(link['href'])) for link in soup.find_all('a',href=True)[:200]]
                 for element in soup(['script','style','noscript','iframe','svg']):element.decompose()
                 text=' '.join(soup.get_text(' ',strip=True).split())[:12000]

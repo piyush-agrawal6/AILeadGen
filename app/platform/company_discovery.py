@@ -50,14 +50,14 @@ def require_enabled():
 
 def owned(c,key):
     row=c.execute('SELECT * FROM organization_profile_jobs WHERE id=? AND organization_id=?',(key,organization())).fetchone()
-    if not row:raise HTTPException(404,'Company website review not found.')
+    if not row or row['source_kind'] in ('ONBOARDING_ADVICE','ICP_RECOMMENDATIONS') and row['created_by']!=current().actor:raise HTTPException(404,'Company website review not found.')
     return dict(row)
 
 
 def detail(c,key):
     row=owned(c,key)
-    expired=row['status']=='RUNNING' and row['lease_expires_at'] and row['lease_expires_at']<now()
-    return {name:row[name] for name in ('id','website','status','error_code','created_at','updated_at','source_kind','progress_stage')}|{'preview':json.loads(row['result_json']) if row['result_json'] else None,'can_retry':row['attempts']<3 and (row['status']=='FAILED' or bool(expired))}
+    expired=row['status'] in ('QUEUED','RUNNING') and row['lease_expires_at'] and row['lease_expires_at']<now()
+    return {name:row[name] for name in ('id','website','status','error_code','created_at','updated_at','source_kind','progress_stage')}|{'preview':json.loads(row['result_json']) if row['result_json'] else None,'can_retry':row['attempts']<3 and (row['status']=='FAILED' or bool(expired) or row['status']=='QUEUED' and not row['execution_name'])}
 
 
 def control(c,key,action):
@@ -68,7 +68,8 @@ def control(c,key,action):
     elif action=='RETRY':
         if not detail(c,key)['can_retry']:raise HTTPException(409,'This review cannot be retried now. Create a new review if necessary.')
         require_role(c,row['created_by'],organization(),('OWNER','ADMIN'))
-        c.execute("UPDATE organization_profile_jobs SET status='QUEUED',error_code=NULL,execution_name=NULL,lease_owner=NULL,lease_expires_at=NULL,updated_at=? WHERE id=? AND organization_id=? AND attempts<3 AND (status='FAILED' OR (status='RUNNING' AND lease_expires_at<?))",(now(),key,organization(),now()))
+        if row['status']=='QUEUED' and not row['execution_name']:return detail(c,key)
+        c.execute("UPDATE organization_profile_jobs SET status='QUEUED',error_code=NULL,execution_name=NULL,lease_owner=NULL,lease_expires_at=NULL,updated_at=? WHERE id=? AND organization_id=? AND attempts<3 AND (status='FAILED' OR (status IN ('QUEUED','RUNNING') AND lease_expires_at<?))",(now(),key,organization(),now()))
     else:raise HTTPException(422,'Choose a supported review action.')
     return detail(c,key)
 
@@ -111,7 +112,10 @@ def create(c,body):
     require_enabled();org=organization();require_role(c,current().actor,org,('OWNER','ADMIN'))
     if body.use_ai:
         from app.platform.company_autofill import require_ai,capabilities
-        require_ai()
+        if body.source_kind=='ICP_RECOMMENDATIONS':
+            from app.icp.builder import _allowed
+            _allowed(c)
+        else:require_ai()
         if not capabilities(c)['configured']:raise HTTPException(503,'The AI gateway is unavailable. You can still enter company details manually.')
     if getattr(c,'backend',None)=='postgres':c.execute('SELECT id FROM organizations WHERE id=? FOR UPDATE',(org,))
     elif not c.in_transaction:c.execute('BEGIN IMMEDIATE')
@@ -119,11 +123,12 @@ def create(c,body):
     digest=hashlib.sha256(json.dumps(body.model_dump(exclude={'request_id'}),sort_keys=True).encode()).hexdigest()
     prior=c.execute('SELECT * FROM organization_profile_jobs WHERE organization_id=? AND request_id=?',(org,str(body.request_id))).fetchone()
     if prior:
+        if body.source_kind in ('ICP_RECOMMENDATIONS','ONBOARDING_ADVICE') and prior['created_by']!=current().actor:raise HTTPException(409,'This request belongs to another setup review.')
         prior_hash=prior['input_hash'] or hashlib.sha256(json.dumps({'website':prior['website'],'source_kind':'WEBSITE','description':'','use_ai':False},sort_keys=True).encode()).hexdigest()
         if prior_hash!=digest:raise HTTPException(409,'This review request already belongs to different company information.')
         return detail(c,prior['id'])
     fresh=(datetime.now(timezone.utc)-timedelta(hours=24)).isoformat()
-    cached=c.execute("SELECT id,created_by FROM organization_profile_jobs WHERE organization_id=? AND (input_hash=? OR (input_hash='' AND website=? AND use_ai=0 AND ?=0)) AND ((status='READY' AND updated_at>?) OR status='QUEUED' OR (status='RUNNING' AND lease_expires_at>?)) ORDER BY updated_at DESC LIMIT 1",(org,digest,body.website,int(body.use_ai),fresh,now())).fetchone()
+    cached=c.execute("SELECT id,created_by FROM organization_profile_jobs WHERE organization_id=? AND (input_hash=? OR (input_hash='' AND website=? AND use_ai=0 AND ?=0)) AND (?=0 OR created_by=?) AND ((status='READY' AND updated_at>?) OR status='QUEUED' OR (status='RUNNING' AND lease_expires_at>?)) ORDER BY updated_at DESC LIMIT 1",(org,digest,body.website,int(body.use_ai),int(body.source_kind in ('ICP_RECOMMENDATIONS','ONBOARDING_ADVICE')),current().actor,fresh,now())).fetchone()
     if cached:
         # Never reuse a queued job whose creator has lost authorization.
         require_role(c,cached['created_by'],org,('OWNER','ADMIN'))
@@ -214,15 +219,21 @@ def execute(key,db_path=None):
                 require_enabled()
                 if row['use_ai']:
                     from app.platform.company_autofill import require_ai
-                    require_ai()
+                    if row['source_kind']=='ICP_RECOMMENDATIONS':
+                        from app.icp.builder import _allowed
+                        with db_session(db_path) as permit:_allowed(permit)
+                    else:require_ai()
                 with db_session(db_path) as c:
                     require_role(c,row['created_by'],organization(),('OWNER','ADMIN'))
                     present=owned(c,key)
                     if present['status']!='RUNNING' or present['lease_owner']!=lease or present['lease_expires_at']<now():raise HTTPException(409,'Company review is no longer active.')
                     if stage:c.execute('UPDATE organization_profile_jobs SET progress_stage=? WHERE id=? AND organization_id=? AND lease_owner=?',(stage,key,organization(),lease))
             try:
-                active('ANALYZING' if row['source_kind']=='DESCRIPTION' else 'READING_WEBSITE')
-                if row['use_ai']:
+                active('ANALYZING' if row['source_kind'] in ('DESCRIPTION','ICP_RECOMMENDATIONS','ONBOARDING_ADVICE') else 'READING_WEBSITE')
+                if row['source_kind'] in ('ICP_RECOMMENDATIONS','ONBOARDING_ADVICE'):
+                    from app.platform.onboarding_ai import generate_job
+                    with db_session(db_path) as c:result=asyncio.run(asyncio.wait_for(generate_job(c,row,active),timeout=65))
+                elif row['use_ai']:
                     from app.platform.company_autofill import generate
                     with db_session(db_path) as c:result=asyncio.run(asyncio.wait_for(generate(c,row,active),timeout=65))
                 else:result=asyncio.run(asyncio.wait_for(fetch_preview(row['website']),timeout=25))

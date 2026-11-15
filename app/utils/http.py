@@ -15,9 +15,10 @@ class SafeAsyncClient(httpx.AsyncClient):
         self.max_bytes = max_bytes
         self.redirect_limit = redirect_limit
 
-    async def get(self, url, *, allowed_host=None, allowed_domain=None, **kwargs):
+    async def get(self, url, *, allowed_host=None, allowed_domain=None, require_https=False,before_request=None, **kwargs):
         history = []
         for _ in range(self.redirect_limit+1):
+            if require_https and urlparse(str(url)).scheme!='https':raise ValueError('HTTPS is required for public business research')
             try:safe=await asyncio.wait_for(asyncio.to_thread(is_safe_url,str(url),check_dns=True),timeout=5)
             except asyncio.TimeoutError:raise ValueError('Destination validation timed out') from None
             if not safe:
@@ -28,6 +29,7 @@ class SafeAsyncClient(httpx.AsyncClient):
                 from app.utils.urls import _tld_extractor
                 if _tld_extractor(urlparse(str(url)).hostname or '').top_domain_under_public_suffix != allowed_domain:
                     raise ValueError('Cross-domain crawl redirect blocked')
+            if before_request is not None:await before_request(str(url))
             request = self.build_request("GET", url, **kwargs)
             response = await self.send(request, stream=True, follow_redirects=False)
             try:

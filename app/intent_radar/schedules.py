@@ -90,11 +90,8 @@ def enqueue_due(c):
             except HTTPException:c.rollback()
     return result
 
-async def tick():
-    if get_settings().billing_enabled or get_settings().payu_billing_enabled:
-        from app.billing.webhooks import tick as billing_tick
-        await asyncio.to_thread(billing_tick,2)
-    if get_settings().intent_radar_stage=='Disabled':return
+def _prepare_tick():
+    """Bounded synchronous DB phase; never run on the HTTP event loop."""
     # Rotation prevents an abandoned workspace or a large nonexpiring prefix
     # from starving retention. Every candidate is reauthorized before writes.
     with db_session() as c:
@@ -119,13 +116,35 @@ async def tick():
                     c.execute("UPDATE intelligence_jobs SET status='QUEUED',execution_name=NULL,lease_owner=NULL,lease_until=NULL WHERE id=? AND organization_id=? AND (status='QUEUED' OR (status='RUNNING' AND lease_until<?))",(row['id'],row['organization_id'],now()))
                     c.commit();pending.append({'id':row['id'],'actor':row['created_by'],'organization_id':row['organization_id']})
             except HTTPException:c.rollback()
-    from app.intelligence.dispatch import launch
-    pending=list({item['id']:item for item in pending}.values())
-    for item in pending:
-        with db_session() as c:
-            with workspace_scope(c,item['actor'],item['organization_id']):await launch(item['id'])
+    return list({item['id']:item for item in pending}.values())
+
+
+def _dispatch_context(item):
+    # Recheck current membership, then close the connection before cloud I/O.
+    # Only identity ContextVars travel to launch; launch checks the job afresh.
+    from contextvars import copy_context
     with db_session() as c:
-        c.execute('INSERT INTO intent_worker_health(worker_id,last_tick_at,state,detail_json) VALUES(?,?,?,?) ON CONFLICT(worker_id) DO UPDATE SET last_tick_at=excluded.last_tick_at,state=excluded.state,detail_json=excluded.detail_json',('intent-scheduler',now(),'READY',json.dumps({'dispatch_candidates':len(pending)})))
+        with workspace_scope(c,item['actor'],item['organization_id']):
+            return copy_context()
+
+
+def _record_tick(count):
+    with db_session() as c:
+        c.execute('INSERT INTO intent_worker_health(worker_id,last_tick_at,state,detail_json) VALUES(?,?,?,?) ON CONFLICT(worker_id) DO UPDATE SET last_tick_at=excluded.last_tick_at,state=excluded.state,detail_json=excluded.detail_json',('intent-scheduler',now(),'READY',json.dumps({'dispatch_candidates':count})))
+
+
+async def tick():
+    if get_settings().billing_enabled or get_settings().payu_billing_enabled:
+        from app.billing.webhooks import tick as billing_tick
+        await asyncio.to_thread(billing_tick,2)
+    if get_settings().intent_radar_stage=='Disabled':return
+    pending=await asyncio.to_thread(_prepare_tick)
+    from app.intelligence.dispatch import launch
+    for item in pending:
+        try:verified=await asyncio.to_thread(_dispatch_context,item)
+        except HTTPException:continue # A revoked candidate must not starve other authorized jobs.
+        await asyncio.create_task(launch(item['id']),context=verified)
+    await asyncio.to_thread(_record_tick,len(pending))
 
 async def loop():
     while True:

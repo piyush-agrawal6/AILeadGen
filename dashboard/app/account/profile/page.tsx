@@ -1,3 +1,10 @@
-import {notFound} from 'next/navigation';
-import {AccountProfileSettings} from '@/components/workspaces/account-profile';
-export default function Profile(){if(process.env.HEYSOW_WORKSPACE_MANAGEMENT_ENABLED!=='true')notFound();return <AccountProfileSettings/>}
+import { Suspense } from "react";
+import { UnifiedSettingsCenter } from "@/components/settings/unified-settings-center";
+
+export default function Profile() {
+  return (
+    <Suspense fallback={<p role="status" className="p-8 text-sm text-muted-foreground">Loading account profile…</p>}>
+      <UnifiedSettingsCenter initialCategory="account" initialTab="profile" />
+    </Suspense>
+  );
+}

@@ -162,6 +162,8 @@ class Preferences(Strict):
     analysis_daily_call_limit: int = Field(3,ge=1,le=10)
     analysis_daily_token_limit: int = Field(100000,ge=6000,le=300000)
     topics: list[Term] = Field(default_factory=list, max_length=12)
+    discovery_keywords: list[Term] = Field(default_factory=list, max_length=12)
+    discovery_excluded: list[Term] = Field(default_factory=list, max_length=12)
     alerts_enabled: bool = True
     alert_threshold: int = Field(85, ge=0, le=100)
     revision: int = Field(0, ge=0)

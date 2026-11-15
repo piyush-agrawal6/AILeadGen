@@ -356,7 +356,9 @@ def overview(c,*,include_previews=True):
     grouped=result.pop('jobs');heartbeat=result.pop('heartbeat')
     from datetime import timedelta
     result.update(operations={'jobs_by_status':grouped,'backlog':sum(r['count'] for r in grouped if r['status']=='QUEUED'),'scheduler_heartbeat_at':heartbeat,'scheduler_heartbeat_fresh':bool(heartbeat and heartbeat>(datetime.now(timezone.utc)-timedelta(seconds=180)).isoformat()),'worker_status_basis':'Running job records indicate leased work; scheduler heartbeat is not Cloud Run worker health.','sources':[]},as_of=stamp,preview_state='included' if include_previews else 'not requested')
-    if include_previews:result.update(recent_signals=listing(c,'signals',size=5)['items'],monitors=listing(c,'monitors',size=5)['items'],opportunities=listing(c,'opportunities',size=5)['items'],alerts=listing(c,'alerts',size=5)['items'])
+    if include_previews:
+        from app.intent_radar.overview import previews
+        result.update(previews(c,org))
     return result
 
 def remove_source(c,key):

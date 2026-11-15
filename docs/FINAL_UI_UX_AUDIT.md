@@ -1,16 +1,9 @@
-# Final UI/UX audit — initial
+# UI/UX verification
 
-The existing seven local product checks cover22 routes at six widths. They do not
-prove every button, form, production account or keyboard/screen-reader journey.
-The new brief additionally requires1920px and visually inspected real production
-journeys. Previous screenshots and reports are baseline evidence, not completion.
+The redesigned PlaneByte shell, home, graph, assistant, settings, catalog and shared product styling are implemented in sourceb11d753. Ten isolated browser checks pass across24 routes at320/390/768/1024/1280/1440/1920px, including no horizontal document overflow or critical browser exceptions. Graph save/reload, structured list, private AI handoff, a deliberately delayed overview response, zero-AI count/follow-up and evidence drawer return are verified.
 
-P0: dashboard data remains slow; assistant count requests lack a deterministic
-workspace-data route; opportunity promotion does not require intent evidence.
-P1: capability query is a parent loading gate before child data, causing a serial
-waterfall; overview fetches full preview lists before showing counts. Billing mixes
-operator safety counters, commercial comparisons and internal owner test controls.
+Visual inspection covered Home and Graph at1920/390px, Connections at1440px and Company settings at1920/390px. The first interaction run exposed a real composer-state loss during progressive rendering; it was repaired and the retained regression holds the response to reproduce that race deterministically. The initial failure remains recorded separately.
 
-Inspect and record each actual control and viewport, with clear form persistence,
-focus order, accessible names, empty/error/retry states and no invented connections.
-Preserve route implementations and source files while consolidating navigation.
+Local screenshots and two passing interaction recordings live under `data/artifacts/verification/final-remediation/`. These are fixture accounts, not production users. Production owner-browser acceptance and screen-reader usability remain separate. The graph intentionally uses existing saved context; new pain/brand/intent entities and autonomous execution are not implied by its appearance.
+
+Detailed screen decisions, routes, design tokens and limits are in `PLANEBYTE_UX_TRANSFORMATION_AUDIT.md`, `PLANEBYTE_NEW_INFORMATION_ARCHITECTURE.md` and `PLANEBYTE_INTELLIGENCE_GRAPH_SPEC.md`.

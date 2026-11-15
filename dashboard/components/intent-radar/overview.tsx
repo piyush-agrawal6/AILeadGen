@@ -1,37 +1,384 @@
 "use client";
 import Link from 'next/link';
 import {CommandCentre} from './command-centre';
-import {Activity,Target,Radio,Bookmark,Bell,CheckCheck,Search,Plus,ArrowRight,Radar} from 'lucide-react';
-import type {IntentOverview} from '@/lib/intent-radar';
-import {useRadarRead,useRadarCapabilities} from './provider';
-import {Badge,PageHeading,LoadingSkeleton,ErrorState} from './ui';
-import {SignalCard} from './signals';
+import {Activity,Target,Radio,Bookmark,Bell,CheckCheck,Search,ArrowRight,ArrowUpRight,Radar} from 'lucide-react';
+import type {IntentOverview,IntentSignal} from '@/lib/intent-radar';
+import {useRadarRead,useRadarCapabilities,useRadarMutation} from './provider';
+import {Badge,LoadingSkeleton,ErrorState} from './ui';
+import {SignalScore} from './signals';
+import {ProviderLogo} from './provider-logo';
 
 type Summary=Pick<IntentOverview,'new_signals'|'reviewed_signals'|'high_relevance'|'active_monitors'|'saved_opportunities'|'unread_alerts'|'trends'>&{operations?:{backlog:number;scheduler_heartbeat_at:string|null;scheduler_heartbeat_fresh:boolean;worker_status_basis:string}};
+
 export function OverviewDashboard(){
  const summary=useRadarRead<Summary>('/overview/summary'),details=useRadarRead<IntentOverview>('/overview',!!summary.data);
  if(!summary.data)return <div className="ir-page pb-home"><CommandCentre/>{summary.error?<ErrorState message={summary.error.message} retry={()=>void summary.refetch()}/>:<LoadingSkeleton/>}</div>;
  if(details.data)return <div className="ir-page pb-home"><CommandCentre/><OverviewContent d={{...details.data,...summary.data}}/></div>;
  const d=summary.data;
- return <div className="ir-page pb-home"><CommandCentre/><div className="ir-section-heading"><h2>Workspace overview</h2><Link className="ir-link" href="/intent-radar/signals">Review signals →</Link></div><div className="ir-metrics">{[['New conversations',d.new_signals],['High-relevance signals',d.high_relevance],['Active monitors',d.active_monitors],['Saved opportunities',d.saved_opportunities],['Reviewed signals',d.reviewed_signals],['Unread alerts',d.unread_alerts]].map(([name,value])=><section className="ir-panel" key={name}><span>{name}</span><strong>{value}</strong></section>)}</div>{details.error?<ErrorState message={details.error.message} retry={()=>void details.refetch()}/>:<section className="ir-panel" role="status"><p>Your workspace totals are ready. Loading recent evidence and activity…</p></section>}</div>;
+ const summaryMetrics=[['New Signals',d.new_signals,Activity,'/signals?status=New'],['High-Relevance Signals',d.high_relevance,Target,'/signals?min_score=85'],['Active Monitors',d.active_monitors,Radio,'/monitors'],['Saved Opportunities',d.saved_opportunities,Bookmark,'/opportunities'],['Reviewed Signals',d.reviewed_signals,CheckCheck,'/signals?status=Reviewed'],['Unread Alerts',d.unread_alerts,Bell,'/alerts']] as const;
+ return <div className="ir-page pb-home"><CommandCentre/><div className="ir-section-heading"><h2>Workspace overview</h2><Link className="ir-link" href="/intent-radar/signals">Review signals →</Link></div><div className="pb-dash-metrics">{summaryMetrics.map(([name,value,Icon,href])=><Link className="pb-dash-metric-card" key={name} href={'/intent-radar'+href}><div className="pb-dash-metric-header"><span>{name}</span><Icon size={14}/></div><strong className="pb-dash-metric-value">{value}</strong></Link>)}</div>{details.error?<ErrorState message={details.error.message} retry={()=>void details.refetch()}/>:<section className="ir-panel text-center py-6" role="status"><p className="text-sm text-muted-foreground m-0">Your workspace totals are ready. Loading recent evidence and activity…</p></section>}</div>;
 }
+
 function OverviewContent({d}:{d:IntentOverview&Summary}){
- const access=useRadarCapabilities();
  const fresh=!d.recent_signals.length&&!d.monitors.length&&!d.opportunities.length&&!d.alerts.length;
  const metrics=[['New Signals',d.new_signals,Activity,'/signals?status=New'],['High-Relevance Signals',d.high_relevance,Target,'/signals?min_score=85'],['Active Monitors',d.active_monitors,Radio,'/monitors'],['Saved Opportunities',d.saved_opportunities,Bookmark,'/opportunities'],['Reviewed Signals',d.reviewed_signals,CheckCheck,'/signals?status=Reviewed'],['Unread Alerts',d.unread_alerts,Bell,'/alerts']] as const;
  const trends=[...d.trends].reverse(),max=Math.max(1,...trends.map(t=>t.volume));
- return <div className="ir-page"><div className="ir-section-heading"><h2>Workspace overview</h2><Link className="ir-link" href="/intent-radar/signals">Review all signals <ArrowRight size={14}/></Link></div>
-  {fresh&&<section className="ir-panel ir-onboarding"><div><p className="ir-eyebrow">YOUR FIRST SIGNAL STARTS HERE</p><h2>Start finding relevant conversations</h2><p>Turn public discussions into useful research for your business.</p><div className="ir-onboarding-steps">{['Describe what your customers are looking for.','Discover public discussions.','Review and save useful opportunities.'].map((s,i)=><div key={s}><span className="ir-step-dot">{i+1}</span><span>{s}</span></div>)}</div><Link className="ir-button ir-primary" href="/intent-radar/monitors/new">Create Your First Monitor <ArrowRight size={16}/></Link></div><div className="ir-radar-mini" aria-hidden="true"><Radar size={36}/></div></section>}
-  <div className="ir-metrics">{metrics.map(([name,count,Icon,href])=><Link className="ir-panel" key={name} href={'/intent-radar'+href}><div><span>{name}</span><Icon size={15}/></div><strong>{count}</strong></Link>)}</div>
-  {d.operations&&<section className="ir-panel"><h2>Background monitoring</h2><p>{d.operations.backlog} queued discovery jobs · {d.operations.scheduler_heartbeat_fresh?'Monitoring scheduler checked in recently':'No recent monitoring check-in'}</p><small>{d.operations.scheduler_heartbeat_at?new Date(d.operations.scheduler_heartbeat_at).toLocaleString():'Monitoring has not checked in yet.'} · Open monitor history to review individual check outcomes.</small></section>}
-  {!fresh&&<>
-   <div className="ir-section-heading"><h2>Latest relevant conversations</h2><Link className="ir-link" href="/intent-radar/signals">Review all signals <ArrowRight size={14}/></Link></div>
-   {d.recent_signals.length?<div className="ir-cards">{[...d.recent_signals].sort((a,b)=>b.score-a.score).slice(0,4).map(s=><SignalCard key={s.id} signal={s}/>)}</div>:<section className="ir-panel"><h3>Your monitors are ready</h3><p>Run a manual check from Monitors to collect your first source-backed conversations.</p><Link className="ir-button" href="/intent-radar/monitors">Open Monitors <ArrowRight size={15}/></Link></section>}
-   <div className="ir-cards"><section className="ir-panel"><div className="ir-section-heading"><h2>Monitor activity</h2><Link className="ir-link" href="/intent-radar/monitors">Manage</Link></div>{d.monitors.map(m=><Link className="ir-summary" key={m.id} href={'/intent-radar/monitors/'+m.id}><Radio size={19}/><div><strong>{m.name}</strong><small>{m.last_checked?'Checked '+new Date(m.last_checked).toLocaleDateString():'Ready for its first manual check'}</small></div><Badge>{m.status}</Badge></Link>)}{!d.monitors.length&&<p>Create a monitor to save your search topics for your next check.</p>}</section>
-   <section className="ir-panel"><div className="ir-section-heading"><h2>Opportunities to review</h2><Link className="ir-link" href="/intent-radar/opportunities">View all</Link></div>{d.opportunities.filter(o=>['New','Reviewing'].includes(o.status)).map(o=><Link className="ir-summary" key={o.id} href="/intent-radar/opportunities"><Target size={19}/><div><strong>{o.next_action||'Review source evidence'}</strong><small>{o.priority} priority · {o.status}</small></div><ArrowRight size={15}/></Link>)}{!d.opportunities.some(o=>['New','Reviewing'].includes(o.status))&&<p>Choose a useful signal and add it to Opportunities when it’s worth a closer look.</p>}</section>
-   <section className="ir-panel"><div className="ir-section-heading"><h2>Recent activity</h2><Link className="ir-link" href="/intent-radar/alerts">Alerts</Link></div>{d.alerts.slice(0,3).map(a=><Link className="ir-summary" href={a.signal_id?'/intent-radar/signals/'+a.signal_id:'/intent-radar/alerts'} key={a.id}><Bell size={18}/><div><strong>{a.title}</strong><small>{new Date(a.created_at).toLocaleString()}</small></div></Link>)}{!d.alerts.length&&<p>Monitor check activity will appear here after your next check.</p>}</section>
-   <section className="ir-panel"><h2>Signals over time</h2><p>Public conversations by observed date · latest {trends.length} recorded days</p>{trends.length?<div className="ir-trend" role="img" aria-label={trends.map(t=>`${t.day}: ${t.volume} signals`).join('; ')}>{trends.map(t=><div key={t.day}><small>{t.volume}</small><span style={{height:Math.max(5,t.volume/max*65)+'%'}}/><small>{t.day.slice(5)}</small></div>)}</div>:<p>No signal history yet.</p>}</section></div>
-  </>}
-  {fresh&&<div className="ir-split"><section className="ir-panel"><div className="ir-section-heading"><h2>A focused public source</h2><Badge>Available</Badge></div><p>Hacker News · recent Ask HN discussions. Each check reviews a small, bounded set of public stories matching your keywords.</p><Link className="ir-link" href="/intent-radar/integrations">Understand source coverage <ArrowRight size={14}/></Link></section><section className="ir-panel"><h2>You choose when to check</h2><p>Save a monitor, then run checks when you need fresh research. Review the original evidence before deciding what to pursue.</p><Link className="ir-link" href="/intent-radar/monitors/new">Set up a monitor <ArrowRight size={14}/></Link></section></div>}
- </div>;
+ const pendingOpportunities=d.opportunities.filter(o=>['New','Reviewing'].includes(o.status));
+ const signalsToDisplay=[...d.recent_signals].sort((a,b)=>b.score-a.score).slice(0,10);
+
+ if(fresh){
+  return (
+   <>
+    <section className="ir-panel ir-onboarding">
+     <div>
+      <p className="ir-eyebrow">YOUR FIRST SIGNAL STARTS HERE</p>
+      <h2>Start finding relevant conversations</h2>
+      <p>Turn public discussions into useful research for your business.</p>
+      <div className="ir-onboarding-steps">{['Describe what your customers are looking for.','Discover public discussions.','Review and save useful opportunities.'].map((s,i)=><div key={s}><span className="ir-step-dot">{i+1}</span><span>{s}</span></div>)}</div>
+      <Link className="ir-button ir-primary" href="/intent-radar/monitors/new">Create Your First Monitor <ArrowRight size={16}/></Link>
+     </div>
+     <div className="ir-radar-mini" aria-hidden="true"><Radar size={36}/></div>
+    </section>
+    <div className="ir-split">
+     <section className="ir-panel"><div className="ir-section-heading"><h2>A focused public source</h2><Badge>Available</Badge></div><p>Hacker News · recent Ask HN discussions. Each check reviews a small, bounded set of public stories matching your keywords.</p><Link className="ir-link" href="/intent-radar/integrations">Understand source coverage <ArrowRight size={14}/></Link></section>
+     <section className="ir-panel"><h2>You choose when to check</h2><p>Save a monitor, then run checks when you need fresh research. Review the original evidence before deciding what to pursue.</p><Link className="ir-link" href="/intent-radar/monitors/new">Set up a monitor <ArrowRight size={14}/></Link></section>
+    </div>
+   </>
+  );
+ }
+
+ return (
+  <>
+   {/* Section B: Workspace Metrics Grid */}
+   <div className="pb-dash-metrics-section">
+    <div className="ir-section-heading pb-metrics-heading">
+     <h2>Workspace overview</h2>
+     <Link className="ir-link" href="/intent-radar/signals">Review all signals <ArrowRight size={14}/></Link>
+    </div>
+    <div className="pb-dash-metrics">
+     {metrics.map(([name,count,Icon,href])=>(
+      <Link className="pb-dash-metric-card" key={name} href={'/intent-radar'+href}>
+       <div className="pb-dash-metric-header"><span>{name}</span><Icon size={14}/></div>
+       <strong className="pb-dash-metric-value">{count}</strong>
+      </Link>
+     ))}
+    </div>
+   </div>
+
+   {/* Section C: Monitoring and Activity Grid */}
+   <div className="pb-dash-grid-row-1">
+    {/* Card 1: Background Monitoring */}
+    <section className="ir-panel pb-dash-card">
+     <div>
+      <div className="pb-dash-card-header">
+       <div className="pb-dash-card-title">
+        <Radio size={15} className="text-muted-foreground"/>
+        <h3>Background monitoring</h3>
+       </div>
+       {d.operations?.scheduler_heartbeat_fresh?(
+        <span className="pb-status-badge is-active"><span className="pb-status-dot pulse"/>Active</span>
+       ):(
+        <span className="pb-status-badge is-idle"><span className="pb-status-dot"/>Idle</span>
+       )}
+      </div>
+      <div className="pb-dash-stat-grid">
+       <div className="pb-dash-stat-tile">
+        <span className="pb-dash-stat-val">{d.operations?.backlog??0}</span>
+        <span className="pb-dash-stat-lbl">Queued checks</span>
+       </div>
+       <div className="pb-dash-stat-tile">
+        <span className="pb-dash-stat-val text-sm font-semibold truncate">{d.operations?.scheduler_heartbeat_fresh?'Healthy':'Standby'}</span>
+        <span className="pb-dash-stat-lbl truncate">{d.operations?.scheduler_heartbeat_at?new Date(d.operations.scheduler_heartbeat_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'No check-in'}</span>
+       </div>
+      </div>
+      <p className="pb-dash-card-desc">
+       {d.operations?.scheduler_heartbeat_fresh
+        ?'Scheduler active. Checks run on scheduled cadence.'
+        :'Checks run automatically based on monitor configuration.'}
+      </p>
+     </div>
+     <div className="pb-dash-card-footer">
+      <Link className="ir-link" href="/intent-radar/monitors">Monitor history & runs <ArrowRight size={13}/></Link>
+     </div>
+    </section>
+
+    {/* Card 2: Monitor Activity */}
+    <section className="ir-panel pb-dash-card">
+     <div>
+      <div className="pb-dash-card-header">
+       <div className="pb-dash-card-title">
+        <Radio size={15} className="text-muted-foreground"/>
+        <h3>Monitor activity</h3>
+       </div>
+       <Link className="ir-link" href="/intent-radar/monitors">Manage <ArrowRight size={13}/></Link>
+      </div>
+      {d.monitors.length>0?(
+       <div className="pb-dash-item-list">
+        {d.monitors.slice(0,3).map(m=>(
+         <Link className="pb-dash-item" key={m.id} href={'/intent-radar/monitors/'+m.id}>
+          <div className="pb-dash-item-body">
+           <strong className="truncate">{m.name}</strong>
+           <small>{m.last_checked?'Checked '+new Date(m.last_checked).toLocaleDateString():'Ready for check'}</small>
+          </div>
+          <Badge>{m.status}</Badge>
+         </Link>
+        ))}
+       </div>
+      ):(
+       <div className="pb-dash-card-empty">
+        <Radio size={20}/>
+        <p>No active monitors</p>
+        <small>Save search topics to automate checks.</small>
+       </div>
+      )}
+     </div>
+     <div className="pb-dash-card-footer">
+      <Link className="ir-link" href="/intent-radar/monitors/new">+ Create monitor <ArrowRight size={13}/></Link>
+     </div>
+    </section>
+
+    {/* Card 3: Opportunities to Review */}
+    <section className="ir-panel pb-dash-card">
+     <div>
+      <div className="pb-dash-card-header">
+       <div className="pb-dash-card-title">
+        <Target size={15} className="text-muted-foreground"/>
+        <h3>Opportunities to review</h3>
+       </div>
+       <Link className="ir-link" href="/intent-radar/opportunities">View all <ArrowRight size={13}/></Link>
+      </div>
+      {pendingOpportunities.length>0?(
+       <div className="pb-dash-item-list">
+        {pendingOpportunities.slice(0,3).map(o=>(
+         <Link className="pb-dash-item" key={o.id} href="/intent-radar/opportunities">
+          <div className="pb-dash-item-body">
+           <strong className="truncate">{o.next_action||'Review source evidence'}</strong>
+           <small>{o.priority} priority · {o.status}</small>
+          </div>
+          <span className={'pb-priority-pill priority-'+o.priority.toLowerCase()}>{o.priority}</span>
+         </Link>
+        ))}
+       </div>
+      ):(
+       <div className="pb-dash-card-empty">
+        <Target size={20}/>
+        <p>No pending opportunities</p>
+        <small>Save promising signals to track next actions.</small>
+       </div>
+      )}
+     </div>
+     <div className="pb-dash-card-footer">
+      <Link className="ir-link" href="/intent-radar/opportunities">Open opportunities <ArrowRight size={13}/></Link>
+     </div>
+    </section>
+   </div>
+
+   <div className="pb-dash-grid-row-2">
+    {/* Card 4: Recent Activity */}
+    <section className="ir-panel pb-dash-card">
+     <div>
+      <div className="pb-dash-card-header">
+       <div className="pb-dash-card-title">
+        <Bell size={15} className="text-muted-foreground"/>
+        <h3>Recent activity</h3>
+       </div>
+       <Link className="ir-link" href="/intent-radar/alerts">All alerts <ArrowRight size={13}/></Link>
+      </div>
+      {d.alerts.length>0?(
+       <div className="pb-dash-item-list">
+        {d.alerts.slice(0,3).map(a=>(
+         <Link key={a.id} className="pb-dash-item" href={a.signal_id?'/intent-radar/signals/'+a.signal_id:'/intent-radar/alerts'}>
+          <div className="pb-dash-item-body">
+           <strong className="truncate">{a.title}</strong>
+           <small>{new Date(a.created_at).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</small>
+          </div>
+          {!a.read_at&&<span className="pb-unread-indicator" title="Unread alert"/>}
+         </Link>
+        ))}
+       </div>
+      ):(
+       <div className="pb-dash-card-empty">
+        <Bell size={20}/>
+        <p>No recent alerts</p>
+        <small>Monitor run notifications will appear here.</small>
+       </div>
+      )}
+     </div>
+     <div className="pb-dash-card-footer">
+      <Link className="ir-link" href="/intent-radar/alerts">Alert preferences <ArrowRight size={13}/></Link>
+     </div>
+    </section>
+
+    {/* Card 5: Signals Over Time */}
+    <section className="ir-panel pb-dash-card">
+     <div>
+      <div className="pb-dash-card-header">
+       <div className="pb-dash-card-title">
+        <Activity size={15} className="text-muted-foreground"/>
+        <div>
+         <h3>Signals over time</h3>
+         <p className="text-xs text-muted-foreground m-0">Public conversations observed · latest {trends.length} recorded days</p>
+        </div>
+       </div>
+       <span className="text-xs text-muted-foreground font-mono">{trends.reduce((acc,t)=>acc+t.volume,0)} total</span>
+      </div>
+      {trends.length>0?(
+       <div className="ir-trend" role="img" aria-label={trends.map(t=>`${t.day}: ${t.volume} signals`).join('; ')}>
+        {trends.map(t=>(
+         <div key={t.day} className="ir-trend-col">
+          <small className="ir-trend-val">{t.volume}</small>
+          <div className="ir-trend-bar-track">
+           <span className="ir-trend-bar" style={{height:Math.max(8,(t.volume/max)*100)+'%'}} title={`${t.day}: ${t.volume} signals`}/>
+          </div>
+          <small className="ir-trend-label">{t.day.slice(5)}</small>
+         </div>
+        ))}
+       </div>
+      ):(
+       <div className="pb-dash-card-empty">
+        <Activity size={20}/>
+        <p>No signal trends recorded yet</p>
+       </div>
+      )}
+     </div>
+    </section>
+   </div>
+
+   {/* Section 2: Latest Signals & Conversations Data Table */}
+   <section className="pb-dashboard-table-card">
+    <div className="pb-table-card-header">
+     <div>
+      <h2>Latest Signals & Conversations</h2>
+      <p>Recent source-backed discussions identified by your monitors</p>
+     </div>
+     <Link className="ir-link" href="/intent-radar/signals">Review all signals <ArrowRight size={14}/></Link>
+    </div>
+    <DashboardSignalTable signals={signalsToDisplay}/>
+   </section>
+  </>
+ );
+}
+
+function DashboardSignalTable({signals}:{signals:IntentSignal[]}){
+ const mutation=useRadarMutation(),access=useRadarCapabilities();
+ const disabled=!access.data?.can_write||mutation.isPending;
+
+ if(!signals.length){
+  return (
+   <div className="pb-dash-table-empty">
+    <Radar size={28} className="text-muted-foreground opacity-60" aria-hidden="true"/>
+    <div>
+     <h4>No signals recorded yet</h4>
+     <p>Run a check from Monitors or start a discovery to collect relevant discussions.</p>
+    </div>
+    <Link href="/intent-radar/discover" className="ir-button ir-primary text-xs"><Search size={14}/>Start discovery</Link>
+   </div>
+  );
+ }
+
+ return (
+  <>
+   {/* Desktop & Tablet Table View */}
+   <div className="pb-dash-table-wrap">
+    <table className="pb-dash-table">
+     <thead>
+      <tr>
+       <th scope="col" className="pb-col-conv">Conversation</th>
+       <th scope="col" className="pb-col-source">Source</th>
+       <th scope="col" className="pb-col-intent">Intent</th>
+       <th scope="col" className="pb-col-rel">Relevance</th>
+       <th scope="col" className="pb-col-status">Status</th>
+       <th scope="col" className="pb-col-date">Detected</th>
+       <th scope="col" className="pb-col-actions text-right">Actions</th>
+      </tr>
+     </thead>
+     <tbody>
+      {signals.map((s)=>{
+       const detectedDate=s.observed_at?new Date(s.observed_at).toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'}):'Unknown';
+       return (
+        <tr key={s.id} className="pb-dash-table-row">
+         <td className="pb-cell-conv">
+          <Link href={`/intent-radar/signals/${s.id}`} className="pb-signal-title truncate" title={s.title}>{s.title}</Link>
+          {s.evidence?.matched_keywords?.length>0&&(
+           <span className="pb-signal-sub truncate">{s.evidence.matched_keywords.slice(0,3).join(' · ')}</span>
+          )}
+         </td>
+         <td className="pb-cell-source">
+          <span className="pb-source-pill">
+           <ProviderLogo provider={s.source} size={18}/>
+           <span className="truncate">{s.source}</span>
+          </span>
+         </td>
+         <td className="pb-cell-intent"><Badge>{s.category||'Uncertain'}</Badge></td>
+         <td className="pb-cell-rel"><SignalScore score={s.score}/></td>
+         <td className="pb-cell-status"><Badge data-tone={s.status==='New'?'brand':s.status==='Reviewed'?'success':undefined}>{s.status}</Badge></td>
+         <td className="pb-cell-date whitespace-nowrap text-muted-foreground text-xs">{detectedDate}</td>
+         <td className="pb-cell-actions text-right">
+          <div className="pb-row-actions">
+           <button
+            type="button"
+            disabled={disabled}
+            className={`pb-btn-save ${s.saved?'is-saved':''}`}
+            onClick={()=>mutation.mutate({path:`/saved/${s.id}`,method:s.saved?'DELETE':'POST'})}
+            aria-label={s.saved?'Unsave signal':'Save signal'}
+            title={s.saved?'Remove from saved':'Save signal'}
+           >
+            <Bookmark size={13} fill={s.saved?'currentColor':'none'}/>
+            <span>{s.saved?'Saved':'Save'}</span>
+           </button>
+           <Link href={`/intent-radar/signals/${s.id}`} className="pb-btn-view" aria-label={`View details for ${s.title}`} title="View details">
+            <span>View</span>
+            <ArrowUpRight size={13}/>
+           </Link>
+          </div>
+         </td>
+        </tr>
+       );
+      })}
+     </tbody>
+    </table>
+   </div>
+
+   {/* Mobile Card View (<=767px) */}
+   <div className="pb-dash-mobile-cards">
+    {signals.map((s)=>{
+     const detectedDate=s.observed_at?new Date(s.observed_at).toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'}):'Unknown';
+     return (
+      <article key={s.id} className="pb-dash-mobile-card">
+       <div className="pb-mobile-top">
+        <span className="pb-source-pill">
+         <ProviderLogo provider={s.source} size={16}/>
+         <span className="truncate">{s.source}</span>
+        </span>
+        <div className="pb-mobile-top-right">
+         <SignalScore score={s.score}/>
+         <Badge data-tone={s.status==='New'?'brand':s.status==='Reviewed'?'success':undefined}>{s.status}</Badge>
+        </div>
+       </div>
+       <Link href={`/intent-radar/signals/${s.id}`} className="pb-mobile-title">{s.title}</Link>
+       <div className="pb-mobile-meta">
+        <Badge>{s.category||'Uncertain'}</Badge>
+        <span className="text-xs text-muted-foreground">{detectedDate}</span>
+       </div>
+       <div className="pb-mobile-actions">
+        <button
+         type="button"
+         disabled={disabled}
+         className={`pb-btn-save ${s.saved?'is-saved':''}`}
+         onClick={()=>mutation.mutate({path:`/saved/${s.id}`,method:s.saved?'DELETE':'POST'})}
+        >
+         <Bookmark size={13} fill={s.saved?'currentColor':'none'}/>
+         <span>{s.saved?'Saved':'Save'}</span>
+        </button>
+        <Link href={`/intent-radar/signals/${s.id}`} className="pb-btn-view">
+         <span>View details</span>
+         <ArrowUpRight size={13}/>
+        </Link>
+       </div>
+      </article>
+     );
+    })}
+   </div>
+  </>
+ );
 }

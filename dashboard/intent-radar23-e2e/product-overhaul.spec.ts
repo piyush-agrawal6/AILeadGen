@@ -24,6 +24,7 @@ for(const width of [1920,1440,1280,1024,768,390,320])test(`product routes remain
   await expect(page.locator('[role="alert"]').filter({hasText:/could not|unavailable|failed to load/i})).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),path).toBe(true);
   await page.screenshot({path:info.outputPath(path.replaceAll('/','_')+'-'+width+'.png'),fullPage:true});
+  if(width===1440||width===320){await page.evaluate(()=>document.documentElement.classList.add('dark'));expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),path+' dark').toBe(true);await page.screenshot({path:info.outputPath(path.replaceAll('/','_')+'-'+width+'-dark.png'),fullPage:true});await page.evaluate(()=>document.documentElement.classList.remove('dark'));}
  }
  expect(errors).toEqual([]);
 });
@@ -68,7 +69,7 @@ test('business graph saves reviewed context, preserves filters and hands a quest
  await page.getByRole('button',{name:'Send question',exact:true}).click();
  await expect(page.getByText('Workspace data — no AI used',{exact:true})).toBeVisible({timeout:30000});
  await page.getByRole('button',{name:'Close intelligence assistant'}).click();
- await page.goto('/settings/company');await expect(page.getByRole('navigation',{name:'Unified settings'})).toBeVisible();
+ await page.goto('/settings/company');await expect(page.getByRole('navigation',{name:'Settings categories'})).toBeVisible();
  await page.goto('/intent-radar/signals');
  const review=page.getByRole('link',{name:/^Review /}).first();
  await expect(review).toBeVisible();await review.click();await expect(page.getByRole('dialog',{name:'Signal evidence'})).toBeVisible();await page.getByRole('button',{name:'Close dialog',exact:true}).click();await expect(page).toHaveURL(/\/intent-radar\/signals$/);

@@ -1,23 +1,12 @@
 "use client";
-import Link from 'next/link';
-import {useQuery} from '@tanstack/react-query';
-import {ArrowUpRight,Building2,Target,UsersRound,ShieldCheck,SlidersHorizontal,Plug} from 'lucide-react';
-import {request} from '@/lib/intelligence';
-import {useWorkspace} from '@/components/workspaces/use-workspace';
-import {useWorkspaceManagement,useWorkspaceCapabilities} from '@/components/workspaces/features';
-type Progress={status:string;completed_steps:number;total_steps:number;steps:{id:string;title:string;complete:boolean}[];can_edit:boolean};
-export default function SettingsPage(){
- const management=useWorkspaceManagement(),capabilities=useWorkspaceCapabilities(),workspace=useWorkspace(management);
- const progress=useQuery({queryKey:['onboarding-progress'],queryFn:()=>request<Progress>('/organization/onboarding/progress'),enabled:management&&!!workspace.active,retry:false});
- const leadAvailable=capabilities.leadEngineAvailable!==false;
- const links=[{href:'/settings/company',title:'Organization profile',text:'Company identity, services, location and public business information.',icon:Building2,available:management&&!!workspace.active},{href:'/settings/icp',title:'Ideal customers',text:'The companies, people and business needs you want to target.',icon:Target,available:management&&!!workspace.active},{href:'/settings/members',title:'Team access',text:'Review your team and manage permitted invitations and roles.',icon:UsersRound,available:management&&!!workspace.active},{href:'/settings/domains',title:'Business domains',text:'Verify domain control separately from public website information.',icon:ShieldCheck,available:management&&!!workspace.active},{href:'/settings/preferences',title:'Discovery preferences',text:'Review workspace defaults. Saving does not start a scan.',icon:SlidersHorizontal,available:leadAvailable&&(!management||workspace.canManage)},{href:'/settings/integrations',title:'Workspace connections',text:'Manage the connections authorized for this company.',icon:Plug,available:leadAvailable&&!!capabilities.customerIntegrations&&!!workspace.active}];
- return <section className="settings-page"><header><p className="page-eyebrow">Workspace administration</p><h1>Settings</h1><p>{workspace.active?<>Manage <strong className="font-medium text-foreground">{workspace.active.name}</strong>. Your personal account preferences live separately.</>:leadAvailable?'Company settings, people and Lead Engine preferences in one place.':'Company context, team access and Intent Radar preferences in one place.'}</p></header>
- {management&&!workspace.active&&!workspace.isPending&&<div className="settings-summary"><h2 className="font-semibold">Create or choose your workspace</h2><p className="mb-4 mt-2 text-sm text-muted-foreground">Your Google account is ready. Create your own company workspace or select an existing membership from the menu.</p><Link className="control ops-primary inline-flex" href="/settings/workspaces">Create workspace</Link></div>}
- {progress.data&&progress.data.status!=='COMPLETED'&&<section className="setup-status-panel" aria-label="Workspace setup status"><div><span className="setup-status-icon"><Building2 size={20}/></span><div><h2>Finish your workspace setup</h2><p>{progress.data.completed_steps} of {progress.data.total_steps} steps complete. Your saved progress is ready when you are.</p></div></div><Link className="control ops-primary inline-flex shrink-0" href="/onboarding">{progress.data.can_edit?'Continue setup':'Review setup'}</Link></section>}
- {progress.isError&&<div className="text-sm text-muted-foreground"><p>Setup status could not be loaded.</p><button className="mt-2 text-primary underline" onClick={()=>void progress.refetch()}>Retry setup status</button></div>}
- {progress.data?.status==='COMPLETED'&&<div className="settings-complete-note"><ShieldCheck size={16}/><span>{leadAvailable?'Workspace setup is complete. Discovery and outreach still require explicit actions.':'Workspace setup is complete. Intent research remains subject to your workspace access and resource limits.'}</span><Link href="/onboarding">Review setup</Link></div>}
- {!leadAvailable&&<Link className="control inline-flex" href="/intent-radar/settings">Open Intent Radar Settings</Link>}
- <div className="settings-overview-grid">{links.filter(link=>link.available).map(({href,title,text,icon:Icon})=><Link href={href} key={href} className="settings-overview-link"><span className="settings-entry-icon"><Icon size={20}/></span><div><h2>{title}</h2><p>{text}</p></div><ArrowUpRight size={16}/></Link>)}</div>
- <div className="settings-personal-note"><div><h2>Your profile is personal</h2><p>Your name, timezone and appearance are independent of this company.</p></div><Link className="text-sm font-medium text-primary" href="/account/profile">Open personal profile →</Link></div>
- </section>;
+
+import { Suspense } from "react";
+import { UnifiedSettingsCenter } from "@/components/settings/unified-settings-center";
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<p role="status" className="p-8 text-sm text-muted-foreground">Loading settings…</p>}>
+      <UnifiedSettingsCenter />
+    </Suspense>
+  );
 }

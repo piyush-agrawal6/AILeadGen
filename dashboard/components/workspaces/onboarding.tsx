@@ -7,6 +7,7 @@ import {request} from '@/lib/intelligence';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {CompanyProfileSettings} from './company-profile';
+import {AIOnboarding} from './onboarding-ai';
 import {OnboardingICP} from './onboarding-icp';
 import type {CompanyProfile} from './company-profile-types';
 
@@ -55,6 +56,10 @@ function SetupForm({saved,onSaved,onComplete}:{saved:Progress;onSaved:(value:Pro
  </div>;
 }
 export function OnboardingSettings(){
+ const capabilities=useWorkspaceCapabilities();
+ return capabilities.leadEngineAvailable===false?<AIOnboarding/>:<LegacyOnboardingSettings/>;
+}
+function LegacyOnboardingSettings(){
  const client=useQueryClient(),[complete,setComplete]=useState(false);
  const progress=useQuery({queryKey:['company-onboarding'],queryFn:()=>request<Progress>('/organization/onboarding'),retry:false,refetchOnWindowFocus:false});
   return <section className="onboarding-page space-y-6"><header><h1 className="text-2xl font-semibold">Set up your workspace</h1><p className="mt-2 text-sm text-muted-foreground">Save each step and return whenever you are ready. Review suggestions and confirm your own company details. Setup never starts a background job automatically.</p></header>{complete?<div role="status" className="space-y-4"><p>Setup is complete. No background job has started.</p><Link className="text-primary underline" href="/">Open your workspace</Link></div>:progress.isPending?<p role="status">Loading saved progress…</p>:progress.isError?<div role="alert"><p>Setup could not be loaded.</p><Button onClick={()=>void progress.refetch()}>Retry setup</Button></div>:<SetupForm saved={progress.data} onSaved={value=>client.setQueryData(['company-onboarding'],value)} onComplete={()=>setComplete(true)}/>}</section>;

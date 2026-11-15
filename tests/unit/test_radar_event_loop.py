@@ -46,3 +46,62 @@ def test_dispatch_preparation_is_offloaded_with_verified_context(growth,monkeypa
         await task
     with workspace_scope(c,'controlled@example.test',org):asyncio.run(scenario())
     assert finished==[True]
+
+
+def test_scheduler_database_phase_keeps_unrelated_http_reads_responsive(growth,monkeypatch):
+    from app.intent_radar import schedules
+    entered=threading.Event();release=threading.Event();finished=[]
+    def slow_prepare():
+        entered.set();finished.append(release.wait(timeout=2));return []
+    monkeypatch.setattr(schedules,'_prepare_tick',slow_prepare)
+    monkeypatch.setattr(schedules,'_record_tick',lambda count:None)
+    async def scenario():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app()),base_url='http://isolated.test') as client:
+            task=asyncio.create_task(schedules.tick())
+            try:
+                assert await asyncio.to_thread(entered.wait,1)
+                assert (await asyncio.wait_for(client.get('/api/health'),timeout=1)).status_code==200
+                assert not finished,'Scheduled database maintenance froze the HTTP event loop.'
+            finally:release.set()
+            await task
+    asyncio.run(scenario());assert finished==[True]
+
+
+def test_scheduler_releases_verified_scope_connection_before_cloud_dispatch(growth,monkeypatch):
+    from app.intent_radar import schedules
+    from app.intelligence import dispatch
+    from contextlib import contextmanager
+    c,_,org,_=growth;c.commit();active=[];seen=[]
+    original=schedules.db_session
+    @contextmanager
+    def tracked():
+        with original() as db:
+            active.append(db)
+            try:yield db
+            finally:active.remove(db)
+    monkeypatch.setattr(schedules,'db_session',tracked)
+    monkeypatch.setattr(schedules,'_prepare_tick',lambda:[{'id':'controlled-job','organization_id':org,'actor':'controlled@example.test'}])
+    async def launch(key):
+        assert key=='controlled-job' and current().organization_id==org
+        assert not active,'Do not retain a database connection across cloud dispatch.'
+        seen.append(key)
+    monkeypatch.setattr(dispatch,'launch',launch)
+    asyncio.run(schedules.tick());assert seen==['controlled-job'] and not active
+
+def test_revoked_dispatch_candidate_does_not_starve_other_workspaces(monkeypatch):
+    import asyncio
+    from contextvars import copy_context
+    from fastapi import HTTPException
+    from app.intent_radar import schedules
+    from app.intelligence import dispatch
+    from app.config.settings import get_settings
+    monkeypatch.setattr(get_settings(),'intent_radar_stage','Beta')
+    monkeypatch.setattr(get_settings(),'billing_enabled',False);monkeypatch.setattr(get_settings(),'payu_billing_enabled',False)
+    monkeypatch.setattr(schedules,'_prepare_tick',lambda:[{'id':'revoked'},{'id':'authorized'}])
+    def verified(item):
+        if item['id']=='revoked':raise HTTPException(403,'Membership revoked')
+        return copy_context()
+    calls=[]
+    async def launch(key):calls.append(key)
+    monkeypatch.setattr(schedules,'_dispatch_context',verified);monkeypatch.setattr(dispatch,'launch',launch);monkeypatch.setattr(schedules,'_record_tick',lambda count:None)
+    asyncio.run(schedules.tick());assert calls==['authorized']

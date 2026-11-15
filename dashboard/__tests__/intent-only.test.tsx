@@ -17,7 +17,8 @@ it('uses a fail-closed reversible server configuration without gating shared set
 it('unmounts the product selector even when historical grants include Lead Engine',()=>{
  render(<CapabilityFeatures.Provider value={{companyDiscovery:false,leadEngineAvailable:false}}><Sidebar/></CapabilityFeatures.Provider>);
  expect(screen.queryByRole('button',{name:'Switch PlaneByte product'})).not.toBeInTheDocument();
- expect(screen.getByLabelText('Intent Radar product')).toBeVisible();
+ expect(screen.queryByLabelText('Intent Radar product')).not.toBeInTheDocument();
+ expect(screen.getByLabelText('PlaneByte Intent Radar')).toBeVisible();
  for(const label of ['Find Leads','Companies','Contacts','Campaigns','Outreach','Schedules'])expect(screen.queryByRole('link',{name:label})).not.toBeInTheDocument();
  expect(screen.getByRole('link',{name:'Discover'})).toBeVisible();expect(screen.getByRole('link',{name:'AI Assistant'})).toBeVisible();
 });

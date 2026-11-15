@@ -18,7 +18,7 @@ def test_read_budgets_and_no_source_checks_in_overview(radar,monkeypatch,record_
   monkeypatch.setattr(operations,'source_health',lambda _:(_ for _ in ()).throw(AssertionError('Overview must not block on source health')))
   q=Counted(c);value=service.overview(q)
   record_property('overview_sql',len(q.statements));assert value['new_signals']==1
-  assert len(q.statements)<=40
+  assert len(q.statements)==3
 
 def test_rank_batches_are_bounded_and_cannot_cross_workspace(radar):
  c,path,org,other=radar

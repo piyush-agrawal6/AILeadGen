@@ -1,7 +1,90 @@
 import Link from 'next/link';
-import {leadEngineEnabled} from '@/lib/product-availability';
-import {Building2,Search,UsersRound,ListChecks,ArrowUpRight,Check} from 'lucide-react';
-import {PlaneByteBrand} from './brand';
-function ProspectVisual(){return <div className="auth-product-visual" aria-hidden="true"><div className="auth-preview-window"><div className="auth-preview-toolbar"><span/><span/><span/><small>PlaneByte · Lead Engine</small></div><div className="auth-preview-body"><div className="auth-preview-search"><Search size={16}/><span>Find businesses that fit</span><span className="auth-preview-key">↵</span></div><div className="auth-preview-heading"><span>Your prospecting workflow</span><ListChecks size={16}/></div>{[{icon:Building2,title:'Discover relevant companies',detail:'Focus on your market and ideal customers'},{icon:UsersRound,title:'Understand the opportunity',detail:'Keep public evidence and context together'},{icon:ArrowUpRight,title:'Plan your next conversation',detail:'Review every step before reaching out'}].map(({icon:Icon,title,detail},index)=><div className="auth-preview-row" key={title}><span className="auth-preview-icon"><Icon size={18}/></span><span><strong>{title}</strong><small>{detail}</small></span><span className="auth-preview-step">0{index+1}</span></div>)}</div></div><span className="auth-preview-caption"><Check size={14}/>One connected workspace. A clearer next step.</span></div>}
-function IntentVisual(){return <div className="auth-product-visual" aria-hidden="true"><div className="auth-preview-window"><div className="auth-preview-toolbar"><span/><span/><span/><small>PlaneByte · Intent Radar</small></div><div className="auth-preview-body"><div className="auth-preview-search"><Search size={16}/><span>Understand what your market is asking</span></div><div className="auth-preview-heading"><span>Evidence for your next decision</span><ListChecks size={16}/></div>{[{icon:Search,title:'Discover relevant conversations',detail:'Follow supported public sources'},{icon:UsersRound,title:'Understand customer needs',detail:'Review context and linked evidence'},{icon:ArrowUpRight,title:'Research growth opportunities',detail:'Turn observations into a practical next step'}].map(({icon:Icon,title,detail},index)=><div className="auth-preview-row" key={title}><span className="auth-preview-icon"><Icon size={18}/></span><span><strong>{title}</strong><small>{detail}</small></span><span className="auth-preview-step">0{index+1}</span></div>)}</div></div><span className="auth-preview-caption"><Check size={14}/>Source context. Clearer decisions.</span></div>}
-export function AuthFrame({children}:{children:React.ReactNode}){const leadAvailable=leadEngineEnabled(process.env.LEAD_ENGINE_AVAILABLE);return <div className="heysow-auth"><a className="auth-skip" href="#authentication">Skip to sign in</a><aside className="auth-story" aria-label="About PlaneByte"><Link className="auth-brand-link" href="/login" aria-label="PlaneByte home"><PlaneByteBrand/></Link><div className="auth-story-content"><p className="auth-eyebrow"><span/>{leadAvailable?'PROSPECTING, WITH PURPOSE':'INTENT RADAR · GROWTH INTELLIGENCE'}</p><h1>{leadAvailable?'Find better prospects.':'Understand intent.'}<br/><span>Grow with confidence.</span></h1><p className="auth-story-description">{leadAvailable?'Discover relevant businesses, organize your prospects, and manage your growth workflow in one connected workspace.':'Discover relevant conversations, understand customer needs, and research opportunities with source-backed context in one workspace.'}</p>{leadAvailable?<ProspectVisual/>:<IntentVisual/>}</div><p className="auth-story-footer">Thoughtful tools for your next business relationship.</p></aside><div className="auth-panel"><header className="auth-mobile-brand"><Link href="/login" aria-label="PlaneByte home"><PlaneByteBrand/></Link></header><main id="authentication" className="auth-form-area" tabIndex={-1}>{children}</main><footer className="auth-footer"><span>© {new Date().getFullYear()} PlaneByte</span><nav aria-label="Legal"><Link href="/terms">Terms of Service</Link><Link href="/privacy">Privacy Policy</Link></nav></footer></div></div>}
+import { ArrowUpRight } from 'lucide-react';
+import { PlaneByteBrand } from './brand';
+import { AuthThemeToggle } from './theme-toggle';
+import { leadEngineEnabled } from '@/lib/product-availability';
+
+export function AuthFrame({ children }: { children: React.ReactNode }) {
+  const leadAvailable = leadEngineEnabled(process.env.LEAD_ENGINE_AVAILABLE);
+
+  return (
+    <div className="heysow-auth pb-auth-ambient-wrapper">
+      <a
+        className="auth-skip sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 px-4 py-2 bg-background border border-primary rounded-md shadow-md text-sm font-medium"
+        href="#authentication"
+      >
+        Skip to sign in
+      </a>
+
+      {/* Ambient background glows and grid texture */}
+      <div className="pb-auth-glow-container" aria-hidden="true">
+        <div className="pb-auth-glow-1" />
+        <div className="pb-auth-glow-2" />
+        <div className="pb-auth-glow-3" />
+        <div className="pb-auth-grid-pattern" />
+      </div>
+
+      {/* Minimal Top Header */}
+      <header className="pb-auth-header">
+        <Link className="pb-auth-brand" href="/login" aria-label="PlaneByte home">
+          <PlaneByteBrand />
+        </Link>
+        <div className="pb-auth-header-actions">
+          <a
+            href="https://planebyte.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="pb-auth-nav-link hidden sm:inline-flex"
+          >
+            <span>planebyte.com</span>
+            <ArrowUpRight size={13} className="opacity-70" />
+          </a>
+          <AuthThemeToggle />
+        </div>
+      </header>
+
+      {/* Hidden mobile brand header for test and responsive fallback */}
+      <header className="auth-mobile-brand" style={{ display: 'none' }}>
+        <Link href="/login" aria-label="PlaneByte home">
+          <PlaneByteBrand />
+        </Link>
+      </header>
+
+      {/* Main Centered Content */}
+      <main id="authentication" className="pb-auth-main" tabIndex={-1}>
+        <div className="pb-auth-trust-pill" aria-hidden="true">
+          <span className="pb-auth-trust-dot" />
+          <span>
+            {leadAvailable ? 'Pipeline Discovery & Outreach' : 'Intent Radar · Growth Intelligence'}
+          </span>
+        </div>
+
+        <div className="pb-auth-card">{children}</div>
+
+        <div className="text-xs text-muted-foreground mt-5 text-center max-w-sm leading-relaxed pb-auth-discovery-hint">
+          {leadAvailable ? (
+            <span>Discover relevant companies</span>
+          ) : (
+            <span>Discover relevant conversations</span>
+          )}
+          <span className="block mt-1 text-[11px] opacity-75">
+            Understand customer needs. Find opportunities worth pursuing.
+          </span>
+        </div>
+      </main>
+
+      {/* Minimal Footer */}
+      <footer className="pb-auth-footer auth-footer">
+        <span>© {new Date().getFullYear()} PlaneByte, Inc. All rights reserved.</span>
+        <nav aria-label="Legal" className="pb-auth-footer-links">
+          <a href="https://planebyte.com" target="_blank" rel="noopener noreferrer">
+            Website
+          </a>
+          <Link href="/terms">Terms of Service</Link>
+          <Link href="/privacy">Privacy Policy</Link>
+          <Link href="/forgot-password">Sign-in Help</Link>
+        </nav>
+      </footer>
+    </div>
+  );
+}

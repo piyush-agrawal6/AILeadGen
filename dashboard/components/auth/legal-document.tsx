@@ -1,5 +1,206 @@
 import Link from 'next/link';
-import {PlaneByteBrand} from './brand';
-export function LegalDocument({title,summary,children}:{title:string;summary:string;children:React.ReactNode}){
- return <div className="min-h-screen bg-white text-slate-800"><header className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-5"><Link href="/login" aria-label="PlaneByte home"><PlaneByteBrand/></Link><nav aria-label="Legal information" className="flex gap-5 text-sm"><Link href="/privacy" className="text-indigo-700 hover:underline">Privacy Policy</Link><Link href="/terms" className="text-indigo-700 hover:underline">Terms of Service</Link></nav></header><main className="mx-auto max-w-3xl px-6 py-12 sm:py-16"><p className="text-xs font-semibold uppercase tracking-widest text-indigo-600">PlaneByte · Legal information</p><h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1><p className="mt-5 text-base leading-7 text-slate-600">{summary}</p><p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6">Development review copy · Updated 7 November 2026. This is product information for review, not an approved public-launch legal notice. A published effective date will be set after owner/legal approval.</p><div className="mt-10 space-y-8 text-sm leading-7 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold">{children}</div><footer className="mt-12 flex flex-wrap gap-6 border-t border-slate-200 pt-6 text-sm"><Link href="/login" className="text-indigo-700 hover:underline">Back to sign in</Link><a href="https://planebyte.com" className="text-indigo-700 hover:underline">PlaneByte website</a><a href="mailto:contact@planebyte.com" className="text-indigo-700 hover:underline">Contact PlaneByte</a></footer></main></div>;
+import { ArrowLeft, ArrowUpRight, ShieldAlert, HelpCircle } from 'lucide-react';
+import { PlaneByteBrand } from './brand';
+import { AuthThemeToggle } from './theme-toggle';
+
+export function LegalDocument({
+  title,
+  summary,
+  activeTab: propActiveTab,
+  eyebrow,
+  children,
+}: {
+  title: string;
+  summary: string;
+  activeTab?: 'terms' | 'privacy' | 'help';
+  eyebrow?: string;
+  children: React.ReactNode;
+}) {
+  const activeTab =
+    propActiveTab ||
+    (title.toLowerCase().includes('terms')
+      ? 'terms'
+      : title.toLowerCase().includes('privacy')
+      ? 'privacy'
+      : 'help');
+
+  const defaultEyebrow =
+    eyebrow ||
+    (activeTab === 'help'
+      ? 'PlaneByte · Access & Authentication'
+      : 'PlaneByte · Legal Information');
+
+  return (
+    <div className="pb-auth-ambient-wrapper min-h-screen bg-background text-foreground flex flex-col">
+      {/* Ambient background glows */}
+      <div className="pb-auth-glow-container" aria-hidden="true">
+        <div className="pb-auth-glow-1" />
+        <div className="pb-auth-glow-2" />
+        <div className="pb-auth-glow-3" />
+        <div className="pb-auth-grid-pattern" />
+      </div>
+
+      {/* Sticky Header with Navigation Tabs */}
+      <header className="sticky top-0 z-30 w-full border-b border-border/80 bg-background/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-4">
+          <Link href="/login" aria-label="PlaneByte home" className="pb-auth-brand">
+            <PlaneByteBrand />
+          </Link>
+
+          {/* Center Tabs: Terms of Service | Privacy Policy | Sign-in Help */}
+          <nav aria-label="Legal & assistance selection" className="pb-legal-header-tabs hidden sm:flex">
+            <Link
+              href="/terms"
+              className={`pb-legal-tab ${activeTab === 'terms' ? 'is-active' : ''}`}
+            >
+              Terms of Service
+            </Link>
+            <Link
+              href="/privacy"
+              className={`pb-legal-tab ${activeTab === 'privacy' ? 'is-active' : ''}`}
+            >
+              Privacy Policy
+            </Link>
+            <Link
+              href="/forgot-password"
+              className={`pb-legal-tab ${activeTab === 'help' ? 'is-active' : ''}`}
+            >
+              Sign-in Help
+            </Link>
+          </nav>
+
+          {/* Right Actions: Back to sign in + Theme Toggle */}
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground py-1.5 px-3 rounded-lg border border-border/70 hover:bg-muted/50 transition-colors"
+            >
+              <ArrowLeft size={14} />
+              <span>Back to sign in</span>
+            </Link>
+            <AuthThemeToggle />
+          </div>
+        </div>
+
+        {/* Mobile Tab Selector */}
+        <div className="sm:hidden px-6 pb-3 pt-1 flex justify-center">
+          <nav aria-label="Legal & assistance selection" className="pb-legal-header-tabs w-full justify-center">
+            <Link
+              href="/terms"
+              className={`pb-legal-tab flex-1 text-center ${activeTab === 'terms' ? 'is-active' : ''}`}
+            >
+              Terms
+            </Link>
+            <Link
+              href="/privacy"
+              className={`pb-legal-tab flex-1 text-center ${activeTab === 'privacy' ? 'is-active' : ''}`}
+            >
+              Privacy
+            </Link>
+            <Link
+              href="/forgot-password"
+              className={`pb-legal-tab flex-1 text-center ${activeTab === 'help' ? 'is-active' : ''}`}
+            >
+              Sign-in Help
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      {/* Main Document / Content Container */}
+      <main className="pb-legal-container relative z-10 flex-1">
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-primary">
+          {defaultEyebrow}
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl text-foreground">
+          {title}
+        </h1>
+        <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+          {summary}
+        </p>
+
+        {/* Notice Banner */}
+        {activeTab === 'help' ? (
+          <div className="pb-legal-notice-banner flex items-start gap-3">
+            <HelpCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+            <div>
+              <strong className="block text-xs font-semibold text-foreground mb-1">
+                Google Single Sign-On (SSO) Authentication
+              </strong>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Your PlaneByte workspace credentials are authenticated directly through your verified Google account.
+                PlaneByte never requests, manages, or stores your Google account password.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="pb-legal-notice-banner flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <strong className="block text-xs font-semibold text-foreground mb-1">
+                Development Review Copy · Updated 7 November 2026
+              </strong>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                This document provides product information for review during development and is not an approved public-launch legal agreement.
+                For official company policies, visit{' '}
+                <a
+                  href="https://planebyte.com/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-primary"
+                >
+                  planebyte.com/terms
+                </a>{' '}
+                and{' '}
+                <a
+                  href="https://planebyte.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-primary"
+                >
+                  planebyte.com/privacy
+                </a>
+                .
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Document Body / Content */}
+        <article className="pb-legal-article mt-8">{children}</article>
+
+        {/* Document Footer */}
+        <footer className="mt-16 pt-8 border-t border-border/80 flex flex-wrap items-center justify-between gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/login"
+              className="text-foreground hover:underline inline-flex items-center gap-1 font-medium"
+            >
+              <ArrowLeft size={13} />
+              <span>Back to sign in</span>
+            </Link>
+            <span>•</span>
+            <a
+              href="https://planebyte.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+            >
+              <span>PlaneByte website</span>
+              <ArrowUpRight size={12} />
+            </a>
+          </div>
+          <div>
+            <span>Questions? </span>
+            <a
+              href="mailto:contact@planebyte.com"
+              className="text-primary hover:underline"
+            >
+              contact@planebyte.com
+            </a>
+          </div>
+        </footer>
+      </main>
+    </div>
+  );
 }

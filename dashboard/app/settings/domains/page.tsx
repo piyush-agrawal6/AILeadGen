@@ -1,3 +1,12 @@
-import {notFound} from 'next/navigation';
-import {DomainSettings} from '@/components/workspaces/domains';
-export default function Domains(){if(process.env.HEYSOW_WORKSPACE_MANAGEMENT_ENABLED!=='true')notFound();return <DomainSettings/>}
+import { Suspense } from "react";
+import { notFound } from "next/navigation";
+import { UnifiedSettingsCenter } from "@/components/settings/unified-settings-center";
+
+export default function Domains() {
+  if (process.env.HEYSOW_WORKSPACE_MANAGEMENT_ENABLED !== "true") notFound();
+  return (
+    <Suspense fallback={<p role="status" className="p-8 text-sm text-muted-foreground">Loading domain verification…</p>}>
+      <UnifiedSettingsCenter initialCategory="company" initialTab="domains" />
+    </Suspense>
+  );
+}

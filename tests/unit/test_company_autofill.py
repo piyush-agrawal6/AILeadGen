@@ -128,3 +128,38 @@ def test_redirect_policy_checks_each_hop_before_fetching_another_domain(monkeypa
   async with SafeAsyncClient(transport=httpx.MockTransport(request)) as client:await client.get('https://example.com',allowed_domain='example.com')
  with pytest.raises(ValueError,match='Cross-domain'):asyncio.run(fetch())
  assert calls==['https://example.com']
+
+@pytest.mark.parametrize('policy,page,allowed',[
+ ('User-agent: *\nDisallow: /','<html>Private publisher content</html>',False),
+ ('User-agent: *\nAllow: /','<html><meta name="robots" content="noai">Restricted</html>',False),
+ ('User-agent: *\nCrawl-delay: 60','<html>Delayed publisher</html>',False),
+ ('User-agent: *\nAllow: /','<html><a href="/about">About</a>Company engineering</html>',True),
+])
+def test_business_research_honors_robots_and_content_use_restrictions(monkeypatch,policy,page,allowed):
+ from app.utils.http import SafeAsyncClient
+ calls=[]
+ def handle(request):
+  calls.append(request.url.path)
+  return httpx.Response(200,headers={'content-type':'text/plain' if request.url.path=='/robots.txt' else 'text/html'},text=policy if request.url.path=='/robots.txt' else page)
+ monkeypatch.setattr(get_settings(),'app_env','development')
+ monkeypatch.setattr('app.utils.http.is_safe_url',lambda *a,**kw:True)
+ monkeypatch.setattr('app.utils.http.SafeAsyncClient',lambda **kwargs:SafeAsyncClient(transport=httpx.MockTransport(handle),**kwargs))
+ if allowed:
+  sources=asyncio.run(autofill.collect_sources('https://example.com',lambda *a:None));assert len(sources)==2 and all('Company engineering' in s['text'] for s in sources)
+ else:
+  with pytest.raises(ValueError):asyncio.run(autofill.collect_sources('https://example.com',lambda *a:None))
+ assert calls.count('/robots.txt')==1
+ if 'Disallow' in policy or 'Crawl-delay' in policy:assert calls==['/robots.txt']
+
+def test_business_research_rejects_https_downgrade_before_fetch_and_bounds_bytes(monkeypatch):
+ from app.utils.http import SafeAsyncClient
+ monkeypatch.setattr('app.utils.http.is_safe_url',lambda *a,**kw:True)
+ calls=[]
+ def redirect(req):calls.append(str(req.url));return httpx.Response(302,headers={'location':'http://example.com/about'})
+ async def fetch():
+  async with SafeAsyncClient(transport=httpx.MockTransport(redirect)) as client:await client.get('https://example.com',require_https=True)
+ with pytest.raises(ValueError,match='HTTPS'):asyncio.run(fetch())
+ assert calls==['https://example.com']
+ async def oversized():
+  async with SafeAsyncClient(max_bytes=8,transport=httpx.MockTransport(lambda req:httpx.Response(200,content=b'123456789'))) as client:await client.get('https://example.com',require_https=True)
+ with pytest.raises(ValueError,match='byte limit'):asyncio.run(oversized())

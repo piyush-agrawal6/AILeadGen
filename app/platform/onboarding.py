@@ -9,7 +9,7 @@ from app.api.organization import require_role,membership_role,slugify
 from app.database.prospects import now
 from app.platform.context import current,organization
 
-Objective=Literal['FIND_CUSTOMERS','FIND_DECISION_MAKERS','BUILD_LISTS','ENTER_MARKETS','ENRICH_LEADS','MANAGE_OUTREACH','MONITOR_SALES','RESEARCH_MARKETS','UNDERSTAND_CUSTOMER_NEEDS','MONITOR_BUYING_CONTEXT']
+Objective=Literal['FIND_CUSTOMERS','FIND_DECISION_MAKERS','BUILD_LISTS','ENTER_MARKETS','ENRICH_LEADS','MANAGE_OUTREACH','MONITOR_SALES','RESEARCH_MARKETS','UNDERSTAND_CUSTOMER_NEEDS','MONITOR_BUYING_CONTEXT','MONITOR_COMPETITORS','EXPLORE_OPPORTUNITIES']
 
 class Service(BaseModel):
     model_config=ConfigDict(extra='forbid',str_strip_whitespace=True)
@@ -24,6 +24,18 @@ class Preferences(BaseModel):
     geography_confirmed:bool=False
     integrations_skipped:bool=False
     start_discovery:Literal[False]=False
+    setup_mode:Literal['MANUAL','AI']='MANUAL'
+    company_review_id:UUID|None=None
+    icp_review_id:UUID|None=None
+    accepted_icp_ids:list[UUID]=Field(default_factory=list,max_length=3)
+    research_keywords:list[str]=Field(default_factory=list,max_length=12)
+    excluded_keywords:list[str]=Field(default_factory=list,max_length=12)
+
+    @field_validator('research_keywords','excluded_keywords')
+    @classmethod
+    def research_terms(cls,values):
+        if any(not v.strip() or len(v)>100 for v in values):raise ValueError('Use research terms of1–100 characters.')
+        return list(dict.fromkeys(v.strip() for v in values))
 
     @field_validator('countries')
     @classmethod
@@ -64,7 +76,7 @@ def read(c):
     return {'revision':row['revision'] if row else 0,'current_step':row['current_step'] if row else 'OBJECTIVES',
         'objectives':json.loads(row['objectives_json']) if row else [],'services':services,
         'default_icp_id':row['default_icp_id'] if row else None,
-        'preferences':Preferences.model_validate_json(row['preferences_json']).model_dump() if row else Preferences().model_dump(),
+        'preferences':Preferences.model_validate_json(row['preferences_json']).model_dump(mode='json') if row else Preferences().model_dump(),
         'status':state[0] if state else 'NOT_STARTED','can_edit':membership_role(c,current().actor,org) in ('OWNER','ADMIN')}
 
 def _audit(c,action,revision):
@@ -78,6 +90,13 @@ def save(c,body:Setup):
     if body.default_icp_id:
         from app.icp.service import get
         get(c,str(body.default_icp_id))
+    # References never authorize access; validate their persisted workspace owner.
+    from app.platform.company_discovery import owned as owned_review
+    for field,kind in (('company_review_id',('WEBSITE','DESCRIPTION')),('icp_review_id',('ICP_RECOMMENDATIONS',))):
+        key=getattr(body.preferences,field)
+        if key and owned_review(c,str(key))['source_kind'] not in kind:raise HTTPException(422,'Choose the matching setup review.')
+    from app.icp.service import get as get_icp
+    for key in body.preferences.accepted_icp_ids:get_icp(c,str(key))
     stamp=now();revision=body.revision+1
     c.execute('''INSERT INTO organization_setup(organization_id,default_icp_id,objectives_json,preferences_json,current_step,revision,updated_by,updated_at)
         VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(organization_id) DO UPDATE SET default_icp_id=excluded.default_icp_id,

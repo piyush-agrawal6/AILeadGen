@@ -31,3 +31,47 @@ def save(body:setup.Setup,c=Depends(get_db,scope='function')):
 @router.post('/complete',response_model=Result)
 def complete(body:setup.Completion,c=Depends(get_db,scope='function')):
     return setup.complete(c,body)
+
+# AI setup reuses the existing company worker and canonical profile/ICP stores.
+from uuid import UUID
+from fastapi import BackgroundTasks
+from app.platform import onboarding_ai as assisted
+from app.platform.company_discovery_dispatch import launch
+
+@router.get('/assistant-context')
+def assisted_state(c=Depends(get_db,scope='function')):
+    return assisted.state(c)
+
+@router.post('/analyze',status_code=202)
+def analyze(body:assisted.Start,tasks:BackgroundTasks,c=Depends(get_db,scope='function')):
+    result=assisted.analyze(c,body)
+    if result['review']['status']=='QUEUED':tasks.add_task(launch,result['review']['id'])
+    return result
+
+@router.put('/company')
+def approve_company(body:assisted.SaveCompany,c=Depends(get_db,scope='function')):
+    return assisted.company(c,body)
+
+@router.post('/recommendations',status_code=202)
+def recommend(body:assisted.Recommend,tasks:BackgroundTasks,c=Depends(get_db,scope='function')):
+    result=assisted.recommendations(c,body)
+    if result['review']['status']=='QUEUED':tasks.add_task(launch,result['review']['id'])
+    return result
+
+@router.post('/accept-profiles')
+def accept_profiles(body:assisted.Accept,c=Depends(get_db,scope='function')):
+    return assisted.accept(c,body)
+
+@router.post('/finish',response_model=Result)
+def finish(body:assisted.Finish,c=Depends(get_db,scope='function')):
+    return assisted.finish(c,body)
+
+@router.post('/assistant',status_code=202)
+def guidance(body:assisted.Question,tasks:BackgroundTasks,c=Depends(get_db,scope='function')):
+    result=assisted.ask(c,body)
+    if (result.get('job') or {}).get('status')=='QUEUED':tasks.add_task(launch,result['job']['id'])
+    return result
+
+@router.get('/reviews/{key}')
+def review(key:UUID,c=Depends(get_db,scope='function')):
+    return assisted.detail(c,str(key))

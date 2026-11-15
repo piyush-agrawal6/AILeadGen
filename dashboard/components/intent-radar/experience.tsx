@@ -12,6 +12,7 @@ import {IntegrationsPage} from './integrations';
 import {IntelligenceGraph} from './intelligence-graph';
 import {AssistantWorkspace} from './assistant-panel';
 import {GrowthExperience} from './growth-experience';
+import {UnifiedSettingsCenter} from '@/components/settings/unified-settings-center';
 export function IntentRadarExperience({route}:{route:string}){
  const access=useRadarCapabilities();
  if(access.error)return <ErrorState message={access.error.message} retry={()=>void access.refetch()}/>;
@@ -22,5 +23,5 @@ export function IntentRadarExperience({route}:{route:string}){
   if(route.startsWith('opportunities/'))return <OpportunitiesWorkspace id={route.split('/')[1]}/>;
  if(route==='graph')return <IntelligenceGraph/>;
  if(route==='assistant')return !access.data?<LoadingSkeleton/>:access.data.growth_enabled?<AssistantWorkspace/>:<ErrorState message="AI Assistant is not enabled for this workspace."/>;
- switch(route){case 'discover':return <DiscoverExperience/>;case 'signals':return <SignalsWorkspace/>;case 'opportunities':return <OpportunitiesWorkspace/>;case 'saved':return <SavedResearch/>;case 'alerts':return <AlertsInbox/>;case 'settings':return <RadarSettings/>;case 'integrations':return <IntegrationsPage/>;default:return <OverviewDashboard/>}
+ switch(route){case 'discover':return <DiscoverExperience/>;case 'signals':return <SignalsWorkspace/>;case 'opportunities':return <OpportunitiesWorkspace/>;case 'saved':return <SavedResearch/>;case 'alerts':return <AlertsInbox/>;case 'settings':return <UnifiedSettingsCenter initialCategory="preferences" initialTab="discovery"/>;case 'integrations':return <UnifiedSettingsCenter initialCategory="integrations" initialTab="sources"/>;default:return <OverviewDashboard/>}
 }

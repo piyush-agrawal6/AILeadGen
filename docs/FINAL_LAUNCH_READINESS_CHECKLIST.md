@@ -16,3 +16,7 @@
 - [ ] Separately authorized real-money lifecycle acceptance, if ever requested.
 
 **Public paid launch: NO GO.** Do not enable public signup, recurring checkout, unapproved sources or real outreach. A restricted Beta improvement may ship only after its exact engineering gates pass. Open checklist items are not silently waived by a visual redesign.
+
+## Resumed development checkpoint — November 15
+
+The boxes above refer to the earlier b11d753 candidate until the final matching-source evidence is recorded. The newer working-tree dashboard/settings/navigation/theme/authentication improvements are preserved. Current implementation and verification scope: `PLANEBYTE_RESUME_CHECKPOINT_20261115.md`. Initial broad regression:1,079 passed/one explicit live-mail skip; final regression after additional security/recovery cases is running. New unchanged-build product browser checks:10 passed, with seven widths and selected desktop/mobile dark checks; reviewed onboarding:2 browser journeys pass using synthetic external providers. No current public paid-readiness claim follows from these checks.

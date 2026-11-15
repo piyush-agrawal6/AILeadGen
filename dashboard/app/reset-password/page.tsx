@@ -1,4 +1,48 @@
-import type {Metadata} from 'next';
-import {AuthState} from '@/components/auth/auth-state';
-export const metadata:Metadata={title:'Reset password · PlaneByte'};
-export default function Reset(){return <AuthState eyebrow="ACCOUNT SECURITY" title="Your password is managed by Google" description="This workspace doesn’t use a separate PlaneByte password. Reset your Google password through Google’s secure recovery flow."><a className="auth-primary-button" href="https://accounts.google.com/signin/recovery" target="_blank" rel="noopener noreferrer">Continue to Google recovery <span aria-hidden="true">↗</span></a><p className="auth-fineprint">PlaneByte cannot validate password-reset links in this deployment. Never enter a password into an unverified link.</p></AuthState>;}
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { ArrowRight, ExternalLink, ShieldCheck } from 'lucide-react';
+import { AuthState } from '@/components/auth/auth-state';
+
+export const metadata: Metadata = {
+  title: 'Password Management · PlaneByte',
+  description: 'PlaneByte single sign-on password management via Google OAuth.',
+};
+
+export default function ResetPassword() {
+  return (
+    <AuthState
+      eyebrow="ACCOUNT SECURITY"
+      title="Single sign-on with Google"
+      description="PlaneByte uses Google OAuth for secure single sign-on. Your password is never stored or managed by PlaneByte."
+    >
+      <div className="rounded-xl border border-border/80 bg-muted/30 p-4 text-left text-xs leading-relaxed space-y-2">
+        <div className="flex items-center gap-2 font-medium text-foreground">
+          <ShieldCheck size={16} className="text-emerald-500 shrink-0" />
+          <span>Zero passwords stored</span>
+        </div>
+        <p className="text-muted-foreground">
+          Because authentication is handled entirely through Google, you don’t have a separate PlaneByte password. To reset or recover your Google password, use Google’s secure account settings.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3 pt-2">
+        <Link
+          href="/login"
+          className="pb-auth-google-btn justify-center bg-primary text-primary-foreground hover:bg-primary/90 border-transparent text-center font-medium shadow-sm py-2.5"
+        >
+          <span>Return to sign in</span>
+          <ArrowRight size={15} />
+        </Link>
+        <a
+          href="https://accounts.google.com/signin/recovery"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pb-auth-google-btn justify-center border-border bg-card text-foreground hover:bg-muted/50 text-center font-medium py-2.5"
+        >
+          <span>Open Google Account Recovery</span>
+          <ExternalLink size={14} className="opacity-70" />
+        </a>
+      </div>
+    </AuthState>
+  );
+}
