@@ -56,6 +56,9 @@ def normalize_request(c,body,key):
     return body.model_copy(update={'assistant':body.assistant.model_copy(update={'thread_id':UUID(parent)})})
 
 def start(c,body):
+    from app.intent_radar.assistant_reads import start as direct_read
+    result=direct_read(c,body)
+    if result is not None:return result
     return service.start(c,models.Start(kind='RESEARCH',title='Assistant · '+body.prompt[:90],question=body.prompt,request_id=body.request_id,assistant=models.AssistantContext(thread_id=body.thread_id,page=body.page,signal_ids=body.signal_ids)))
 
 def listing(c):
@@ -133,12 +136,12 @@ async def process(c,key,body,job_id,lease):
         c.commit()
         from app.intent_radar.intelligence import reserve
         from app.platform.provider_usage import operation
-        reserve(max(6000,(request_bytes+2000)*2),operation_id='assistant:'+key)
+        operation_id=reserve(max(6000,(request_bytes+2000)*2),operation_id='assistant:'+key)
         # Reservation changes usage; record a verified pre-answer snapshot.
         refs,rows,data=references(c,body);payload['references']=refs
         if len(json.dumps(payload).encode())+len(PROMPT.encode())+len(json.dumps(Answer.model_json_schema()).encode())>24000:raise ai.AiOutputError('Assistant context exceeded the safe bound.')
         c.commit();gateway=ai.provider(c)
-        with operation('INTELLIGENCE_ASSISTANT'):
+        with operation('INTELLIGENCE_ASSISTANT',operation_id=operation_id):
             proposed=await asyncio.wait_for(gateway.structured(PROMPT,payload,Answer,max_output_tokens=2000,timeout_seconds=25,attempts_per_provider=1),timeout=32)
         # Revalidate every current reference after the external call; no stale
         # source/profile permission may be persisted as a successful answer.
@@ -153,10 +156,12 @@ async def process(c,key,body,job_id,lease):
         reason='AI allowance exhausted. Saved evidence and documentation remain accessible.'
     service.fence(c,key,job_id,lease)
     if answer is None:
-        doc=next(r for r in refs if r['id'].startswith('help:'))
-        answer=Answer(blocks=[Block(kind='Guidance',text=doc['text'][:700],citations=[Citation(reference=doc['id'],quote=doc['text'][:400])])],limitations=[reason or 'AI interpretation was not performed.'])
-    result=answer.model_dump();result['references']=refs
-    output={'assistant':result,'themes':[],'findings':[],'mode':'AI guidance — review required' if reason is None else 'Documentation fallback','limitations':answer.limitations,'fallback_reason':reason,'provider':getattr(gateway,'last_provider',None),'model':getattr(gateway,'last_model',None),'usage':getattr(gateway,'last_usage',None),'executive_summary':'Assistant guidance with source references; no action was executed.'}
+        # An unavailable answer is not replaced with unrelated documentation.
+        # Keep the question visible, label the failure and offer a safe retry.
+        result={'blocks':[],'followups':[],'limitations':[reason or 'A reliable answer is unavailable. Retry your question or review the source evidence.']}
+    else:result=answer.model_dump()
+    result['references']=refs
+    output={'assistant':result,'answer_available':answer is not None,'themes':[],'findings':[],'mode':'AI guidance — review required' if answer is not None else 'Answer unavailable','limitations':result['limitations'],'fallback_reason':reason,'provider':getattr(gateway,'last_provider',None),'model':getattr(gateway,'last_model',None),'usage':getattr(gateway,'last_usage',None),'executive_summary':'Assistant guidance with source references; no action was executed.'}
     snapshot={'evidence':[{k:r[k] for k in ('id','source','source_url','title','excerpt','observed_at','retrieved_at','revision','score','category')} for r in rows],'coverage':data['coverage'],'as_of':data['as_of'],'workspace_context':{},'scope':body.scope.model_dump(mode='json')}
     c.execute("UPDATE growth_research SET status='COMPLETE',snapshot_json=?,output_json=?,updated_at=?,revision=revision+1 WHERE id=? AND organization_id=?",(json.dumps(snapshot),json.dumps(output),now(),key,ctx.organization_id))
     return {'status':'COMPLETE','mode':output['mode']}

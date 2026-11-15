@@ -39,16 +39,21 @@ def authorize(c,email,method,path,body,organization_id=None):
     if r=='OPERATOR' and (path.startswith('/api/settings') or '/email/templates' in path or '/automation/targets' in path or '/automation/markets' in path):raise HTTPException(403,'Settings changes require an administrator.')
     return r
 
+def begin_in(c,email,method,path,body,organization_id=None):
+    """Apply the same RBAC/audit contract on a caller-owned transaction."""
+    r=authorize(c,email,method,path,body,organization_id)
+    critical=method not in ('GET','HEAD','OPTIONS') and any(x in path for x in ('/deletions/','/unsuppress','/workflow/schedules','/automation/controls','/settings','/foundation/roles','/foundation/duplicates','/foundation/reviews','/foundation/emergency','/email/templates','/organization/webhooks'))
+    if body.get('confirm_recontact') is True:critical=True
+    if not critical or not ready(c):return r,None
+    key=str(uuid.uuid4());action='RECONTACT_CONFIRMED' if body.get('confirm_recontact') else method+' '+path
+    c.execute("INSERT INTO audit_log(id,actor,action,entity,result,organization_id,created_at) VALUES(?,?,?,?,?,?,?)",(key,email,action,path,'ATTEMPTED',organization_id,now()))
+    return r,key
+
+
 def begin(email,method,path,body,organization_id=None):
     from app.database.connection import db_session
-    with db_session() as c:
-        r=authorize(c,email,method,path,body,organization_id)
-        critical=method not in ('GET','HEAD','OPTIONS') and any(x in path for x in ('/deletions/','/unsuppress','/workflow/schedules','/automation/controls','/settings','/foundation/roles','/foundation/duplicates','/foundation/reviews','/foundation/emergency','/email/templates','/organization/webhooks'))
-        if body.get('confirm_recontact') is True:critical=True
-        if not critical or not ready(c):return r,None
-        key=str(uuid.uuid4());action='RECONTACT_CONFIRMED' if body.get('confirm_recontact') else method+' '+path
-        c.execute("INSERT INTO audit_log(id,actor,action,entity,result,organization_id,created_at) VALUES(?,?,?,?,?,?,?)",(key,email,action,path,'ATTEMPTED',organization_id,now()))
-        return r,key
+    with db_session() as c:return begin_in(c,email,method,path,body,organization_id)
+
 
 def finish(key,status):
     if not key:return

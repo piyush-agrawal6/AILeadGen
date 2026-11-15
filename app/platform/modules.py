@@ -44,7 +44,7 @@ def lead_engine_route(path):
     foundation_lead=any(path==prefix or path.startswith(prefix+'/') for prefix in ('/api/foundation/repeat','/api/foundation/campaigns','/api/foundation/contacts','/api/foundation/history','/api/foundation/efficiency','/api/foundation/market-groups','/api/foundation/quality','/api/foundation/reviews','/api/foundation/duplicates','/api/foundation/usage','/api/foundation/cache'))
     return not shared_job and (foundation_lead or any(path==prefix or path.startswith(prefix+'/') for prefix in LEAD_ROUTES))
 
-def guard_route(path,*,organization_id,role,method='GET'):
+def guard_route(path,*,organization_id,role,method='GET',connection=None):
     if not get_settings().lead_engine_available and lead_engine_route(path):
         raise HTTPException(404,'This product is unavailable.')
     if path.startswith('/api/intent-radar/growth'):
@@ -52,8 +52,11 @@ def guard_route(path,*,organization_id,role,method='GET'):
     if path=='/api/intent-radar' or path.startswith('/api/intent-radar/'):
         from app.database.connection import db_session
         from app.intent_radar.permissions import availability
-        with db_session() as c:
-            if not role or not availability(c,organization_id)['enabled']:raise HTTPException(404,'Intent Radar is unavailable.')
+        if connection is not None:
+            enabled=bool(role and availability(connection,organization_id)['enabled'])
+        else:
+            with db_session() as c:enabled=bool(role and availability(c,organization_id)['enabled'])
+        if not enabled:raise HTTPException(404,'Intent Radar is unavailable.')
     from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
     internal=('/api/automation/controls','/api/automation/markets','/api/foundation/emergency',
               '/api/foundation/health','/api/foundation/settings','/api/system',

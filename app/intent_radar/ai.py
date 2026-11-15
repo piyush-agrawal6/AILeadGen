@@ -36,10 +36,10 @@ async def draft(c,body):
             from app.platform.provider_usage import operation
             if len(json.dumps(inputs,ensure_ascii=False).encode())>20000:raise ai.AiOutputError('Targeting context exceeds the bounded draft input size.')
             request_bytes=len(json.dumps(inputs,ensure_ascii=False).encode())+len(INSTRUCTION.encode())+len(json.dumps(models.SearchDraft.model_json_schema()).encode())
-            c.commit();reserve_tokens(max(6000,(request_bytes+2048+512)*2))
+            c.commit();operation_id=reserve_tokens(max(6000,(request_bytes+2048+512)*2))
             from app.platform.ai_usage import reserve
             reserve('INTENT_RADAR',10,50,'Intent Radar AI drafts')
-            with operation('INTENT_RADAR_DRAFT'):
+            with operation('INTENT_RADAR_DRAFT',operation_id=operation_id):
                 proposal=await asyncio.wait_for(ai.provider(c).structured(INSTRUCTION,inputs,models.SearchDraft,max_output_tokens=2048,timeout_seconds=20,attempts_per_provider=1),timeout=25)
             validate(c,proposal.configuration)
             return proposal

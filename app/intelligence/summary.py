@@ -19,13 +19,15 @@ INSTRUCTION='''Select the most useful excerpts for a concise B2B company overvie
 def digest(facts):
     return hashlib.sha256(json.dumps(facts.get('pages',[])[:3],sort_keys=True).encode()).hexdigest()
 
-async def generate(c,facts):
+async def generate(c,facts,*,operation_id=None):
     if not get_settings().heysow_company_ai_enabled:return {'status':'UNAVAILABLE','reason':'COMPANY_AI_DISABLED'}
     pages=facts.get('pages',[])[:3]
     if not pages:return {'status':'UNAVAILABLE','reason':'ENRICH_COMPANY_INFORMATION_FIRST'}
     data={'pages':[{'source_index':index,'url':page.get('url'),'excerpt':page.get('excerpt','')[:4000]} for index,page in enumerate(pages)]}
-    ai_usage.reserve_company(tokens=ai_usage.estimate(INSTRUCTION,data,Proposal,2000))
-    draft=await asyncio.wait_for(ai.provider(c).structured(INSTRUCTION,data,Proposal,max_output_tokens=2000,timeout_seconds=20),timeout=25)
+    operation_id=ai_usage.reserve_company(operation_id=operation_id,tokens=ai_usage.estimate(INSTRUCTION,data,Proposal,2000))
+    from app.platform.provider_usage import operation
+    with operation('COMPANY_SUMMARY',operation_id=operation_id):
+        draft=await asyncio.wait_for(ai.provider(c).structured(INSTRUCTION,data,Proposal,max_output_tokens=2000,timeout_seconds=20,attempts_per_provider=1),timeout=25)
     claims=[];seen=set()
     for item in draft.excerpts:
         if item.source_index>=len(pages) or item.quote not in pages[item.source_index].get('excerpt',''):raise ai.AiOutputError('The summary could not be supported by its cited source.')

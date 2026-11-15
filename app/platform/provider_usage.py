@@ -11,9 +11,11 @@ from app.database.prospects import now
 
 _operation=ContextVar('ai_usage_operation',default='STRUCTURED_INFERENCE')
 @contextmanager
-def operation(name):
+def operation(name,*,operation_id=None):
     token=_operation.set(name)
-    try:yield
+    try:
+        from app.billing.ai_accounting import operation as paid_operation
+        with paid_operation(operation_id):yield
     finally:_operation.reset(token)
 
 def reported(data):

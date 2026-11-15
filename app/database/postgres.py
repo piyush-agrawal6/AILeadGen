@@ -1,5 +1,6 @@
 """Small PostgreSQL DB-API adapter retaining the existing parameterized repositories."""
 import re,os,threading,time
+from contextlib import nullcontext
 import psycopg
 from urllib.parse import urlsplit,urlunsplit
 
@@ -84,13 +85,12 @@ class PostgresConnection:
             # SET LOCAL is reapplied after every commit, even when a transaction
             # pooler chooses a different backend. Schema names are validated.
             started=time.monotonic()
-            try:self.raw.execute(f"SET LOCAL search_path TO {self.schema}; SET LOCAL TIME ZONE 'UTC'; SET LOCAL statement_timeout = '30s'")
+            try:self.raw.execute("SELECT set_config('search_path',%s,true),set_config('TimeZone','UTC',true),set_config('statement_timeout','30s',true)",(self.schema,))
             finally:
                 from app.platform.request_metrics import database
                 database(time.monotonic()-started)
 
     def execute(self, statement, parameters=()):
-        self._prepare_transaction()
         # SQL is application-owned; parameters always remain driver-bound.
         statement = statement.replace("?", "%s")
         insert = re.match(r"\s*INSERT\s+INTO\s+([a-z_]+)", statement, re.I)
@@ -98,7 +98,14 @@ class PostgresConnection:
         if returning:
             statement = statement.rstrip().rstrip(";") + " RETURNING id"
         started=time.monotonic()
-        try:cursor = self.raw.execute(statement, parameters)
+        try:
+            # The setup and first statement share one network flush. SET LOCAL
+            # remains transaction-scoped and is reapplied after every commit;
+            # transaction poolers cannot leak another workspace's search_path.
+            fresh=self.raw.info.transaction_status == psycopg.pq.TransactionStatus.IDLE
+            with self.raw.pipeline() if fresh else nullcontext():
+                self._prepare_transaction()
+                cursor = self.raw.execute(statement, parameters)
         finally:
             from app.platform.request_metrics import database
             database(time.monotonic()-started)

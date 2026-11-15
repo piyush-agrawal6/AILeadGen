@@ -135,6 +135,18 @@ def test_schema46_upgrade_preserves_rows_and_requires47_only_for_payu(radar,monk
     assert c.execute('SELECT COUNT(*) FROM commercial_contracts').fetchone()[0]==0
     c.close()
 
+def test_queued_report_cancellation_refunds_unstarted_shared_capacity(paid,monkeypatch):
+    from app.growth_intelligence import service,models
+    from app.intelligence import jobs
+    c,_,org,*_=paid
+    monkeypatch.setattr(get_settings(),'intent_radar_growth_enabled',True)
+    with workspace_scope(c,'controlled@example.test',org):
+        report=service.start(c,models.Start(kind='REPORT',title='Controlled cancellation'));c.commit()
+        assert c.execute("SELECT reserved FROM commercial_usage WHERE dimension='reports'").fetchone()[0]==1
+        assert jobs.control(c,report['job_id'],'cancel')['status']=='CANCELLED'
+        assert all(r['reserved']==0 and r['used']==0 for r in c.execute('SELECT * FROM commercial_usage'))
+        assert c.execute('SELECT COUNT(*) FROM ai_request_usage').fetchone()[0]==0
+
 def test_paused_and_draft_monitors_do_not_consume_active_paid_capacity(paid):
     from app.intent_radar import service,models
     c,_,org,_,_,_,_=paid

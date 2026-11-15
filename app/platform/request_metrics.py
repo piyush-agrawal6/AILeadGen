@@ -17,4 +17,4 @@ def database(seconds):
 def header():
     active=_active.get()
     if active is None:return ''
-    with active.lock:return f'db;dur={active.seconds*1000:.1f};desc="{active.queries} round trips"'
+    with active.lock:return f'db;dur={active.seconds*1000:.1f};desc="{active.queries} statements"'

@@ -40,10 +40,13 @@ def reserve(c,amounts,operation_id):
         else:c.execute("INSERT INTO commercial_reservations(organization_id,contract_id,period_start,operation_id,dimension,amount,state,created_at,updated_at) VALUES(?,?,?,?,?,?,'RESERVED',?,?)",(org,row['id'],row['paid_start'],operation_id,dim,n,stamp,stamp))
     return True
 
-def settle(c,operation_id,*,actual=None,release=False):
+def settle(c,operation_id,*,actual=None,release=False,dimensions=None):
     """Internal completion only. Release only when no provider work was attempted."""
     org=contracts.verified_workspace(c);lock(c,org)
     rows=c.execute('SELECT * FROM commercial_reservations WHERE organization_id=? AND operation_id=? ORDER BY dimension',(org,operation_id)).fetchall()
+    if dimensions is not None:
+        if not dimensions or set(dimensions)-set(contracts.METERED):raise ValueError('Known settlement dimensions required.')
+        rows=[r for r in rows if r['dimension'] in dimensions]
     if not rows:return False
     if actual is not None and (not isinstance(actual,dict) or set(actual)!={r['dimension'] for r in rows}):raise ValueError('Complete actual usage attribution required.')
     # Validate every dimension before any write (callers may catch exceptions).

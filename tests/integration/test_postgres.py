@@ -1265,3 +1265,18 @@ def test_commercial_upgrade_preserves_existing_postgres_rows_and_billing_history
     assert run_migrations(c)==1 and run_migrations(c)==0
     assert fingerprints()==before
     assert c.execute('SELECT COUNT(*) FROM commercial_contracts').fetchone()[0]==0
+
+
+def test_transaction_configuration_is_reapplied_after_commit_and_rollback(postgres):
+    c=postgres
+    assert c.execute('SELECT current_schema()').fetchone()[0]==c.schema
+    c.execute("SELECT set_config('TimeZone','Asia/Kolkata',true)")
+    c.commit()
+    assert c.execute('SELECT current_schema(),current_setting(\'TimeZone\'),current_setting(\'statement_timeout\')').fetchone()[0]==c.schema
+    assert c.execute("SELECT current_setting('TimeZone')").fetchone()[0]=='UTC'
+    c.rollback()
+    row=c.execute("SELECT current_schema(),current_setting('TimeZone') timezone,current_setting('statement_timeout') timeout").fetchone()
+    assert row[0]==c.schema and row['timezone']=='UTC' and row['timeout']=='30s'
+    with pytest.raises(Exception):c.execute('SELECT missing_column FROM missing_table')
+    c.rollback()
+    assert c.execute('SELECT 1').fetchone()[0]==1

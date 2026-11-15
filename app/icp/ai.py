@@ -48,8 +48,10 @@ async def interpret(c,body:Interpretation):
     if not get_settings().heysow_icp_ai_enabled:raise HTTPException(503,'AI-assisted targeting is disabled. Use the structured builder.')
     if not status(c)['configured']:raise HTTPException(503,'AI is not configured. The structured builder remains available.')
     async def produce():
-        ai_usage.reserve_icp(tokens=ai_usage.estimate(INSTRUCTION,{'user_request':body.prompt},Draft,4096))
-        result=await asyncio.wait_for(ai.provider(c).structured(INSTRUCTION,{'user_request':body.prompt},Draft,max_output_tokens=4096,timeout_seconds=20),timeout=30)
+        operation_id=ai_usage.reserve_icp(tokens=ai_usage.estimate(INSTRUCTION,{'user_request':body.prompt},Draft,4096))
+        from app.platform.provider_usage import operation
+        with operation('ICP_CRITERIA',operation_id=operation_id):
+            result=await asyncio.wait_for(ai.provider(c).structured(INSTRUCTION,{'user_request':body.prompt},Draft,max_output_tokens=4096,timeout_seconds=20,attempts_per_provider=1),timeout=30)
         return validate_request_facts(body.prompt,result)
     try:
         result,hit=await ai.cached(c,current().actor,'ICP_CRITERIA_V1',{'prompt':body.prompt},produce,Draft,lambda value:validate_request_facts(body.prompt,value))

@@ -17,6 +17,11 @@ def rank_expression(alias='intent_signals'):
     value=f'({base}+{delta})'
     return f'CASE WHEN {value}>100 THEN 100 WHEN {value}<0 THEN 0 ELSE {value} END'
 
+def attach_opportunity_policy(item):
+    from app.intent_radar.opportunity_policy import assess
+    item['opportunity_eligibility']=assess(item)
+    return item
+
 def ranked_signals(c,items):
     if not items:return items
     org=context(c).organization_id
@@ -27,8 +32,9 @@ def ranked_signals(c,items):
     for item in items:
         item['keyword_score']=item['score'];row=ranks.get(item['id'])
         if not row:raise HTTPException(404,'Signal not found in this workspace.')
-        if not item['available']:item['score']=0;item['ranking']={'basis':'Public source evidence is unavailable; no current relevance claim.'};continue
+        if not item['available']:item['score']=0;item['ranking']={'basis':'Public source evidence is unavailable; no current relevance claim.'};attach_opportunity_policy(item);continue
         item['score']=row['adjusted_score'];item['ranking']=json.loads(row['explanation']) if row['explanation'] else {'version':'DETERMINISTIC_V3','basis':'Keyword evidence + bounded active workspace feedback'}
+    for item in items:attach_opportunity_policy(item)
     return items
 
 def ranked_signal(c,item):
@@ -58,7 +64,7 @@ def get(c, kind, key):
         item['saved'] = bool(c.execute('SELECT 1 FROM intent_saved_signals WHERE organization_id=? AND signal_id=?', (org, key)).fetchone())
         ranked_signal(c,item)
     if kind=='opportunities':
-        signal=get(c,'signals',item['signal_id']);item['score']=signal['score'];item['ranking']=signal['ranking']
+        signal=get(c,'signals',item['signal_id']);item['score']=signal['score'];item['ranking']=signal['ranking'];item['opportunity_eligibility']=signal['opportunity_eligibility']
     return item
 
 def expired(signal,retention_days=30):
@@ -128,8 +134,8 @@ def _listing(c, kind, *, page=1, size=25, search='', status='', category='', sou
     elif kind=='opportunities':order="CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, (SELECT s.score FROM intent_signals s WHERE s.id=intent_opportunities.signal_id AND s.organization_id=intent_opportunities.organization_id) DESC,created_at DESC,id"
     else: order = 'created_at DESC,id'
     total = c.execute(f'SELECT COUNT(*) FROM {TABLES[kind]} WHERE {where}', args).fetchone()[0]
-    rows = c.execute(f'SELECT id FROM {TABLES[kind]} WHERE {where} ORDER BY {order} LIMIT ? OFFSET ?', [*args,size,(page-1)*size]).fetchall()
-    return {'items': [get(c,kind,r[0]) for r in rows], 'total': total, 'page':page, 'page_size':size}
+    rows = c.execute(f'SELECT * FROM {TABLES[kind]} WHERE {where} ORDER BY {order} LIMIT ? OFFSET ?', [*args,size,(page-1)*size]).fetchall()
+    return {'items': [decode(r) if kind=='monitors' else get(c,kind,r['id']) for r in rows], 'total': total, 'page':page, 'page_size':size}
 
 def listing(c,kind,**filters):
     if kind not in ('signals','opportunities','alerts'):return _listing(c,kind,**filters)
@@ -173,7 +179,7 @@ def listing(c,kind,**filters):
         for item in items:
             signal=signals.get(item['signal_id'])
             if not signal:raise HTTPException(404,'Signal not found in this workspace.')
-            item['score']=signal['score'];item['ranking']=signal['ranking'];item['signal']=signal
+            item['score']=signal['score'];item['ranking']=signal['ranking'];item['signal']=signal;item['opportunity_eligibility']=signal['opportunity_eligibility']
     elif kind!='signals':items=[decode(r) for r in rows]
     else:
         items=[]
@@ -292,12 +298,14 @@ def opportunity(c,key,body=None):
     ctx = context(c,True); lock(c)
     if body:
         old = get(c,'opportunities',key)
+        if body.status=='Qualified' and not old['opportunity_eligibility']['eligible']:raise HTTPException(409,'This record needs explicit intent and targeting evidence before it can be marked qualified. Save or review its source instead.')
         if body.assigned_to:
             from app.api.organization import membership_role
             if not membership_role(c,body.assigned_to,ctx.organization_id): raise HTTPException(404,'Assignee is not an active workspace member.')
         if not c.execute('UPDATE intent_opportunities SET status=?,priority=?,notes=?,next_action=?,assigned_to=?,revision=revision+1,updated_at=? WHERE id=? AND organization_id=? AND revision=?',(body.status,body.priority,body.notes,body.next_action,body.assigned_to,now(),key,ctx.organization_id,body.revision)).rowcount: raise HTTPException(409,'Opportunity changed; reload before saving.')
     else:
-        get(c,'signals',key)
+        signal=get(c,'signals',key)
+        if not signal['opportunity_eligibility']['eligible']:raise HTTPException(409,'This discussion does not yet have sufficient intent and targeting evidence for an opportunity. Save the signal or review its evidence first.')
         signal_id = key; key = str(uuid.uuid5(uuid.NAMESPACE_URL,ctx.organization_id + ':intent-opportunity:' + signal_id))
         from app.billing.usage import reserve
         reserve(c,{'opportunities':1},key)
@@ -319,7 +327,7 @@ def alert(c,event_key,title,description,monitor_id=None,signal_id=None,actor=Non
     if changed and actor:
         c.execute('INSERT INTO workspace_notifications(id,organization_id,user_id,kind,entity_id,created_at) VALUES(?,?,?,?,?,?)',(str(uuid.uuid4()),org,actor,'INTENT_RADAR',key,now()))
 
-def overview(c):
+def overview(c,*,include_previews=True):
     org=context(c).organization_id
     from app.intent_radar.operations import overview as operational_overview
     retention,retention_args=retention_sql(c,preferences(c)['source_retention_days'])
@@ -331,9 +339,11 @@ def overview(c):
         (SELECT COUNT(*) FROM intent_opportunities WHERE organization_id=? AND status='Saved') saved_opportunities,
         (SELECT COUNT(*) FROM intent_alerts WHERE organization_id=? AND read_at IS NULL) unread_alerts""",
         (org,*retention_args,org,org,*retention_args,org,org,org)).fetchone())
-    return {**counts,'operations':operational_overview(c,include_sources=False),
+    result={**counts,'operations':operational_overview(c,include_sources=False),
             'trends':[dict(r) for r in c.execute('SELECT SUBSTR(observed_at,1,10) AS "day",COUNT(*) volume FROM intent_signals WHERE organization_id=? AND available=1 GROUP BY SUBSTR(observed_at,1,10) ORDER BY "day" DESC LIMIT 14',(org,)).fetchall()],
-             'recent_signals':listing(c,'signals',size=5)['items'],'monitors':listing(c,'monitors',size=5)['items'],'opportunities':listing(c,'opportunities',size=5)['items'],'alerts':listing(c,'alerts',size=5)['items']}
+             'preview_state':'included' if include_previews else 'not requested'}
+    if include_previews:result.update(recent_signals=listing(c,'signals',size=5)['items'],monitors=listing(c,'monitors',size=5)['items'],opportunities=listing(c,'opportunities',size=5)['items'],alerts=listing(c,'alerts',size=5)['items'])
+    return result
 
 def remove_source(c,key):
     """Withdraw public content while preserving customer annotations and history."""

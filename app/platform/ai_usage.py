@@ -20,6 +20,8 @@ def estimate(instruction,value,schema,max_output):
     return max(6000,(len(instruction.encode())+len(json.dumps(value,ensure_ascii=False).encode())+len(json.dumps(schema.model_json_schema()).encode())+max_output)*2)
 
 def reserve(feature,limit,global_limit,label,*,operation_id=None,tokens=60000):
+    import uuid
+    operation_id=operation_id or str(uuid.uuid4())
     org=organization();actor=current().actor;day=datetime.now(timezone.utc).date().isoformat()
     with db_session() as c:
         require_role(c,actor,org,('OWNER','ADMIN'))
@@ -30,10 +32,10 @@ def reserve(feature,limit,global_limit,label,*,operation_id=None,tokens=60000):
         if total>=global_limit:raise HTTPException(429,label+' capacity is exhausted for today. Manual editing remains available.')
         if row and row[0]>=limit:raise HTTPException(429,'This workspace has reached its daily '+label+' limit. Manual editing remains available.')
         if feature in ('ICP','COMPANY_PROFILE'):
-            import uuid
             from app.billing.commercial_usage import reserve as reserve_commercial
-            reserve_commercial(c,{'ai_calls':1,'ai_tokens':tokens},operation_id or str(uuid.uuid4()))
+            reserve_commercial(c,{'ai_calls':1},operation_id)
         c.execute('INSERT INTO organization_ai_usage(organization_id,day,feature,requests,updated_at) VALUES(?,?,?,1,?) ON CONFLICT(organization_id,day,feature) DO UPDATE SET requests=organization_ai_usage.requests+1,updated_at=excluded.updated_at',(org,day,feature,now()))
+    return operation_id
 
 def icp_status(c):
     day=datetime.now(timezone.utc).date().isoformat();org=organization();settings=get_settings()

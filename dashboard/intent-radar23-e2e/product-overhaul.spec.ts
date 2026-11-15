@@ -17,7 +17,7 @@ test('global assistant persists grounded multi-turn guidance without executing a
  await page.getByRole('button',{name:'Ask PlaneByte',exact:true}).click();await expect(page.getByText('What should I review next?',{exact:true})).toBeVisible();
  for(const width of [390,320]){await page.setViewportSize({width,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);await expect(page.getByRole('button',{name:'Close intelligence assistant'})).toBeVisible();}
 });
-for(const width of [1440,1280,1024,768,390,320])test(`product routes remain usable without horizontal overflow at ${width}px`,async({page,context},info)=>{
+for(const width of [1920,1440,1280,1024,768,390,320])test(`product routes remain usable without horizontal overflow at ${width}px`,async({page,context},info)=>{
  test.setTimeout(180000);await session(context);await page.setViewportSize({width,height:900});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  for(const path of ['/intent-radar','/intent-radar/discover','/intent-radar/signals','/intent-radar/opportunities','/intent-radar/saved','/intent-radar/monitors','/intent-radar/alerts','/intent-radar/growth','/intent-radar/growth/themes','/intent-radar/growth/trends','/intent-radar/growth/research','/intent-radar/growth/watchlists','/intent-radar/growth/competitors','/intent-radar/growth/reports','/intent-radar/integrations','/settings','/settings/company','/settings/icp','/account/profile','/account/security','/billing','/help']){
   await page.goto(path);await expect(page.locator('main').first()).toBeVisible();await expect(page.getByRole('button',{name:'Ask PlaneByte',exact:true})).toBeVisible();
@@ -26,4 +26,18 @@ for(const width of [1440,1280,1024,768,390,320])test(`product routes remain usab
   await page.screenshot({path:info.outputPath(path.replaceAll('/','_')+'-'+width+'.png'),fullPage:true});
  }
  expect(errors).toEqual([]);
+});
+
+test('workspace counts and follow-up use real stored data without AI quota',async({page,context})=>{
+ await session(context);const before=await (await context.request.get('/api/organization/usage')).json();
+ await page.goto('/intent-radar');await page.getByRole('button',{name:'Ask PlaneByte',exact:true}).click();
+ await page.getByRole('textbox',{name:'Ask PlaneByte',exact:true}).fill('How many signals have I generated yet?');await page.getByRole('button',{name:'Send question',exact:true}).click();
+ await expect(page.getByText('Workspace data — no AI used',{exact:true})).toBeVisible({timeout:30000});
+ await expect(page.getByRole('dialog').getByText(/Your workspace contains \d+ collected conversation records/).first()).toBeVisible();
+ await page.getByRole('textbox',{name:'Ask PlaneByte',exact:true}).fill('And today?');await page.getByRole('button',{name:'Send question',exact:true}).click();
+ await expect(page.getByText('Workspace data — no AI used',{exact:true})).toHaveCount(2,{timeout:30000});
+ await expect(page.getByText(/This window uses original publication dates/)).toBeVisible();
+ const after=await (await context.request.get('/api/organization/usage')).json();
+ expect(after.provider_usage.requests).toBe(before.provider_usage.requests);
+ expect(after.usage.find((x:{dimension:string})=>x.dimension==='ai_calls').used).toBe(before.usage.find((x:{dimension:string})=>x.dimension==='ai_calls').used);
 });

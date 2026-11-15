@@ -23,7 +23,7 @@ def test_durable_multiturn_idempotency_and_disabled_ai_documentation_fallback(gr
         before=c.execute('SELECT COUNT(*) FROM email_messages').fetchone()[0]
         body=assistant.Turn(prompt='How do I review signal evidence?')
         first=execute(c,path,body)
-        assert first['status']=='COMPLETE' and first['output']['mode']=='Documentation fallback'
+        assert first['status']=='COMPLETE' and first['output']['mode']=='Answer unavailable'
         assert assistant.start(c,body)['id']==first['id']
         with pytest.raises(HTTPException):assistant.start(c,body.model_copy(update={'prompt':'Different question'}))
         second=execute(c,path,assistant.Turn(prompt='How do I save the useful results?',thread_id=first['id']))
@@ -75,8 +75,9 @@ def test_quota_denial_falls_back_without_provider_or_action(growth,monkeypatch):
     monkeypatch.setattr(assistant.ai,'provider',lambda _:(_ for _ in ()).throw(AssertionError('Must not spend')))
     with workspace_scope(c,'controlled@example.test',org):
         result=execute(c,path,assistant.Turn(prompt='Explain my allowance',page='billing'))
-        assert result['status']=='COMPLETE' and result['output']['mode']=='Documentation fallback'
+        assert result['status']=='COMPLETE' and result['output']['mode']=='Answer unavailable'
         assert 'allowance exhausted' in result['output']['fallback_reason']
+        assert result['output']['assistant']['blocks']==[] and result['output']['answer_available'] is False
 
 def test_assistant_rejects_other_workspace_and_arbitrary_thread_ids_before_ai(growth):
     c,path,org,other=growth

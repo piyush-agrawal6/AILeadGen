@@ -12,7 +12,7 @@ from dotenv import dotenv_values
 from scripts.deploy_beta_backend import command,REGION
 from scripts.deploy_growth_release import spec
 ROOT=Path(__file__).resolve().parents[1]
-OUT=ROOT/'data/artifacts/verification/final-product'
+OUT=ROOT/'data/artifacts/verification'/os.environ.get('PLANEBYTE_RELEASE_EVIDENCE','final-product')
 RESOURCES=[('services','leadengine-api','api'),('jobs','leadengine-worker','worker'),('jobs','leadengine-acquisition','worker'),('jobs','leadengine-quota-canary','worker')]
 ORIGIN='https://leadengine-api-befca7xg4a-el.a.run.app'
 
@@ -31,11 +31,19 @@ def gate():
     report=ET.parse(OUT/'backend-approved.xml').getroot();suites=list(report) if report.tag=='testsuites' else [report]
     if sum(int(s.get('tests',0)) for s in suites)<1030 or any(int(s.get('failures',0))+int(s.get('errors',0)) for s in suites):raise RuntimeError('Full backend gate is not passing.')
     browser=json.loads((OUT/'browser-results.json').read_text())['stats']
-    if browser.get('unexpected',1) or browser.get('expected')!=7:raise RuntimeError('Product assistant and six-viewport browser gate is not passing.')
-    if 'Compiled successfully' not in (OUT/'frontend-approved.log').read_text():raise RuntimeError('Verified frontend build missing.')
-    for name in ('types-approved.log',):
+    final=OUT.name=='final-remediation'
+    if browser.get('unexpected',1) or browser.get('expected')!=(9 if final else 7) or browser.get('skipped',0):raise RuntimeError('Product assistant and responsive browser gate is not passing.')
+    if 'Compiled successfully' not in (OUT/('frontend-build-final.log' if final else 'frontend-approved.log')).read_text():raise RuntimeError('Verified frontend build missing.')
+    for name in (('frontend-types-final.log' if final else 'types-approved.log'),):
         if (OUT/name).read_text().strip():raise RuntimeError('Frontend type gate is not passing.')
-    if 'failed' in (OUT/'units-approved.log').read_text().lower():raise RuntimeError('Frontend unit gate is not passing.')
+    units=(OUT/('frontend-units-final.log' if final else 'units-approved.log')).read_text()
+    if 'failed' in units.lower() or ('161 passed' if final else '159 passed') not in units:raise RuntimeError('Frontend unit gate is not passing.')
+    if final:
+        required={'test_postgres_assistant_count_reads_are_ai_free_and_do_not_create_jobs','test_transaction_configuration_is_reapplied_after_commit_and_rollback','test_crash_recovery_cannot_refund_a_previous_unknown_attempt','test_queued_report_cancellation_refunds_unstarted_shared_capacity'}
+        passed={case.get('name') for case in report.iter('testcase') if not any(case.find(tag) is not None for tag in ('failure','error','skipped'))}
+        if not required<=passed:raise RuntimeError('New critical backend regressions did not pass in the frozen full run.')
+        recovery=json.loads((OUT/'recovery-proof.json').read_text())
+        if not recovery.get('restored_exactly') or recovery.get('row_loss') or recovery.get('second_migration_run')!=0:raise RuntimeError('Fresh recovery rehearsal is not verified.')
     if subprocess.check_output(['git','status','--porcelain','--','app'],cwd=ROOT,text=True).strip():raise RuntimeError('Backend application must be committed exactly before staging.')
     if subprocess.check_output(['git','diff','--diff-filter=D','--name-only','a608210','HEAD'],cwd=ROOT,text=True).strip():raise RuntimeError('Unexpected source deletion requires investigation.')
     return subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
@@ -51,6 +59,7 @@ def signed(client,path,method='GET',body=None):
 def smoke(origin):
     checks={};paths={'/api/health':200,'/api/organization/products':200,'/api/organization/usage':200,'/api/organization/profile':200,'/api/organization/icps':200,'/api/intent-radar/overview':200,'/api/intent-radar/sources/health':200,'/api/intent-radar/alerts?alert_kind=Source%20issues':200,'/api/intent-radar/alerts?alert_kind=Monitor%20activity':200,'/api/intent-radar/assistant/conversations':200,'/api/intent-radar/growth/overview?days=0':200,'/api/organization/developer/status':200,'/api/workflow/safety':404,'/api/email/account':404,'/api/acquisition/providers':404}
     with httpx.Client(base_url=origin,timeout=65,follow_redirects=False) as client:
+        if OUT.name=='final-remediation':paths['/api/intent-radar/overview/summary']=200
         for path,expected in paths.items():
             started=time.monotonic();r=client.get(path) if path=='/api/health' else signed(client,path)
             checks[path]={'http':r.status_code,'seconds':round(time.monotonic()-started,3),'server_timing':r.headers.get('server-timing','')}

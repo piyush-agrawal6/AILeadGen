@@ -130,7 +130,11 @@ def authenticate(c,authorization,*,consume=True):
         c.execute('INSERT INTO developer_request_windows(owner_key,window_start,requests) VALUES(?,?,1) ON CONFLICT(owner_key,window_start) DO UPDATE SET requests=developer_request_windows.requests+1',(bucket,window))
     from app.billing.usage import reserve
     with workspace_scope(c,row['created_by'],row['organization_id']):
-        reserve(c,{'api_requests':1},str(uuid.uuid4()))
+        operation_id=str(uuid.uuid4())
+        reserve(c,{'api_requests':1},operation_id)
+        if get_settings().payu_billing_enabled:
+            from app.billing.commercial_usage import settle
+            settle(c,operation_id)
     c.execute('DELETE FROM developer_request_windows WHERE window_start<?',(window-10,));c.execute('UPDATE workspace_api_keys SET last_used_at=? WHERE id=? AND revoked_at IS NULL',(now(),key))
     return Grant(key,row['organization_id'],row['created_by'],tuple(json.loads(row['scopes_json'])))
 

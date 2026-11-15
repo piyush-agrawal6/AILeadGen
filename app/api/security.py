@@ -46,56 +46,48 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
 
     async def authenticated(self,request,call_next):
         from app.api.read_cache import read_cache
-        from app.api.permissions import begin
+        from app.api.permissions import begin_in
         from app.api import organization as org_context
         from fastapi import HTTPException
+        from contextvars import copy_context
         import json
-        from app.database.connection import db_session
-        # The primary owner is already established by signed authentication.
-        # Other roles are rechecked before every read, including cache hits.
-        settings=get_settings();owner=settings.allowed_emails[0] if settings.allowed_emails else None
         mutation=request.method not in ('GET','HEAD','OPTIONS')
-        # Organization context: membership identifies the tenant, never the browser.
-        def resolve_organization():
+        raw=await request.body() if mutation else b''
+        try:body=json.loads(raw) if raw else {}
+        except ValueError:body={}
+        if not isinstance(body,dict):body={}
+
+        def prepare_entry():
+            # One transaction/connection, with all original fresh membership,
+            # RBAC, product and onboarding checks retained. Nothing is cached.
+            from app.platform.modules import guard_route,guard_product_route
+            from app.platform.context import workspace_scope
             with db_session() as c:
                 state=org_context.resolve(c,request.state.user_email)
-                return state
-        state=await asyncio.to_thread(resolve_organization)
-        request.state.organization=state
-        request.state.organization_id=state['organization_id'] if state else None
-        audit_id=None
-        if state is not None:
-            raw=await request.body() if mutation else b''
-            try:body=json.loads(raw) if raw else {}
-            except ValueError:body={}
-            if not isinstance(body,dict):body={}
-            try:request.state.role,audit_id=await asyncio.to_thread(begin,request.state.user_email,request.method,request.url.path,body,request.state.organization_id)
-            except HTTPException as exc:return JSONResponse({'detail':exc.detail},status_code=exc.status_code)
-        else:request.state.role=None
-        request.state.audit_id=audit_id
-        from app.platform.modules import guard_route
-        try:guard_route(request.url.path,organization_id=request.state.organization_id,role=request.state.role,method=request.method)
-        except HTTPException as exc:return JSONResponse({'detail':exc.detail},status_code=exc.status_code)
-        if not request.url.path.startswith(self.ORG_OPTIONAL_PREFIXES):
-            if state is None:
-                return JSONResponse({'detail':'Create your company to continue.','code':'ORGANIZATION_REQUIRED'},status_code=403)
-            setup_path=request.url.path in self.SETUP_CONFIGURATION_PATHS or request.method=='GET' and request.url.path in self.SETUP_REFERENCE_PATHS
-            if state['onboarding_status']!='COMPLETED' and not setup_path:
-                return JSONResponse({'detail':'Finish company onboarding to continue.','code':'ONBOARDING_INCOMPLETE'},status_code=403)
-        if state is None:
-            return await read_cache.handle(request,call_next)
-        from app.platform.context import workspace_scope
-        with ExitStack() as scopes:
-            with db_session() as c:
+                request.state.organization=state
+                request.state.organization_id=state['organization_id'] if state else None
+                request.state.role=None;request.state.audit_id=None
+                if state is not None:
+                    request.state.role,request.state.audit_id=begin_in(c,request.state.user_email,request.method,request.url.path,body,state['organization_id'])
+                    if request.state.audit_id:c.commit() # Retain critical ATTEMPTED audit even when a later gate denies.
+                guard_route(request.url.path,organization_id=request.state.organization_id,role=request.state.role,method=request.method,connection=c)
+                setup=request.url.path in self.SETUP_CONFIGURATION_PATHS or request.method=='GET' and request.url.path in self.SETUP_REFERENCE_PATHS
+                if not request.url.path.startswith(self.ORG_OPTIONAL_PREFIXES):
+                    if state is None:raise HTTPException(403,{'detail':'Create your company to continue.','code':'ORGANIZATION_REQUIRED'})
+                    if state['onboarding_status']!='COMPLETED' and not setup:raise HTTPException(403,{'detail':'Finish company onboarding to continue.','code':'ONBOARDING_INCOMPLETE'})
+                if state is None:return copy_context()
                 if request.url.path not in self.SETUP_CONFIGURATION_PATHS and request.url.path not in self.SETUP_REFERENCE_PATHS:
-                    from app.platform.modules import guard_product_route
-                    try:guard_product_route(c,request.url.path,state['organization_id'])
-                    except HTTPException as exc:return JSONResponse({'detail':exc.detail},status_code=exc.status_code)
-                scopes.enter_context(workspace_scope(c,request.state.user_email,state['organization_id']))
-            # Verification is complete; retain the trusted context, not an idle
-            # pooled connection, while handlers obtain their own connections.
-            response=await read_cache.handle(request,call_next)
-        return response
+                    guard_product_route(c,request.url.path,state['organization_id'])
+                with workspace_scope(c,request.state.user_email,state['organization_id']):
+                    # Context holds identity only, never an open connection or an
+                    # authorization cache. It is copied into this request's task.
+                    return copy_context()
+        try:verified_context=await asyncio.to_thread(prepare_entry)
+        except HTTPException as exc:
+            return JSONResponse(exc.detail if isinstance(exc.detail,dict) else {'detail':exc.detail},status_code=exc.status_code)
+        # Keep blocking database work off the event loop and release the pooled
+        # connection before invoking handlers/providers. Python3.12 is pinned.
+        return await asyncio.create_task(read_cache.handle(request,call_next),context=verified_context)
     async def dispatch(self,request,call_next):
         from app.platform import request_metrics
         started=time.monotonic();token=request_metrics.begin()

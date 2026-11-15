@@ -6,11 +6,17 @@ import {useRadarRead,useRadarCapabilities} from './provider';
 import {Badge,PageHeading,LoadingSkeleton,ErrorState} from './ui';
 import {SignalCard} from './signals';
 
+type Summary=Pick<IntentOverview,'new_signals'|'reviewed_signals'|'high_relevance'|'active_monitors'|'saved_opportunities'|'unread_alerts'|'trends'>&{operations?:{backlog:number;scheduler_heartbeat_at:string|null;scheduler_heartbeat_fresh:boolean;worker_status_basis:string}};
 export function OverviewDashboard(){
- const query=useRadarRead<IntentOverview>('/overview'),access=useRadarCapabilities();
- if(query.error)return <ErrorState message={query.error.message} retry={()=>void query.refetch()}/>;
- if(!query.data)return <LoadingSkeleton/>;
-  const d=query.data as IntentOverview&{operations?:{backlog:number;scheduler_heartbeat_at:string|null;scheduler_heartbeat_fresh:boolean;worker_status_basis:string}};
+ const summary=useRadarRead<Summary>('/overview/summary'),details=useRadarRead<IntentOverview>('/overview',!!summary.data);
+ if(summary.error)return <ErrorState message={summary.error.message} retry={()=>void summary.refetch()}/>;
+ if(!summary.data)return <LoadingSkeleton/>;
+ if(details.data)return <OverviewContent d={{...details.data,...summary.data}}/>;
+ const d=summary.data;
+ return <div className="ir-page"><PageHeading title="Intent Radar" description="Review your workspace, then explore the original evidence." actions={<Link className="ir-button ir-primary" href="/intent-radar/discover">Discover Intent</Link>}/><div className="ir-metrics">{[['New conversations',d.new_signals],['High-relevance signals',d.high_relevance],['Active monitors',d.active_monitors],['Saved opportunities',d.saved_opportunities],['Reviewed signals',d.reviewed_signals],['Unread alerts',d.unread_alerts]].map(([name,value])=><section className="ir-panel" key={name}><span>{name}</span><strong>{value}</strong></section>)}</div>{details.error?<ErrorState message={details.error.message} retry={()=>void details.refetch()}/>:<section className="ir-panel" role="status"><p>Your workspace totals are ready. Loading recent evidence and activity…</p></section>}</div>;
+}
+function OverviewContent({d}:{d:IntentOverview&Summary}){
+ const access=useRadarCapabilities();
  const fresh=!d.recent_signals.length&&!d.monitors.length&&!d.opportunities.length&&!d.alerts.length;
  const metrics=[['New Signals',d.new_signals,Activity,'/signals?status=New'],['High-Relevance Signals',d.high_relevance,Target,'/signals?min_score=85'],['Active Monitors',d.active_monitors,Radio,'/monitors'],['Saved Opportunities',d.saved_opportunities,Bookmark,'/opportunities'],['Reviewed Signals',d.reviewed_signals,CheckCheck,'/signals?status=Reviewed'],['Unread Alerts',d.unread_alerts,Bell,'/alerts']] as const;
  const trends=[...d.trends].reverse(),max=Math.max(1,...trends.map(t=>t.volume));

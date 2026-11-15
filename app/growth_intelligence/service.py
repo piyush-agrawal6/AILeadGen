@@ -96,6 +96,9 @@ def fence(c,key,job_id,lease):
 
 async def process(c,key,job_id,lease):
     analytics.access(c,True,True);row=owned(c,key);body=models.Start.model_validate(json.loads(row['scope_json']))
+    if body.kind=='REPORT':
+        from app.billing.commercial_usage import reserve as reserve_commercial
+        reserve_commercial(c,{'reports':1,'ai_calls':1},'report:'+key)
     if body.assistant:
         from app.intent_radar.assistant import process as process_assistant
         return await process_assistant(c,key,body,job_id,lease)
@@ -116,8 +119,8 @@ async def process(c,key,job_id,lease):
                 from app.intent_radar.intelligence import reserve
                 request_bytes=len(json.dumps(payload).encode())+len(PROMPT.encode())+len(json.dumps(models.Interpretation.model_json_schema()).encode())
                 if request_bytes>18000:raise ai.AiOutputError('Research exceeds bounded context size.')
-                c.commit();reserve(max(6000,(request_bytes+3000)*2),operation_id=('report:'+key) if body.kind=='REPORT' else 'growth:'+key+':'+digest);gateway=ai.provider(c)
-                with operation('GROWTH_'+body.kind):
+                c.commit();operation_id=reserve(max(6000,(request_bytes+3000)*2),operation_id=('report:'+key) if body.kind=='REPORT' else 'growth:'+key+':'+digest);gateway=ai.provider(c)
+                with operation('GROWTH_'+body.kind,operation_id=operation_id):
                     proposed=await asyncio.wait_for(gateway.structured(PROMPT,payload,models.Interpretation,max_output_tokens=3000,timeout_seconds=25,attempts_per_provider=1),timeout=32)
                 output=validate(proposed,rows).model_dump(mode='json');mode='AI semantic interpretation — review required'
             except (ai.AiUnavailable,ai.AiApplicationError,TimeoutError,ValueError):reason='AI unavailable, invalid or outside budget; source evidence remains available.'
@@ -138,8 +141,26 @@ async def process(c,key,job_id,lease):
         c.execute('INSERT INTO growth_themes(id,organization_id,research_id,name,description,method,evidence_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(organization_id,id) DO NOTHING',(theme_id,row['organization_id'],key,theme['name'],theme['description'],mode,json.dumps(theme['citations']),now(),now()))
         for citation in theme['citations']:c.execute('INSERT INTO growth_theme_signals(organization_id,theme_id,signal_id) VALUES(?,?,?) ON CONFLICT(organization_id,theme_id,signal_id) DO NOTHING',(row['organization_id'],theme_id,str(citation['signal_id'])))
     c.execute("UPDATE growth_research SET status='COMPLETE',input_hash=?,snapshot_json=?,output_json=?,updated_at=?,revision=revision+1 WHERE organization_id=? AND id=?",(digest,json.dumps(snapshot),json.dumps(output),now(),row['organization_id'],key))
+    if body.kind=='REPORT':
+        # Cached and lexical reports still consume the approved shared AI
+        # operation allowance. Provider tokens remain measured separately.
+        from app.billing.commercial_usage import reserve as reserve_commercial,settle
+        if reserve_commercial(c,{'reports':1,'ai_calls':1},'report:'+key):settle(c,'report:'+key)
     radar.audit(c,'GROWTH_COMPLETED',key)
     return {'status':'COMPLETE','research_id':key,'mode':mode,'cited_conversations':len(snapshot.get('evidence',[])),'provider':output.get('provider')}
+
+def release_unfinished_report(c,key):
+    """Known failed/cancelled work only; never release an uncertain AI attempt."""
+    from app.config.settings import get_settings
+    if not get_settings().payu_billing_enabled:return
+    row=owned(c,key);body=json.loads(row['scope_json'])
+    if body['kind']!='REPORT' or row['status']=='COMPLETE':return
+    from app.billing.ai_accounting import finalize_operation
+    from app.billing.commercial_usage import settle
+    operation_id='report:'+key
+    finalize_operation(c,operation_id)
+    state=c.execute("SELECT state FROM commercial_reservations WHERE organization_id=? AND operation_id=? AND dimension='reports'",(row['organization_id'],operation_id)).fetchone()
+    if state and state['state']=='RESERVED':settle(c,operation_id,release=True,dimensions=('reports',))
 
 def detail(c,key):
     row=owned(c,key);request=json.loads(row.pop('scope_json'));snapshot=json.loads(row.pop('snapshot_json'));output=json.loads(row.pop('output_json'));row.pop('input_hash')

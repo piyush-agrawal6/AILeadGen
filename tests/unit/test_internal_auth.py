@@ -123,3 +123,27 @@ def test_workspace_verification_releases_connection_before_handler(secured,monke
         return {'verified':bool(current().organization_id)}
     response=client.get(path,headers=signed(settings,path=path))
     assert response.status_code==200 and response.json()['verified']
+
+def test_fresh_authorization_context_crosses_async_tasks_and_thread_without_extra_sessions(secured,monkeypatch):
+    import asyncio
+    from app.api import security
+    from app.platform.context import current
+    client,settings=secured;entered=[];original=security.db_session
+    @contextmanager
+    def counted():
+        entered.append(True)
+        with original() as c:yield c
+    monkeypatch.setattr(security,'db_session',counted)
+    async def probe():
+        direct=current()
+        threaded=await asyncio.to_thread(current)
+        async def child():return current()
+        nested=await asyncio.create_task(child())
+        assert direct==threaded==nested
+        return {'actor':direct.actor,'organization_id':direct.organization_id}
+    path='/api/organization/current-context-probe';client.app.add_api_route(path,probe,methods=['GET'])
+    response=client.get(path,headers=signed(settings,path=path))
+    assert response.status_code==200 and response.json()['actor']=='founder@example.com'
+    assert len(entered)==2 # Durable nonce + one complete fresh authorization transaction.
+    with original() as c:c.execute("UPDATE organization_memberships SET status='REVOKED' WHERE user_id=?",('founder@example.com',))
+    assert client.get(path,headers=signed(settings,path=path)).status_code in (401,403)

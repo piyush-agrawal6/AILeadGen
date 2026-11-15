@@ -53,6 +53,9 @@ def profile_context(c=Depends(get_db,scope='function')):
     from app.platform.company_profiles import read_profile
     return read_profile(c)
 
+@router.get('/overview/summary')
+def overview_summary(c=Depends(get_db,scope='function')):return service.overview(c,include_previews=False)
+
 @router.get('/overview')
 def overview(c=Depends(get_db,scope='function')):return service.overview(c)
 @router.get('/usage')
@@ -174,5 +177,5 @@ def assistant_conversation(key:UUID,c=Depends(get_db,scope='function')):return a
 async def assistant_turn(body:assistant.Turn,c=Depends(get_db,scope='function')):
     result=assistant.start(c,body);c.commit()
     from app.intelligence.dispatch import launch
-    await launch(result['job_id'])
+    if result.get('job_id'):await launch(result['job_id'])
     return result

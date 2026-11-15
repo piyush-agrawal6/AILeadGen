@@ -26,3 +26,21 @@ def test_rank_batches_are_bounded_and_cannot_cross_workspace(radar):
  import pytest
  with workspace_scope(c,'controlled@example.test',org):
   with pytest.raises(HTTPException):service.ranked_signals(c,[{'organization_id':other,'id':'foreign'}])
+
+def test_summary_does_not_hydrate_preview_lists_or_request_sources(radar,monkeypatch):
+ c,path,org,_=radar
+ with workspace_scope(c,'controlled@example.test',org):
+  monkeypatch.setattr(service,'listing',lambda *args,**kwargs:(_ for _ in ()).throw(AssertionError('No previews in summary')))
+  monkeypatch.setattr(operations,'source_health',lambda _:(_ for _ in ()).throw(AssertionError('No provider health in summary')))
+  q=Counted(c);result=service.overview(q,include_previews=False)
+  assert result['new_signals']==0 and result['preview_state']=='not requested'
+  assert 'recent_signals' not in result and len(q.statements)<=8
+
+
+def test_monitor_page_has_constant_query_count(radar):
+ c,path,org,_=radar
+ with workspace_scope(c,'controlled@example.test',org):
+  for index in range(5):service.save_monitor(c,models.Monitor(name='Bounded monitor '+str(index),configuration=models.Search(keywords=['website'])))
+  q=Counted(c);result=service.listing(q,'monitors',size=5)
+  assert len(result['items'])==5 and len(q.statements)==3
+  assert all(r['organization_id']==org and 'fingerprint' not in r for r in result['items'])

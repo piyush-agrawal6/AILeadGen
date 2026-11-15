@@ -109,7 +109,12 @@ def control(c,key,action):
     if row['kind']=='GROWTH_ANALYZE':
         from app.growth_intelligence.analytics import access
         access(c,True,True)
-    if action=='cancel':c.execute("UPDATE intelligence_jobs SET status='CANCELLED',updated_at=? WHERE id=? AND organization_id=? AND status IN ('RUNNING','QUEUED')",(now(),key,row['organization_id']))
+    if action=='cancel':
+        queued=c.execute("UPDATE intelligence_jobs SET status='CANCELLED',updated_at=? WHERE id=? AND organization_id=? AND status='QUEUED'",(now(),key,row['organization_id'])).rowcount
+        if queued and row['kind']=='GROWTH_ANALYZE':
+            from app.growth_intelligence.service import release_unfinished_report
+            for item in c.execute('SELECT resource_id FROM intelligence_job_items WHERE job_id=?',(key,)).fetchall():release_unfinished_report(c,item['resource_id'])
+        elif not queued:c.execute("UPDATE intelligence_jobs SET status='CANCELLED',updated_at=? WHERE id=? AND organization_id=? AND status='RUNNING'",(now(),key,row['organization_id']))
     elif action=='retry':
         if row['attempts']>=3 or row['dispatch_attempts']>=3:raise HTTPException(409,'Retry limit reached; review the recorded failures.')
         if row['status'] not in ('FAILED','PARTIAL') and not(row['status']=='RUNNING' and row['lease_until'] and row['lease_until']<now()):raise HTTPException(409,'This job cannot be retried yet.')
@@ -148,7 +153,7 @@ async def run_item(c,row,item,configuration):
         from app.intelligence.summary import generate,digest
         previous=tags.get('company_summary',{})
         if previous.get('status')=='COMPLETE' and previous.get('input_hash')==digest(facts):return {'status':'COMPLETE','mode':'CACHED','summary':previous}
-        result=await generate(c,facts);ctx(c,True);latest=company(c,b['id'])
+        result=await generate(c,facts,operation_id='company-summary:'+row['id']+':'+item['id']);ctx(c,True);latest=company(c,b['id'])
         if result['status']=='COMPLETE':
             data=json.loads(latest['source_tags_json'] or '{}')
             if digest(data.get('company_intelligence',{}))!=digest(facts):raise HTTPException(409,'Company evidence changed while generating the summary.')
@@ -219,6 +224,9 @@ async def _execute(key,db_path):
                 c.rollback();active=owned(c,key)
                 if not valid_lease(active,lease):return
                 ctx(c,True)
+                if row['kind']=='GROWTH_ANALYZE':
+                    from app.growth_intelligence.service import release_unfinished_report
+                    release_unfinished_report(c,item['resource_id'])
                 if row['kind']=='INTENT_DISCOVER':
                     from app.intent_radar import service as radar
                     from app.intent_radar.discovery import ExecutionInvalidated

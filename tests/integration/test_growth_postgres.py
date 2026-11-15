@@ -55,3 +55,22 @@ def test_postgres_assistant_real_reservation_private_history_and_recovery(pg_rad
     with workspace_scope(c,'radar-pg@example.test',other):
         assert not assistant.listing(c)['items']
         with pytest.raises(HTTPException):assistant.history(c,turn['id'])
+
+def test_postgres_assistant_count_reads_are_ai_free_and_do_not_create_jobs(pg_radar,monkeypatch):
+    from app.intent_radar import assistant
+    c,org,other=pg_radar
+    monkeypatch.setattr(get_settings(),'intent_radar_growth_enabled',True)
+    monkeypatch.setattr(assistant.ai,'provider',lambda _:(_ for _ in ()).throw(AssertionError('Counts must not infer')))
+    with workspace_scope(c,'radar-pg@example.test',org):
+        before=c.execute('SELECT COUNT(*) FROM intelligence_jobs').fetchone()[0]
+        body=assistant.Turn(prompt='How many signals have I generated yet?')
+        result=assistant.start(c,body);c.commit()
+        assert result['job_id'] is None and result['snapshot']['facts']['stored_conversations']==0
+        assert assistant.start(c,body)['id']==result['id']
+        followup=assistant.start(c,assistant.Turn(prompt='And today?',thread_id=result['id']));c.commit()
+        assert followup['snapshot']['facts']['date_basis']=='original publication date'
+        assert len(assistant.history(c,result['id'])['turns'])==2
+        assert c.execute('SELECT COUNT(*) FROM intelligence_jobs').fetchone()[0]==before
+        assert c.execute('SELECT COUNT(*) FROM intent_analysis_usage').fetchone()[0]==0
+    with workspace_scope(c,'radar-pg@example.test',other):
+        with pytest.raises(HTTPException):assistant.history(c,result['id'])
