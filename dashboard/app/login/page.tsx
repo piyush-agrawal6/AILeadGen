@@ -22,7 +22,7 @@ export default async function Login({
 
   return (
     <AuthFrame>
-      <div className="auth-form-content w-full">
+      <div className="w-full">
         <h2 className="pb-auth-title">Welcome back</h2>
         <p className="pb-auth-subtitle">
           Sign in to your PlaneByte workspace with your verified Google account.
