@@ -45,6 +45,8 @@ def test_actual_usage_metadata_and_unknown_price_are_not_fabricated():
     config=SimpleNamespace(model_pricing_json=json.dumps({'approved-model':{'approved':True,'reference':'https://cloud.google.com/vertex-ai/generative-ai/pricing','input_per_million_usd':'1','output_per_million_usd':'2','cached_per_million_usd':'.5'}}))
     from decimal import Decimal
     assert Decimal(price(config,'approved-model',usage)[0])==Decimal('0.00018')
+    assert price(config,'approved-model',{**usage,'thinking_tokens':None})[0] is None
+    assert price(config,'approved-model',{**usage,'cached_tokens':None})[0] is None
 
 def test_provider_usage_persists_owned_actual_counts_and_does_not_leak(radar):
     from app.platform.provider_usage import record,reported,summary,operation

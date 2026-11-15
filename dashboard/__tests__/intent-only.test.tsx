@@ -19,7 +19,7 @@ it('unmounts the product selector even when historical grants include Lead Engin
  expect(screen.queryByRole('button',{name:'Switch PlaneByte product'})).not.toBeInTheDocument();
  expect(screen.getByLabelText('Intent Radar product')).toBeVisible();
  for(const label of ['Find Leads','Companies','Contacts','Campaigns','Outreach','Schedules'])expect(screen.queryByRole('link',{name:label})).not.toBeInTheDocument();
- expect(screen.getByRole('link',{name:'Discover Intent'})).toBeVisible();expect(screen.getByRole('link',{name:'Research assistant'})).toBeVisible();
+ expect(screen.getByRole('link',{name:'Discover'})).toBeVisible();expect(screen.getByRole('link',{name:'AI Assistant'})).toBeVisible();
 });
 it('public authentication presents Intent Radar without prospecting promotion',()=>{
  vi.stubEnv('LEAD_ENGINE_AVAILABLE','false');render(<AuthFrame><h2>Welcome back</h2></AuthFrame>);

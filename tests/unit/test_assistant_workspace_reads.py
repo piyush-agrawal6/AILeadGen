@@ -44,7 +44,7 @@ def test_usage_sources_monitors_answers_without_generation(growth,monkeypatch):
     c,_,org,_=growth
     monkeypatch.setattr(assistant.ai,'provider',lambda _:(_ for _ in ()).throw(AssertionError('No provider')))
     with workspace_scope(c,'controlled@example.test',org):
-        for question in ['Which sources are available?','How many active monitors?','What is my remaining AI allowance?']:
+        for question in ['Hi','Hello PlaneByte!','Which sources are available?','How many active monitors?','What is my remaining AI allowance?']:
             r=assistant.start(c,assistant.Turn(prompt=question))
             assert r['status']=='COMPLETE' and r['job_id'] is None
             assert 'Documentation fallback' not in r['output']['mode']

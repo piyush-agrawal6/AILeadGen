@@ -9,6 +9,8 @@ import {EvidenceDetail} from './evidence-experience';
 import {OpportunitiesWorkspace,SavedResearch,AlertsInbox} from './research-experience';
 import {RadarSettings} from './settings-experience';
 import {IntegrationsPage} from './integrations';
+import {IntelligenceGraph} from './intelligence-graph';
+import {AssistantWorkspace} from './assistant-panel';
 import {GrowthExperience} from './growth-experience';
 export function IntentRadarExperience({route}:{route:string}){
  const access=useRadarCapabilities();
@@ -18,5 +20,7 @@ export function IntentRadarExperience({route}:{route:string}){
  if(route.startsWith('monitors'))return <MonitorsExperience route={route}/>;
   if(route.startsWith('signals/'))return <EvidenceDetail id={route.split('/')[1]}/>;
   if(route.startsWith('opportunities/'))return <OpportunitiesWorkspace id={route.split('/')[1]}/>;
+ if(route==='graph')return <IntelligenceGraph/>;
+ if(route==='assistant')return !access.data?<LoadingSkeleton/>:access.data.growth_enabled?<AssistantWorkspace/>:<ErrorState message="AI Assistant is not enabled for this workspace."/>;
  switch(route){case 'discover':return <DiscoverExperience/>;case 'signals':return <SignalsWorkspace/>;case 'opportunities':return <OpportunitiesWorkspace/>;case 'saved':return <SavedResearch/>;case 'alerts':return <AlertsInbox/>;case 'settings':return <RadarSettings/>;case 'integrations':return <IntegrationsPage/>;default:return <OverviewDashboard/>}
 }

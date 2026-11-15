@@ -3,6 +3,7 @@ from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter,Depends,Query,HTTPException
 from fastapi.responses import Response
+from starlette.concurrency import run_in_threadpool
 from app.api.dependencies import get_db
 from app.growth_intelligence import analytics,models,service,exports
 
@@ -23,10 +24,12 @@ def overview(filters=Depends(scope),c=Depends(get_db,scope='function')):return a
 
 @router.post('/research',status_code=202)
 async def start(body:models.Start,c=Depends(get_db,scope='function')):
-    result=service.start(c,body);c.commit()
+    def prepare():
+        result=service.start(c,body);c.commit();return result
+    result=await run_in_threadpool(prepare)
     from app.intelligence.dispatch import launch
     await launch(result['job_id'])
-    return service.detail(c,result['id'])
+    return await run_in_threadpool(service.detail,c,result['id'])
 
 @router.get('/research')
 def research(kind:Literal['','THEMES','RESEARCH','REPORT']='',saved:bool=False,search:str=Query('',max_length=120),page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),c=Depends(get_db,scope='function')):return service.listing(c,kind,page,page_size,saved,search)
@@ -38,13 +41,15 @@ def detail(key:UUID,c=Depends(get_db,scope='function')):return service.detail(c,
 def save(key:UUID,body:models.Save,c=Depends(get_db,scope='function')):return service.save(c,str(key),body)
 
 async def control(key:UUID,action:Literal['cancel','retry'],c):
-    row=service.owned(c,str(key));analytics.access(c,True,True)
     from app.intelligence import jobs
-    jobs.control(c,row['job_id'],action);c.commit()
+    def prepare():
+        row=service.owned(c,str(key));analytics.access(c,True,True)
+        jobs.control(c,row['job_id'],action);c.commit();return row
+    row=await run_in_threadpool(prepare)
     if action=='retry':
         from app.intelligence.dispatch import launch
         await launch(row['job_id'])
-    return service.detail(c,str(key))
+    return await run_in_threadpool(service.detail,c,str(key))
 
 @router.post('/research/{key}/cancel')
 async def cancel(key:UUID,c=Depends(get_db,scope='function')):

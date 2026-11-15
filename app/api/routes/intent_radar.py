@@ -3,6 +3,7 @@ from typing import Literal
 from datetime import date
 from fastapi import APIRouter,Depends,Query,HTTPException
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 from app.api.dependencies import get_db
 from app.intent_radar import models,service,discovery,providers,ai
 from app.intent_radar.permissions import context,availability
@@ -80,10 +81,12 @@ def duplicate(key:UUID,body:models.RequestKey,c=Depends(get_db,scope='function')
 
 @router.post('/discover',status_code=202)
 async def start(body:models.Discovery,c=Depends(get_db,scope='function')):
-    result=discovery.create(c,body);c.commit()
+    def prepare():
+        result=discovery.create(c,body);c.commit();return result
+    result=await run_in_threadpool(prepare)
     from app.intelligence.dispatch import launch
     await launch(result['id'])
-    return discovery.owned_job(c,result['id'])
+    return await run_in_threadpool(discovery.owned_job,c,result['id'])
 @router.get('/jobs/{key}')
 def job(key:UUID,c=Depends(get_db,scope='function')):return discovery.owned_job(c,str(key))
 @router.get('/jobs')
@@ -92,9 +95,11 @@ def jobs(c=Depends(get_db,scope='function')):
     return {'items':[discovery.owned_job(c,row[0]) for row in c.execute("SELECT id FROM intelligence_jobs WHERE organization_id=? AND kind='INTENT_DISCOVER' ORDER BY created_at DESC LIMIT 25",(org,)).fetchall()]}
 @router.post('/jobs/{key}/{action}')
 async def control(key:UUID,action:Literal['cancel','retry'],c=Depends(get_db,scope='function')):
-    context(c,True);discovery.owned_job(c,str(key))
     from app.intelligence import jobs
-    result=jobs.control(c,str(key),action);c.commit()
+    def prepare():
+        context(c,True);discovery.owned_job(c,str(key))
+        result=jobs.control(c,str(key),action);c.commit();return result
+    result=await run_in_threadpool(prepare)
     if action=='retry':
         from app.intelligence.dispatch import launch
         await launch(str(key))
@@ -175,7 +180,9 @@ def assistant_conversations(c=Depends(get_db,scope='function')):return assistant
 def assistant_conversation(key:UUID,c=Depends(get_db,scope='function')):return assistant.history(c,str(key))
 @router.post('/assistant/turns',status_code=202)
 async def assistant_turn(body:assistant.Turn,c=Depends(get_db,scope='function')):
-    result=assistant.start(c,body);c.commit()
+    def prepare():
+        result=assistant.start(c,body);c.commit();return result
+    result=await run_in_threadpool(prepare)
     from app.intelligence.dispatch import launch
     if result.get('job_id'):await launch(result['job_id'])
     return result

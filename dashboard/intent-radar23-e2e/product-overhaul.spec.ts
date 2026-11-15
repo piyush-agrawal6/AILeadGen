@@ -19,7 +19,7 @@ test('global assistant persists grounded multi-turn guidance without executing a
 });
 for(const width of [1920,1440,1280,1024,768,390,320])test(`product routes remain usable without horizontal overflow at ${width}px`,async({page,context},info)=>{
  test.setTimeout(180000);await session(context);await page.setViewportSize({width,height:900});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- for(const path of ['/intent-radar','/intent-radar/discover','/intent-radar/signals','/intent-radar/opportunities','/intent-radar/saved','/intent-radar/monitors','/intent-radar/alerts','/intent-radar/growth','/intent-radar/growth/themes','/intent-radar/growth/trends','/intent-radar/growth/research','/intent-radar/growth/watchlists','/intent-radar/growth/competitors','/intent-radar/growth/reports','/intent-radar/integrations','/settings','/settings/company','/settings/icp','/account/profile','/account/security','/billing','/help']){
+ for(const path of ['/intent-radar','/intent-radar/graph','/intent-radar/assistant','/intent-radar/discover','/intent-radar/signals','/intent-radar/opportunities','/intent-radar/saved','/intent-radar/monitors','/intent-radar/alerts','/intent-radar/growth','/intent-radar/growth/themes','/intent-radar/growth/trends','/intent-radar/growth/research','/intent-radar/growth/watchlists','/intent-radar/growth/competitors','/intent-radar/growth/reports','/intent-radar/integrations','/settings','/settings/company','/settings/icp','/account/profile','/account/security','/billing','/help']){
   await page.goto(path);await expect(page.locator('main').first()).toBeVisible();await expect(page.getByRole('button',{name:'Ask PlaneByte',exact:true})).toBeVisible();
   await expect(page.locator('[role="alert"]').filter({hasText:/could not|unavailable|failed to load/i})).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),path).toBe(true);
@@ -37,7 +37,39 @@ test('workspace counts and follow-up use real stored data without AI quota',asyn
  await page.getByRole('textbox',{name:'Ask PlaneByte',exact:true}).fill('And today?');await page.getByRole('button',{name:'Send question',exact:true}).click();
  await expect(page.getByText('Workspace data — no AI used',{exact:true})).toHaveCount(2,{timeout:30000});
  await expect(page.getByText(/This window uses original publication dates/)).toBeVisible();
+ await page.getByRole('textbox',{name:'Ask PlaneByte',exact:true}).fill('Hi');await page.getByRole('button',{name:'Send question',exact:true}).click();
+ await expect(page.getByText('Product guidance — no AI used',{exact:true})).toBeVisible();
  const after=await (await context.request.get('/api/organization/usage')).json();
  expect(after.provider_usage.requests).toBe(before.provider_usage.requests);
  expect(after.usage.find((x:{dimension:string})=>x.dimension==='ai_calls').used).toBe(before.usage.find((x:{dimension:string})=>x.dimension==='ai_calls').used);
+});
+
+
+test('business graph saves reviewed context, preserves filters and hands a question to the real assistant',async({page,context})=>{
+ test.setTimeout(120000);await session(context);
+ await page.goto('/intent-radar/graph');
+ await page.getByRole('button',{name:'Positioning',exact:true}).click();
+ const positioning=page.getByRole('textbox',{name:'Business positioning',exact:true});
+ await positioning.fill('Reviewed workflow research for software teams.');
+ await page.getByRole('button',{name:'Save business context',exact:true}).click();
+ await expect(page.getByText('Context saved.',{exact:true})).toBeVisible();
+ await page.reload();await page.getByRole('button',{name:'Positioning',exact:true}).click();
+ await expect(positioning).toHaveValue('Reviewed workflow research for software teams.');
+ await page.getByRole('button',{name:'Show structured list',exact:true}).click();
+ await expect(page.locator('.pb-graph-tree')).toContainText('Reviewed workflow research for software teams.');
+ let releaseOverview!:()=>void;const overviewGate=new Promise<void>(resolve=>{releaseOverview=resolve});
+ await page.route(url=>url.pathname==='/api/intent-radar/overview',async route=>{await overviewGate;await route.continue()});
+ await page.goto('/intent-radar');const overviewReady=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/intent-radar/overview');
+ await page.getByRole('textbox',{name:'Ask about your workspace'}).fill('How many signals have I discovered?');
+ releaseOverview();await overviewReady;
+ await expect(page.getByRole('textbox',{name:'Ask about your workspace'})).toHaveValue('How many signals have I discovered?');
+ await page.getByRole('button',{name:'Open question in assistant'}).click();
+ await expect(page.getByRole('dialog').getByRole('textbox',{name:'Ask PlaneByte',exact:true})).toHaveValue('How many signals have I discovered?');
+ await page.getByRole('button',{name:'Send question',exact:true}).click();
+ await expect(page.getByText('Workspace data — no AI used',{exact:true})).toBeVisible({timeout:30000});
+ await page.getByRole('button',{name:'Close intelligence assistant'}).click();
+ await page.goto('/settings/company');await expect(page.getByRole('navigation',{name:'Unified settings'})).toBeVisible();
+ await page.goto('/intent-radar/signals');
+ const review=page.getByRole('link',{name:/^Review /}).first();
+ await expect(review).toBeVisible();await review.click();await expect(page.getByRole('dialog',{name:'Signal evidence'})).toBeVisible();await page.getByRole('button',{name:'Close dialog',exact:true}).click();await expect(page).toHaveURL(/\/intent-radar\/signals$/);
 });

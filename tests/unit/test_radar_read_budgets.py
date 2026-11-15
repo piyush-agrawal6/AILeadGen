@@ -1,4 +1,4 @@
-"""Read budgets are SQL round trips, not fabricated wall-clock SLAs."""
+"""Read budgets count statements, not fabricated wall-clock SLAs."""
 import asyncio
 from unittest.mock import AsyncMock
 from test_intent_radar import radar,owned,source_result,run
@@ -34,7 +34,7 @@ def test_summary_does_not_hydrate_preview_lists_or_request_sources(radar,monkeyp
   monkeypatch.setattr(operations,'source_health',lambda _:(_ for _ in ()).throw(AssertionError('No provider health in summary')))
   q=Counted(c);result=service.overview(q,include_previews=False)
   assert result['new_signals']==0 and result['preview_state']=='not requested'
-  assert 'recent_signals' not in result and len(q.statements)<=8
+  assert 'recent_signals' not in result and len(q.statements)==2
 
 
 def test_monitor_page_has_constant_query_count(radar):

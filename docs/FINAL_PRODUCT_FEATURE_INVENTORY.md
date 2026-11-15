@@ -6,17 +6,17 @@ No inherited completion percentages or historical VERIFIED labels become VERIFIE
 
 Starting commit: `e8ff078dc356653873d2f26de4d0563dd3ff7096`
 
-Exact inventory denominator: **1809 records**. Mandatory requirement rows and static technical surfaces are separate kinds; do not count them as unique completed customer capabilities.
+Exact inventory denominator: **1839 records**. Mandatory requirement rows and static technical surfaces are separate kinds; do not count them as unique completed customer capabilities.
 
 | Status | Records |
 |---|---:|
 | VERIFIED LIVE | 0 |
-| IMPLEMENTED / NOT VERIFIED | 1165 |
+| IMPLEMENTED / NOT VERIFIED | 1242 |
 | BROKEN | 6 |
-| PARTIAL | 350 |
+| PARTIAL | 296 |
 | MISSING | 0 |
-| EXTERNALLY BLOCKED | 8 |
-| INTENTIONALLY HIDDEN | 280 |
+| EXTERNALLY BLOCKED | 14 |
+| INTENTIONALLY HIDDEN | 281 |
 | NOT APPLICABLE | 0 |
 
 All required metadata, source locations and provisional reasons are in the JSON. Regex control enumeration is a discovery aid, not a complete JSX/dataflow proof. Dynamic routes and handler links still need reconciliation.
@@ -29,7 +29,7 @@ All required metadata, source locations and provisional reasons are in the JSON.
 | A.04 | Sign-out | PARTIAL | app/platform/admission.py |
 | A.05 | Unauthorized-access handling | PARTIAL | app/platform/admission.py |
 | A.06 | Approved account registration | PARTIAL | app/platform/admission.py |
-| A.07 | New account creation | PARTIAL | app/platform/admission.py |
+| A.07 | New account creation | INTENTIONALLY HIDDEN | app/platform/admission.py |
 | A.08 | Existing account recovery | PARTIAL | app/platform/admission.py |
 | A.09 | Personal profile display | PARTIAL | app/platform/admission.py |
 | A.10 | Profile editing | PARTIAL | app/platform/admission.py |
@@ -156,9 +156,9 @@ All required metadata, source locations and provisional reasons are in the JSON.
 | G.17 | Filtering | PARTIAL | app/intent_radar/intelligence.py |
 | G.18 | Sorting | PARTIAL | app/intent_radar/intelligence.py |
 | G.19 | Pagination | PARTIAL | app/intent_radar/intelligence.py |
-| G.20 | Signal-to-opportunity conversion | PARTIAL | app/intent_radar/intelligence.py |
+| G.20 | Signal-to-opportunity conversion | IMPLEMENTED / NOT VERIFIED | app/intent_radar/intelligence.py |
 | H.01 | Opportunity creation | PARTIAL | app/intent_radar/service.py |
-| H.02 | Qualification criteria | PARTIAL | app/intent_radar/service.py |
+| H.02 | Qualification criteria | IMPLEMENTED / NOT VERIFIED | app/intent_radar/service.py |
 | H.03 | Status management | PARTIAL | app/intent_radar/service.py |
 | H.04 | Priority management | PARTIAL | app/intent_radar/service.py |
 | H.05 | Evidence linking | PARTIAL | app/intent_radar/service.py |
@@ -213,25 +213,25 @@ All required metadata, source locations and provisional reasons are in the JSON.
 | J.20 | Research export | PARTIAL | app/growth_intelligence/service.py |
 | J.21 | Insight-to-source navigation | PARTIAL | app/growth_intelligence/service.py |
 | K.01 | Assistant availability | PARTIAL | app/intent_radar/assistant.py |
-| K.02 | Greeting and basic guidance | PARTIAL | app/intent_radar/assistant.py |
-| K.03 | Accurate workspace counts | PARTIAL | app/intent_radar/assistant_reads.py |
-| K.04 | Accurate quota answers | PARTIAL | app/intent_radar/assistant_reads.py |
+| K.02 | Greeting and basic guidance | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant.py |
+| K.03 | Accurate workspace counts | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant_reads.py |
+| K.04 | Accurate quota answers | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant_reads.py |
 | K.05 | Relevant contextual answers | PARTIAL | app/intent_radar/assistant.py |
-| K.06 | Persistent conversation | PARTIAL | app/intent_radar/assistant.py |
-| K.07 | Multi-turn follow-up | PARTIAL | app/intent_radar/assistant.py |
-| K.08 | Safe tool routing | PARTIAL | app/intent_radar/assistant_reads.py |
+| K.06 | Persistent conversation | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant.py |
+| K.07 | Multi-turn follow-up | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant.py |
+| K.08 | Safe tool routing | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant_reads.py |
 | K.09 | Evidence retrieval | PARTIAL | app/intent_radar/assistant.py |
 | K.10 | Grounded generation | PARTIAL | app/intent_radar/assistant.py |
 | K.11 | Vertex AI service access | PARTIAL | app/intent_radar/assistant.py |
 | K.12 | Correct model selection | PARTIAL | app/intent_radar/assistant.py |
-| K.13 | Provider timeouts | PARTIAL | app/intent_radar/assistant.py |
-| K.14 | Error messages | PARTIAL | app/intent_radar/assistant.py |
-| K.15 | Retry and fallback | PARTIAL | app/intent_radar/assistant.py |
-| K.16 | Request accounting | PARTIAL | app/intent_radar/assistant.py |
-| K.17 | Token accounting | PARTIAL | app/intent_radar/assistant.py |
-| K.18 | Reservation release | PARTIAL | app/intent_radar/assistant.py |
-| K.19 | Conversation isolation | PARTIAL | app/intent_radar/assistant.py |
-| K.20 | AI evaluation | PARTIAL | app/intent_radar/assistant.py |
+| K.13 | Provider timeouts | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant.py |
+| K.14 | Error messages | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant.py |
+| K.15 | Retry and fallback | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant.py |
+| K.16 | Request accounting | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant.py |
+| K.17 | Token accounting | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant.py |
+| K.18 | Reservation release | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant.py |
+| K.19 | Conversation isolation | IMPLEMENTED / NOT VERIFIED | app/intent_radar/assistant.py |
+| K.20 | AI evaluation | EXTERNALLY BLOCKED | app/intent_radar/assistant.py |
 | K.21 | Hallucination controls | PARTIAL | app/intent_radar/assistant.py |
 | K.22 | Human evaluation evidence | EXTERNALLY BLOCKED | app/intent_radar/assistant.py |
 | L.01 | Save signal | PARTIAL | app/intent_radar/service.py |
@@ -266,10 +266,10 @@ All required metadata, source locations and provisional reasons are in the JSON.
 | N.04 | Key expiration | PARTIAL | app/developer/mcp_server.py |
 | N.05 | Key revocation | PARTIAL | app/developer/mcp_server.py |
 | N.06 | Key scopes | PARTIAL | app/developer/mcp_server.py |
-| N.07 | MCP endpoint | PARTIAL | app/developer/mcp_server.py |
-| N.08 | MCP authentication | PARTIAL | app/developer/mcp_server.py |
-| N.09 | MCP tool discovery | PARTIAL | app/developer/mcp_server.py |
-| N.10 | MCP real client acceptance | PARTIAL | app/developer/mcp_server.py |
+| N.07 | MCP endpoint | IMPLEMENTED / NOT VERIFIED | app/developer/mcp_server.py |
+| N.08 | MCP authentication | IMPLEMENTED / NOT VERIFIED | app/developer/mcp_server.py |
+| N.09 | MCP tool discovery | IMPLEMENTED / NOT VERIFIED | app/developer/mcp_server.py |
+| N.10 | MCP real client acceptance | IMPLEMENTED / NOT VERIFIED | app/developer/mcp_server.py |
 | N.11 | Workspace isolation | PARTIAL | app/developer/mcp_server.py |
 | N.12 | MCP usage accounting | PARTIAL | app/developer/mcp_server.py |
 | N.13 | API rate limiting | PARTIAL | app/developer/mcp_server.py |
@@ -279,36 +279,36 @@ All required metadata, source locations and provisional reasons are in the JSON.
 | O.01 | Current entitlement | PARTIAL | app/billing/service.py |
 | O.02 | Current paid plan | PARTIAL | app/billing/service.py |
 | O.03 | Beta-vs-paid distinction | PARTIAL | app/billing/service.py |
-| O.04 | Approved price display | PARTIAL | app/billing/service.py |
-| O.05 | Plan comparison | PARTIAL | app/billing/service.py |
-| O.06 | Monthly allowances | PARTIAL | app/billing/service.py |
+| O.04 | Approved price display | IMPLEMENTED / NOT VERIFIED | app/billing/service.py |
+| O.05 | Plan comparison | IMPLEMENTED / NOT VERIFIED | app/billing/service.py |
+| O.06 | Monthly allowances | IMPLEMENTED / NOT VERIFIED | app/billing/service.py |
 | O.07 | Upgrade/downgrade presentation | PARTIAL | app/billing/service.py |
 | O.08 | Subscription details | PARTIAL | app/billing/service.py |
 | O.09 | Payment gateway availability | PARTIAL | app/billing/service.py |
 | O.10 | PayU merchant configuration | PARTIAL | app/billing/service.py |
 | O.11 | PayU recurring capabilities | EXTERNALLY BLOCKED | app/billing/service.py |
-| O.12 | Payment verification | PARTIAL | app/billing/service.py |
-| O.13 | Webhook verification | PARTIAL | app/billing/service.py |
-| O.14 | Renewal lifecycle | PARTIAL | app/billing/service.py |
-| O.15 | Cancellation | PARTIAL | app/billing/service.py |
-| O.16 | Refund lifecycle | PARTIAL | app/billing/service.py |
+| O.12 | Payment verification | EXTERNALLY BLOCKED | app/billing/service.py |
+| O.13 | Webhook verification | EXTERNALLY BLOCKED | app/billing/service.py |
+| O.14 | Renewal lifecycle | EXTERNALLY BLOCKED | app/billing/service.py |
+| O.15 | Cancellation | EXTERNALLY BLOCKED | app/billing/service.py |
+| O.16 | Refund lifecycle | EXTERNALLY BLOCKED | app/billing/service.py |
 | O.17 | Billing history | PARTIAL | app/billing/service.py |
-| O.18 | Historical provider labeling | PARTIAL | app/billing/service.py |
-| O.19 | Test-mode separation | PARTIAL | app/billing/service.py |
+| O.18 | Historical provider labeling | IMPLEMENTED / NOT VERIFIED | app/billing/service.py |
+| O.19 | Test-mode separation | IMPLEMENTED / NOT VERIFIED | app/billing/service.py |
 | O.20 | Customer-facing invoices/receipts where supported | PARTIAL | app/billing/service.py |
-| O.21 | Marketing pricing synchronization | PARTIAL | app/billing/service.py |
+| O.21 | Marketing pricing synchronization | IMPLEMENTED / NOT VERIFIED | app/billing/service.py |
 | P.01 | Monthly search accounting | PARTIAL | app/billing/commercial_usage.py |
 | P.02 | Daily search safety caps | PARTIAL | app/billing/commercial_usage.py |
-| P.03 | Shared AI operations | PARTIAL | app/billing/commercial_usage.py |
-| P.04 | AI token reservation | PARTIAL | app/billing/commercial_usage.py |
-| P.05 | Actual provider token accounting | PARTIAL | app/billing/commercial_usage.py |
-| P.06 | Reports allowance | PARTIAL | app/billing/commercial_usage.py |
+| P.03 | Shared AI operations | IMPLEMENTED / NOT VERIFIED | app/billing/commercial_usage.py |
+| P.04 | AI token reservation | IMPLEMENTED / NOT VERIFIED | app/billing/commercial_usage.py |
+| P.05 | Actual provider token accounting | IMPLEMENTED / NOT VERIFIED | app/billing/commercial_usage.py |
+| P.06 | Reports allowance | IMPLEMENTED / NOT VERIFIED | app/billing/commercial_usage.py |
 | P.07 | Monitor allowance | PARTIAL | app/billing/commercial_usage.py |
 | P.08 | API/MCP allowance | PARTIAL | app/billing/commercial_usage.py |
 | P.09 | Seat allowance | PARTIAL | app/billing/commercial_usage.py |
-| P.10 | Concurrent reservation correctness | PARTIAL | app/billing/commercial_usage.py |
-| P.11 | Failed-job refunds | PARTIAL | app/billing/commercial_usage.py |
-| P.12 | Background-job accounting | PARTIAL | app/billing/commercial_usage.py |
+| P.10 | Concurrent reservation correctness | IMPLEMENTED / NOT VERIFIED | app/billing/commercial_usage.py |
+| P.11 | Failed-job refunds | IMPLEMENTED / NOT VERIFIED | app/billing/commercial_usage.py |
+| P.12 | Background-job accounting | IMPLEMENTED / NOT VERIFIED | app/billing/commercial_usage.py |
 | P.13 | Scheduled-job accounting | PARTIAL | app/billing/commercial_usage.py |
 | P.14 | Reset windows | PARTIAL | app/billing/commercial_usage.py |
 | P.15 | Usage display accuracy | PARTIAL | app/billing/commercial_usage.py |
@@ -317,7 +317,7 @@ All required metadata, source locations and provisional reasons are in the JSON.
 | P.18 | Server-side feature locking | PARTIAL | app/billing/commercial_usage.py |
 | P.19 | Plan-specific entitlement enforcement | PARTIAL | app/billing/commercial_usage.py |
 | P.20 | Upgrade guidance without forced checkout | PARTIAL | app/billing/commercial_usage.py |
-| P.21 | Workspace-scoped quota isolation | PARTIAL | app/billing/commercial_usage.py |
+| P.21 | Workspace-scoped quota isolation | IMPLEMENTED / NOT VERIFIED | app/billing/commercial_usage.py |
 | Q.01 | Fast authentication | PARTIAL | app/database/postgres.py |
 | Q.02 | Fast overview | BROKEN | app/database/postgres.py |
 | Q.03 | Fast discovery-page readiness | PARTIAL | app/database/postgres.py |
@@ -340,27 +340,27 @@ All required metadata, source locations and provisional reasons are in the JSON.
 | Q.20 | p50 and p95 measurements | PARTIAL | app/database/postgres.py |
 | Q.21 | Load testing | PARTIAL | app/database/postgres.py |
 | Q.22 | Error-rate monitoring | PARTIAL | app/database/postgres.py |
-| R.01 | Workspace access isolation | PARTIAL | app/api/security.py |
-| R.02 | Role-based authorization | PARTIAL | app/api/security.py |
-| R.03 | Direct API authorization | PARTIAL | app/api/security.py |
-| R.04 | Feature entitlement enforcement | PARTIAL | app/api/security.py |
+| R.01 | Workspace access isolation | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
+| R.02 | Role-based authorization | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
+| R.03 | Direct API authorization | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
+| R.04 | Feature entitlement enforcement | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
 | R.05 | Secrets kept server-side | PARTIAL | app/api/security.py |
-| R.06 | Signed worker requests | PARTIAL | app/api/security.py |
-| R.07 | Secure MCP credentials | PARTIAL | app/api/security.py |
+| R.06 | Signed worker requests | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
+| R.07 | Secure MCP credentials | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
 | R.08 | Webhook authentication | PARTIAL | app/api/security.py |
-| R.09 | Feed SSRF protection | PARTIAL | app/api/security.py |
-| R.10 | Request rate limiting | PARTIAL | app/api/security.py |
+| R.09 | Feed SSRF protection | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
+| R.10 | Request rate limiting | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
 | R.11 | Data encryption where required | PARTIAL | app/api/security.py |
-| R.12 | Audit logging | PARTIAL | app/api/security.py |
-| R.13 | Backup verification | PARTIAL | app/api/security.py |
-| R.14 | Restore rehearsal | PARTIAL | app/api/security.py |
-| R.15 | Safe migrations | PARTIAL | app/api/security.py |
+| R.12 | Audit logging | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
+| R.13 | Backup verification | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
+| R.14 | Restore rehearsal | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
+| R.15 | Safe migrations | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
 | R.16 | Rollback readiness | PARTIAL | app/api/security.py |
 | R.17 | Worker health monitoring | PARTIAL | app/api/security.py |
 | R.18 | Production error tracking | PARTIAL | app/api/security.py |
 | R.19 | Release monitoring | PARTIAL | app/api/security.py |
 | R.20 | Source permission records | PARTIAL | app/api/security.py |
-| R.21 | Retention enforcement | PARTIAL | app/api/security.py |
+| R.21 | Retention enforcement | IMPLEMENTED / NOT VERIFIED | app/api/security.py |
 | S.01 | New user onboarding | PARTIAL | scripts/deploy_product_release.py |
 | S.02 | Approved second-account acceptance | PARTIAL | scripts/deploy_product_release.py |
 | S.03 | First real search | PARTIAL | scripts/deploy_product_release.py |
@@ -371,7 +371,7 @@ All required metadata, source locations and provisional reasons are in the JSON.
 | S.08 | First Growth Intelligence report | PARTIAL | scripts/deploy_product_release.py |
 | S.09 | First exported report | PARTIAL | scripts/deploy_product_release.py |
 | S.10 | Multi-turn AI assistant conversation | PARTIAL | scripts/deploy_product_release.py |
-| S.11 | Real external MCP read | PARTIAL | scripts/deploy_product_release.py |
+| S.11 | Real external MCP read | IMPLEMENTED / NOT VERIFIED | scripts/deploy_product_release.py |
 | S.12 | Billing usage accuracy | PARTIAL | scripts/deploy_product_release.py |
 | S.13 | Proper quota exhaustion | PARTIAL | scripts/deploy_product_release.py |
 | S.14 | Team and settings persistence | PARTIAL | scripts/deploy_product_release.py |

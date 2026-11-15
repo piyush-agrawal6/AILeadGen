@@ -18,7 +18,7 @@ from app.config.settings import get_settings
 
 class Turn(BaseModel):
     model_config=ConfigDict(extra='forbid',str_strip_whitespace=True)
-    prompt:str=Field(min_length=3,max_length=1500)
+    prompt:str=Field(min_length=1,max_length=1500)
     thread_id:UUID|None=None
     page:models.AssistantContext.__annotations__['page']='overview'
     signal_ids:list[UUID]=Field(default_factory=list,max_length=5)

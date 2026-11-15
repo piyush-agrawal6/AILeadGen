@@ -1,4 +1,5 @@
 import "@/app/globals.css";
+import "@/app/planebyte-workspace.css";
 import { Shell } from "@/components/layout/shell";
 import { Providers } from "@/components/providers";
 import type { Metadata } from "next";

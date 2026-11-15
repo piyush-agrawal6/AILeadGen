@@ -69,8 +69,8 @@ def complete_attempt(provider,attempt,reported,*,rejected=False):
         if rejected:
             usage.settle(c,attempt['id'],release=True)
             attempt['outcome']='REJECTED'
-        elif reported['input_tokens'] is not None and reported['output_tokens'] is not None:
-            actual=reported['input_tokens']+reported['output_tokens']+(reported['thinking_tokens'] or 0)
+        elif all(reported.get(key) is not None for key in ('input_tokens','output_tokens','thinking_tokens')):
+            actual=reported['input_tokens']+reported['output_tokens']+reported['thinking_tokens']
             if actual>attempt['capacity']:
                 # Record a provider-reported overrun truthfully, even if it
                 # exceeds remaining capacity. This is usage, never a monetary

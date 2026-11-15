@@ -74,3 +74,20 @@ def test_postgres_assistant_count_reads_are_ai_free_and_do_not_create_jobs(pg_ra
         assert c.execute('SELECT COUNT(*) FROM intent_analysis_usage').fetchone()[0]==0
     with workspace_scope(c,'radar-pg@example.test',other):
         with pytest.raises(HTTPException):assistant.history(c,result['id'])
+
+def test_postgres_overview_summary_matches_scoped_counts_and_retention(pg_radar,monkeypatch):
+    from app.intent_radar import service
+    c,org,other=pg_radar
+    monkeypatch.setattr(connectors,'fetch',AsyncMock(return_value=source_result()))
+    with workspace_scope(c,'radar-pg@example.test',org):
+        discovered=discovery.create(c,radar_models.Discovery(configuration=radar_models.Search(keywords=['website'])));c.commit();jobs.execute(discovered['id'])
+        summary=service.overview(c,include_previews=False)
+        assert summary['new_signals']==1 and summary['trends'][0]['volume']==1
+        assert summary['operations']['jobs_by_status']==[{'status':'COMPLETED','count':1}]
+        service.preferences(c,radar_models.Preferences(source_retention_days=1));c.commit()
+        c.execute("UPDATE intent_signals SET retrieved_at='2000-01-01T00:00:00+00:00' WHERE organization_id=?",(org,));c.commit()
+        assert service.overview(c,include_previews=False)['new_signals']==0
+        assert service.listing(c,'signals')['total']==0
+    with workspace_scope(c,'radar-pg@example.test',other):
+        summary=service.overview(c,include_previews=False)
+        assert summary['new_signals']==0 and summary['trends']==[] and summary['operations']['jobs_by_status']==[]

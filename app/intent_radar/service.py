@@ -75,13 +75,17 @@ def expired(signal,retention_days=30):
     except (ValueError,KeyError,TypeError):return True
 
 def retention_sql(c,days,alias='intent_signals'):
+    return retention_predicate(c,'?',alias),[days,days,now()]
+
+def retention_predicate(c,days_expression,alias='intent_signals'):
+    if days_expression not in ('?','policy.days') or alias not in ('intent_signals','s'):raise ValueError('Internal retention expression required.')
     policy=("CAST("+alias+".evidence_json AS JSONB)->'provenance'->>'retention_days'" if getattr(c,'backend','sqlite')=='postgres' else "json_extract("+alias+".evidence_json,'$.provenance.retention_days')")
     policy='CAST(('+policy+') AS INTEGER)'
-    effective='CASE WHEN '+policy+' BETWEEN 1 AND ? THEN '+policy+' ELSE ? END'
+    effective='CASE WHEN '+policy+' BETWEEN 1 AND '+days_expression+' THEN '+policy+' ELSE '+days_expression+' END'
     if getattr(c,'backend','sqlite')=='postgres':
         predicate='(CAST('+alias+'.retrieved_at AS TIMESTAMPTZ) + ('+effective+") * INTERVAL '1 day') > CAST(? AS TIMESTAMPTZ)"
     else:predicate='julianday('+alias+'.retrieved_at) + ('+effective+') > julianday(?)'
-    return predicate,[days,days,now()]
+    return predicate
 
 def expire_content(c):
     from app.intent_radar.permissions import persistence_context
@@ -329,19 +333,29 @@ def alert(c,event_key,title,description,monitor_id=None,signal_id=None,actor=Non
 
 def overview(c,*,include_previews=True):
     org=context(c).organization_id
-    from app.intent_radar.operations import overview as operational_overview
-    retention,retention_args=retention_sql(c,preferences(c)['source_retention_days'])
-    counts=dict(c.execute("""SELECT
+    postgres=getattr(c,'backend',None)=='postgres'
+    days="CAST(CAST(configuration_json AS JSONB)->>'source_retention_days' AS INTEGER)" if postgres else "CAST(json_extract(configuration_json,'$.source_retention_days') AS INTEGER)"
+    retention=retention_predicate(c,'policy.days')
+    def array(query,columns):
+        aggregate="COALESCE(json_agg(records),'[]'::json)" if postgres else "COALESCE(json_group_array(json_object("+','.join("'"+key+"',"+key for key in columns)+")),'[]')"
+        return '(SELECT '+aggregate+' FROM ('+query+') records)'
+    trends=array('SELECT SUBSTR(observed_at,1,10) AS day,COUNT(*) volume FROM intent_signals WHERE organization_id=? AND available=1 GROUP BY SUBSTR(observed_at,1,10) ORDER BY day DESC LIMIT 14',('day','volume'))
+    jobs=array("SELECT status,COUNT(*) count FROM intelligence_jobs WHERE organization_id=? AND kind='INTENT_DISCOVER' GROUP BY status",('status','count'))
+    stamp=now()
+    result=dict(c.execute("""WITH policy AS (SELECT COALESCE((SELECT """+days+""" FROM intent_preferences WHERE organization_id=?),30) days) SELECT
         (SELECT COUNT(*) FROM intent_signals WHERE organization_id=? AND status='New' AND available=1 AND """+retention+""" ) new_signals,
         (SELECT COUNT(*) FROM intent_signals WHERE organization_id=? AND status='Reviewed') reviewed_signals,
         (SELECT COUNT(*) FROM intent_signals WHERE organization_id=? AND """+rank_expression()+""">=85 AND available=1 AND """+retention+""") high_relevance,
         (SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status='Active') active_monitors,
         (SELECT COUNT(*) FROM intent_opportunities WHERE organization_id=? AND status='Saved') saved_opportunities,
-        (SELECT COUNT(*) FROM intent_alerts WHERE organization_id=? AND read_at IS NULL) unread_alerts""",
-        (org,*retention_args,org,org,*retention_args,org,org,org)).fetchone())
-    result={**counts,'operations':operational_overview(c,include_sources=False),
-            'trends':[dict(r) for r in c.execute('SELECT SUBSTR(observed_at,1,10) AS "day",COUNT(*) volume FROM intent_signals WHERE organization_id=? AND available=1 GROUP BY SUBSTR(observed_at,1,10) ORDER BY "day" DESC LIMIT 14',(org,)).fetchall()],
-             'preview_state':'included' if include_previews else 'not requested'}
+        (SELECT COUNT(*) FROM intent_alerts WHERE organization_id=? AND read_at IS NULL) unread_alerts,
+        """+trends+' trends,'+jobs+" jobs,(SELECT MAX(last_tick_at) FROM intent_worker_health WHERE state='READY') heartbeat FROM policy",
+        (org,org,stamp,org,org,stamp,org,org,org,org,org)).fetchone())
+    for key in ('trends','jobs'):
+        if isinstance(result[key],str):result[key]=json.loads(result[key])
+    grouped=result.pop('jobs');heartbeat=result.pop('heartbeat')
+    from datetime import timedelta
+    result.update(operations={'jobs_by_status':grouped,'backlog':sum(r['count'] for r in grouped if r['status']=='QUEUED'),'scheduler_heartbeat_at':heartbeat,'scheduler_heartbeat_fresh':bool(heartbeat and heartbeat>(datetime.now(timezone.utc)-timedelta(seconds=180)).isoformat()),'worker_status_basis':'Running job records indicate leased work; scheduler heartbeat is not Cloud Run worker health.','sources':[]},as_of=stamp,preview_state='included' if include_previews else 'not requested')
     if include_previews:result.update(recent_signals=listing(c,'signals',size=5)['items'],monitors=listing(c,'monitors',size=5)['items'],opportunities=listing(c,'opportunities',size=5)['items'],alerts=listing(c,'alerts',size=5)['items'])
     return result
 

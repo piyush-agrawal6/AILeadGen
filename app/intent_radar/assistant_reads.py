@@ -14,6 +14,7 @@ from app.database.prospects import now
 
 def route(prompt,previous=None):
     text=' '.join(prompt.casefold().split())
+    if re.fullmatch(r'(?:hi|hello|hey)(?: planebyte)?[!. ]*',text):return {'kind':'help','period':'all'}
     # Question words alone do not request statistics. "What do these signals
     # imply?" must retain the research path rather than receive a count.
     count=bool(re.search(r'\b(how many|number of|count|total)\b',text))
@@ -41,7 +42,10 @@ def answer(c,ctx,intent):
     window={'today':'today (UTC)','week':'the last seven days','month':'this calendar month (UTC)','all':'all stored history'}[period]
     caveats=['Current workspace only. These figures describe stored records, not market size or verified buyers.']
     href='/intent-radar';facts={};text=''
-    if kind=='signals':
+    if kind=='help':
+        text='Hi! I can show your workspace signal counts, active monitors and remaining usage without using AI. I can also help you review collected source evidence. What would you like to explore?'
+        caveats=['Product guidance only. No search, message, payment or permission change was performed.']
+    elif kind=='signals':
         pref=c.execute('SELECT configuration_json FROM intent_preferences WHERE organization_id=?',(org,)).fetchone()
         days=json.loads(pref[0]).get('source_retention_days',30) if pref else 30
         retention,args=radar.retention_sql(c,days)
@@ -106,6 +110,6 @@ def start(c,body):
         return service.detail(c,key)
     output,facts=answer(c,ctx,intent);stamp=now()
     snapshot={'evidence':[],'workspace_read':intent,'facts':facts,'observed_at':stamp}
-    value={'assistant':output,'mode':'Workspace data — no AI used','themes':[],'findings':[],'limitations':output['limitations'],'executive_summary':'Authorized deterministic workspace snapshot.'}
+    value={'assistant':output,'mode':'Product guidance — no AI used' if intent['kind']=='help' else 'Workspace data — no AI used','themes':[],'findings':[],'limitations':output['limitations'],'executive_summary':'Authorized deterministic workspace snapshot.'}
     c.execute("INSERT INTO growth_research(id,organization_id,created_by,kind,question,title,scope_json,snapshot_json,output_json,input_hash,request_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,'COMPLETE',?,?)",(key,ctx.organization_id,ctx.actor,'RESEARCH',request.question,request.title,encoded,json.dumps(snapshot),json.dumps(value),service.fingerprint(encoded),str(body.request_id),stamp,stamp))
     return service.detail(c,key)

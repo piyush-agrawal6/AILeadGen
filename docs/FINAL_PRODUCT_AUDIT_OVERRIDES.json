@@ -1,0 +1,595 @@
+{
+  "K.02": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Finite authorized read routing, greeting and count/date follow-up pass the frozen1065-case backend suite. Matching-release live acceptance remains required. No inference is used for these reads.",
+    "tests_evidence": [
+      "tests/unit/test_assistant_workspace_reads.py",
+      "tests/integration/test_growth_postgres.py",
+      "data/artifacts/verification/final-remediation/backend-approved.xml"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.03": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Finite authorized read routing, greeting and count/date follow-up pass the frozen1065-case backend suite. Matching-release live acceptance remains required. No inference is used for these reads.",
+    "tests_evidence": [
+      "tests/unit/test_assistant_workspace_reads.py",
+      "tests/integration/test_growth_postgres.py",
+      "data/artifacts/verification/final-remediation/backend-approved.xml"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.04": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Finite authorized read routing, greeting and count/date follow-up pass the frozen1065-case backend suite. Matching-release live acceptance remains required. No inference is used for these reads.",
+    "tests_evidence": [
+      "tests/unit/test_assistant_workspace_reads.py",
+      "tests/integration/test_growth_postgres.py",
+      "data/artifacts/verification/final-remediation/backend-approved.xml"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.07": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Finite authorized read routing, greeting and count/date follow-up pass the frozen1065-case backend suite. Matching-release live acceptance remains required. No inference is used for these reads.",
+    "tests_evidence": [
+      "tests/unit/test_assistant_workspace_reads.py",
+      "tests/integration/test_growth_postgres.py",
+      "data/artifacts/verification/final-remediation/backend-approved.xml"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.08": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Finite authorized read routing, greeting and count/date follow-up pass the frozen1065-case backend suite. Matching-release live acceptance remains required. No inference is used for these reads.",
+    "tests_evidence": [
+      "tests/unit/test_assistant_workspace_reads.py",
+      "tests/integration/test_growth_postgres.py",
+      "data/artifacts/verification/final-remediation/backend-approved.xml"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.06": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Actor-private workspace conversation history and cross-workspace denial are implemented and covered locally. No generic public conversation store is exposed.",
+    "tests_evidence": [
+      "tests/unit/test_intelligence_assistant.py",
+      "tests/unit/test_assistant_workspace_reads.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.19": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Actor-private workspace conversation history and cross-workspace denial are implemented and covered locally. No generic public conversation store is exposed.",
+    "tests_evidence": [
+      "tests/unit/test_intelligence_assistant.py",
+      "tests/unit/test_assistant_workspace_reads.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.13": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.14": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.15": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.16": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.17": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.18": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "P.03": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "P.04": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "P.05": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "P.06": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "P.10": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "P.11": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "P.12": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "P.21": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Bounded gateway plus durable per-attempt capacity settlement/recovery pass local PostgreSQL/full-suite checks. Missing thinking usage retains uncertain capacity; missing price/token metadata is not a zero-cost claim. No PayU transaction was performed.",
+    "tests_evidence": [
+      "tests/unit/test_ai_capacity_accounting.py",
+      "tests/unit/test_intent_radar_completion.py",
+      "tests/unit/test_commercial_usage.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "H.02": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "New promotion/qualification requires explicit commercial-intent evidence plus recorded target alignment. Generic feedback/building prompts and negative contexts are denied; historical records are preserved. English rule acceptance does not establish independent multilingual quality.",
+    "tests_evidence": [
+      "tests/unit/test_opportunity_evidence_policy.py",
+      "tests/unit/test_intent_radar_product_audit.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "G.20": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "New promotion/qualification requires explicit commercial-intent evidence plus recorded target alignment. Generic feedback/building prompts and negative contexts are denied; historical records are preserved. English rule acceptance does not establish independent multilingual quality.",
+    "tests_evidence": [
+      "tests/unit/test_opportunity_evidence_policy.py",
+      "tests/unit/test_intent_radar_product_audit.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.01": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Verified membership, role/module/entitlement checks, signed requests, scoped keys, SSRF boundaries and retention have passing isolated security regressions. This is not a complete live penetration test.",
+    "tests_evidence": [
+      "tests/unit/test_http_security.py",
+      "tests/unit/test_heysow_workspace_resources.py",
+      "tests/unit/test_intent_radar_source_fences.py",
+      "tests/unit/test_mcp_protocol.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.02": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Verified membership, role/module/entitlement checks, signed requests, scoped keys, SSRF boundaries and retention have passing isolated security regressions. This is not a complete live penetration test.",
+    "tests_evidence": [
+      "tests/unit/test_http_security.py",
+      "tests/unit/test_heysow_workspace_resources.py",
+      "tests/unit/test_intent_radar_source_fences.py",
+      "tests/unit/test_mcp_protocol.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.03": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Verified membership, role/module/entitlement checks, signed requests, scoped keys, SSRF boundaries and retention have passing isolated security regressions. This is not a complete live penetration test.",
+    "tests_evidence": [
+      "tests/unit/test_http_security.py",
+      "tests/unit/test_heysow_workspace_resources.py",
+      "tests/unit/test_intent_radar_source_fences.py",
+      "tests/unit/test_mcp_protocol.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.04": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Verified membership, role/module/entitlement checks, signed requests, scoped keys, SSRF boundaries and retention have passing isolated security regressions. This is not a complete live penetration test.",
+    "tests_evidence": [
+      "tests/unit/test_http_security.py",
+      "tests/unit/test_heysow_workspace_resources.py",
+      "tests/unit/test_intent_radar_source_fences.py",
+      "tests/unit/test_mcp_protocol.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.06": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Verified membership, role/module/entitlement checks, signed requests, scoped keys, SSRF boundaries and retention have passing isolated security regressions. This is not a complete live penetration test.",
+    "tests_evidence": [
+      "tests/unit/test_http_security.py",
+      "tests/unit/test_heysow_workspace_resources.py",
+      "tests/unit/test_intent_radar_source_fences.py",
+      "tests/unit/test_mcp_protocol.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.07": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Verified membership, role/module/entitlement checks, signed requests, scoped keys, SSRF boundaries and retention have passing isolated security regressions. This is not a complete live penetration test.",
+    "tests_evidence": [
+      "tests/unit/test_http_security.py",
+      "tests/unit/test_heysow_workspace_resources.py",
+      "tests/unit/test_intent_radar_source_fences.py",
+      "tests/unit/test_mcp_protocol.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.09": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Verified membership, role/module/entitlement checks, signed requests, scoped keys, SSRF boundaries and retention have passing isolated security regressions. This is not a complete live penetration test.",
+    "tests_evidence": [
+      "tests/unit/test_http_security.py",
+      "tests/unit/test_heysow_workspace_resources.py",
+      "tests/unit/test_intent_radar_source_fences.py",
+      "tests/unit/test_mcp_protocol.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.10": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Verified membership, role/module/entitlement checks, signed requests, scoped keys, SSRF boundaries and retention have passing isolated security regressions. This is not a complete live penetration test.",
+    "tests_evidence": [
+      "tests/unit/test_http_security.py",
+      "tests/unit/test_heysow_workspace_resources.py",
+      "tests/unit/test_intent_radar_source_fences.py",
+      "tests/unit/test_mcp_protocol.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.12": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Verified membership, role/module/entitlement checks, signed requests, scoped keys, SSRF boundaries and retention have passing isolated security regressions. This is not a complete live penetration test.",
+    "tests_evidence": [
+      "tests/unit/test_http_security.py",
+      "tests/unit/test_heysow_workspace_resources.py",
+      "tests/unit/test_intent_radar_source_fences.py",
+      "tests/unit/test_mcp_protocol.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.21": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Verified membership, role/module/entitlement checks, signed requests, scoped keys, SSRF boundaries and retention have passing isolated security regressions. This is not a complete live penetration test.",
+    "tests_evidence": [
+      "tests/unit/test_http_security.py",
+      "tests/unit/test_heysow_workspace_resources.py",
+      "tests/unit/test_intent_radar_source_fences.py",
+      "tests/unit/test_mcp_protocol.py",
+      "tests/integration/test_growth_postgres.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.13": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Fresh production backup restored locally with exact original table fingerprints; local46\u219247 migration was idempotent and lost zero rows. No production restore/migration was run.",
+    "tests_evidence": [
+      "data/artifacts/verification/final-remediation/recovery-proof.json",
+      "scripts/rehearse_beta_restore.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.14": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Fresh production backup restored locally with exact original table fingerprints; local46\u219247 migration was idempotent and lost zero rows. No production restore/migration was run.",
+    "tests_evidence": [
+      "data/artifacts/verification/final-remediation/recovery-proof.json",
+      "scripts/rehearse_beta_restore.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "R.15": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Fresh production backup restored locally with exact original table fingerprints; local46\u219247 migration was idempotent and lost zero rows. No production restore/migration was run.",
+    "tests_evidence": [
+      "data/artifacts/verification/final-remediation/recovery-proof.json",
+      "scripts/rehearse_beta_restore.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "N.07": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Real HTTPS official MCP SDK handshake,13-tool discovery, authorized read, unknown-ID denial and revocation401 passed against the existing serving release. It must be rechecked on the final release; named client GUI certification is separate.",
+    "tests_evidence": [
+      "data/artifacts/verification/final-remediation/external-mcp-acceptance.json",
+      "scripts/accept_final_mcp.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "N.08": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Real HTTPS official MCP SDK handshake,13-tool discovery, authorized read, unknown-ID denial and revocation401 passed against the existing serving release. It must be rechecked on the final release; named client GUI certification is separate.",
+    "tests_evidence": [
+      "data/artifacts/verification/final-remediation/external-mcp-acceptance.json",
+      "scripts/accept_final_mcp.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "N.09": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Real HTTPS official MCP SDK handshake,13-tool discovery, authorized read, unknown-ID denial and revocation401 passed against the existing serving release. It must be rechecked on the final release; named client GUI certification is separate.",
+    "tests_evidence": [
+      "data/artifacts/verification/final-remediation/external-mcp-acceptance.json",
+      "scripts/accept_final_mcp.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "N.10": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Real HTTPS official MCP SDK handshake,13-tool discovery, authorized read, unknown-ID denial and revocation401 passed against the existing serving release. It must be rechecked on the final release; named client GUI certification is separate.",
+    "tests_evidence": [
+      "data/artifacts/verification/final-remediation/external-mcp-acceptance.json",
+      "scripts/accept_final_mcp.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "S.11": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Real HTTPS official MCP SDK handshake,13-tool discovery, authorized read, unknown-ID denial and revocation401 passed against the existing serving release. It must be rechecked on the final release; named client GUI certification is separate.",
+    "tests_evidence": [
+      "data/artifacts/verification/final-remediation/external-mcp-acceptance.json",
+      "scripts/accept_final_mcp.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "O.04": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Authoritative approved USD59/149/379 catalog2026-11-14.2 and allowances remain intact; marketing catalog hashes match. Historical providers/test records remain labeled. Checkout stays closed.",
+    "tests_evidence": [
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md",
+      "scripts/sync_commercial_catalog.py",
+      "tests/unit/test_usage_overview.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "O.05": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Authoritative approved USD59/149/379 catalog2026-11-14.2 and allowances remain intact; marketing catalog hashes match. Historical providers/test records remain labeled. Checkout stays closed.",
+    "tests_evidence": [
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md",
+      "scripts/sync_commercial_catalog.py",
+      "tests/unit/test_usage_overview.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "O.06": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Authoritative approved USD59/149/379 catalog2026-11-14.2 and allowances remain intact; marketing catalog hashes match. Historical providers/test records remain labeled. Checkout stays closed.",
+    "tests_evidence": [
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md",
+      "scripts/sync_commercial_catalog.py",
+      "tests/unit/test_usage_overview.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "O.18": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Authoritative approved USD59/149/379 catalog2026-11-14.2 and allowances remain intact; marketing catalog hashes match. Historical providers/test records remain labeled. Checkout stays closed.",
+    "tests_evidence": [
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md",
+      "scripts/sync_commercial_catalog.py",
+      "tests/unit/test_usage_overview.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "O.19": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Authoritative approved USD59/149/379 catalog2026-11-14.2 and allowances remain intact; marketing catalog hashes match. Historical providers/test records remain labeled. Checkout stays closed.",
+    "tests_evidence": [
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md",
+      "scripts/sync_commercial_catalog.py",
+      "tests/unit/test_usage_overview.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "O.21": {
+    "status": "IMPLEMENTED / NOT VERIFIED",
+    "reason": "Authoritative approved USD59/149/379 catalog2026-11-14.2 and allowances remain intact; marketing catalog hashes match. Historical providers/test records remain labeled. Checkout stays closed.",
+    "tests_evidence": [
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md",
+      "scripts/sync_commercial_catalog.py",
+      "tests/unit/test_usage_overview.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "A.07": {
+    "status": "INTENTIONALLY HIDDEN",
+    "reason": "Public registration is deliberately gated; existing approved Google identities remain supported. No mock signup or password-recovery action is added.",
+    "tests_evidence": [
+      "tests/unit/test_account_admission.py",
+      "tests/unit/test_intent_only_release.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "B.11": {
+    "status": "PARTIAL",
+    "reason": "Hashed invitations and acceptance/role/seat checks exist and pass isolated tests. A real delivery and second-account acceptance on the final release are not yet demonstrated; no message is sent by this audit.",
+    "tests_evidence": [
+      "tests/unit/test_invitation_api.py",
+      "tests/unit/test_workspace_invitations.py",
+      "tests/unit/test_workspace_concurrency.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "B.12": {
+    "status": "PARTIAL",
+    "reason": "Hashed invitations and acceptance/role/seat checks exist and pass isolated tests. A real delivery and second-account acceptance on the final release are not yet demonstrated; no message is sent by this audit.",
+    "tests_evidence": [
+      "tests/unit/test_invitation_api.py",
+      "tests/unit/test_workspace_invitations.py",
+      "tests/unit/test_workspace_concurrency.py"
+    ],
+    "remaining_owner_action": null
+  },
+  "K.20": {
+    "status": "EXTERNALLY BLOCKED",
+    "reason": "The frozen120-case independent protocol is unchanged. Actual independent reviewers/adjudicator and permitted three-source sampling are absent. Authored smoke labels cannot replace them.",
+    "tests_evidence": [
+      "docs/INTENT_RADAR_AI_INDEPENDENT_EVALUATION_PROTOCOL.md",
+      "tests/unit/test_intent_independent_review.py"
+    ],
+    "remaining_owner_action": "Assign two independent human reviewers and a third adjudicator; confirm permitted sampling sources."
+  },
+  "K.22": {
+    "status": "EXTERNALLY BLOCKED",
+    "reason": "The frozen120-case independent protocol is unchanged. Actual independent reviewers/adjudicator and permitted three-source sampling are absent. Authored smoke labels cannot replace them.",
+    "tests_evidence": [
+      "docs/INTENT_RADAR_AI_INDEPENDENT_EVALUATION_PROTOCOL.md",
+      "tests/unit/test_intent_independent_review.py"
+    ],
+    "remaining_owner_action": "Assign two independent human reviewers and a third adjudicator; confirm permitted sampling sources."
+  },
+  "O.11": {
+    "status": "EXTERNALLY BLOCKED",
+    "reason": "PayU implementation/test fixtures exist behind a closed gate. Merchant-specific recurring activation/authentication, webhook contract and supported currencies remain unverified; no live charge/refund is authorized.",
+    "tests_evidence": [
+      "tests/unit/test_payu.py",
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md"
+    ],
+    "remaining_owner_action": "Supply merchant recurring capability/contract confirmation before any separately authorized transaction test."
+  },
+  "O.12": {
+    "status": "EXTERNALLY BLOCKED",
+    "reason": "PayU implementation/test fixtures exist behind a closed gate. Merchant-specific recurring activation/authentication, webhook contract and supported currencies remain unverified; no live charge/refund is authorized.",
+    "tests_evidence": [
+      "tests/unit/test_payu.py",
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md"
+    ],
+    "remaining_owner_action": "Supply merchant recurring capability/contract confirmation before any separately authorized transaction test."
+  },
+  "O.13": {
+    "status": "EXTERNALLY BLOCKED",
+    "reason": "PayU implementation/test fixtures exist behind a closed gate. Merchant-specific recurring activation/authentication, webhook contract and supported currencies remain unverified; no live charge/refund is authorized.",
+    "tests_evidence": [
+      "tests/unit/test_payu.py",
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md"
+    ],
+    "remaining_owner_action": "Supply merchant recurring capability/contract confirmation before any separately authorized transaction test."
+  },
+  "O.14": {
+    "status": "EXTERNALLY BLOCKED",
+    "reason": "PayU implementation/test fixtures exist behind a closed gate. Merchant-specific recurring activation/authentication, webhook contract and supported currencies remain unverified; no live charge/refund is authorized.",
+    "tests_evidence": [
+      "tests/unit/test_payu.py",
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md"
+    ],
+    "remaining_owner_action": "Supply merchant recurring capability/contract confirmation before any separately authorized transaction test."
+  },
+  "O.15": {
+    "status": "EXTERNALLY BLOCKED",
+    "reason": "PayU implementation/test fixtures exist behind a closed gate. Merchant-specific recurring activation/authentication, webhook contract and supported currencies remain unverified; no live charge/refund is authorized.",
+    "tests_evidence": [
+      "tests/unit/test_payu.py",
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md"
+    ],
+    "remaining_owner_action": "Supply merchant recurring capability/contract confirmation before any separately authorized transaction test."
+  },
+  "O.16": {
+    "status": "EXTERNALLY BLOCKED",
+    "reason": "PayU implementation/test fixtures exist behind a closed gate. Merchant-specific recurring activation/authentication, webhook contract and supported currencies remain unverified; no live charge/refund is authorized.",
+    "tests_evidence": [
+      "tests/unit/test_payu.py",
+      "docs/FINAL_BILLING_AND_ENTITLEMENT_AUDIT.md"
+    ],
+    "remaining_owner_action": "Supply merchant recurring capability/contract confirmation before any separately authorized transaction test."
+  }
+}

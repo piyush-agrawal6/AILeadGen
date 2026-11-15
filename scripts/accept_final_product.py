@@ -40,8 +40,10 @@ class Acceptance:
         if replay['id']!=turn['id']:raise RuntimeError('Count replay created another conversation.')
         followup=self.request('/api/intent-radar/assistant/turns','POST',{'prompt':'And today?','thread_id':turn['id'],'request_id':self.identity('workspace-count-today')})
         if followup['job_id'] is not None or followup['snapshot']['workspace_read']['period']!='today':raise RuntimeError('Follow-up lost its workspace read context.')
+        greeting=self.request('/api/intent-radar/assistant/turns','POST',{'prompt':'Hi','thread_id':turn['id'],'request_id':self.identity('workspace-greeting')})
+        if greeting['job_id'] is not None or greeting['output']['mode']!='Product guidance — no AI used':raise RuntimeError('Greeting was not handled without AI.')
         after=self.request('/api/organization/usage')
-        self.state['checks']['deterministic_counts']={'turn':turn['id'],'followup':followup['id'],'snapshot':turn['snapshot']['facts'],'idempotent':True,'ai_jobs_created':False,'provider_requests_delta':after['provider_usage']['requests']-before['provider_usage']['requests']}
+        self.state['checks']['deterministic_counts']={'turn':turn['id'],'followup':followup['id'],'greeting':greeting['id'],'snapshot':turn['snapshot']['facts'],'idempotent':True,'ai_jobs_created':False,'provider_requests_delta':after['provider_usage']['requests']-before['provider_usage']['requests']}
         if self.state['checks']['deterministic_counts']['provider_requests_delta']!=0:raise RuntimeError('Provider activity changed during the isolated count acceptance; investigate before attributing usage.')
         self.save()
     def wait_job(self,key):

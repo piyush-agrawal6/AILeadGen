@@ -22,6 +22,14 @@ def app_hash():
         if p.is_file() and p.suffix in ('.py','.json'):digest.update(str(p.relative_to(ROOT)).encode()+b'\0'+p.read_bytes()+b'\0')
     return digest.hexdigest()
 
+def frontend_hash():
+    digest=hashlib.sha256()
+    for base in ('app','components','lib'):
+        for p in sorted((ROOT/'dashboard'/base).rglob('*')):
+            if p.is_file() and p.suffix in ('.tsx','.ts','.css','.json'):
+                digest.update(str(p.relative_to(ROOT)).encode()+b'\0'+p.read_bytes()+b'\0')
+    return digest.hexdigest()
+
 def save(path,value):
     path.write_text(json.dumps(value,indent=2));path.chmod(0o600)
 
@@ -32,14 +40,15 @@ def gate():
     if sum(int(s.get('tests',0)) for s in suites)<1030 or any(int(s.get('failures',0))+int(s.get('errors',0)) for s in suites):raise RuntimeError('Full backend gate is not passing.')
     browser=json.loads((OUT/'browser-results.json').read_text())['stats']
     final=OUT.name=='final-remediation'
-    if browser.get('unexpected',1) or browser.get('expected')!=(9 if final else 7) or browser.get('skipped',0):raise RuntimeError('Product assistant and responsive browser gate is not passing.')
+    if browser.get('unexpected',1) or browser.get('expected')!=(10 if final else 7) or browser.get('skipped',0):raise RuntimeError('Product assistant and responsive browser gate is not passing.')
     if 'Compiled successfully' not in (OUT/('frontend-build-final.log' if final else 'frontend-approved.log')).read_text():raise RuntimeError('Verified frontend build missing.')
     for name in (('frontend-types-final.log' if final else 'types-approved.log'),):
         if (OUT/name).read_text().strip():raise RuntimeError('Frontend type gate is not passing.')
     units=(OUT/('frontend-units-final.log' if final else 'units-approved.log')).read_text()
     if 'failed' in units.lower() or ('161 passed' if final else '159 passed') not in units:raise RuntimeError('Frontend unit gate is not passing.')
     if final:
-        required={'test_postgres_assistant_count_reads_are_ai_free_and_do_not_create_jobs','test_transaction_configuration_is_reapplied_after_commit_and_rollback','test_crash_recovery_cannot_refund_a_previous_unknown_attempt','test_queued_report_cancellation_refunds_unstarted_shared_capacity'}
+        if frontend_hash()!=json.loads((OUT/'frontend-frozen.json').read_text())['frontend_sha256']:raise RuntimeError('Frontend changed after visual/browser acceptance.')
+        required={'test_postgres_assistant_count_reads_are_ai_free_and_do_not_create_jobs','test_transaction_configuration_is_reapplied_after_commit_and_rollback','test_crash_recovery_cannot_refund_a_previous_unknown_attempt','test_queued_report_cancellation_refunds_unstarted_shared_capacity','test_slow_count_database_work_keeps_the_http_event_loop_responsive','test_dispatch_preparation_is_offloaded_with_verified_context','test_postgres_overview_summary_matches_scoped_counts_and_retention','test_incomplete_thinking_usage_remains_reserved_instead_of_becoming_zero'}
         passed={case.get('name') for case in report.iter('testcase') if not any(case.find(tag) is not None for tag in ('failure','error','skipped'))}
         if not required<=passed:raise RuntimeError('New critical backend regressions did not pass in the frozen full run.')
         recovery=json.loads((OUT/'recovery-proof.json').read_text())

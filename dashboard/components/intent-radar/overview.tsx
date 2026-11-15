@@ -1,5 +1,6 @@
 "use client";
 import Link from 'next/link';
+import {CommandCentre} from './command-centre';
 import {Activity,Target,Radio,Bookmark,Bell,CheckCheck,Search,Plus,ArrowRight,Radar} from 'lucide-react';
 import type {IntentOverview} from '@/lib/intent-radar';
 import {useRadarRead,useRadarCapabilities} from './provider';
@@ -9,22 +10,20 @@ import {SignalCard} from './signals';
 type Summary=Pick<IntentOverview,'new_signals'|'reviewed_signals'|'high_relevance'|'active_monitors'|'saved_opportunities'|'unread_alerts'|'trends'>&{operations?:{backlog:number;scheduler_heartbeat_at:string|null;scheduler_heartbeat_fresh:boolean;worker_status_basis:string}};
 export function OverviewDashboard(){
  const summary=useRadarRead<Summary>('/overview/summary'),details=useRadarRead<IntentOverview>('/overview',!!summary.data);
- if(summary.error)return <ErrorState message={summary.error.message} retry={()=>void summary.refetch()}/>;
- if(!summary.data)return <LoadingSkeleton/>;
- if(details.data)return <OverviewContent d={{...details.data,...summary.data}}/>;
+ if(!summary.data)return <div className="ir-page pb-home"><CommandCentre/>{summary.error?<ErrorState message={summary.error.message} retry={()=>void summary.refetch()}/>:<LoadingSkeleton/>}</div>;
+ if(details.data)return <div className="ir-page pb-home"><CommandCentre/><OverviewContent d={{...details.data,...summary.data}}/></div>;
  const d=summary.data;
- return <div className="ir-page"><PageHeading title="Intent Radar" description="Review your workspace, then explore the original evidence." actions={<Link className="ir-button ir-primary" href="/intent-radar/discover">Discover Intent</Link>}/><div className="ir-metrics">{[['New conversations',d.new_signals],['High-relevance signals',d.high_relevance],['Active monitors',d.active_monitors],['Saved opportunities',d.saved_opportunities],['Reviewed signals',d.reviewed_signals],['Unread alerts',d.unread_alerts]].map(([name,value])=><section className="ir-panel" key={name}><span>{name}</span><strong>{value}</strong></section>)}</div>{details.error?<ErrorState message={details.error.message} retry={()=>void details.refetch()}/>:<section className="ir-panel" role="status"><p>Your workspace totals are ready. Loading recent evidence and activity…</p></section>}</div>;
+ return <div className="ir-page pb-home"><CommandCentre/><div className="ir-section-heading"><h2>Workspace overview</h2><Link className="ir-link" href="/intent-radar/signals">Review signals →</Link></div><div className="ir-metrics">{[['New conversations',d.new_signals],['High-relevance signals',d.high_relevance],['Active monitors',d.active_monitors],['Saved opportunities',d.saved_opportunities],['Reviewed signals',d.reviewed_signals],['Unread alerts',d.unread_alerts]].map(([name,value])=><section className="ir-panel" key={name}><span>{name}</span><strong>{value}</strong></section>)}</div>{details.error?<ErrorState message={details.error.message} retry={()=>void details.refetch()}/>:<section className="ir-panel" role="status"><p>Your workspace totals are ready. Loading recent evidence and activity…</p></section>}</div>;
 }
 function OverviewContent({d}:{d:IntentOverview&Summary}){
  const access=useRadarCapabilities();
  const fresh=!d.recent_signals.length&&!d.monitors.length&&!d.opportunities.length&&!d.alerts.length;
  const metrics=[['New Signals',d.new_signals,Activity,'/signals?status=New'],['High-Relevance Signals',d.high_relevance,Target,'/signals?min_score=85'],['Active Monitors',d.active_monitors,Radio,'/monitors'],['Saved Opportunities',d.saved_opportunities,Bookmark,'/opportunities'],['Reviewed Signals',d.reviewed_signals,CheckCheck,'/signals?status=Reviewed'],['Unread Alerts',d.unread_alerts,Bell,'/alerts']] as const;
  const trends=[...d.trends].reverse(),max=Math.max(1,...trends.map(t=>t.volume));
- return <div className="ir-page">
-  <PageHeading title="Intent Radar" description="Discover conversations that reveal what potential customers need." badge={<Badge>{access.data?.stage||'Beta'}</Badge>} actions={<><Link className="ir-button" href="/intent-radar/monitors/new"><Plus size={16}/>Create Monitor</Link><Link className="ir-button ir-primary" href="/intent-radar/discover"><Search size={16}/>Discover Intent</Link></>}/>
+ return <div className="ir-page"><div className="ir-section-heading"><h2>Workspace overview</h2><Link className="ir-link" href="/intent-radar/signals">Review all signals <ArrowRight size={14}/></Link></div>
   {fresh&&<section className="ir-panel ir-onboarding"><div><p className="ir-eyebrow">YOUR FIRST SIGNAL STARTS HERE</p><h2>Start finding relevant conversations</h2><p>Turn public discussions into useful research for your business.</p><div className="ir-onboarding-steps">{['Describe what your customers are looking for.','Discover public discussions.','Review and save useful opportunities.'].map((s,i)=><div key={s}><span className="ir-step-dot">{i+1}</span><span>{s}</span></div>)}</div><Link className="ir-button ir-primary" href="/intent-radar/monitors/new">Create Your First Monitor <ArrowRight size={16}/></Link></div><div className="ir-radar-mini" aria-hidden="true"><Radar size={36}/></div></section>}
   <div className="ir-metrics">{metrics.map(([name,count,Icon,href])=><Link className="ir-panel" key={name} href={'/intent-radar'+href}><div><span>{name}</span><Icon size={15}/></div><strong>{count}</strong></Link>)}</div>
-  {d.operations&&<section className="ir-panel"><h2>Background monitoring</h2><p>{d.operations.backlog} queued discovery jobs · {d.operations.scheduler_heartbeat_fresh?'Recent scheduler heartbeat':'No recent scheduler heartbeat'}</p><small>{d.operations.scheduler_heartbeat_at?new Date(d.operations.scheduler_heartbeat_at).toLocaleString():'Scheduling has not reported a successful tick.'} · {d.operations.worker_status_basis}</small></section>}
+  {d.operations&&<section className="ir-panel"><h2>Background monitoring</h2><p>{d.operations.backlog} queued discovery jobs · {d.operations.scheduler_heartbeat_fresh?'Monitoring scheduler checked in recently':'No recent monitoring check-in'}</p><small>{d.operations.scheduler_heartbeat_at?new Date(d.operations.scheduler_heartbeat_at).toLocaleString():'Monitoring has not checked in yet.'} · Open monitor history to review individual check outcomes.</small></section>}
   {!fresh&&<>
    <div className="ir-section-heading"><h2>Latest relevant conversations</h2><Link className="ir-link" href="/intent-radar/signals">Review all signals <ArrowRight size={14}/></Link></div>
    {d.recent_signals.length?<div className="ir-cards">{[...d.recent_signals].sort((a,b)=>b.score-a.score).slice(0,4).map(s=><SignalCard key={s.id} signal={s}/>)}</div>:<section className="ir-panel"><h3>Your monitors are ready</h3><p>Run a manual check from Monitors to collect your first source-backed conversations.</p><Link className="ir-button" href="/intent-radar/monitors">Open Monitors <ArrowRight size={15}/></Link></section>}

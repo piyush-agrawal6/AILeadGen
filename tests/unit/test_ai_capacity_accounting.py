@@ -106,3 +106,14 @@ def test_reported_overrun_is_recorded_without_clipping_or_extra_charge(paid):
             attempt=ai_accounting.begin_attempt(p,10)
             ai_accounting.complete_attempt(p,attempt,{'input_tokens':100,'output_tokens':20,'thinking_tokens':5})
         assert totals(c)=={'ai_calls':(0,1),'ai_tokens':(0,125)}
+
+def test_incomplete_thinking_usage_remains_reserved_instead_of_becoming_zero(paid):
+    from app.billing import ai_accounting
+    c,_,org,*_=paid
+    with workspace_scope(c,'controlled@example.test',org):
+        usage.reserve(c,{'ai_calls':1},'partly-reported');c.commit()
+        p=provider(c,valid)
+        with operation('CONTROLLED_CAPACITY_TEST',operation_id='partly-reported'):
+            attempt=ai_accounting.begin_attempt(p,1000)
+            ai_accounting.complete_attempt(p,attempt,{'input_tokens':100,'output_tokens':20,'thinking_tokens':None})
+        assert totals(c)=={'ai_calls':(0,1),'ai_tokens':(1000,0)}

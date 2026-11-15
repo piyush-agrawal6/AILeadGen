@@ -17,7 +17,7 @@ function ProfileForm({profile,onSaved,onDirty,onReload}:{profile:CompanyProfile;
   catch(reason){setError(reason instanceof Error?reason.message:'Company profile could not be saved.')}
   finally{setPending(false)}
  }
- return <><CompanyAutofill initialWebsite={profile.website} canEdit={profile.can_edit&&!pending} onManual={()=>form.current?.querySelector<HTMLInputElement>('#company-name')?.focus()} onApply={(patch,id,selected)=>{edit(patch);setReview({review_id:id,reviewed_fields:selected});form.current?.scrollIntoView({behavior:'smooth',block:'start'})}}/>
+ return <><details className="pb-autofill-review"><summary>Update company context with AI</summary><CompanyAutofill initialWebsite={profile.website} canEdit={profile.can_edit&&!pending} onManual={()=>form.current?.querySelector<HTMLInputElement>('#company-name')?.focus()} onApply={(patch,id,selected)=>{edit(patch);setReview({review_id:id,reviewed_fields:selected});form.current?.scrollIntoView({behavior:'smooth',block:'start'})}}/></details>
  <form ref={form} onSubmit={save} aria-label="Company profile" className="company-profile-form space-y-6">
   <div><h2 className="text-lg font-semibold">Company information</h2><p className="mt-2 text-sm text-muted-foreground">Review your details and save when ready. Domain ownership is verified separately.</p></div>
   {!profile.can_edit&&<p className="text-sm text-muted-foreground">You can view this profile. An owner or administrator can edit it.</p>}

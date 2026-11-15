@@ -27,7 +27,7 @@ GROUPS={
 'O':('Billing','/billing','dashboard/components/workspaces/usage.tsx','app/billing/service.py'),
 'P':('Usage','/billing','dashboard/components/workspaces/usage.tsx','app/billing/commercial_usage.py'),
 'Q':('Performance','All product pages','dashboard/lib/intent-radar.ts','app/database/postgres.py'),
-'R':('Security and operations','All protected resources','dashboard/lib/auth.ts','app/api/security.py'),
+'R':('Security and operations','All protected resources','dashboard/auth.ts','app/api/security.py'),
 'S':('Release acceptance','Production customer journeys','dashboard/intent-radar23-e2e','scripts/deploy_product_release.py')}
 
 def row(key,title,location,frontend,backend,*,kind='requirement',status='PARTIAL',line=None):
