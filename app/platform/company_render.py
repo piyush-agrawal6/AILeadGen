@@ -18,9 +18,14 @@ async def render(url, html, client, permitted, active):
     async with asyncio.timeout(15):
         async with async_playwright() as playwright:
             executable=os.environ.get('CHROME_PATH')
-            browser=await playwright.chromium.launch(headless=True,chromium_sandbox=True,**({'executable_path':executable} if executable else {}))
+            browser=await playwright.chromium.launch(headless=True,chromium_sandbox=True,args=['--disable-background-networking','--disable-component-update','--disable-quic','--no-pings','--force-webrtc-ip-handling-policy=disable_non_proxied_udp'],**({'executable_path':executable} if executable else {}))
             try:
                 context=await browser.new_context(service_workers='block',accept_downloads=False,user_agent=client.headers.get('user-agent'))
+                # HTTP routing does not cover peer-to-peer UDP or QUIC. Remove
+                # alternate transports/workers in every frame before site code.
+                await context.add_init_script("""for (const name of ['RTCPeerConnection','webkitRTCPeerConnection','WebTransport','Worker','SharedWorker']) {
+                    Object.defineProperty(globalThis,name,{value:undefined,writable:false,configurable:false});
+                }""")
                 await context.route_web_socket('**/*',lambda socket:socket.close())
                 async def route_request(route):
                     nonlocal requests,total_bytes,main_seen

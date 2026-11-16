@@ -20,6 +20,7 @@ def test_render_executes_public_js_but_blocks_foreign_post_private_and_websocket
     fetch('https://example.com/write',{method:'POST',body:'blocked'}).catch(()=>{});
     fetch('http://127.0.0.1/private').catch(()=>{});
     try{new WebSocket('wss://example.com/socket')}catch(e){}
+    document.body.dataset.alternateTransports=String([typeof RTCPeerConnection,typeof WebTransport,typeof Worker,typeof SharedWorker]);
     </script></body></html>'''
     async def exercise():
         policies=[]
@@ -29,5 +30,6 @@ def test_render_executes_public_js_but_blocks_foreign_post_private_and_websocket
         return result,policies
     result,policies=asyncio.run(exercise())
     assert 'Rendered public company services' in result
+    assert 'data-alternate-transports="undefined,undefined,undefined,undefined"' in result
     assert calls==[('GET','https://example.com/assets/company.js')]
     assert policies==['https://example.com/assets/company.js']
