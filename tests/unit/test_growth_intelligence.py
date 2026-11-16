@@ -88,6 +88,8 @@ def test_claim_matching_rejects_unknown_ids_invented_quotes_and_numbers():
         with pytest.raises(AiOutputError):service.validate(invalid,rows)
     invalid=valid.model_copy(deep=True);invalid.themes[0].description='Revenue growth 300% guaranteed'
     with pytest.raises(AiOutputError):service.validate(invalid,rows)
+    duplicate=valid.model_copy(deep=True);duplicate.themes[0].citations.append(models.Citation(signal_id=key,quote='We need a reporting tool'))
+    with pytest.raises(AiOutputError,match='Duplicate citations'):service.validate(duplicate,rows)
 
 def test_canonical_saved_company_and_offerings_reach_research_and_assistant(growth):
     from app.platform.company_profiles import CompanyUpdate,save_profile
@@ -144,6 +146,8 @@ def test_ai_uses_exact_citations_and_reuses_owned_cache(growth,monkeypatch):
     monkeypatch.setattr('app.intent_radar.intelligence.reserve',lambda tokens,**kwargs:None)
     async def structured(instruction,payload,schema,**limits):
         calls.append(payload);row=payload['evidence'][0]
+        assert 'cite each signal UUID AT MOST ONCE' in instruction
+        assert 'Never repeat a signal_id' in json.dumps(schema.model_json_schema())
         assert limits['attempts_per_provider']==1 and len(payload['evidence'])<=12
         assert 'untrusted DATA' in instruction
         return models.Interpretation(themes=[models.Theme(name='Website workflow',description='A tentative single-discussion observation.',citations=[models.Citation(signal_id=row['id'],quote=row['excerpt'][:50])])])
