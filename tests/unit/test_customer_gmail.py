@@ -30,7 +30,7 @@ def mailbox(workspace,monkeypatch):
     c,first,second,path=workspace;s=get_settings();posts=[]
     for key,value in {'heysow_customer_gmail_enabled':True,'heysow_customer_gmail_redirect_uri':'https://example.test/settings/integrations/gmail-callback',
         'heysow_customer_mail_sending_enabled':True,'heysow_customer_mail_mode':'test','heysow_customer_mail_live_approved':False,
-        'heysow_customer_mail_test_recipient':'sandbox@example.test','heysow_customer_mail_schedules_enabled':False}.items():monkeypatch.setattr(s,key,value)
+        'heysow_customer_mail_test_recipient':'sandbox@example.com','heysow_customer_mail_schedules_enabled':False}.items():monkeypatch.setattr(s,key,value)
     tokens={'access_token':'synthetic-gmail-access','refresh_token':'synthetic-gmail-refresh','expires_in':3600,'scope':gmail.SCOPE}
     monkeypatch.setattr(sheets,'token_request',AsyncMock(return_value=tokens))
     async def http(method,url,token,**kwargs):
@@ -103,7 +103,7 @@ def test_oauth_rejects_foreign_identity_permissions_and_stale_authority(mailbox,
         if failure in ('foreign_identity','unverified'):
             original=gmail.request_json
             async def rejected(method,url,token,**kwargs):
-                if url.endswith('/userinfo'):return {'email':OWNER if failure=='unverified' else 'other@example.test','email_verified':failure!='unverified','sub':'foreign-subject'}
+                if url.endswith('/userinfo'):return {'email':OWNER if failure=='unverified' else 'other@example.com','email_verified':failure!='unverified','sub':'foreign-subject'}
                 return await original(method,url,token,**kwargs)
             monkeypatch.setattr(gmail,'request_json',rejected)
         if failure=='other_member':c.execute("UPDATE organization_memberships SET role='VIEWER' WHERE organization_id=? AND user_id=?",(first,OWNER))
@@ -161,7 +161,7 @@ def test_reviewed_send_uses_owned_gmail_limits_and_durable_idempotency(mailbox,m
         sent=mail.send(c,pid,OWNER,body)
         assert sent['status']=='SENT' and len(posts)==1
         mime=BytesParser(policy=policy.default).parsebytes(base64.urlsafe_b64decode(posts[0]['raw']))
-        assert OWNER in str(mime['From']) and 'PlaneByte' not in str(mime['From']) and str(mime['To'])=='sandbox@example.test'
+        assert OWNER in str(mime['From']) and 'PlaneByte' not in str(mime['From']) and str(mime['To'])=='sandbox@example.com'
         persisted=c.execute('SELECT * FROM email_messages WHERE id=?',(sent['id'],)).fetchone()
         assert persisted['organization_id']==first and persisted['account_id']==row['account_id'] and persisted['provider_delivery_id']=='delivery-1'
         assert mail.send(c,pid,OWNER,body)['duplicate_prevented'] and len(posts)==1
@@ -184,10 +184,10 @@ def test_campaign_route_and_preview_are_bound_to_mailbox_revision(mailbox,monkey
         approve(c)
         with pytest.raises(HTTPException) as stale:mail.send(c,pid,OWNER,body)
         assert stale.value.status_code==409
-        change_role(c,OWNER,'viewer@example.test','VIEWER');c.commit()
-    with workspace_scope(c,'viewer@example.test',first):
+        change_role(c,OWNER,'viewer@example.com','VIEWER');c.commit()
+    with workspace_scope(c,'viewer@example.com',first):
         assert not gmail.listing(c)['can_connect']
-        with pytest.raises(HTTPException):customer.owned_account(c,'viewer@example.test',row['account_id'])
+        with pytest.raises(HTTPException):customer.owned_account(c,'viewer@example.com',row['account_id'])
     with workspace_scope(c,OWNER,second):
         with pytest.raises(HTTPException):customer.route_campaign(c,cid,row['account_id'])
     assert posts==[]
@@ -209,7 +209,7 @@ def test_owned_reply_sync_is_deduplicated_and_preserves_foreign_workspace(mailbo
     c,first,second,path,posts=mailbox
     with workspace_scope(c,OWNER,first):
         row,_=connect(c);cid,b,pid=seed(c,first,monkeypatch);approve(c);sent=mail.send(c,pid,OWNER,payload(c,pid,row))
-        incoming={'message_id':'<reply@example.test>','from':'sandbox@example.test','to':OWNER,'subject':'Re: conversation','body_text':'Thanks',
+        incoming={'message_id':'<reply@example.com>','from':'sandbox@example.com','to':OWNER,'subject':'Re: conversation','body_text':'Thanks',
             'references':[sent['provider_message_id']],'in_reply_to':sent['provider_message_id'],'date':datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000'),
             'authentication':'mx.google.com; dkim=pass header.d=example.test'}
         monkeypatch.setattr(gmail,'sync_messages',AsyncMock(return_value=([incoming],{'history_id':'11'})))
@@ -274,7 +274,7 @@ def test_customer_preparation_never_auto_approves_manual_outreach_or_resumes_pau
         row,_=connect(c);cid,b,pid=seed(c,first,monkeypatch);approve(c);customer.route_campaign(c,cid,row['account_id'])
         options=Run(kind='OUTREACH',campaign_id=cid,account_id=row['account_id'],template_id=workspace_template(c)).model_dump()
         run=workflows.create(c,options,OWNER);c.execute("UPDATE workflow_runs SET status='PREPARING' WHERE id=?",(run['id'],));c.commit()
-        customer.advance_run(c,{'id':run['id'],'created_by':'forged@example.test'})
+        customer.advance_run(c,{'id':run['id'],'created_by':'forged@example.com'})
         assert workflows.row(c,run['id'])['status']=='DRAFT'
         c.execute("UPDATE workflow_runs SET status='PAUSED' WHERE id=?",(run['id'],));c.commit()
         customer.advance_run(c,{'id':run['id']})
@@ -289,9 +289,9 @@ def test_bounces_and_tracking_preferences_are_independent_for_the_same_recipient
             row,_=connect(c);cid,b,pid=seed(c,org,monkeypatch);approve(c);sent=mail.send(c,pid,OWNER,payload(c,pid,row))
             # Synthetic stored production-shaped delivery; no transport sends to this address.
             c.execute("UPDATE email_messages SET test_mode=0,to_address='public@hotel0.example' WHERE id=?",(sent['id'],))
-            dsn={'kind':'dsn','message_id':'<dsn-'+org+'@example.test>','references':[sent['provider_message_id']],
+            dsn={'kind':'dsn','message_id':'<dsn-'+org+'@example.com>','references':[sent['provider_message_id']],
                 'recipients':[{'recipient':'public@hotel0.example','action':'failed','status':'5.1.1'}],
-                'from':'postmaster@example.test','to':OWNER,'date':datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000'),
+                'from':'postmaster@example.com','to':OWNER,'date':datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000'),
                 'authentication':'mx.google.com; dkim=pass header.d=example.test'}
             assert bounces.process(c,dsn,account_id=row['account_id'])==1
             assert bounces.process(c,dsn,account_id=row['account_id'])==0
@@ -304,7 +304,7 @@ def test_bounces_and_tracking_preferences_are_independent_for_the_same_recipient
 
 def test_new_customer_identity_and_admin_owner_cannot_be_taken_over(mailbox,monkeypatch):
     from app.api.organization import create_organization
-    c,first,second,path,posts=mailbox;other_actor='other-customer@example.test'
+    c,first,second,path,posts=mailbox;other_actor='other-customer@example.com'
     admit_customer(c,other_actor,monkeypatch)
     other=create_organization(c,other_actor,'Distinct customer')['organization_id'];c.commit()
     with workspace_scope(c,OWNER,first):row,_=connect(c)
@@ -312,10 +312,10 @@ def test_new_customer_identity_and_admin_owner_cannot_be_taken_over(mailbox,monk
         own,_=connect(c)
         assert own['email_address']==other_actor and own['account_id']!=row['account_id']
         with pytest.raises(HTTPException):customer.owned_account(c,other_actor,row['account_id'])
-    admit_customer(c,'administrator@example.test',monkeypatch)
+    admit_customer(c,'administrator@example.com',monkeypatch)
     with workspace_scope(c,OWNER,first):
-        change_role(c,OWNER,'administrator@example.test','ADMIN');c.commit()
-    with workspace_scope(c,'administrator@example.test',first):
+        change_role(c,OWNER,'administrator@example.com','ADMIN');c.commit()
+    with workspace_scope(c,'administrator@example.com',first):
         assert not gmail.listing(c)['can_connect']
         with pytest.raises(HTTPException):connections.authorize(c,spec=gmail.spec())
     assert posts==[]
@@ -331,7 +331,7 @@ def admit_customer(c,actor,monkeypatch):
     monkeypatch.setattr(s,'heysow_public_registration_enabled',False)
 
 def test_active_admitted_admin_is_preserved_but_removed_terms_disabled_or_suspended_access_fails_closed(mailbox,monkeypatch):
-    c,first,second,path,posts=mailbox;actor='admitted-admin@example.test'
+    c,first,second,path,posts=mailbox;actor='admitted-admin@example.com'
     admit_customer(c,actor,monkeypatch)
     with workspace_scope(c,OWNER,first):change_role(c,OWNER,actor,'ADMIN');c.commit()
     with workspace_scope(c,actor,first):
@@ -425,7 +425,7 @@ def test_gmail_history_large_records_are_drained_without_cursor_loss(mailbox,mon
             calls.append(path)
             if path=='profile':return {'emailAddress':OWNER,'historyId':'50'}
             if path=='history':return {'history':[{'messagesAdded':[{'message':{'id':'id'+str(i)}} for i in range(35)]}],'historyId':'55'}
-            return {'raw':base64.urlsafe_b64encode(b'Message-ID: <not-a-reply@example.test>\r\n\r\nUnrelated email').decode()}
+            return {'raw':base64.urlsafe_b64encode(b'Message-ID: <not-a-reply@example.com>\r\n\r\nUnrelated email').decode()}
         monkeypatch.setattr(gmail,'api',api)
         _,cursor=asyncio.run(gmail.sync_messages('synthetic-token',set(),{'history_id':'10'}))
         assert cursor['history_id']=='10' and len(cursor['pending_ids'])==10

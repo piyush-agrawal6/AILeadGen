@@ -12,11 +12,11 @@ from app.database.prospects import now
 from app.notifications import transactional as mail
 
 
-def enabled(*,registration=False,invitation=False):
+def enabled(*,registration=False,invitation=False,email=''):
     s=get_settings()
     if not s.heysow_accounts_enabled or not s.heysow_customer_access_enabled:raise HTTPException(503,'Customer account access is not enabled.')
     if registration and not s.heysow_access_periods_enabled:raise HTTPException(503,'Account access enforcement is not enabled.')
-    if registration and not (s.heysow_public_registration_enabled or invitation and s.heysow_invited_registration_enabled):raise HTTPException(503,'New account registration is not available.')
+    if registration and not (s.heysow_public_registration_enabled or invitation and s.heysow_invited_registration_enabled or email and policy.acceptance_allowed(email)):raise HTTPException(503,'New account registration is not available.')
     if not s.heysow_terms_version:raise HTTPException(503,'Account terms are awaiting approval.')
 
 
@@ -32,7 +32,7 @@ def ticket(row):
 
 
 def begin_signup(body:models.Signup,client_id):
-    enabled(registration=True,invitation=bool(body.invitation_token));mail.require_enabled();s=get_settings()
+    enabled(registration=True,invitation=bool(body.invitation_token),email=body.email);mail.require_enabled();s=get_settings()
     invitation_id=None
     if body.invitation_token:
         from app.platform.invitations import pending_for_account
@@ -103,7 +103,7 @@ def verify_email(body:models.Verify,client_id):
             return {'verified':False,'message':'The code is invalid or expired.'}
         payload=json.loads(row['payload_json'])
         if row['purpose']=='SIGNUP':
-            enabled(registration=True,invitation=bool(payload.get('invitation_id')))
+            enabled(registration=True,invitation=bool(payload.get('invitation_id')),email=row['email'])
             if payload.get('invitation_id'):
                 from app.platform.invitations import pending_by_id
                 pending_by_id(c,row['email'],payload['invitation_id'])
@@ -130,7 +130,7 @@ def verify_email(body:models.Verify,client_id):
 
 
 def login(body:models.Login,client_id):
-    enabled();security.throttle('login',body.email,client_id,email_limit=10,client_limit=30,seconds=900)
+    enabled();policy.require_work_identity(body.email);security.throttle('login',body.email,client_id,email_limit=10,client_limit=30,seconds=900)
     with db_session() as c:row=c.execute('SELECT * FROM customer_accounts WHERE email=?',(body.email,)).fetchone()
     valid=passwords.verify(body.password.get_secret_value(),row['password_hash'] if row and row['status']=='ACTIVE' and row['verified_at'] else None)
     if not valid:
@@ -145,7 +145,7 @@ def login(body:models.Login,client_id):
 
 
 def recover(body:models.Recovery,client_id):
-    enabled();mail.require_enabled();security.throttle('recovery',body.email,client_id,email_limit=3,client_limit=15)
+    enabled();policy.require_work_identity(body.email);mail.require_enabled();security.throttle('recovery',body.email,client_id,email_limit=3,client_limit=15)
     # Identical public work for existing, Google-only and unknown accounts. The
     # account lookup and eligible email happen only after the response is queued.
     email_hash=security.digest('recovery-address',body.email)
@@ -189,6 +189,7 @@ def reset_password(body:models.Reset,client_id):
         if current['consumed_at'] or current['expires_at']<=int(time.time()):return {'reset':False,'message':'The reset link is invalid or expired.'}
         account=c.execute("SELECT email FROM customer_accounts WHERE user_id=? AND status='ACTIVE' AND password_hash IS NOT NULL",(row['user_id'],)).fetchone()
         if not account:return {'reset':False,'message':'The reset link is invalid or expired.'}
+        policy.require_work_identity(account['email'])
         stamp=now();actor=row['user_id']
         c.execute('UPDATE customer_accounts SET password_hash=?,updated_at=? WHERE user_id=?',(encoded,stamp,actor))
         c.execute('UPDATE account_recovery_tokens SET consumed_at=? WHERE user_id=? AND consumed_at IS NULL',(stamp,actor))
@@ -203,6 +204,7 @@ def resend_verification(body:models.Resend,client_id):
     enabled();mail.require_enabled()
     with db_session() as c:old=c.execute('SELECT * FROM account_verifications WHERE id=?',(str(body.challenge_id),)).fetchone()
     if not old or not security.matches('verify-capability',body.capability.get_secret_value(),old['capability_hash']):raise HTTPException(400,'Start a new verification request.')
+    policy.require_work_identity(old['email'])
     security.throttle('signup',old['email'],client_id,email_limit=5,client_limit=20)
     with db_session() as c:
         security.lock(c,old['email'])

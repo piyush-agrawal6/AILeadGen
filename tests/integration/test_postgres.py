@@ -77,8 +77,8 @@ def test_postgres_onboarding_new_saved_resume_complete_and_history(postgres):
     from app.icp.models import Create
     from fastapi import HTTPException
     run_migrations(postgres);c=postgres
-    actor='onboarding@example.test';org=create_organization(c,actor,'PostgreSQL onboarding customer')['organization_id']
-    foreign=create_organization(c,'foreign@example.test','Other onboarding customer')['organization_id']
+    actor='onboarding@example.com';org=create_organization(c,actor,'PostgreSQL onboarding customer')['organization_id']
+    foreign=create_organization(c,'foreign@example.com','Other onboarding customer')['organization_id']
     with workspace_scope(c,actor,org):
         assert setup.read(c)['revision']==0 and setup.read(c)['services']==[]
         saved=setup.save(c,setup.Setup(revision=0,objectives=['FIND_CUSTOMERS'],services=[{'name':'Archived service'}],current_step='SERVICES'));c.commit()
@@ -101,7 +101,7 @@ def test_postgres_onboarding_new_saved_resume_complete_and_history(postgres):
         assert setup.read(c)['status']=='COMPLETED'
         assert c.execute('SELECT COUNT(*) FROM organization_services WHERE organization_id=?',(org,)).fetchone()[0]==2
         assert c.execute("SELECT COUNT(*) FROM audit_log WHERE action='ONBOARDING_COMPLETED' AND organization_id=?",(org,)).fetchone()[0]==1
-    with workspace_scope(c,'foreign@example.test',foreign):assert setup.read(c)['revision']==0 and setup.read(c)['services']==[]
+    with workspace_scope(c,'foreign@example.com',foreign):assert setup.read(c)['revision']==0 and setup.read(c)['services']==[]
     with pytest.raises(HTTPException):setup.read(c)
     for table in ('pipeline_runs','acquisition_jobs','email_messages'):assert c.execute('SELECT COUNT(*) FROM '+table).fetchone()[0]==0
 
@@ -115,7 +115,7 @@ def test_postgres_gated_invitation_account_admission_and_explicit_membership(pos
     c=postgres;run_migrations(c);s=get_settings()
     for key,value in {'heysow_customer_access_enabled':True,'heysow_public_registration_enabled':False,'heysow_invited_registration_enabled':True,'heysow_google_admission_client_id':'synthetic-google-client','heysow_terms_version':'synthetic-review-version'}.items():monkeypatch.setattr(s,key,value)
     owner='a@example.com';org=create_organization(c,owner,'PostgreSQL invited customer')['organization_id']
-    with workspace_scope(c,owner,org):invite=invitations.create(c,invitations.InviteCreate(email='invited@example.test',role='VIEWER'))
+    with workspace_scope(c,owner,org):invite=invitations.create(c,invitations.InviteCreate(email='invited@example.com',role='VIEWER'))
     c.commit();body=claim(email=invite['email'],invitation_token=invite['token'])
     admitted=admission.admit(c,body,actor=body.email,broker_verified=True);c.commit()
     assert admitted['workspace_required'] and admission.access(c,body.email)
@@ -139,7 +139,7 @@ def test_postgres_customer_summary_strict_scope_and_no_internal_metadata(postgre
     from app.api.schemas.automation import CustomerSummary
     from test_automation_summary import seed_summary
     from fastapi import HTTPException
-    c=postgres;run_migrations(c);actor='summary@example.test'
+    c=postgres;run_migrations(c);actor='summary@example.com'
     org=create_organization(c,actor,'Owned summary')['organization_id'];other=create_organization(c,actor,'Other summary')['organization_id']
     complete_onboarding(c,org);complete_onboarding(c,other)
     seed_summary(c,org);seed_summary(c,other,manual=4,queued=2)
@@ -777,7 +777,7 @@ def test_postgres_concurrent_workspace_creation_has_one_owner_and_request(owned_
     from app.platform.workspaces import create_workspace,WorkspaceCreate
     c=owned_postgres
     body=WorkspaceCreate(name='Concurrent company',request_id=uuid.uuid4())
-    def create(db,index):return create_workspace(db,'new-owner@example.test',body)
+    def create(db,index):return create_workspace(db,'new-owner@example.com',body)
     results=concurrent_connections(c,create)
     assert len({result['organization_id'] for result in results})==1
     assert sorted(result['reused'] for result in results)==[False,True]
@@ -791,8 +791,8 @@ def test_postgres_concurrent_self_demotion_preserves_last_owner(owned_postgres):
     from app.platform.context import workspace_scope
     from app.platform.memberships import change_role
     c=owned_postgres;org=current().organization_id
-    change_role(c,current().actor,'second-owner@example.test','OWNER')
-    actors=[current().actor,'second-owner@example.test']
+    change_role(c,current().actor,'second-owner@example.com','OWNER')
+    actors=[current().actor,'second-owner@example.com']
     def demote(db,index):
         with workspace_scope(db,actors[index],org):
             change_role(db,actors[index],actors[index],'MEMBER')
@@ -805,12 +805,12 @@ def test_postgres_concurrent_self_demotion_preserves_last_owner(owned_postgres):
 def test_postgres_concurrent_invitation_acceptance_grants_once(owned_postgres):
     from app.platform import invitations as inv
     c=owned_postgres;org=current().organization_id
-    invitation=inv.create(c,inv.InviteCreate(email='recipient@example.test',role='VIEWER'))
-    def accept(db,index):return inv.respond(db,'recipient@example.test',inv.InviteRespond(token=invitation['token'],action='ACCEPT'))
+    invitation=inv.create(c,inv.InviteCreate(email='recipient@example.com',role='VIEWER'))
+    def accept(db,index):return inv.respond(db,'recipient@example.com',inv.InviteRespond(token=invitation['token'],action='ACCEPT'))
     results=concurrent_connections(c,accept)
     assert len([item for item in results if isinstance(item,dict) and item['status']=='ACCEPTED'])==1
     assert results.count(409)==1
-    assert c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND user_id='recipient@example.test'",(org,)).fetchone()[0]==1
+    assert c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND user_id='recipient@example.com'",(org,)).fetchone()[0]==1
     assert c.execute("SELECT COUNT(*) FROM workspace_notifications WHERE organization_id=? AND entity_id=? AND kind='INVITATION_ACCEPTED'",(org,invitation['id'])).fetchone()[0]==1
 
 
@@ -865,7 +865,7 @@ def test_postgres_restricted_preupgrade_backup_restores_and_migrates(postgres,tm
     monkeypatch.setattr(migrations,'MIGRATIONS',all_migrations[:22]);run_migrations(c)
     owner=c.execute('SELECT created_by_user_id FROM organizations WHERE id=?',(PLANEBYTE_ORGANIZATION_ID,)).fetchone()[0]
     with workspace_scope(c,owner,PLANEBYTE_ORGANIZATION_ID):
-        contacted.record(c,message_id='restore-history',email='retained@example.test',sent_at='2026-11-06T00:00:00+00:00')
+        contacted.record(c,message_id='restore-history',email='retained@example.com',sent_at='2026-11-06T00:00:00+00:00')
     tables=('organizations','organization_memberships','organization_settings','contacted_recipients','organization_onboarding')
     before={table:[dict(row) for row in c.execute('SELECT * FROM '+table).fetchall()] for table in tables};c.commit()
     tools=Path(os.environ.get('HEYSOW_PG_TEST_BIN',str(Path(__file__).resolve().parents[2]/'data/artifacts/postgres-local/install/bin')))
@@ -918,7 +918,7 @@ def customer_connection(postgres,monkeypatch):
     monkeypatch.setattr(settings,'heysow_integration_encryption_key',Fernet.generate_key().decode())
     provider_config=AcquisitionSettings(_env_file=None,AUTH_GOOGLE_ID='fixture-client',AUTH_GOOGLE_SECRET='fixture-secret')
     monkeypatch.setattr('app.acquisition.config.settings',lambda:provider_config)
-    run_migrations(postgres);actor='customer-pg@example.test'
+    run_migrations(postgres);actor='customer-pg@example.com'
     monkeypatch.setattr(settings,'allowed_user_emails','a@example.com,'+actor)
     org=create_organization(postgres,actor,'Customer connection')['organization_id'];postgres.commit()
     tokens={'access_token':'pg-controlled-access','refresh_token':'pg-controlled-refresh','expires_in':3600,'scope':sheets.SCOPE}

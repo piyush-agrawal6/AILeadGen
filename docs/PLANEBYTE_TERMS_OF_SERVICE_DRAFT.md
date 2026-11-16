@@ -1,11 +1,11 @@
 # PlaneByte Terms of Service
 
-**UNPUBLISHED PUBLICATION DRAFT — OWNER APPROVAL REQUIRED**  
-Prepared November 16, 2026. Effective date and published version will be assigned only after approval. The four policy areas and their latest approval state are consolidated in [the owner checklist](PLANEBYTE_LEGAL_OWNER_DECISIONS.md). This file does not replace the live development terms.
+**APPROVED FOR PUBLICATION — 16 November 2026**
+Final owner-review version: `planebyte-2026-11-16-v1`. Effective date: the date this approved version is first published. Identity, address and policy decisions below were supplied by the owner; Publication was approved by the owner on 16 November 2026. This file does not replace the live development terms.
 
 ## 1. Who provides the service
 
-PlaneByte is the trading/product name used for the service provided by **[OWNER APPROVAL REQUIRED — decision 1: legal contracting entity, legal form and official address]**, referred to as “PlaneByte,” “we,” “us” or “our.” General service enquiries may be sent to contact@planebyte.com. The approved official address will be used for formal notices.
+PlaneByte is the trading/product name used for the service provided by **Planebyte, an individually operated business owned by Piyush Agrawal**, with its legal-notice/business address at **House No. 1005, Attabira, Bargarh, Odisha 768027, India**, referred to as “PlaneByte,” “we,” “us” or “our.” General service enquiries may be sent to contact@planebyte.com. Formal notices may be sent to that address or contact@planebyte.com. Our business website is https://planebyte.com and the service application is https://app.planebyte.com.
 
 These Terms govern the PlaneByte application and the Intent Radar and Growth Intelligence features made available to your workspace. “You” means the person accepting these Terms and, where that person acts with authority for an organization, that organization. You must be legally able and authorized to enter this agreement. If you act for an organization, you confirm your authority to bind it.
 
@@ -97,10 +97,10 @@ Submit an authenticated data request in Settings → Account → Sign-in & Secur
 
 ## 14. Responsibilities and mandatory rights
 
-Use reasonable care in evaluating source material and AI output, preserving your own necessary records, and managing authorized users. We remain responsible for obligations that applicable law does not permit us to exclude. Nothing in these Terms removes mandatory consumer or data-protection rights, excuses fraud or willful misconduct, or limits liability where such a limitation would be unlawful. No unapproved monetary liability cap, indemnity or exclusive foreign court is imposed by this draft.
+Use reasonable care in evaluating source material and AI output, preserving your own necessary records, and managing authorized users. We remain responsible for obligations that applicable law does not permit us to exclude. Nothing in these Terms removes mandatory consumer or data-protection rights, excuses fraud or willful misconduct, or limits liability where such a limitation would be unlawful. No monetary liability cap, indemnity or exclusive foreign court is imposed by these Terms.
 
 ## 15. Changes, notices and disputes
 
 We will identify the published version and effective date of these Terms. Material changes requiring renewed acceptance will be presented through the account or purchase flow before they apply as required by the applicable agreement and law. A revised price does not silently authorize a charge or alter a previously verified order.
 
-Contact contact@planebyte.com to raise a service or billing concern and provide the relevant workspace/order reference without sending passwords, verification codes or card details. Formal notices use the approved contracting identity and address in section 1. Applicable mandatory law and lawful rights to seek regulatory or judicial remedies remain available; no unapproved governing-law or venue clause is invented. If a provision cannot lawfully apply, the remaining lawful provisions continue to operate. A separately signed agreement governs only to the extent it expressly varies these Terms for the relevant customer.
+Contact contact@planebyte.com to raise a service or billing concern and provide the relevant workspace/order reference without sending passwords, verification codes or card details. Formal notices use the contracting identity and address in section 1. Applicable mandatory law and lawful rights to seek regulatory or judicial remedies remain available; no unapproved governing-law or venue clause is invented. If a provision cannot lawfully apply, the remaining lawful provisions continue to operate. A separately signed agreement governs only to the extent it expressly varies these Terms for the relevant customer.

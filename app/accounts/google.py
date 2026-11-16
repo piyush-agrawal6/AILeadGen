@@ -18,7 +18,7 @@ def _consent(c,body,existing):
 def admit(c,body):
     # The existing admission entrypoint already verifies broker authentication,
     # email_verified, actor equality, Google client ID and configured terms.
-    s=get_settings();email=body.email;security.lock(c,email)
+    s=get_settings();email=body.email;policy.require_work_identity(email);security.lock(c,email)
     account=c.execute('SELECT * FROM customer_accounts WHERE email=?',(email,)).fetchone()
     legacy=c.execute('SELECT * FROM account_admissions WHERE user_id=?',(email,)).fetchone()
     if account and account['status']!='ACTIVE' or legacy and legacy['status']!='ACTIVE':raise HTTPException(403,'Account access requires administrator review.')
@@ -39,8 +39,9 @@ def admit(c,body):
         if not s.heysow_access_periods_enabled:raise HTTPException(503,'New account access enforcement is not enabled.')
         try:policy.work_email(email)
         except ValueError:raise HTTPException(422,policy.MESSAGE) from None
-        if not s.heysow_public_registration_enabled:
+        if not s.heysow_public_registration_enabled and not policy.acceptance_allowed(email):
             if not s.heysow_invited_registration_enabled or not body.invitation_token:raise HTTPException(403,'New account registration is not available.')
+    if not existing and not policy.mailbox_domain_available(email):raise HTTPException(422,'This company email domain does not accept email. Check the address.')
     if body.invitation_token:
         from app.platform.invitations import pending_for_account
         pending_for_account(c,email,body.invitation_token)

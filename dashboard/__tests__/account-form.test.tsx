@@ -15,3 +15,16 @@ describe('account forms',()=>{
   await waitFor(()=>expect(screen.getByRole('button')).toBeDisabled());finish({error:'The code is incorrect or expired.'});expect(await screen.findByRole('alert')).toHaveTextContent('incorrect or expired');expect(submit).toHaveBeenCalledTimes(1);
  });
 });
+
+it('rejects personal email and mismatched passwords while allowing password visibility',()=>{
+ render(<AccountForm action={async()=>({error:null})} kind="signup"/>);
+ fireEvent.change(screen.getByLabelText('Company email'),{target:{value:'person@gmail.com'}});
+ expect(screen.getByRole('status')).toHaveTextContent('Personal email providers');
+ expect(screen.getByRole('button',{name:'Create account with email'})).toBeDisabled();
+ fireEvent.change(screen.getByLabelText('Company email'),{target:{value:'person@example.com'}});
+ fireEvent.change(screen.getByLabelText('Password',{exact:true}),{target:{value:'A sufficiently long passphrase 833!'}});
+ fireEvent.change(screen.getByLabelText('Confirm password'),{target:{value:'Different sufficiently long passphrase 833!'}});
+ expect(screen.getByRole('status')).toHaveTextContent('do not match');
+ fireEvent.click(screen.getByRole('button',{name:'Show password'}));
+ expect(screen.getByLabelText('Password',{exact:true})).toHaveAttribute('type','text');
+});

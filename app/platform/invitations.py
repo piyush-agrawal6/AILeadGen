@@ -114,6 +114,8 @@ def _expire(c,org):
 
 
 def create(c,body:InviteCreate):
+    from app.accounts.policy import require_work_identity
+    require_work_identity(body.email)
     org=organization();actor=current().actor
     _manager(c,org,actor,body.role)
     _lock(c,org)
@@ -178,6 +180,8 @@ def pending_for_account(c,actor,token):
     return pending_by_id(c,actor,row['id'])
 
 def pending_by_id(c,actor,key):
+    from app.accounts.policy import require_work_identity
+    require_work_identity(actor)
     row=c.execute('SELECT * FROM workspace_invitations WHERE id=? AND email=?',(key,actor.strip().lower())).fetchone()
     if not row:raise HTTPException(404,'Invitation is unavailable for this account.')
     org=row['organization_id'];_lock(c,org)

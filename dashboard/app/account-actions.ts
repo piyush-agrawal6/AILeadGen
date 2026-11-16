@@ -1,4 +1,5 @@
 'use server';
+import {isWorkEmail,workEmailMessage} from '@/lib/auth-policy';
 import {AuthError} from 'next-auth';
 import {cookies} from 'next/headers';
 import {redirect} from 'next/navigation';
@@ -13,6 +14,7 @@ function value(form:FormData,key:string,max:number){const x=form.get(key);return
 function failure(status:number):AccountState{return {error:status===429?'Too many requests. Wait a little before trying again.':status===503?'Account service is temporarily unavailable. Please try again shortly.':'Check your company email and account details, then try again.'};}
 export async function passwordSignIn(_state:AccountState,form:FormData):Promise<AccountState>{
  if(!serverEnv().accounts)return failure(503);
+ if(!isWorkEmail(value(form,'email',254)))return {error:workEmailMessage};
  try{await signIn('credentials',{email:value(form,'email',254),password:value(form,'password',128),redirectTo:'/'});}catch(error){if(error instanceof AuthError)return {error:'Email or password is incorrect, or verification is incomplete.'};throw error;}
  return {error:null};
 }
@@ -20,7 +22,8 @@ export async function createAccount(_state:AccountState,form:FormData):Promise<A
  const env=serverEnv();if(!env.accounts||!env.customerAccess||!env.termsVersion)return failure(503);
  if(form.get('accept_terms')!=='accepted')return {error:'Accept the current Terms of Service to continue.'};
  if(value(form,'password',128)!==value(form,'confirm_password',128))return {error:'The passwords do not match. Enter the same password in both fields.'};
- const email=value(form,'email',254).trim().toLowerCase(),invitation=value(form,'invitation_token',100).trim();
+ const email=value(form,'email',254).trim().toLowerCase();if(!isWorkEmail(email))return {error:workEmailMessage};
+ const invitation=value(form,'invitation_token',100).trim();
  const result=await accountRequest('signup',email,{email,password:value(form,'password',128),name:value(form,'name',120),company_name:value(form,'company_name',120),terms_version:env.termsVersion,accepted_terms:true,request_id:value(form,'request_id',36)||randomUUID(),...(invitation?{invitation_token:invitation}:{})});
  if(!result.ok||!result.data.challenge_id||!result.data.capability)return failure(result.status);
  await saveAccountCookie(verificationCookie,{email,...result.data,...(invitation?{invitation}:{})});

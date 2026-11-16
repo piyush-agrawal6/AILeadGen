@@ -56,11 +56,11 @@ export default async function Login({
 
         <div className="pb-auth-links-row auth-form-links">
           <Link href="/forgot-password" className="text-xs hover:underline">
-            Trouble signing in?
+            Forgot password?
           </Link>
           <span className="text-muted-foreground/40">•</span>
           <Link href="/signup" className="text-xs hover:underline inline-flex items-center gap-0.5">
-            <span>Request access</span>
+            <span>{env.accounts?'Create an account':'Request access'}</span>
             <span aria-hidden="true">↗</span>
           </Link>
         </div>

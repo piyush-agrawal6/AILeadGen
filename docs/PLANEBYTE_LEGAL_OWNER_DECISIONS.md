@@ -1,10 +1,24 @@
-# OWNER APPROVAL REQUIRED
+# Final legal publication approval
 
-Status updated after the owner’s November 16 launch authorization. These are the four legal-policy areas. The Terms and Privacy drafts are complete for review and remain unpublished. They do not activate registration, payments, deletion or a recurring mandate.
+All identity and business-policy facts have now been supplied. Do not ask for them again.
 
-- [ ] **1 — Contracting identity:** legal contracting name, legal form and official business/service address. These identify the service provider and privacy contact in both documents.
-- [x] **2 — Owner-proposed refunds/cancellation:** seven-day refund-request window for an initial purchase, with additional mandatory rights preserved; no automatic renewal; paid access continues through the purchased term. Implement subject to applicable law; no unapproved usage-percentage exception or yearly price.
-- [x] **3 — Owner-proposed retention:** ordinary account data within 30 days after verified account closure; backups age out through their normal cycle, targeted within 90 days. Access expiry alone preserves data; retained exceptions require a documented purpose.
-- [x] **4 — Request process implemented:** authenticated Settings intake and account-detail export, reference/acknowledgement, identity and workspace-authority review through contact@planebyte.com, operator-confirmed closure and tracked 30/90-day deadlines. Accounting/refunds, holds, disputes, security, contact history and suppression exceptions remain subject to scoped review. No blanket deletion authority or automatic production purge is implied.
+- Brand: **PlaneByte**. Contracting name: **Planebyte**. Legal form: **Individual**. Owner/signatory: **Piyush Agrawal**.
+- Legal-notice/business address: **House No. 1005, Attabira, Bargarh, Odisha 768027, India**.
+- Support, privacy and grievance contact: **contact@planebyte.com**. Business website: https://planebyte.com; SaaS: https://app.planebyte.com.
+- No GSTIN; no unverified GST collection. USD59/149/379 monthly list prices; monthly access30 days, manual renewal only; yearly checkout disabled.
+- Initial-purchase refund requests within7 days, mandatory rights preserved. Verified account closure ordinary-data target30 days; backup aging target90 days, justified exceptions. Existing verified request/review workflow retained; no blanket purge authorized.
 
-Drafts: [Terms of Service](PLANEBYTE_TERMS_OF_SERVICE_DRAFT.md) and [Privacy Policy](PLANEBYTE_PRIVACY_POLICY_DRAFT.md). General service contact is the existing contact@planebyte.com; a privacy/grievance contact must be confirmed under decision 4. The refund window and retention targets now come from the owner’s November 16 authorization. No legal entity, registration, GSTIN or postal address has been invented. Publication still requires verified identity and validation of applicable obligations and operational retention controls.
+## Final publication approval — received
+
+- [x] Owner approved publication of the four final review documents below as version `planebyte-2026-11-16-v1`, effective on first publication. Approval received in this conversation on 16 November 2026. No further policy publication approval is required for these exact texts.
+
+1. [Terms of Service](PLANEBYTE_TERMS_OF_SERVICE_DRAFT.md)
+2. [Privacy Policy](PLANEBYTE_PRIVACY_POLICY_DRAFT.md)
+3. [Refund Policy](PLANEBYTE_REFUND_POLICY_DRAFT.md)
+4. [Cancellation Policy](PLANEBYTE_CANCELLATION_POLICY_DRAFT.md)
+
+Identity/address are owner-attested for service notices. This is not independent PayU KYC verification, USD permission, tax registration or a compliance certification. Checkout stays closed until merchant-specific acceptance. Publication and genuine production signup acceptance are separate gates; approval alone does not open registration.
+
+## Editorial review (not customer policy)
+
+Existing policies were reused; no new entity, registration, address, annual price, automatic refund or recurring mandate was invented. Resend disclosure now reflects actual production delivery. The official [DPDP commencement notification](https://www.meity.gov.in/static/uploads/2025/11/c56ceae6c383460ca69577428d36828b.pdf) and [2025 Rules](https://www.meity.gov.in/static/uploads/2025/11/53450e6e5dc0bfa85ebd78686cadad39.pdf) specify phased commencement; no claim that every provision is already in force is made. Mandatory rights remain preserved. Complaint handling must honor applicable deadlines, including those in the official [Consumer Protection (E-Commerce) Rules](https://consumeraffairs.gov.in/public/upload/files/E%20commerce%20rules_1732703966.pdf) where applicable; this review does not decide their legal applicability to every B2B customer or invent a statutory designation.

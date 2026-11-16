@@ -39,10 +39,13 @@ class GoogleAdmission(BaseModel):
 
 def is_bootstrap(path,method):
     s=get_settings()
-    return path==PATH and method=='POST' and s.heysow_customer_access_enabled and (s.heysow_public_registration_enabled or s.heysow_invited_registration_enabled)
+    return path==PATH and method=='POST' and s.heysow_customer_access_enabled and (s.heysow_public_registration_enabled or s.heysow_invited_registration_enabled or bool(s.heysow_registration_acceptance_emails.strip()))
 
 
 def access(c,actor,*,require_terms=True):
+    from app.accounts.policy import require_work_identity
+    try:require_work_identity(actor)
+    except HTTPException:return False
     s=get_settings()
     if not s.heysow_customer_access_enabled or not s.heysow_terms_version:return False
     if s.heysow_accounts_enabled:
@@ -55,6 +58,8 @@ def access(c,actor,*,require_terms=True):
 def admit(c,body,*,actor,broker_verified):
     s=get_settings()
     if not broker_verified:raise HTTPException(401,'Verified server authentication is required.')
+    from app.accounts.policy import require_work_identity
+    require_work_identity(actor)
     if not s.heysow_customer_access_enabled:raise HTTPException(503,'Customer account access is not enabled.')
     if actor!=body.email or not body.email_verified or not s.heysow_google_admission_client_id or body.client_id!=s.heysow_google_admission_client_id:
         raise HTTPException(403,'Verified Google account identity is required.')

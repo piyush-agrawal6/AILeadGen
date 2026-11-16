@@ -36,6 +36,9 @@ def workspace_scope(conn, actor, organization_id):
     from app.api.organization import membership_role
     from app.config.settings import get_settings
     settings=get_settings()
+    if settings.heysow_accounts_enabled:
+        from app.accounts.policy import require_work_identity
+        require_work_identity(actor)
     if actor not in settings.allowed_emails:
         if settings.heysow_customer_access_enabled:
             from app.platform.admission import access

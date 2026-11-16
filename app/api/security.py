@@ -66,7 +66,10 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
             from app.platform.modules import guard_route,guard_product_route
             from app.platform.context import workspace_scope
             with db_session() as c:
-                if get_settings().heysow_accounts_enabled and request.state.user_email not in get_settings().allowed_emails:
+                if get_settings().heysow_accounts_enabled:
+                    from app.accounts.policy import require_work_identity
+                    require_work_identity(request.state.user_email)
+                if get_settings().heysow_accounts_enabled and (request.state.user_email not in get_settings().allowed_emails or request.headers.get('x-le-session')):
                     from app.accounts.sessions import validate
                     validate(c,request.state.user_email,request.headers.get('x-le-session',''))
                 state=org_context.resolve(c,request.state.user_email)

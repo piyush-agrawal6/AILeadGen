@@ -144,6 +144,8 @@ class Settings(BaseSettings):
     heysow_icp_ai_global_daily_limit:int=Field(100,ge=1,le=10000,alias='HEYSOW_ICP_AI_GLOBAL_DAILY_LIMIT')
     heysow_workspace_management_enabled: bool = Field(False,alias='HEYSOW_WORKSPACE_MANAGEMENT_ENABLED')
     heysow_accounts_enabled:bool=Field(False,alias='HEYSOW_ACCOUNTS_ENABLED')
+    heysow_work_email_only_enabled:bool=Field(True,alias='HEYSOW_WORK_EMAIL_ONLY_ENABLED')
+    heysow_registration_acceptance_emails:str=Field('',max_length=2000,alias='HEYSOW_REGISTRATION_ACCEPTANCE_EMAILS',repr=False,exclude=True)
     heysow_access_periods_enabled:bool=Field(False,alias='HEYSOW_ACCESS_PERIODS_ENABLED')
     transactional_mail_enabled:bool=Field(False,alias='TRANSACTIONAL_MAIL_ENABLED')
     transactional_mail_daily_limit:int=Field(100,ge=1,le=10000,alias='TRANSACTIONAL_MAIL_DAILY_LIMIT')

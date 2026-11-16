@@ -1,11 +1,11 @@
 # PlaneByte Privacy Policy
 
-**UNPUBLISHED PUBLICATION DRAFT — OWNER APPROVAL REQUIRED**  
-Prepared November 16, 2026. Effective date and published version will be assigned after approval. The four outstanding business decisions are in [the owner checklist](PLANEBYTE_LEGAL_OWNER_DECISIONS.md). This document does not replace the live development privacy page or certify compliance with any jurisdiction's law.
+**APPROVED FOR PUBLICATION — 16 November 2026**
+Final owner-review version: `planebyte-2026-11-16-v1`. Effective date: the date this approved version is first published. The owner has supplied the responsible business and privacy-contact details below. Publication was approved by the owner on 16 November 2026.
 
 ## 1. Scope and responsible organization
 
-This Policy explains the account, workspace, research, security and payment information processed for PlaneByte Intent Radar and Growth Intelligence, and related customer support. PlaneByte is operated by **[OWNER APPROVAL REQUIRED — decision 1: legal contracting/controller name, legal form and official business address]**. General enquiries may be sent to contact@planebyte.com.
+This Policy explains the account, workspace, research, security and payment information processed for PlaneByte Intent Radar and Growth Intelligence, and related customer support. PlaneByte is operated by **Planebyte, an individually operated business owned by Piyush Agrawal**, with its legal-notice/business address at **House No. 1005, Attabira, Bargarh, Odisha 768027, India**. Support, privacy requests and grievances may be sent to contact@planebyte.com. Our business website is https://planebyte.com and the application is https://app.planebyte.com.
 
 Where an organization controls information uploaded to its workspace, it may determine the purposes and permitted users of that information. PlaneByte operates the service on its behalf and also processes account administration, service security and transaction records for the purposes described here. A separate applicable data-processing agreement or mandatory law may specify additional responsibilities. A workspace member's personal rights and a workspace owner's authority are not interchangeable.
 
@@ -47,7 +47,7 @@ When you request an AI feature, the relevant company context, task instructions 
 
 ## 6. Service providers, disclosures and processing locations
 
-The current architecture uses Vercel for the application frontend, Google Cloud for the API/workers and Vertex AI, Neon PostgreSQL for stored application data, PayU for hosted payments, and Netlify for the separate marketing website. Resend is the intended transactional email delivery provider and must complete production configuration and delivery acceptance before new public account flows open. Publishing this draft does not activate or certify that integration.
+The current architecture uses Vercel for the application frontend, Google Cloud for the API/workers and Vertex AI, Neon PostgreSQL for stored application data, PayU for hosted payments, and Netlify for the separate marketing website. Resend delivers transactional account messages. Payment processing is unavailable until the specific merchant permissions and checkout acceptance have been verified; including PayU in this disclosure does not mean checkout is open.
 
 Providers receive information relevant to the function they perform. The application API/workers are deployed in India and the current database region is in the United States; other provider processing depends on the applicable service configuration and agreements. Do not infer that all information remains in one country. Applicable cross-border processing requirements and provider disclosures must be verified before publication.
 
@@ -87,7 +87,7 @@ Deletion or withdrawal may affect features that need the relevant information. R
 
 The service uses workspace authorization, protected authentication/session records, server-side secret handling, access controls and protected storage/transit mechanisms appropriate to the relevant component. No system can guarantee absolute security. We do not claim a security certification or guarantee against every incident.
 
-We investigate suspected incidents, take appropriate containment and recovery measures, and provide notifications required by applicable law and the relevant agreement. Contact contact@planebyte.com if you suspect unauthorized access, and avoid disclosing another person's information or credentials in the report. A published privacy/security escalation contact will follow decision 4.
+We investigate suspected incidents, take appropriate containment and recovery measures, and provide notifications required by applicable law and the relevant agreement. Contact contact@planebyte.com if you suspect unauthorized access, and avoid disclosing another person's information or credentials in the report. Support, privacy and security escalation use contact@planebyte.com, addressed to the business owner, Piyush Agrawal.
 
 ## 12. Eligibility, policy changes and contact
 
@@ -95,8 +95,4 @@ The service is intended for authorized business use. It is not designed to solic
 
 The published Policy will identify its version and effective date. Material changes will be communicated as required, and additional consent will be obtained where the applicable processing requires it. A policy update does not silently authorize unrelated outreach, a payment or a new source connection.
 
-General contact: contact@planebyte.com. Responsible organization/address: decision 1. Privacy-request and grievance process: decision 4. Mandatory rights and lawful access to an appropriate authority remain available.
-
----
-
-Editorial reference, outside the customer policy: review the official [Digital Personal Data Protection Act](https://www.meity.gov.in/static/uploads/2024/06/2bf1f0e9f04e6fb4f8fef35e82c42aa5.pdf) and [2025 Rules notification](https://www.meity.gov.in/static/uploads/2025/11/53450e6e5dc0bfa85ebd78686cadad39.pdf), including applicable commencement dates, before publication. This draft intentionally does not assume every provision is currently in force, prescribe a universal retention period or certify legal compliance.
+Support and privacy contact: contact@planebyte.com, addressed to Piyush Agrawal, business owner. Responsible business: Planebyte (Individual), House No. 1005, Attabira, Bargarh, Odisha 768027, India. Use the request and escalation process in section 10. Mandatory rights and lawful access to an appropriate authority remain available.

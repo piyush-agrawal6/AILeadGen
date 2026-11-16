@@ -1,6 +1,6 @@
 # PlaneByte Refund Policy
 
-**Unpublished publication draft — contracting identity verification required.** Prepared November 16, 2026. Operator: **[verified legal contracting name and official address required]**. This draft reflects the owner's proposed launch policy and must be checked against applicable obligations before publication.
+**APPROVED FOR PUBLICATION — 16 November 2026.** Version: `planebyte-2026-11-16-v1`. Effective date: the date this approved version is first published. Operator: **Planebyte, an individually operated business owned by Piyush Agrawal**, with its legal-notice/business address at **House No. 1005, Attabira, Bargarh, Odisha 768027, India**. Support: contact@planebyte.com. Website: https://planebyte.com; application: https://app.planebyte.com.
 
 ## Initial purchases
 

@@ -1,4 +1,4 @@
-import { googleAccountAllowed } from "@/lib/auth-policy";
+import { googleAccountAllowed, isWorkEmail } from "@/lib/auth-policy";
 import { serverEnv } from "@/lib/server/env";
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
@@ -8,7 +8,7 @@ import {admitGoogle} from "@/lib/server/admission";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [Google({authorization:{params:{prompt:'select_account'}}}),...(serverEnv().accounts?[Credentials({credentials:{email:{},password:{},ticket:{}},async authorize(input){
       const email=typeof input.email==='string'?input.email.trim().toLowerCase():'';
-      if(!email||email.length>254)return null;
+      if(!isWorkEmail(email))return null;
       const exchange=typeof input.ticket==='string'&&input.ticket.length===43;
       if(!exchange&&(typeof input.password!=='string'||input.password.length>128))return null;
       const result=await accountRequest(exchange?'exchange':'login',email,exchange?{token:input.ticket}:{email,password:input.password});
@@ -27,7 +27,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async signIn({ profile,user,account }) {
       if(account?.provider==='credentials')return (user as typeof user & {planeByteAdmitted?:boolean}).planeByteAdmitted===true;
-      if(googleAccountAllowed(profile,serverEnv().allowed))return true;
+      if(typeof profile?.email==='string'&&!isWorkEmail(profile.email))return '/login?error=work_email_required';
+      if(!serverEnv().accounts&&googleAccountAllowed(profile,serverEnv().allowed))return true;
       if(account?.provider!=="google"||profile?.email_verified!==true||typeof profile.email!=="string"||typeof profile.sub!=="string"||user.email?.toLowerCase()!==profile.email.toLowerCase())return false;
       const admitted=await admitGoogle({email:profile.email,sub:profile.sub,email_verified:profile.email_verified,name:typeof profile.name==="string"?profile.name:undefined});
       if(admitted){

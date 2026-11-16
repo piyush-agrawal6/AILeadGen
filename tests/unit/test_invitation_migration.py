@@ -32,7 +32,7 @@ def test_creation_ledger_upgrade_preserves_invitation_and_restores_schema19(tmp_
     complete=migrations.MIGRATIONS
     monkeypatch.setattr(migrations,'MIGRATIONS',complete[:19]);migrations.run_migrations(source)
     owner=source.execute('SELECT created_by_user_id FROM organizations WHERE id=?',(internal,)).fetchone()[0]
-    with workspace_scope(source,owner,internal):create(source,InviteCreate(email='migration-recipient@example.test'))
+    with workspace_scope(source,owner,internal):create(source,InviteCreate(email='migration-recipient@example.com'))
     source.commit()
     before=[tuple(row) for row in source.execute('SELECT * FROM workspace_invitations').fetchall()]
     snapshot=sqlite3.connect(tmp_path/'creation-snapshot.db');source.backup(snapshot)

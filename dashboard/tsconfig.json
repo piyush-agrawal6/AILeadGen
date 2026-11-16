@@ -51,7 +51,9 @@
     ".next-intent-radar23-product-build/types/**/*.ts",
     ".next-intent-radar23-product-build/dev/types/**/*.ts",
     ".next-growth-build/types/**/*.ts",
-    ".next-growth-build/dev/types/**/*.ts"
+    ".next-growth-build/dev/types/**/*.ts",
+    ".next-account-build/types/**/*.ts",
+    ".next-account-build/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

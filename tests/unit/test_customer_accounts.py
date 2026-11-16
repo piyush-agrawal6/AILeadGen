@@ -195,3 +195,27 @@ def test_verified_closure_is_operator_only_tracks_deadlines_and_retains_history(
     assert c.execute('SELECT COUNT(*) FROM customer_accounts').fetchone()[0]==1
     assert c.execute('SELECT COUNT(*) FROM launch_trial_claims').fetchone()[0]==1
     assert c.execute('SELECT COUNT(*) FROM organizations').fetchone()[0]>=1
+
+@pytest.mark.parametrize('email',['person@gmail.com','person@yahoo.com','person@hotmail.com','person@outlook.com','person@icloud.com','person@mailinator.com','person@sub.gmail.com'])
+def test_personal_identity_never_bypasses_existing_google_allowlist_or_sessions(customer,email):
+    c,s=customer;s.allowed_user_emails=email
+    body=claim(email=email)
+    before=c.total_changes
+    for operation in (lambda:google.admit(c,body),lambda:sessions.create(c,email,'GOOGLE'),lambda:service.login(models.Login(email=email,password=PASSWORD),'personal-denial'),lambda:service.recover(models.Recovery(email=email,request_id=uuid.uuid4()),'personal-denial')):
+        with pytest.raises(HTTPException) as error:operation()
+        assert error.value.status_code==403
+    assert c.total_changes==before
+    assert not c.execute('SELECT 1 FROM customer_accounts WHERE email=?',(email,)).fetchone()
+
+
+def test_controlled_signup_is_exact_allowlist_and_rechecked_at_verification(customer):
+    c,s=customer;s.heysow_public_registration_enabled=False;s.heysow_invited_registration_enabled=False
+    s.heysow_registration_acceptance_emails='person@example.com'
+    receipt=service.begin_signup(signup(),'controlled-client')
+    with pytest.raises(HTTPException):service.begin_signup(signup('other@example.com'),'other-controlled-client')
+    raw=otp(c,receipt['challenge_id']);s.heysow_registration_acceptance_emails=''
+    with pytest.raises(HTTPException):service.verify_email(models.Verify(challenge_id=receipt['challenge_id'],capability=receipt['capability'],code=raw),'controlled-client')
+    assert not c.execute('SELECT 1 FROM customer_accounts').fetchone()
+    s.heysow_registration_acceptance_emails='person@example.com'
+    result=service.verify_email(models.Verify(challenge_id=receipt['challenge_id'],capability=receipt['capability'],code=raw),'controlled-client')
+    assert result['verified'] and result['trial']['limits']['searches']==5
