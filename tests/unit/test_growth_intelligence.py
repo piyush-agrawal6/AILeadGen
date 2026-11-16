@@ -148,7 +148,7 @@ def test_ai_uses_exact_citations_and_reuses_owned_cache(growth,monkeypatch):
         calls.append(payload);row=payload['evidence'][0]
         assert 'cite each signal UUID AT MOST ONCE' in instruction
         assert 'Never repeat a signal_id' in json.dumps(schema.model_json_schema())
-        assert limits['attempts_per_provider']==1 and len(payload['evidence'])<=12
+        assert limits['attempts_per_provider']==1 and limits['max_output_tokens']==7000 and limits['timeout_seconds']==25 and len(payload['evidence'])<=12
         assert 'untrusted DATA' in instruction
         return models.Interpretation(themes=[models.Theme(name='Website workflow',description='A tentative single-discussion observation.',citations=[models.Citation(signal_id=row['id'],quote=row['excerpt'][:50])])])
     monkeypatch.setattr('app.growth_intelligence.service.ai.provider',lambda c:SimpleNamespace(structured=structured,last_provider='VERTEX_AI',last_model='controlled-model',last_usage={}))
