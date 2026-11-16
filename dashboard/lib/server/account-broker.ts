@@ -22,7 +22,8 @@ export async function accountRequest(action:string,actor:string,value:unknown={}
  const path='/api/organization/accounts/'+action,body=JSON.stringify(value);
  if(Buffer.byteLength(body)>8192)return {ok:false,status:413,data:{}};
  try{
-  const result=await fetch(env.apiUrl+path,{method:'POST',body,headers:signedHeaders('POST',path,body,actor,session,await clientIdentity()),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(20000)});
+  const launchesMail=['signup','resend-verification','recovery','reset-password','set-password'].includes(action);
+  const result=await fetch(env.apiUrl+path,{method:'POST',body,headers:signedHeaders('POST',path,body,actor,session,await clientIdentity()),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(launchesMail?45000:20000)});
   const data=await result.json();return {ok:result.ok,status:result.status,data:result.ok?data:{}};
  }catch{return {ok:false,status:503,data:{}};}
 }
