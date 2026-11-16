@@ -17,14 +17,14 @@ from app.acquisition import sheets
 from app.integrations import service,google_sheets
 from app.integrations.crypto import seal,open_envelope
 
-OWNER='customer@example.test'
+OWNER='customer@example.com'
 TOKENS={'access_token':'synthetic-access','refresh_token':'synthetic-refresh','expires_in':3600,'scope':sheets.SCOPE}
 
 @pytest.fixture
 def workspace(tmp_path,monkeypatch):
     settings=get_settings();monkeypatch.setattr(settings,'heysow_workspace_management_enabled',True);monkeypatch.setattr(settings,'heysow_customer_integrations_enabled',True)
     monkeypatch.setattr(settings,'heysow_integration_encryption_key',Fernet.generate_key().decode())
-    monkeypatch.setattr(settings,'allowed_user_emails',OWNER+',viewer@example.test')
+    monkeypatch.setattr(settings,'allowed_user_emails',OWNER+',viewer@example.com')
     path=tmp_path/'customer.db';monkeypatch.setattr(settings,'database_path',str(path))
     config=AcquisitionSettings(_env_file=None,AUTH_GOOGLE_ID='fixture-client',AUTH_GOOGLE_SECRET='fixture-secret',GOOGLE_SHEETS_REDIRECT_URI='https://example.test/acquisition/sheets/callback')
     monkeypatch.setattr('app.acquisition.config.settings',lambda:config)
@@ -147,14 +147,14 @@ def test_refresh_lease_prevents_duplicate_calls_and_preserves_rotated_refresh_to
 def test_revoked_manager_cannot_finish_exchange_and_viewers_cannot_read_provider(workspace,monkeypatch):
     c,first,second,path=workspace
     with workspace_scope(c,OWNER,first):
-        change_role(c,OWNER,'viewer@example.test','VIEWER');state,row,_=start(c)
+        change_role(c,OWNER,'viewer@example.com','VIEWER');state,row,_=start(c)
         async def revoked(_):
             c.execute("UPDATE organization_memberships SET role='VIEWER' WHERE organization_id=? AND user_id=?",(first,OWNER));c.commit();return TOKENS
         monkeypatch.setattr(sheets,'token_request',revoked)
         with pytest.raises(HTTPException) as denied:asyncio.run(service.connect(c,state,'controlled-code'))
         assert denied.value.status_code==403 and service.owned(c,row['id'])['credentials_ciphertext'] is None
     provider=AsyncMock();monkeypatch.setattr(sheets,'read_with_token',provider)
-    with workspace_scope(c,'viewer@example.test',first):
+    with workspace_scope(c,'viewer@example.com',first):
         assert service.listing(c)['can_manage'] is False
         with pytest.raises(HTTPException) as denied:asyncio.run(google_sheets.metadata(c,row['id'],'controlled-sheet-id'))
         assert denied.value.status_code==403;provider.assert_not_called()

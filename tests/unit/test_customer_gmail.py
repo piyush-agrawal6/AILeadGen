@@ -211,7 +211,7 @@ def test_owned_reply_sync_is_deduplicated_and_preserves_foreign_workspace(mailbo
         row,_=connect(c);cid,b,pid=seed(c,first,monkeypatch);approve(c);sent=mail.send(c,pid,OWNER,payload(c,pid,row))
         incoming={'message_id':'<reply@example.com>','from':'sandbox@example.com','to':OWNER,'subject':'Re: conversation','body_text':'Thanks',
             'references':[sent['provider_message_id']],'in_reply_to':sent['provider_message_id'],'date':datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000'),
-            'authentication':'mx.google.com; dkim=pass header.d=example.test'}
+            'authentication':'mx.google.com; dkim=pass header.d=example.com'}
         monkeypatch.setattr(gmail,'sync_messages',AsyncMock(return_value=([incoming],{'history_id':'11'})))
         assert customer.sync_mailbox(row['account_id'])['received']==1
         assert customer.sync_mailbox(row['account_id'])['received']==0
@@ -292,7 +292,7 @@ def test_bounces_and_tracking_preferences_are_independent_for_the_same_recipient
             dsn={'kind':'dsn','message_id':'<dsn-'+org+'@example.com>','references':[sent['provider_message_id']],
                 'recipients':[{'recipient':'public@hotel0.example','action':'failed','status':'5.1.1'}],
                 'from':'postmaster@example.com','to':OWNER,'date':datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000'),
-                'authentication':'mx.google.com; dkim=pass header.d=example.test'}
+                'authentication':'mx.google.com; dkim=pass header.d=example.com'}
             assert bounces.process(c,dsn,account_id=row['account_id'])==1
             assert bounces.process(c,dsn,account_id=row['account_id'])==0
             assert 'public@hotel0.example' not in mail.recipients(c,pid)
