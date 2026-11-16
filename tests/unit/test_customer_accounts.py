@@ -219,3 +219,9 @@ def test_controlled_signup_is_exact_allowlist_and_rechecked_at_verification(cust
     s.heysow_registration_acceptance_emails='person@example.com'
     result=service.verify_email(models.Verify(challenge_id=receipt['challenge_id'],capability=receipt['capability'],code=raw),'controlled-client')
     assert result['verified'] and result['trial']['limits']['searches']==5
+
+
+def test_frontend_work_email_policy_matches_authoritative_backend_policy():
+    from pathlib import Path
+    root=Path(__file__).resolve().parents[2]
+    assert json.loads((root/'dashboard/lib/work-email-policy.json').read_text())==policy.POLICY

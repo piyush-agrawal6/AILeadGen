@@ -1,4 +1,4 @@
-import emailPolicy from '../../app/accounts/email_policy.json';
+import emailPolicy from './work-email-policy.json';
 const blockedDomains = new Set([...emailPolicy.personal_domains, ...emailPolicy.disposable_domains]);
 export const workEmailMessage = 'Please use your company email address. Personal email providers are not supported.';
 export function isWorkEmail(value: string): boolean {
