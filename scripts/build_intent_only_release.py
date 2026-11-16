@@ -1,8 +1,8 @@
 """Build exact committed source on the existing locked backend runtimes."""
 import io,json,os,subprocess,tarfile
 from pathlib import Path
+from scripts.deploy_beta_backend import CLI
 ROOT=Path(__file__).resolve().parents[1]
-CLI='/Users/planebyte/Downloads/google-cloud-sdk/bin/gcloud'
 def main():
     os.umask(0o077);revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     folder=ROOT/'data/artifacts/staging'/('intent-only-'+revision[:10]);folder.mkdir(parents=True,exist_ok=False,mode=0o700)

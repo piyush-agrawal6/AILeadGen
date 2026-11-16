@@ -7,7 +7,7 @@ from app.config.settings import get_settings
 
 PREFIX='/api/organization/accounts'
 PUBLIC=frozenset(PREFIX+'/'+p for p in ('signup','verify-email','resend-verification','login','exchange','recovery','reset-password'))
-SESSION=frozenset(PREFIX+'/'+p for p in ('session','logout','link-google','set-password','terms'))
+SESSION=frozenset(PREFIX+'/'+p for p in ('session','logout','link-google','set-password','terms','privacy-export','privacy-requests','privacy-request'))
 router=APIRouter(prefix='/organization/accounts',tags=['Account security'])
 
 def broker(request:Request,response:Response):
@@ -94,3 +94,16 @@ def set_password(body:models.SetPassword,request:Request,response:Response,clien
 @router.post('/terms')
 def terms(body:models.AcceptTerms,request:Request,response:Response,client=Depends(broker),c=Depends(get_db,scope='function')):
     return service.accept_terms(c,*state(request),body)
+
+from app.accounts import privacy
+@router.post('/privacy-export')
+def privacy_export(request:Request,response:Response,client=Depends(broker),c=Depends(get_db,scope='function')):
+    return privacy.account_export(c,*state(request))
+
+@router.post('/privacy-requests')
+def privacy_requests(request:Request,response:Response,client=Depends(broker),c=Depends(get_db,scope='function')):
+    return privacy.requests(c,*state(request))
+
+@router.post('/privacy-request',status_code=202)
+def privacy_request(body:privacy.PrivacyRequest,request:Request,response:Response,client=Depends(broker),c=Depends(get_db,scope='function')):
+    return privacy.create(c,*state(request),body)

@@ -65,7 +65,7 @@ def test_postgres_schema47_to49_preserves_history_without_manufacturing_accounts
     monkeypatch.setattr(migrations,'MIGRATIONS',full[:47]);run_migrations(postgres)
     before={table:postgres.execute('SELECT COUNT(*) FROM '+table).fetchone()[0] for table in ('users','organizations','organization_memberships','businesses','prospects','email_messages','billing_payments','commercial_contracts')};postgres.commit()
     monkeypatch.setattr(migrations,'MIGRATIONS',full)
-    assert run_migrations(postgres)==2 and run_migrations(postgres)==0
+    assert run_migrations(postgres)==len(full)-47 and run_migrations(postgres)==0
     verify_schema(postgres)
     assert all(postgres.execute('SELECT COUNT(*) FROM '+table).fetchone()[0]==count for table,count in before.items())
     for table in ('customer_accounts','customer_workspace_access','launch_trial_claims','payu_access_orders','access_periods','transactional_notifications'):

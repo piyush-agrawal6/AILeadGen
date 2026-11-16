@@ -1,0 +1,10 @@
+# OWNER APPROVAL REQUIRED
+
+Status updated after the owner’s November 16 launch authorization. These are the four legal-policy areas. The Terms and Privacy drafts are complete for review and remain unpublished. They do not activate registration, payments, deletion or a recurring mandate.
+
+- [ ] **1 — Contracting identity:** legal contracting name, legal form and official business/service address. These identify the service provider and privacy contact in both documents.
+- [x] **2 — Owner-proposed refunds/cancellation:** seven-day refund-request window for an initial purchase, with additional mandatory rights preserved; no automatic renewal; paid access continues through the purchased term. Implement subject to applicable law; no unapproved usage-percentage exception or yearly price.
+- [x] **3 — Owner-proposed retention:** ordinary account data within 30 days after verified account closure; backups age out through their normal cycle, targeted within 90 days. Access expiry alone preserves data; retained exceptions require a documented purpose.
+- [x] **4 — Request process implemented:** authenticated Settings intake and account-detail export, reference/acknowledgement, identity and workspace-authority review through contact@planebyte.com, operator-confirmed closure and tracked 30/90-day deadlines. Accounting/refunds, holds, disputes, security, contact history and suppression exceptions remain subject to scoped review. No blanket deletion authority or automatic production purge is implied.
+
+Drafts: [Terms of Service](PLANEBYTE_TERMS_OF_SERVICE_DRAFT.md) and [Privacy Policy](PLANEBYTE_PRIVACY_POLICY_DRAFT.md). General service contact is the existing contact@planebyte.com; a privacy/grievance contact must be confirmed under decision 4. The refund window and retention targets now come from the owner’s November 16 authorization. No legal entity, registration, GSTIN or postal address has been invented. Publication still requires verified identity and validation of applicable obligations and operational retention controls.

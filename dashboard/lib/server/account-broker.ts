@@ -15,7 +15,7 @@ export async function clientIdentity(){
  const value=[incoming.get('x-vercel-forwarded-for')||incoming.get('x-real-ip')||'unknown',incoming.get('user-agent')||'unknown'].join('|').slice(0,1000);
  return createHmac('sha256',serverEnv().secret).update('account-client:'+value).digest('hex');
 }
-export type AccountResult={authenticated?:boolean;verified?:boolean;accepted?:boolean;reset?:boolean;email?:string;user_id?:string;name?:string;session_token?:string;expires_at?:number;login_ticket?:string;challenge_id?:string;capability?:string;requires_terms?:boolean;terms_version?:string;google_linked?:boolean;password_enabled?:boolean;link_token?:string};
+export type AccountResult={id?:string;authenticated?:boolean;verified?:boolean;accepted?:boolean;reset?:boolean;email?:string;user_id?:string;name?:string;session_token?:string;expires_at?:number;login_ticket?:string;challenge_id?:string;capability?:string;requires_terms?:boolean;terms_version?:string;google_linked?:boolean;password_enabled?:boolean;link_token?:string};
 export async function accountRequest(action:string,actor:string,value:unknown={},session=''):Promise<{ok:boolean;status:number;data:AccountResult}>{
  const env=serverEnv();if(!env.accounts||!env.customerAccess||env.secret.length<32)return {ok:false,status:503,data:{}};
  if(!/^[a-z-]+$/.test(action))throw new Error('Unsupported account action');

@@ -36,6 +36,7 @@ def admit(c,body):
         security.audit(c,email,'GOOGLE_LINKED')
     existing=account or legacy
     if not existing:
+        if not s.heysow_access_periods_enabled:raise HTTPException(503,'New account access enforcement is not enabled.')
         try:policy.work_email(email)
         except ValueError:raise HTTPException(422,policy.MESSAGE) from None
         if not s.heysow_public_registration_enabled:

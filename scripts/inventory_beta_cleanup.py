@@ -34,7 +34,9 @@ def inventory(recovery_path, target, output):
         workspaces = [dict(zip(('id', 'status', 'active_members'), r)) for r in connection.execute("SELECT o.id,o.status,COUNT(m.user_id) FROM organizations o LEFT JOIN organization_memberships m ON m.organization_id=o.id AND m.status='ACTIVE' GROUP BY o.id,o.status ORDER BY o.id")]
         users = [dict(zip(('id', 'role'), r)) for r in connection.execute('SELECT id,role FROM users ORDER BY id')]
         dependencies = [dict(zip(('table', 'references'), r)) for r in connection.execute("SELECT conrelid::regclass::text,confrelid::regclass::text FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace ORDER BY 1,2")]
-        payments = [dict(zip(('provider', 'mode', 'status', 'records'), r)) for r in connection.execute('SELECT provider,mode,status,COUNT(*) FROM billing_payments GROUP BY provider,mode,status ORDER BY provider,mode,status')]
+        # The original billing_payments table is the retained Razorpay ledger;
+        # it has no provider column. Preserve its classification explicitly.
+        payments = [{'provider': 'razorpay', **dict(zip(('mode', 'status', 'records'), r))} for r in connection.execute('SELECT mode,status,COUNT(*) FROM billing_payments GROUP BY mode,status ORDER BY mode,status')]
         connection.execute('ROLLBACK')
     result = {
         'stage': 'A', 'production_written': False, 'cleanup_executed': False,

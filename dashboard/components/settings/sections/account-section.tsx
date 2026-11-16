@@ -7,6 +7,7 @@ import { Sun, Moon, Monitor, ShieldCheck, ExternalLink, LogOut, Lock } from "luc
 import { AccountProfileSettings } from "@/components/workspaces/account-profile";
 import {accountSecurity,linkGoogle,addPassword} from "@/app/account-security-actions";
 import {AccountForm} from "@/components/auth/account-form";
+import {PrivacyControls} from "@/components/auth/privacy-controls";
 import { Button } from "@/components/ui/button";
 
 const subscribe = () => () => {};
@@ -56,6 +57,7 @@ function AccountSecurityTab() {
       </div>
 
       {security===null&&<p role="alert" className="text-sm text-destructive">Account security could not be loaded. Please retry.</p>}
+      {security?.managed&&<PrivacyControls/>}
       {security?.managed&&!security.google_linked&&<form action={linkGoogle}><Button type="submit" variant="outline">Link your verified Google account</Button></form>}
       {security?.managed&&<div className="max-w-md rounded-xl border bg-card p-5 space-y-3"><h3 className="text-sm font-semibold">PlaneByte password</h3>{security.password_enabled?<p className="text-xs text-muted-foreground">A password is enabled. Use <a className="underline" href="/forgot-password">password recovery</a> to change it and revoke existing sessions.</p>:<><p className="text-xs text-muted-foreground">Add a password while signed in with Google. A verification code will be sent to your account email.</p><AccountForm action={addPassword} kind="reset" label="Verify email and add password"/></>}</div>}
       <div className="grid gap-4 sm:grid-cols-2">

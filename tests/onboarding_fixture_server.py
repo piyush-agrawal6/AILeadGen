@@ -21,6 +21,10 @@ async def crawl(website,active):
     return [{'id':'S1','url':website,'text':'Synthetic Browser Engineering builds Custom applications for Software teams.'}]
 autofill.collect_sources=crawl
 async def structured(instruction,payload,schema,**kwargs):
+    from app.intent_radar.assistant import Answer
+    if schema is Answer:
+        reference=payload['references'][0]
+        return Answer(blocks=[{'kind':'Evidence','text':reference['text'][:120],'citations':[{'reference':reference['id'],'quote':reference['text'][:150]}]}],limitations=['Synthetic browser provider, not real Vertex acceptance.'])
     if schema is autofill.Extraction:
         quote={'source_id':'S1','quote':'Synthetic Browser Engineering builds Custom applications for Software teams.'}
         return autofill.Extraction(fields=[{'field':'name','value':'Synthetic Browser Engineering','evidence':[quote]},{'field':'description','value':quote['quote'],'evidence':[quote]},{'field':'products_services','value':[{'name':'Custom applications'}],'evidence':[quote]}])

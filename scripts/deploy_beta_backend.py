@@ -1,5 +1,5 @@
 """Explicit, recovery-gated rollout to existing backend and worker resources only."""
-import argparse,json,os,subprocess,time,xml.etree.ElementTree as ET
+import argparse,json,os,subprocess,time,shutil,xml.etree.ElementTree as ET
 from pathlib import Path
 from dotenv import dotenv_values
 from app.database.postgres import PostgresConnection
@@ -7,7 +7,8 @@ from app.database.migrations import run_migrations,verify_schema
 from scripts.activate_owner_radar_beta import grant
 
 ROOT=Path(__file__).resolve().parents[1]
-CLI='/Users/planebyte/Downloads/google-cloud-sdk/bin/gcloud'
+CLI=os.environ.get('PLANEBYTE_GCLOUD_BIN') or shutil.which('gcloud') or str(ROOT/'data/artifacts/tooling/google-cloud-sdk/bin/gcloud')
+OPERATOR_ENV=Path(os.environ.get('PLANEBYTE_OPERATOR_ENV_FILE',str(ROOT/'.env')))
 PROJECT='querryside';REGION='asia-south1'
 EVIDENCE=ROOT/'data/artifacts/verification/beta-activation-20261113'
 STATE=ROOT/'data/backups/beta-production-rollout-20261113'
@@ -19,7 +20,7 @@ def command(args,*,data=None):
     p=subprocess.run([CLI,*args,'--project='+PROJECT,'--format=json','--quiet'],input=data,capture_output=True,text=True,timeout=420)
     if p.returncode:
         diagnostic=p.stderr
-        for key,value in dotenv_values(ROOT/'.env',interpolate=False).items():
+        for key,value in dotenv_values(OPERATOR_ENV,interpolate=False).items():
             if value and len(value)>=16 and any(part in key for part in ('SECRET','PASSWORD','TOKEN','KEY','DATABASE_URL')):diagnostic=diagnostic.replace(value,'[REDACTED]')
         if STATE.exists():(STATE/'last-cloud-error.log').write_text(diagnostic)
         raise RuntimeError('Cloud operation failed: '+' '.join(args[:4]))

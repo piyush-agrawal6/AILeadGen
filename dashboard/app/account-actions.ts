@@ -37,7 +37,7 @@ export async function verifyAccount(_state:AccountState,form:FormData):Promise<A
  return {error:null};
 }
 async function saveInvitation(invitation:string){const env=serverEnv();(await cookies()).set(invitationCookie,encodeConsent({version:env.termsVersion,accepted_at:Math.floor(Date.now()/1000),nonce:randomUUID(),invitation_token:invitation},env.secret),{httpOnly:true,secure:env.production,sameSite:'lax',path:'/accept-invitation',maxAge:600});}
-export async function resendAccountCode(_state:AccountState,_form:FormData):Promise<AccountState>{
+export async function resendAccountCode():Promise<AccountState>{
  const pending=await readAccountCookie(verificationCookie);
  if(!pending||typeof pending.email!=='string')return {error:'This verification request expired. Start again from signup.'};
  const result=await accountRequest('resend-verification',pending.email,{challenge_id:pending.challenge_id,capability:pending.capability,request_id:randomUUID()});

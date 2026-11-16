@@ -79,7 +79,7 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
 
         <div className="text-left sm:text-right space-y-1">
           <p className="text-xs text-muted-foreground">
-            {data.search_usage?.reset_at ? (
+            {data.native_access?.managed&&data.native_access.expires_at ? <>Access expires {new Date(data.native_access.expires_at*1000).toLocaleDateString()} · renew manually</> : data.search_usage?.reset_at ? (
               <>Allowance resets {new Date(data.search_usage.reset_at).toLocaleDateString()}</>
             ) : (
               <>Review each allowance’s reset date below</>

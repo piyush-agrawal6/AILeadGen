@@ -24,6 +24,7 @@ export async function linkGoogle(){
 }
 export async function addPassword(_previous:AccountState,form:FormData):Promise<AccountState>{
  const user=await currentUser(),password=form.get('password');if(!user?.email||typeof password!=='string'||password.length>128)return {error:'Sign in with Google again, then enter a new password.'};
+ if(password!==form.get('confirm_password'))return {error:'The passwords do not match.'};
  const result=await accountRequest('set-password',user.email,{password,request_id:randomUUID()},await privateSession());
  if(!result.ok)return {error:'A password could not be added. Sign in with Google again and use a unique passphrase of at least 15 characters.'};
  await saveAccountCookie(verificationCookie,{email:user.email,...result.data});redirect('/verify-email');
@@ -33,4 +34,16 @@ export async function acceptAccountTerms(_previous:AccountState,form:FormData):P
  const result=await accountRequest('terms',user.email,{terms_version:serverEnv().termsVersion,accepted:true,request_id:randomUUID()},await privateSession());
  if(!result.ok)return {error:'The account terms could not be updated. Sign in again and retry.'};
  redirect('/');
+}
+
+export async function exportAccountDetails(){
+ const user=await currentUser();if(!user?.email)return null;
+ const result=await accountRequest('privacy-export',user.email,{},await privateSession());
+ return result.ok?result.data:null;
+}
+export async function submitPrivacyRequest(_previous:AccountState,form:FormData):Promise<AccountState>{
+ const user=await currentUser(),kind=form.get('kind');
+ if(!user?.email||!['EXPORT','CLOSE_AND_DELETE','ERASURE'].includes(String(kind))||form.get('confirmed')!=='yes')return {error:'Choose and confirm your request.'};
+ const result=await accountRequest('privacy-request',user.email,{kind,confirmed:true,request_id:randomUUID()},await privateSession());
+ return result.ok&&result.data.id?{error:null,message:'Request recorded: '+result.data.id+'. Support will review identity, workspace authority and retention exceptions before any closure or deletion. No data has been deleted.'}:{error:result.status===401?'Sign out and sign in again before making this request.':'The request could not be recorded. Contact contact@planebyte.com.'};
 }

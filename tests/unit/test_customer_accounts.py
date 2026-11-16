@@ -149,3 +149,49 @@ def test_password_storage_is_real_scrypt_and_not_reversible():
     encoded=passwords.hash_password(PASSWORD)
     assert encoded.startswith('scrypt$1$131072$8$1$') and PASSWORD not in encoded
     assert passwords.verify(PASSWORD,encoded) and not passwords.verify('Different secure passphrase',encoded)
+
+
+def test_google_signup_cannot_bypass_disabled_native_access_enforcement(customer,monkeypatch):
+    c,s=customer;monkeypatch.setattr(s,'heysow_access_periods_enabled',False)
+    body=claim(email='unpaid@example.com')
+    with pytest.raises(HTTPException) as denied:admission.admit(c,body,actor=body.email,broker_verified=True)
+    assert denied.value.status_code==503
+    assert c.execute('SELECT COUNT(*) FROM customer_accounts').fetchone()[0]==0
+    assert c.execute('SELECT COUNT(*) FROM launch_trial_claims').fetchone()[0]==0
+
+
+def test_privacy_intake_export_and_cross_account_boundary(customer):
+    from app.accounts import privacy
+    c,s=customer;verified(c)
+    login=service.login(models.Login(email='person@example.com',password=PASSWORD),'fixture-client')
+    token=login['session_token'];actor='person@example.com'
+    exported=privacy.account_export(c,actor,token)
+    assert exported['account']['email']==actor
+    assert not any(value in json.dumps(exported) for value in ('password_hash','token_hash','google_subject',token))
+    request=privacy.PrivacyRequest(kind='CLOSE_AND_DELETE',request_id=uuid.uuid4(),confirmed=True)
+    first=privacy.create(c,actor,token,request)
+    again=privacy.create(c,actor,token,privacy.PrivacyRequest(kind='CLOSE_AND_DELETE',request_id=uuid.uuid4(),confirmed=True))
+    assert first['id']==again['id'] and first['data_deleted'] is False
+    assert c.execute('SELECT status FROM customer_accounts').fetchone()[0]=='ACTIVE'
+    assert c.execute('SELECT COUNT(*) FROM launch_trial_claims').fetchone()[0]==1
+    assert privacy.requests(c,actor,token)['items'][0]['status']=='REQUESTED'
+    for operation in (privacy.account_export,privacy.requests):
+        with pytest.raises(HTTPException):operation(c,'other@example.com',token)
+    c.execute("UPDATE customer_sessions SET created_at='2020-01-01T00:00:00+00:00'")
+    with pytest.raises(HTTPException) as denied:privacy.create(c,actor,token,request)
+    assert denied.value.status_code==401
+
+
+def test_verified_closure_is_operator_only_tracks_deadlines_and_retains_history(customer):
+    from app.accounts import privacy
+    c,s=customer;verified(c);login=service.login(models.Login(email='person@example.com',password=PASSWORD),'fixture-client');actor='person@example.com'
+    request=privacy.create(c,actor,login['session_token'],privacy.PrivacyRequest(kind='CLOSE_AND_DELETE',request_id=uuid.uuid4(),confirmed=True))
+    with pytest.raises(HTTPException):privacy.verify_closure(c,request['id'],actor,'review-case-123')
+    operator=s.allowed_emails[0]
+    result=privacy.verify_closure(c,request['id'],operator,'review-case-123')
+    assert not result['data_deleted'] and result['backup_target_at']-result['ordinary_data_due_at']==60*86400
+    assert privacy.verify_closure(c,request['id'],operator,'review-case-123')==result
+    with pytest.raises(HTTPException):sessions.validate(c,actor,login['session_token'])
+    assert c.execute('SELECT COUNT(*) FROM customer_accounts').fetchone()[0]==1
+    assert c.execute('SELECT COUNT(*) FROM launch_trial_claims').fetchone()[0]==1
+    assert c.execute('SELECT COUNT(*) FROM organizations').fetchone()[0]>=1
