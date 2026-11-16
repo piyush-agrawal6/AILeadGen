@@ -60,8 +60,9 @@ def snapshot_rows(data,question):
 
 def context_profile(c,scope):
     from app.platform.company_profiles import read_profile
-    profile=read_profile(c);allowed=('display_name','short_description','industry','target_customer_types','target_industries','target_countries')
+    profile=read_profile(c);allowed=('name','description','industry','positioning','target_customers','target_industries','countries_served','specialties')
     output={k:profile[k] for k in allowed if profile.get(k)}
+    output['products_services']=[{**item,'description':item['description'][:300]} for item in profile['products_services'][:6]]
     output['profile_version']=profile.get('version') or profile.get('updated_at')
     if scope.icp_id:
         from app.icp.service import get
@@ -105,8 +106,11 @@ async def process(c,key,job_id,lease):
     data=analytics.evidence(c,body.scope)
     profile=context_profile(c,body.scope);rows=snapshot_rows(data,body.question);settings=provider_settings()
     digest=fingerprint([analytics.VERSION,PROMPT,body.kind,body.report_type,body.question,body.scope.model_dump(mode='json'),data['input_hash'],profile,settings.primary_provider,settings.vertex_project,settings.vertex_location,settings.vertex_model,settings.gemini_model])
-    cached=c.execute("SELECT output_json,snapshot_json FROM growth_research WHERE organization_id=? AND input_hash=? AND status='COMPLETE' AND id<>? ORDER BY created_at DESC LIMIT 1",(row['organization_id'],digest,key)).fetchone()
-    output=None;mode='Lexical evidence — review required';reason=None;gateway=None
+    mode_expression="CAST(output_json AS JSONB)->>'mode'" if getattr(c,'backend',None)=='postgres' else "json_extract(output_json,'$.mode')"
+    # A completed lexical fallback is not a validated AI interpretation. Never
+    # relabel it as one on a later request, and never cache legacy ambiguous rows.
+    cached=c.execute("SELECT output_json,snapshot_json FROM growth_research WHERE organization_id=? AND input_hash=? AND status='COMPLETE' AND id<>? AND "+mode_expression+"=? ORDER BY created_at DESC LIMIT 1",(row['organization_id'],digest,key,'AI semantic interpretation — review required')).fetchone()
+    output=None;mode='Lexical evidence — review required';reason=None;gateway=None;output_error=None
     if cached:
         output=json.loads(cached['output_json']);snapshot=json.loads(cached['snapshot_json']);mode='Cached validated interpretation'
         output['mode']=mode
@@ -123,7 +127,14 @@ async def process(c,key,job_id,lease):
                 with operation('GROWTH_'+body.kind,operation_id=operation_id):
                     proposed=await asyncio.wait_for(gateway.structured(PROMPT,payload,models.Interpretation,max_output_tokens=3000,timeout_seconds=25,attempts_per_provider=1),timeout=32)
                 output=validate(proposed,rows).model_dump(mode='json');mode='AI semantic interpretation — review required'
-            except (ai.AiUnavailable,ai.AiApplicationError,TimeoutError,ValueError):reason='AI unavailable, invalid or outside budget; source evidence remains available.'
+            except (ai.AiUnavailable,ai.AiApplicationError,TimeoutError,ValueError) as error:
+                reason='AI unavailable, invalid or outside budget; source evidence remains available.'
+                # Retain a safe cause, never provider output or exception bodies.
+                from app.platform.setup_diagnostics import error_code
+                diagnostic=error_code(error)
+                known={'Research citation is not exact authorized source evidence.':'RESEARCH_CITATION_INVALID','Duplicate citations do not create independent support.':'RESEARCH_DUPLICATE_CITATION','Unsupported numerical assertion.':'RESEARCH_UNSUPPORTED_NUMBER','Unsupported commercial assertion.':'RESEARCH_UNSUPPORTED_CLAIM'}
+                output_error=known.get(str(error)) if isinstance(error,ai.AiOutputError) else None
+                output_error=output_error or (diagnostic if diagnostic.startswith('AI_') else 'AI_OUTPUT_INVALID')
             except HTTPException as error:
                 if error.status_code!=429:raise
                 reason='AI budget exhausted; source evidence remains available.'
@@ -131,6 +142,7 @@ async def process(c,key,job_id,lease):
         if output is None:output={'themes':analytics.lexical_groups(rows),'findings':[],'limitations':[reason or 'Semantic interpretation was not performed.']}
         snapshot={'evidence':rows,'coverage':data['coverage'],'as_of':data['as_of'],'current_sample':len(data['items']),'previous_sample':len(data['previous']),'analysis_sample':len(rows),'workspace_context':profile,'sampling':'At most 12 authorized candidates ranked by question overlap, current relevance and recency; bounded AI semantic assessment, not global semantic retrieval.','scope':body.scope.model_dump(mode='json')}
         output.update(mode=mode,fallback_reason=reason,provider=getattr(gateway,'last_provider',None),model=getattr(gateway,'last_model',None),usage=getattr(gateway,'last_usage',None),prompt_version='GROWTH_INTERPRETATION_V1',schema_version='GROWTH_RESEARCH_V1',evidence_version=analytics.VERSION,executive_summary=f"Review of {len(rows)} cited collected conversations. This sample does not establish market-wide demand.")
+        if output_error:output['ai_error_code']=output_error
     fence(c,key,job_id,lease)
     refreshed=analytics.evidence(c,body.scope,analytics.instant(data['as_of']))
     if refreshed['input_hash']!=data['input_hash'] or context_profile(c,body.scope)!=profile:raise HTTPException(409,'Evidence or workspace targeting changed during research. Review and retry.')

@@ -89,6 +89,42 @@ def test_claim_matching_rejects_unknown_ids_invented_quotes_and_numbers():
     invalid=valid.model_copy(deep=True);invalid.themes[0].description='Revenue growth 300% guaranteed'
     with pytest.raises(AiOutputError):service.validate(invalid,rows)
 
+def test_canonical_saved_company_and_offerings_reach_research_and_assistant(growth):
+    from app.platform.company_profiles import CompanyUpdate,save_profile
+    from app.intent_radar import assistant
+    c,path,org,other=growth
+    with workspace_scope(c,'controlled@example.test',org):
+        save_profile(c,CompanyUpdate(name='Reviewed studio',description='Builds application workflows.',contact_email='private@example.test',products_services=[{'name':'Application engineering','description':'Build and maintain applications.'}]))
+        context=service.context_profile(c,models.Scope())
+        assert context['name']=='Reviewed studio' and context['description']=='Builds application workflows.'
+        assert context['products_services'][0]['name']=='Application engineering'
+        assert 'contact_email' not in context
+        refs,_,_=assistant.references(c,models.Start(assistant=models.AssistantContext(),question='Explain our saved offering'))
+        ref=next(r for r in refs if r['id']=='workspace:profile')
+        assert 'Application engineering' in ref['text'] and 'private@example.test' not in ref['text']
+    with workspace_scope(c,'foreign@example.test',other):
+        foreign=service.context_profile(c,models.Scope())
+        assert foreign['name']!='Reviewed studio' and foreign['products_services']==[]
+    with pytest.raises(HTTPException):service.context_profile(c,models.Scope())
+
+def test_report_retains_safe_validation_cause_without_persisting_rejected_output(growth,monkeypatch):
+    c,path,org,_=growth;calls=[]
+    monkeypatch.setattr(get_settings(),'intent_radar_ai_enabled',True)
+    monkeypatch.setattr('app.intent_radar.intelligence.reserve',lambda *args,**kwargs:None)
+    async def structured(instruction,payload,schema,**limits):
+        calls.append(payload)
+        return models.Interpretation(themes=[models.Theme(name='Rejected invented answer',description='Must not be saved as an AI answer.',citations=[models.Citation(signal_id=payload['evidence'][0]['id'],quote='Invented quotation never present in source')])])
+    monkeypatch.setattr(service.ai,'provider',lambda _:SimpleNamespace(structured=structured,last_provider='VERTEX_AI',last_model='fixture-model',last_usage={}))
+    with workspace_scope(c,'controlled@example.test',org):
+        result=execute(c,path,models.Start())
+        assert result['output']['mode'].startswith('Lexical')
+        assert result['output']['ai_error_code']=='RESEARCH_CITATION_INVALID'
+        assert 'Rejected invented answer' not in json.dumps(result['output'])
+        assert 'Invented quotation' not in json.dumps(result['output'])
+        second=execute(c,path,models.Start())
+        assert len(calls)==2 and second['output']['mode'].startswith('Lexical')
+        assert second['output']['ai_error_code']=='RESEARCH_CITATION_INVALID'
+
 def test_csv_formula_cells_are_inert():
     for value in ['=HYPERLINK("https://evil.example")',' @formula','+cmd','-2']:
         assert exports.cell(value).startswith("'")
