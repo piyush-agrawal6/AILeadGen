@@ -38,6 +38,26 @@ export default function Terms() {
         </p>
       </section>
 
+      <section className="pb-legal-section" id="ai-content">
+        <h2>AI-generated content and prohibited NSFW outputs</h2>
+        <p>
+          PlaneByte's Intent Radar platform includes AI-powered synthesis, summaries, interpretations, and analytical features.
+        </p>
+        <p className="mt-2">
+          Users are strictly prohibited from using these features to request, generate, create, or distribute Not Safe for Work (NSFW),
+          pornographic, sexually explicit, or otherwise unlawful sexual content.
+        </p>
+        <p className="mt-2">
+          This restriction applies to user prompts, AI-generated interpretations, synthesized reports, summaries, and all other AI-generated outputs.
+        </p>
+        <p className="mt-2">
+          Any content involving the sexual exploitation or abuse of minors is strictly prohibited.
+        </p>
+        <p className="mt-2">
+          PlaneByte reserves the right to restrict access, remove prohibited content where technically possible, suspend accounts, or terminate services for violations of this policy.
+        </p>
+      </section>
+
       <section className="pb-legal-section">
         <h2>Commercial and legal terms pending approval</h2>
         <p>
