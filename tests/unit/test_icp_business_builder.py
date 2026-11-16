@@ -31,7 +31,9 @@ def setup_profile(http):
 
 
 def generate(http,provider,count=3):
-    provider.structured.return_value=builder.Suggestions(candidates=[candidate('Software teams '+str(i)) for i in range(count)],questions=['Which roles are most important?'])
+    candidates=[candidate('Software teams '+str(i)) for i in range(count)]
+    for i,item in enumerate(candidates):item.draft.criteria.intent.business_needs=[('Customer portal delivery','Internal workflow automation','Product modernization','Analytics integration','Mobile product delivery')[i]]
+    provider.structured.return_value=builder.Suggestions(candidates=candidates,questions=['Which roles are most important?'])
     response=http.post('/api/organization/icps/suggest',json={'mode':'BUSINESS_PROFILE','candidate_count':count})
     assert response.status_code==200,response.text
     return response.json()

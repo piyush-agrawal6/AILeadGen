@@ -27,7 +27,7 @@ class Preferences(BaseModel):
     setup_mode:Literal['MANUAL','AI']='MANUAL'
     company_review_id:UUID|None=None
     icp_review_id:UUID|None=None
-    accepted_icp_ids:list[UUID]=Field(default_factory=list,max_length=3)
+    accepted_icp_ids:list[UUID]=Field(default_factory=list,max_length=5)
     research_keywords:list[str]=Field(default_factory=list,max_length=12)
     excluded_keywords:list[str]=Field(default_factory=list,max_length=12)
 

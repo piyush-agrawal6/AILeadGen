@@ -132,6 +132,8 @@ class Settings(BaseSettings):
     heysow_domain_limit:int=Field(20,ge=1,le=100,alias='HEYSOW_DOMAIN_LIMIT')
     heysow_company_discovery_enabled:bool=Field(False,alias='HEYSOW_COMPANY_DISCOVERY_ENABLED')
     heysow_company_ai_enabled:bool=Field(False,alias='HEYSOW_COMPANY_AI_ENABLED')
+    heysow_company_js_enabled:bool=Field(False,alias='HEYSOW_COMPANY_JS_ENABLED')
+    heysow_setup_diagnostics_enabled:bool=Field(False,alias='HEYSOW_SETUP_DIAGNOSTICS_ENABLED')
     heysow_company_ai_daily_limit:int=Field(10,ge=1,le=100,alias='HEYSOW_COMPANY_AI_DAILY_LIMIT')
     heysow_company_ai_global_daily_limit:int=Field(100,ge=1,le=1000,alias='HEYSOW_COMPANY_AI_GLOBAL_DAILY_LIMIT')
     heysow_company_discovery_hourly_limit:int=Field(5,ge=1,le=100,alias='HEYSOW_COMPANY_DISCOVERY_HOURLY_LIMIT')
