@@ -15,8 +15,11 @@ from app.database.connection import db_session
 logger = logging.getLogger(__name__)
 
 
-def canonical_request(timestamp, nonce, method, path, body, actor):
-    return "\n".join([timestamp, nonce, method, path, hashlib.sha256(body).hexdigest(), actor])
+def canonical_request(timestamp, nonce, method, path, body, actor, session_token='', client_id=''):
+    parts=[timestamp, nonce, method, path, hashlib.sha256(body).hexdigest(), actor]
+    if session_token:parts.append('session-sha256:'+hashlib.sha256(session_token.encode()).hexdigest())
+    if client_id:parts.append('client:'+client_id)
+    return "\n".join(parts)
 
 
 _nonce_cleanup_lock=threading.Lock()
@@ -63,6 +66,9 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
             from app.platform.modules import guard_route,guard_product_route
             from app.platform.context import workspace_scope
             with db_session() as c:
+                if get_settings().heysow_accounts_enabled and request.state.user_email not in get_settings().allowed_emails:
+                    from app.accounts.sessions import validate
+                    validate(c,request.state.user_email,request.headers.get('x-le-session',''))
                 state=org_context.resolve(c,request.state.user_email)
                 request.state.organization=state
                 request.state.organization_id=state['organization_id'] if state else None
@@ -100,6 +106,8 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
         finally:request_metrics.finish(token)
 
     async def _dispatch(self, request, call_next):
+        if request.url.path=='/api/billing/payments/payu/callback' and request.method=='POST':return await call_next(request)
+        if request.url.path=='/api/notifications/webhooks/resend' and request.method=='POST':return await call_next(request)
         if request.url.path=='/api/billing/webhooks/razorpay' and request.method=='POST':
             # This one provider callback uses its own bounded raw-body HMAC;
             # arbitrary billing/API prefixes never bypass signed authentication.
@@ -116,10 +124,12 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
             return await self.authenticated(request,call_next)
         if not settings.api_signing_secret:
             return JSONResponse({"detail": "API authentication is not configured."}, status_code=503)
+        from app.api.routes.accounts import PUBLIC,SESSION
+        account_path=request.url.path in PUBLIC|SESSION
         body = bytearray()
         async for chunk in request.stream():
             body.extend(chunk)
-            if len(body) > (4_000_000 if request.url.path=='/api/experiments/catalog' else 1_048_576):
+            if len(body) > (8192 if account_path else 4_000_000 if request.url.path=='/api/experiments/catalog' else 1_048_576):
                 return JSONResponse({"detail": "Request too large."}, status_code=413)
         # Cache the bounded body for downstream Pydantic parsing.
         request._body = bytes(body)
@@ -132,7 +142,8 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
         if query:
             path += "?" + query
         from app.platform.admission import is_bootstrap,access as account_access
-        bootstrap=is_bootstrap(request.url.path,request.method)
+        account_bootstrap=settings.heysow_accounts_enabled and account_path and request.method=='POST'
+        bootstrap=is_bootstrap(request.url.path,request.method) or account_bootstrap
         candidate=actor in settings.allowed_emails or bootstrap or settings.heysow_customer_access_enabled
         valid_fields = (timestamp.isdigit() and abs(time.time() - int(timestamp)) <= 60
                         and re.fullmatch(r"[a-zA-Z0-9-]{16,100}", nonce)
@@ -141,7 +152,7 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
         if not valid_fields:
             logger.warning("Internal request rejected: invalid authentication fields")
             return JSONResponse({"detail": "Invalid internal authentication."}, status_code=401)
-        expected = hmac.new(settings.api_signing_secret.encode(), canonical_request(timestamp, nonce, request.method, path, body, actor).encode(), hashlib.sha256).hexdigest()
+        expected = hmac.new(settings.api_signing_secret.encode(), canonical_request(timestamp, nonce, request.method, path, body, actor, request.headers.get('x-le-session',''),request.headers.get('x-le-client','')).encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, supplied):
             logger.warning("Internal request rejected: signature mismatch")
             return JSONResponse({"detail": "Invalid internal authentication."}, status_code=401)
@@ -155,7 +166,7 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
         request.state.internal_verified = True
         # Admission is an account-only broker operation, including renewed terms
         # for viewers. It cannot inherit the account's selected workspace scope.
-        if request.url.path=='/api/organization/admission/google' and request.method=='POST':
+        if account_bootstrap or request.url.path=='/api/organization/admission/google' and request.method=='POST':
             return await call_next(request)
         return await self.authenticated(request,call_next)
 

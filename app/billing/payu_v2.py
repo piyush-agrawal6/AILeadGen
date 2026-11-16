@@ -5,7 +5,7 @@ A captured payment is not evidence of an active recurring mandate.
 """
 from datetime import datetime, timezone
 from email.utils import format_datetime
-import json, re
+import json, re, time
 from urllib.parse import urlsplit
 import httpx
 from app.billing.payu import credentials, sha, identifier, amount, PayURejected, PayUUnavailable
@@ -34,6 +34,7 @@ def request(action, payload):
     if action not in ('verify','create'): raise ValueError('Unsupported PayU action.')
     body, headers = encode(payload)
     if action == 'verify': headers['Info-Command'] = 'verify_payment'
+    deadline=time.monotonic()+20
     try:
         with httpx.Client(timeout=httpx.Timeout(12, connect=4), follow_redirects=False) as client:
             with client.stream('POST', URLS[get_settings().payu_mode][action], content=body, headers=headers) as response:
@@ -42,6 +43,7 @@ def request(action, payload):
                 if response.status_code != 200: raise PayURejected('PayU rejected the request.')
                 raw=bytearray()
                 for chunk in response.iter_bytes():
+                    if time.monotonic()>deadline:raise PayUUnavailable('PayU exceeded its bounded response deadline.')
                     raw.extend(chunk)
                     if len(raw)>262144: raise PayURejected('PayU response exceeds its bound.')
         result=json.loads(raw, parse_float=str)
@@ -87,7 +89,7 @@ def checkout_url(result):
     if not isinstance(value,str) or len(value)>4096: raise PayURejected('PayU checkout URL is absent.')
     try: parsed=urlsplit(value)
     except ValueError: raise PayURejected('Invalid PayU checkout URL.') from None
-    hosts={'live':{'secure.payu.in'},'test':{'test.payu.in'}}
+    hosts={'live':{'secure.payu.in','pp78secure.payu.in'},'test':{'test.payu.in'}}
     if parsed.scheme!='https' or parsed.hostname not in hosts[get_settings().payu_mode] or parsed.username or parsed.password or parsed.port not in (None,443) or parsed.fragment:
         raise PayURejected('Checkout must use an authorized PayU HTTPS host.')
     return value

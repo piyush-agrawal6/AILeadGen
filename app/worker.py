@@ -139,6 +139,12 @@ if __name__ == "__main__":
         from app.cloud_doctor import worker_canary
         worker_canary()
         raise SystemExit(0)
+    notification_id=os.environ.get('PLANEBYTE_NOTIFICATION_ID','')
+    if notification_id:
+        from app.notifications.transactional import deliver
+        with db_session() as c:verify_schema(c)
+        deliver(str(uuid.UUID(notification_id)))
+        raise SystemExit(0)
     intelligence_job_id=os.environ.get('LEADENGINE_INTELLIGENCE_JOB_ID','')
     if intelligence_job_id:
         from app.intelligence.jobs import execute as execute_intelligence

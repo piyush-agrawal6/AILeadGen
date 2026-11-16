@@ -1,5 +1,6 @@
 "use client";
 
+import {FixedTermPayments} from "@/components/workspaces/fixed-term-payments";
 import { useUsage } from "@/components/workspaces/usage";
 import { CommercialPlans } from "@/components/workspaces/commercial-plans";
 import { CreditCard, ShieldCheck, Sparkles, Check, ArrowRight } from "lucide-react";
@@ -9,13 +10,13 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
   const usageQuery = useUsage();
 
   if (usageQuery.isPending) {
-    return <p role="status" className="text-sm text-muted-foreground">Loading workspace billing & usage telemetry…</p>;
+    return <p role="status" className="text-sm text-muted-foreground">Loading workspace billing and usage…</p>;
   }
 
   if (usageQuery.isError || !usageQuery.data) {
     return (
       <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
-        <p>Billing telemetry could not be loaded: {usageQuery.error?.message || "Unknown error"}</p>
+        <p>Billing and usage could not be loaded: {usageQuery.error?.message || "Unknown error"}</p>
         <Button variant="outline" size="sm" className="mt-3" onClick={() => void usageQuery.refetch()}>
           Retry
         </Button>
@@ -29,9 +30,9 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
     return (
       <div className="space-y-6">
         <div className="border-b pb-4">
-          <h2 className="text-xl font-semibold tracking-tight">Subscription Plans Catalog</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Compare access plans</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Compare plans, monthly search allowances, and Growth Intelligence capabilities. Synchronized with planebyte.com/pricing.
+            Compare approved prices, search allowances, and Growth Intelligence capabilities.
           </p>
         </div>
         <CommercialPlans data={data.commercial} selectedPlan={null} />
@@ -67,12 +68,12 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
               {data.access.kind}
             </span>
             <span className="text-xs text-muted-foreground">
-              {data.subscription?.mode === "test" ? "Sandbox Mode" : "Pilot Access"}
+              {data.native_access?.managed?data.native_access.active?"Active access":"Access expired or unpaid":data.subscription?.mode === "test" ? "Test transaction" : "Approved access"}
             </span>
           </div>
           <h3 className="text-base font-semibold">Intent Radar + Growth Intelligence</h3>
           <p className="text-xs text-muted-foreground">
-            {data.team_seats} active workspace seat{data.team_seats === 1 ? "" : "s"} · Enforced server-side
+            {data.team_seats} active workspace seat{data.team_seats === 1 ? "" : "s"} · Current workspace members
           </p>
         </div>
 
@@ -81,7 +82,7 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
             {data.search_usage?.reset_at ? (
               <>Allowance resets {new Date(data.search_usage.reset_at).toLocaleDateString()}</>
             ) : (
-              <>Resets monthly</>
+              <>Review each allowance’s reset date below</>
             )}
           </p>
           <a
@@ -93,9 +94,11 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
         </div>
       </div>
 
+      {data.commercial.fixed_term&&<FixedTermPayments data={data.commercial.fixed_term} plans={data.commercial.catalog.plans}/>}
+
       {/* Usage Allowances */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold">Monthly Search & Monitoring Allowances</h3>
+        <h3 className="text-sm font-semibold">Plan allowances & daily safety limits</h3>
         <div className="grid gap-4 sm:grid-cols-2">
           {data.usage.map((item) => {
             const percent = Math.min(100, Math.round((item.used / Math.max(1, item.limit)) * 100));

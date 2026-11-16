@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 import { headers,cookies } from "next/headers";
 import {currentUser} from '@/lib/server/session';
+import {TermsReview} from "@/components/auth/terms-review";
 import {leadEngineEnabled} from '@/lib/product-availability';
 
 export const metadata: Metadata = {
@@ -28,7 +29,7 @@ export default async function RootLayout({
         <Providers>
           {publicPage ? (
             children
-          ) : (
+          ) : user&&"requiresTerms" in user&&user.requiresTerms ? <TermsReview/> : (
             <Shell
               user={user ? { name: user.name, email: user.email, image: 'image' in user ? (user.image as string | null) : undefined } : undefined}
               initialCollapsed={collapsed}

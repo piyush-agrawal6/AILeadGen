@@ -1,3 +1,6 @@
+import {AccountForm} from '@/components/auth/account-form';
+import {recoverAccount} from '../account-actions';
+import {serverEnv} from '@/lib/server/env';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
@@ -14,16 +17,17 @@ import { brand } from '@/lib/brand';
 
 export const metadata: Metadata = {
   title: 'Sign-in & Access Help · PlaneByte',
-  description: 'Troubleshoot Google OAuth sign-in and PlaneByte workspace access.',
+  description: 'Recover account access and troubleshoot Google sign-in or workspace permissions.',
 };
 
 export default function ForgotPassword() {
   return (
     <LegalDocument
       title="Sign-in & access help"
-      summary="PlaneByte uses verified Google OAuth for enterprise authentication. Review the scenarios below to resolve common access, invitation, or account issues."
+      summary={serverEnv().accounts?"Recover your PlaneByte password or get help with Google sign-in and workspace access.":"PlaneByte uses verified Google OAuth for enterprise authentication. Review the scenarios below to resolve common access, invitation, or account issues."}
       activeTab="help"
     >
+      {serverEnv().accounts&&<section className="mb-8 max-w-md"><h2 className="text-lg font-semibold mb-3">Recover your PlaneByte password</h2><AccountForm action={recoverAccount} kind="recovery"/></section>}
       <section className="space-y-6">
         <div>
           <h2 className="text-lg font-semibold text-foreground tracking-tight mb-1">
@@ -130,7 +134,7 @@ export default function ForgotPassword() {
       <section className="pb-legal-section mt-10">
         <h2>Enterprise security and session lifetime</h2>
         <p>
-          PlaneByte authentication sessions automatically expire after 8 hours of inactivity.
+          PlaneByte authentication sessions automatically expire after 8 hours.
           Workspace permissions, role assignments, and team memberships are managed server-side and never leak across tenant boundaries.
           Signing in with Google does not grant PlaneByte access to your personal files, Google Drive, or Gmail inbox without separate explicit integration consent.
         </p>

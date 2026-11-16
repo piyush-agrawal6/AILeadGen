@@ -152,14 +152,16 @@ async def process(c,key,job_id,lease):
 def release_unfinished_report(c,key):
     """Known failed/cancelled work only; never release an uncertain AI attempt."""
     from app.config.settings import get_settings
-    if not get_settings().payu_billing_enabled:return
+    if not (get_settings().payu_billing_enabled or get_settings().heysow_access_periods_enabled):return
     row=owned(c,key);body=json.loads(row['scope_json'])
     if body['kind']!='REPORT' or row['status']=='COMPLETE':return
     from app.billing.ai_accounting import finalize_operation
     from app.billing.commercial_usage import settle
     operation_id='report:'+key
     finalize_operation(c,operation_id)
-    state=c.execute("SELECT state FROM commercial_reservations WHERE organization_id=? AND operation_id=? AND dimension='reports'",(row['organization_id'],operation_id)).fetchone()
+    from app.billing.access_periods import ledgers
+    _,reservations_table=ledgers(c,row['organization_id'])
+    state=c.execute(f"SELECT state FROM {reservations_table} WHERE organization_id=? AND operation_id=? AND dimension='reports'",(row['organization_id'],operation_id)).fetchone()
     if state and state['state']=='RESERVED':settle(c,operation_id,release=True,dimensions=('reports',))
 
 def detail(c,key):

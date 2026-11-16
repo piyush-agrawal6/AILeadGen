@@ -8,7 +8,7 @@ from app.database.connection import db_session
 from app.database.repositories import PipelineRunRepository
 
 
-def run_job(run_id, session=None, *, report_id=None, profile_job_id=None, intelligence_job_id=None,webhook_endpoint_id=None,webhook_dispatch_token=None,sheet_export_id=None):
+def run_job(run_id, session=None, *, report_id=None, profile_job_id=None, intelligence_job_id=None,webhook_endpoint_id=None,webhook_dispatch_token=None,sheet_export_id=None,notification_id=None):
     if sheet_export_id:
         from app.integrations.service import require_enabled
         require_enabled()
@@ -26,7 +26,14 @@ def run_job(run_id, session=None, *, report_id=None, profile_job_id=None, intell
         session = AuthorizedSession(credentials)
     url = f"https://run.googleapis.com/v2/projects/{settings.gcp_project_id}/locations/{settings.gcp_region}/jobs/{settings.cloud_run_job}:run"
     overrides={"taskCount":1,"containerOverrides":[{"env":[{"name":"LEADENGINE_RUN_ID","value":str(run_id) if run_id else ""},{"name":"LEADENGINE_REPORT_ID","value":report_id or ""}]}]}
-    if sheet_export_id:
+    if notification_id:
+        from app.notifications.transactional import require_enabled
+        require_enabled()
+        import uuid
+        notification_id=str(uuid.UUID(notification_id))
+        overrides['timeout']='90s'
+        overrides['containerOverrides'][0]['env']=[{'name':'PLANEBYTE_NOTIFICATION_ID','value':notification_id}]+[{'name':key,'value':''} for key in ('LEADENGINE_AUTOMATION_MODE','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID','LEADENGINE_INTELLIGENCE_JOB_ID','LEADENGINE_PROFILE_DISCOVERY_ID','LEADENGINE_WEBHOOK_ENDPOINT_ID','LEADENGINE_WEBHOOK_DISPATCH_TOKEN','LEADENGINE_SHEET_EXPORT_ID')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
+    elif sheet_export_id:
         overrides['timeout']='90s'
         overrides['containerOverrides'][0]['env']=[{'name':'LEADENGINE_SHEET_EXPORT_ID','value':sheet_export_id}]+[{'name':key,'value':''} for key in ('LEADENGINE_AUTOMATION_MODE','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID','LEADENGINE_INTELLIGENCE_JOB_ID','LEADENGINE_PROFILE_DISCOVERY_ID','LEADENGINE_WEBHOOK_ENDPOINT_ID','LEADENGINE_WEBHOOK_DISPATCH_TOKEN')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
     elif webhook_endpoint_id:
@@ -42,6 +49,7 @@ def run_job(run_id, session=None, *, report_id=None, profile_job_id=None, intell
         overrides['containerOverrides'][0]['env']=[{'name':'LEADENGINE_PROFILE_DISCOVERY_ID','value':profile_job_id}]+[{'name':key,'value':''} for key in ('LEADENGINE_AUTOMATION_MODE','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
     elif report_id:overrides['timeout']='300s'
     elif not profile_job_id:overrides['containerOverrides'][0]['env']=overrides['containerOverrides'][0]['env'][:1]
+    if not notification_id:overrides['containerOverrides'][0]['env'].append({'name':'PLANEBYTE_NOTIFICATION_ID','value':''})
     response = session.post(url, json={"overrides":overrides}, timeout=30)
     if response.status_code >= 400:
         # Cloud error bodies can contain infrastructure data: never expose them to UI.

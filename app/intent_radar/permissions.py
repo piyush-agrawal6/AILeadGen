@@ -29,7 +29,10 @@ def context(c, write=False, manager=False):
         WHERE m.organization_id=? AND m.user_id=? AND m.status='ACTIVE'""",(ctx.organization_id,ctx.actor)).fetchone()
     if not row or row['organization_status']!='ACTIVE':raise HTTPException(403,'Active workspace membership is required.')
     if not _enabled(c,ctx.organization_id,row):raise HTTPException(404,'Intent Radar is not enabled for this workspace.')
-    if write:authorize(c,ctx.actor,'POST','/api/intent-radar',{},ctx.organization_id)
+    if write:
+        from app.billing.access_periods import require_current
+        require_current(c,ctx.organization_id)
+        authorize(c,ctx.actor,'POST','/api/intent-radar',{},ctx.organization_id)
     if manager and row['role'] not in ('OWNER','ADMIN'):raise HTTPException(403,'Intent Radar settings require a workspace administrator.')
     return ctx
 

@@ -16,5 +16,5 @@ export async function signupWithGoogle(form:FormData){
    if((!env.publicRegistration&&!existing&&!code)||(code&&!/^[A-Za-z0-9_-]{40,100}$/.test(code)))redirect("/signup?error=invitation_required");
    const ticket=encodeConsent({version:env.termsVersion,accepted_at:Math.floor(Date.now()/1000),nonce:randomUUID(),...(code?{invitation_token:code}:{})},env.secret);
   (await cookies()).set(signupCookie,ticket,{httpOnly:true,secure:env.production,sameSite:"lax",path:"/",maxAge:600});
-   await signIn("google",{redirectTo:code?"/accept-invitation":"/settings/workspaces"});
+   await signIn("google",{redirectTo:code?"/accept-invitation":env.accounts?"/onboarding":"/settings/workspaces"});
 }

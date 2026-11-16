@@ -1,3 +1,7 @@
+import {randomUUID} from 'node:crypto';
+import {AccountForm} from '@/components/auth/account-form';
+import {readAccountCookie} from '@/lib/server/account-cookies';
+import {createAccount} from '../account-actions';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ExternalLink, ShieldCheck, AlertCircle } from 'lucide-react';
@@ -21,6 +25,8 @@ export default async function Signup({
 }) {
   const user = await currentUser();
   const env = serverEnv();
+  const pendingInvite=env.accounts?await readAccountCookie('planebyte-pending-invitation'):null;
+  const initialInvitation=typeof pendingInvite?.invitation==='string'?pendingInvite.invitation:'';
   const registration =
     (env.publicRegistration || env.invitedRegistration) &&
     env.customerAccess &&
@@ -34,7 +40,7 @@ export default async function Signup({
       description={
         registration
           ? env.publicRegistration
-            ? 'Create your independent workspace account using your verified Google identity.'
+            ? env.accounts?'Create a workspace with your company email or verified work Google account.':'Create your independent workspace account using your verified Google identity.'
             : 'Public registration is closed. Use your private invitation code and the Google account named in your invitation.'
           : 'Public self-service registration is currently closed. Request workspace access from our team or continue with an already approved Google account.'
       }
@@ -72,12 +78,13 @@ export default async function Signup({
           </Link>
         </div>
       ) : registration ? (
-        <form action={signupWithGoogle} className="space-y-4 text-left">
+        <><form action={signupWithGoogle} className="space-y-4 text-left">
           <label className="block text-xs font-medium text-foreground">
             Private invitation code{env.publicRegistration ? ' (optional)' : ''}
             <input
               className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono"
               name="invitation_token"
+              defaultValue={initialInvitation}
               autoComplete="off"
               minLength={40}
               maxLength={100}
@@ -114,7 +121,7 @@ export default async function Signup({
           <p className="pb-auth-fineprint text-[11px] text-muted-foreground text-center">
             Only your verified Google account is admitted. No workspace or mailbox access is inherited.
           </p>
-        </form>
+        </form>{env.accounts&&<><div className="pb-auth-divider"><span>or use company email</span></div><AccountForm action={createAccount} kind="signup" requestId={randomUUID()} initialInvitation={initialInvitation} invitationRequired={!env.publicRegistration}/><p className="text-xs text-muted-foreground">Seven-day trial. No card or automatic renewal. Includes five searches, three AI operations and one manual monitor.</p></>}</>
       ) : (
         <div className="space-y-4">
           <a

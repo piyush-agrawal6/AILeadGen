@@ -1,0 +1,5 @@
+'use client';
+import Link from 'next/link';
+import {useActionState} from 'react';
+import {acceptAccountTerms} from '@/app/account-security-actions';
+export function TermsReview(){const [state,submit,pending]=useActionState(acceptAccountTerms,{error:null});return <main className="min-h-dvh overflow-y-auto grid place-items-center p-6"><form action={submit} className="max-w-lg rounded-xl border bg-card p-6 space-y-4"><h1 className="text-xl font-semibold">Review the current account terms</h1><p className="text-sm text-muted-foreground">Before continuing, review the current Terms of Service and Privacy Policy.</p>{state.error&&<p role="alert" className="text-sm text-destructive">{state.error}</p>}<label className="flex items-start gap-2 text-sm"><input type="checkbox" name="accepted" value="yes" required/><span>I accept the <Link className="underline" href="/terms">Terms of Service</Link> and have reviewed the <Link className="underline" href="/privacy">Privacy Policy</Link>.</span></label><button disabled={pending} className="pb-auth-google-btn justify-center" type="submit">{pending?'Saving…':'Accept and continue'}</button></form></main>;}

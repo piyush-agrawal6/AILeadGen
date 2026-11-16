@@ -45,6 +45,8 @@ def manager(c):
 def scope_access(c, organization_id, scopes):
     """Credentials cannot grant a product the workspace does not own."""
     from app.api.organization import products
+    from app.billing.access_periods import require_paid_feature
+    require_paid_feature(c,organization_id,'api_requests')
     from app.intent_radar.permissions import availability
     leadgen = products(c, organization_id).get('LEADGEN', False)
     radar = availability(c, organization_id)['enabled']
@@ -132,7 +134,7 @@ def authenticate(c,authorization,*,consume=True):
     with workspace_scope(c,row['created_by'],row['organization_id']):
         operation_id=str(uuid.uuid4())
         reserve(c,{'api_requests':1},operation_id)
-        if get_settings().payu_billing_enabled:
+        if get_settings().payu_billing_enabled or get_settings().heysow_access_periods_enabled:
             from app.billing.commercial_usage import settle
             settle(c,operation_id)
     c.execute('DELETE FROM developer_request_windows WHERE window_start<?',(window-10,));c.execute('UPDATE workspace_api_keys SET last_used_at=? WHERE id=? AND revoked_at IS NULL',(now(),key))

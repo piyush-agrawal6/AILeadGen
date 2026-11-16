@@ -4,7 +4,7 @@ References: PayU Hosted consent, Verify Payment API, Collect Additional Charges.
 No card data, POST retries, dynamic hosts, inferred currencies or mandate grants.
 Zion/account enablement must be verified before a recurring flow is activated.
 """
-import hashlib,hmac,json,re
+import hashlib,hmac,json,re,time
 from decimal import Decimal,InvalidOperation
 import httpx
 from fastapi import HTTPException
@@ -127,3 +127,44 @@ def validate_payment(item,expected):
     # This validates a payment only. It does NOT prove a recurring mandate,
     # renewal period, refund status, charge-currency capability, or entitlement.
     return {'provider':'payu','mode':get_settings().payu_mode,'transaction_id':expected['txnid'],'provider_payment_id':str(item['mihpayid']),'payment_verified':True,'recurring_verified':False}
+
+def refund_actions(payment_id):
+    """Read-only reconciliation; never calls a refund/cancellation command.
+
+    docs.payu.in/reference/check_action_status_api_with_payu_id
+    No response body, bank reference or raw provider error leaves this module.
+    """
+    if not isinstance(payment_id,str) or not re.fullmatch(r'[0-9]{1,40}',payment_id):raise PayURejected('Invalid provider payment reference.')
+    key,salt=credentials();command='check_action_status'
+    data={'key':key,'command':command,'var1':payment_id,'var2':'payuid','hash':sha('|'.join((key,command,payment_id,salt)))}
+    deadline=time.monotonic()+20
+    try:
+        with httpx.Client(timeout=httpx.Timeout(12,connect=4),follow_redirects=False) as client:
+            with client.stream('POST',ENDPOINTS[get_settings().payu_mode][1],data=data) as response:
+                if response.status_code>=500 or response.status_code==429:raise PayUUnavailable('PayU refund reconciliation is temporarily unavailable.')
+                if response.status_code!=200:raise PayURejected('PayU refund reconciliation was rejected.')
+                raw=bytearray()
+                for chunk in response.iter_bytes():
+                    if time.monotonic()>deadline:raise PayUUnavailable('PayU refund reconciliation exceeded its deadline.')
+                    raw.extend(chunk)
+                    if len(raw)>262144:raise PayURejected('Refund reconciliation response exceeds its bound.')
+        result=json.loads(raw,parse_float=str)
+        details=result.get('transaction_details',{}).get(payment_id) if isinstance(result,dict) and isinstance(result.get('transaction_details'),dict) else None
+        if result.get('status') not in (1,'1') or not isinstance(details,dict) or len(details)>100:raise PayURejected('A bounded payment action history was not established.')
+        refunds=[]
+        for reference,item in details.items():
+            if not isinstance(item,dict):raise PayURejected('Invalid payment action.')
+            if item.get('action')!='refund':continue
+            if str(item.get('mihpayid','')).strip()!=payment_id or not re.fullmatch(r'[0-9]{1,40}',str(reference)) or str(item.get('request_id'))!=str(reference):raise PayURejected('Refund attribution differs.')
+            value=amount(str(item.get('amt','')))*100
+            if value<=0 or value!=value.to_integral_value():raise PayURejected('Refund amount is invalid.')
+            state=str(item.get('status','')).upper()
+            # Currency is not documented on every account's response. Retain an
+            # unknown currency as REVIEW; never equate INR action amounts to USD.
+            currency=item.get('originalCurrency') or item.get('currency')
+            if currency is not None and (not isinstance(currency,str) or not re.fullmatch('[A-Z]{3}',currency)):raise PayURejected('Invalid refund currency.')
+            normalized='SUCCEEDED' if state=='SUCCESS' else 'FAILED' if state=='FAILURE' else 'PENDING' if state in ('QUEUED','IN PROGRESS','REQUESTED','OD_HIT') else 'REVIEW'
+            refunds.append({'provider_refund_id':str(reference),'provider_payment_id':payment_id,'amount_minor':int(value),'currency':currency,'status':normalized})
+        return refunds
+    except (httpx.HTTPError,TimeoutError):raise PayUUnavailable('PayU refund reconciliation is temporarily unavailable.') from None
+    except (ValueError,UnicodeError,AttributeError):raise PayURejected('Invalid refund reconciliation response.') from None

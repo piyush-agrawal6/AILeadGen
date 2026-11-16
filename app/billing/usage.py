@@ -39,6 +39,11 @@ def capacity_for_workspace(c,org,dimension,current_count):
     # Internal target comes from a verified invitation, never a request's org ID.
     if dimension not in ('monitors','team_members'):raise ValueError('Unsupported capacity dimension.')
     from app.billing.commercial_usage import capacity as commercial_capacity
-    if dimension!='monitors' and commercial_capacity(c,org,dimension,current_count):return
+    from app.billing import access_periods
+    native=access_periods.require_current(c,org)
+    # The approved trial includes one stored manual monitor; paid plans retain
+    # their existing active-monitor accounting.
+    if dimension!='monitors' or native and native['source_kind']=='TRIAL':
+        if commercial_capacity(c,org,dimension,current_count):return
     lock(c,org);row=service.active(c,org)
     if row and current_count>=json.loads(row['plan_json'])['limits'][dimension]:raise HTTPException(429,'The current test plan '+dimension.replace('_',' ')+' capacity is exhausted.')

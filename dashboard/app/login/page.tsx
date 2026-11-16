@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import {AccountForm} from '@/components/auth/account-form';
+import {passwordSignIn} from '../account-actions';
+import {serverEnv} from '@/lib/server/env';
 import { ShieldCheck, AlertCircle } from 'lucide-react';
 import type { Metadata } from 'next';
 import { AuthFrame } from '@/components/auth/auth-frame';
@@ -8,7 +11,7 @@ import { googleSignIn } from './actions';
 
 export const metadata: Metadata = {
   title: 'Sign in · PlaneByte',
-  description: 'Sign in to your PlaneByte workspace with Google OAuth.',
+  description: 'Sign in to your PlaneByte workspace securely.',
 };
 
 export default async function Login({
@@ -16,6 +19,7 @@ export default async function Login({
 }: {
   searchParams: Promise<{ error?: string | string[] }>;
 }) {
+  const env=serverEnv();
   const params = await searchParams;
   const rawError = typeof params.error === 'string' ? params.error : undefined;
   const error = authenticationError(rawError);
@@ -25,7 +29,7 @@ export default async function Login({
       <div className="auth-form-content w-full">
         <h2 className="pb-auth-title">Welcome back</h2>
         <p className="pb-auth-subtitle">
-          Sign in to your PlaneByte workspace with your verified Google account.
+          {env.accounts?'Sign in with your company email or verified Google account.':'Sign in to your PlaneByte workspace with your verified Google account.'}
         </p>
 
         {error && (
@@ -39,6 +43,7 @@ export default async function Login({
         )}
 
         <GoogleForm action={googleSignIn} />
+        {env.accounts&&<><div className="pb-auth-divider"><span>or use email</span></div><AccountForm action={passwordSignIn} kind="login"/></>}
 
         <div className="pb-auth-security-note auth-signin-note">
           <ShieldCheck size={14} className="text-emerald-500 shrink-0" />

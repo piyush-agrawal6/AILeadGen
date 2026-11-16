@@ -2,7 +2,7 @@
 import time
 from uuid import UUID,uuid4
 from fastapi import HTTPException
-from pydantic import BaseModel,ConfigDict,Field,field_validator
+from pydantic import BaseModel,ConfigDict,Field,field_validator,SecretStr
 from app.config.settings import get_settings
 from app.api.organization import ensure_user
 from app.database.prospects import now
@@ -16,6 +16,7 @@ class GoogleAdmission(BaseModel):
     google_subject:str=Field(min_length=1,max_length=255)
     client_id:str=Field(min_length=1,max_length=300)
     email_verified:bool
+    link_token:SecretStr|None=Field(None,repr=False,exclude=True)
     name:str=Field('',max_length=120)
     terms_version:str=Field('',max_length=100)
     accepted_at:int|None=None
@@ -44,6 +45,9 @@ def is_bootstrap(path,method):
 def access(c,actor,*,require_terms=True):
     s=get_settings()
     if not s.heysow_customer_access_enabled or not s.heysow_terms_version:return False
+    if s.heysow_accounts_enabled:
+        customer=c.execute('SELECT status,terms_version,verified_at FROM customer_accounts WHERE user_id=?',(actor,)).fetchone()
+        if customer:return bool(customer['status']=='ACTIVE' and customer['verified_at'] and (not require_terms or customer['terms_version']==s.heysow_terms_version))
     row=c.execute('SELECT status,terms_version FROM account_admissions WHERE user_id=?',(actor,)).fetchone()
     return bool(row and row['status']=='ACTIVE' and (not require_terms or row['terms_version']==s.heysow_terms_version))
 
@@ -56,6 +60,9 @@ def admit(c,body,*,actor,broker_verified):
         raise HTTPException(403,'Verified Google account identity is required.')
     terms=s.heysow_terms_version
     if not terms:raise HTTPException(503,'Account terms are awaiting approval.')
+    if s.heysow_accounts_enabled:
+        from app.accounts.google import admit as customer_admit
+        return customer_admit(c,body)
     # Short, provider-free transaction serializes identity/consent races. Unique
     # user and subject constraints independently prevent cross-account adoption.
     if getattr(c,'backend',None)=='postgres':c.execute('SELECT pg_advisory_xact_lock(691944529)')

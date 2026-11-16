@@ -26,8 +26,7 @@ def plan(code):
     return selected
 
 def checkout_blockers():
-    from app.billing.payu import configuration_status
-    result=configuration_status()['blockers']
+    from app.billing.fixed_term import blockers
+    result=blockers()
     if not catalog()['allowances_approved']:result.append('Commercial numeric allowances are awaiting owner approval.')
-    result.extend(['Charge currency and tax disclosures are not yet approved.','Recurring payment acceptance and explicit public-checkout authorization are pending.'])
     return result

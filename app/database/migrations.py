@@ -1,3 +1,5 @@
+from app.database.account_security_schema import ACCOUNT_SECURITY_SQL
+from app.database.access_period_schema import ACCESS_PERIOD_SQL
 from app.database.commercial_schema import COMMERCIAL_SQL
 from app.database.intent_radar_schema import INTENT_RADAR_SQL
 from app.database.growth_intelligence_schema import GROWTH_SQL
@@ -339,6 +341,8 @@ MIGRATIONS: List[str] = [
     , GROWTH_SQL
     , BILLING_SQL
     , COMMERCIAL_SQL
+    , ACCOUNT_SECURITY_SQL
+    , ACCESS_PERIOD_SQL
 ]
 
 
@@ -419,9 +423,11 @@ def verify_schema(conn=None,minimum_version=None):
         # This permits a compatible API/worker rollout before migration 46, and
         # a flag-off rollback afterward without ever downgrading stored data.
         from app.config.settings import get_settings
-        compatible = (47 if get_settings().payu_billing_enabled else 46 if get_settings().billing_enabled else 45) if len(MIGRATIONS)==47 else 45 if len(MIGRATIONS)==46 and not get_settings().billing_enabled else (14 if len(MIGRATIONS)==15 else len(MIGRATIONS))
+        compatible = (49 if get_settings().heysow_accounts_enabled or get_settings().heysow_access_periods_enabled or get_settings().fixed_term_billing_enabled else 48 if get_settings().transactional_mail_enabled else 47 if get_settings().payu_billing_enabled else 46 if get_settings().billing_enabled else 45) if len(MIGRATIONS)==49 else (47 if get_settings().payu_billing_enabled else 46 if get_settings().billing_enabled else 45) if len(MIGRATIONS)==47 else 45 if len(MIGRATIONS)==46 and not get_settings().billing_enabled else (14 if len(MIGRATIONS)==15 else len(MIGRATIONS))
         if not (minimum_version or compatible) <= (version or 0) <= len(MIGRATIONS):
             raise RuntimeError("Database schema is out of date; run the explicit migration command")
+        if (version or 0)>=49 and not get_settings().heysow_access_periods_enabled and conn.execute('SELECT 1 FROM customer_workspace_access LIMIT 1').fetchone():
+            raise RuntimeError('Managed customer workspaces require fixed-term access enforcement; disable enrollment or checkout for rollback, never quota enforcement.')
     finally:
         if close:
             conn.close()

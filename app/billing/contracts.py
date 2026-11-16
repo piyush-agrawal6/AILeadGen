@@ -21,6 +21,8 @@ def snapshot(row):
     return value
 
 def active(c,org):
+    from app.billing import access_periods
+    if access_periods.managed(c,org):return access_periods.active(c,org)
     if not get_settings().payu_billing_enabled:return None
     if get_settings().payu_mode=='test' and org not in {x.strip() for x in get_settings().billing_test_workspaces.split(',') if x.strip()}:return None
     stamp=int(time.time())

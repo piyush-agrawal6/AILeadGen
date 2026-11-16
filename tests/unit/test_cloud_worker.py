@@ -13,7 +13,7 @@ def test_cloud_job_only_receives_run_id_override():
     session=Mock();session.post.return_value.status_code=200;session.post.return_value.json.return_value={"name":"operation/test"}
     assert run_job(42,session)=="operation/test"
     body=session.post.call_args.kwargs["json"]
-    assert body=={"overrides":{"taskCount":1,"containerOverrides":[{"env":[{"name":"LEADENGINE_RUN_ID","value":"42"}]}]}}
+    assert body=={"overrides":{"taskCount":1,"containerOverrides":[{"env":[{"name":"LEADENGINE_RUN_ID","value":"42"},{"name":"PLANEBYTE_NOTIFICATION_ID","value":""}]}]}}
     assert session.post.call_args.kwargs["timeout"]==30
 
 

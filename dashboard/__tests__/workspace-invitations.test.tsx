@@ -15,7 +15,7 @@ describe('workspace invitations',()=>{
   expect(await screen.findByLabelText('Private invitation link')).toHaveValue(window.location.origin+'/accept-invitation#'+'a'.repeat(43));
   const call=mocked.mock.calls.find(([,options])=>options?.method==='POST');
   expect(JSON.parse(String(call?.[1]?.body))).toEqual({email:'teammate@example.test',role:'MEMBER'});
-  expect(screen.getByText(/Invitation emails are not sent automatically/)).toBeVisible();
+  expect(screen.getByText(/Email delivery is queued when available/)).toBeVisible();
  });
  it('keeps the invitation code on error and never posts a caller-selected identity',async()=>{
   mocked.mockRejectedValueOnce(new Error('Invitation is unavailable for this account.'));

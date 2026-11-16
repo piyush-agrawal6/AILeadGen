@@ -1262,7 +1262,7 @@ def test_commercial_upgrade_preserves_existing_postgres_rows_and_billing_history
         import hashlib,json
         return {t:hashlib.sha256(json.dumps(sorted([json.dumps(dict(r),sort_keys=True,default=str) for r in c.execute('SELECT * FROM "'+t+'"').fetchall()])).encode()).hexdigest() for t in tables if t!='schema_migrations'}
     before=fingerprints();monkeypatch.setattr(migrations,'MIGRATIONS',full)
-    assert run_migrations(c)==1 and run_migrations(c)==0
+    assert run_migrations(c)==len(full)-46 and run_migrations(c)==0
     assert fingerprints()==before
     assert c.execute('SELECT COUNT(*) FROM commercial_contracts').fetchone()[0]==0
 
