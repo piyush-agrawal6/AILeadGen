@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 import { PlaneByteBrand } from './brand';
 import { AuthThemeToggle } from './theme-toggle';
+import { AuthBackgroundScene } from './auth-background-scene';
 import { leadEngineEnabled } from '@/lib/product-availability';
 
 export function AuthFrame({ children }: { children: React.ReactNode }) {
@@ -23,6 +24,9 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
         <div className="pb-auth-glow-3" />
         <div className="pb-auth-grid-pattern" />
       </div>
+
+      {/* Floating 3D Geometric Cubes & Scattered Pixel-Word Background Scene */}
+      <AuthBackgroundScene variant="auth" />
 
       {/* Minimal Top Header */}
       <header className="pb-auth-header">

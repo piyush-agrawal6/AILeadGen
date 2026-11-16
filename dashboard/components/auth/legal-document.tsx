@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowUpRight, ShieldAlert, HelpCircle } from 'lucide-react';
 import { PlaneByteBrand } from './brand';
 import { AuthThemeToggle } from './theme-toggle';
+import { AuthBackgroundScene } from './auth-background-scene';
 
 export function LegalDocument({
   title,
@@ -39,6 +40,9 @@ export function LegalDocument({
         <div className="pb-auth-glow-3" />
         <div className="pb-auth-grid-pattern" />
       </div>
+
+      {/* Floating 3D Geometric Cubes & Scattered Pixel-Word Background Scene */}
+      <AuthBackgroundScene variant="legal" />
 
       {/* Sticky Header with Navigation Tabs */}
       <header className="sticky top-0 z-30 w-full border-b border-border/80 bg-background/80 backdrop-blur-md">

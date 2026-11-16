@@ -7,6 +7,6 @@ describe("Google access policy", () => {
   it("fails closed with missing configuration", () => expect(googleAccountAllowed({ email: "founder@example.com", email_verified: true }, [])).toBe(false));
 });
 describe('Public branding assets',()=>{
- it.each(['/logo.png','/brand/mark.svg','/brand/heysow-mark.svg','/fonts/planebyte-sans-regular.woff2','/fonts/planebyte-sans-medium.woff2','/fonts/planebyte-sans-bold.woff2'])('allows the exact public asset %s',path=>expect(isPublicBrandAsset(path)).toBe(true));
+ it.each(['/logo.png','/brand/mark.svg','/brand/heysow-mark.svg','/brand/pb-mark.png','/favicon.ico','/pb-logo.ico','/apple-touch-icon.png','/site.webmanifest','/fonts/planebyte-sans-regular.woff2','/fonts/planebyte-sans-medium.woff2','/fonts/planebyte-sans-bold.woff2'])('allows the exact public asset %s',path=>expect(isPublicBrandAsset(path)).toBe(true));
  it.each(['/brand/mark.svg/private','/brand/private.svg','/api/leads','/api/client-reports','/logo.png/private','/fonts/private.woff2','/fonts/../api/leads','/leads'])('keeps private routes protected: %s',path=>expect(isPublicBrandAsset(path)).toBe(false));
 });

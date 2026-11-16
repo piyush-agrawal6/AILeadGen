@@ -1946,7 +1946,12 @@ html:not(.dark) .text-primary {
   font-size: 21px;
   font-weight: 650;
   letter-spacing: -.035em;
-  color: #20283b
+  color: hsl(var(--foreground));
+}
+
+.dark .heysow-wordmark,
+[data-theme='dark'] .heysow-wordmark {
+  color: #f3f2f6;
 }
 
 .heysow-wordmark img {
@@ -1955,6 +1960,11 @@ html:not(.dark) .text-primary {
   flex-shrink: 0;
   width: 36px;
   height: 36px
+}
+
+.dark .heysow-wordmark img,
+[data-theme='dark'] .heysow-wordmark img {
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.65)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
 .auth-story-content {

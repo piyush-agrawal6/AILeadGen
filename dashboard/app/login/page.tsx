@@ -26,7 +26,7 @@ export default async function Login({
 
   return (
     <AuthFrame>
-      <div className="auth-form-content w-full">
+      <div className="w-full">
         <h2 className="pb-auth-title">Welcome back</h2>
         <p className="pb-auth-subtitle">
           {env.accounts?'Sign in with your company email or verified Google account.':'Sign in to your PlaneByte workspace with your verified Google account.'}
