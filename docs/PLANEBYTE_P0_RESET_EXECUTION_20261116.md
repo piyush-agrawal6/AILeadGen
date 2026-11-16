@@ -1,6 +1,6 @@
 # PlaneByte P0 customer reset and native authentication — 16 November 2026
 
-Status: fresh backup verified; exact reset rehearsed; production execution and authentication rollout pending verification. Owner explicitly gave final authorization for ALL existing customer accounts and customer-owned data in this conversation; no additional reset approval is pending.
+Status: production reset committed and independently verified; native authentication frontend/backend deployed with controlled signup. The first real signup exposed a transactional worker-launch failure; its repair is in verification. Public registration remains closed. Owner explicitly gave final authorization for ALL existing customer accounts and customer-owned data in this conversation; no additional reset approval is pending.
 
 ## Recovery
 
@@ -17,7 +17,7 @@ The two original identity records are either deleted or retired. One original us
 
 External Google accounts and documents owned outside PlaneByte are not deleted. Application-side customer OAuth connections and capabilities are deleted. Existing read caches are authorized after current membership/account checks and keyed by tenant; deleted memberships cannot read cached data. Preserved infrastructure credentials are unchanged.
 
-## Exact table manifest (rehearsal)
+## Exact production reset manifest
 
 | Table | Before | Delete | Retain | Classification |
 |---|---:|---:|---:|---|
@@ -155,7 +155,7 @@ External Google accounts and documents owned outside PlaneByte are not deleted. 
 | `intent_source_runs` | 10 | 10 | 0 | CUSTOMER_RESET |
 | `intent_source_usage` | 4 | 4 | 0 | CUSTOMER_RESET |
 | `intent_worker_health` | 1 | 0 | 1 | SYSTEM |
-| `internal_request_nonces` | 7 | 0 | 7 | SYSTEM |
+| `internal_request_nonces` | 4 | 0 | 4 | SYSTEM |
 | `launch_trial_claims` | 0 | 0 | 0 | CUSTOMER_RESET |
 | `lead_assistant_actions` | 0 | 0 | 0 | CUSTOMER_RESET |
 | `lead_assistant_conversations` | 0 | 0 | 0 | CUSTOMER_RESET |
@@ -223,4 +223,16 @@ External Google accounts and documents owned outside PlaneByte are not deleted. 
 | `workspace_invitations` | 2 | 2 | 0 | CUSTOMER_RESET |
 | `workspace_notifications` | 20 | 20 | 0 | CUSTOMER_RESET |
 
-Restricted machine manifest contains the complete303 foreign-key dependencies, deletion order and pre/post content fingerprints: `data/artifacts/verification/final-owner-20261116/reset-rehearsal.json`. Dry-run transaction rolled back; production deletion is not claimed here.
+Restricted machine manifest contains the complete303 foreign-key dependencies, deletion order and pre/post content fingerprints: `data/artifacts/verification/final-owner-20261116/reset-production.json`. The separate rehearsal rolled back; production execution then committed747 deletions. A new read-only connection independently verified24 customer/auth/resource tables empty, zero active customer workspaces, all remaining user/workspace references retired, and2 preserved payment rows.
+
+
+## Live P0 release and exact remaining acceptance
+
+- Backend source0e2d290; current API `leadengine-api-00156-yej`,100% traffic; matching workers. Native accounts, current-term enforcement, strict work-email validation and controlled `contact@planebyte.com` signup enabled. Public registration and checkout remainfalse. Compatible closed-admission rollback is154, not the old flag-off149.
+- Frontend source25652af; production deployment `dpl_9kRxiG35DG4eaHbtDEmM5jeGArhx` at https://app.planebyte.com. Email/password login/signup/recovery and approved legal version `planebyte-2026-11-16-v1` are live. Actual guest acceptance passed22 light/dark screenshots, including320px mobile legal/recovery routes. No password or OTP was read.
+- The controlled signed legacy-session probe was accepted before deployment (session identity returned; private profile200). After deployment the same legacy claim class returns a null session and private profile401. This is a constructed cryptographic regression probe, not a completed real Google callback.
+- Real production password signup with a personal domain returns422; Google admission with personal identity returns403. An unapproved custom work address returns503 while public admission is closed. Native quota/auth isolation and retry tests retain their real protections.
+- Initial frozen baseline1161 backend passes, one explicit live-mail skip; frontend193 passes, types/lint/build and isolated browser account journey pass. Public paid launch is not claimed.
+- Owner's first genuine new signup was recorded, but its OTP remainedQUEUED with zero provider attempts and an unconfirmed worker launch. No active customer account or trial was created. A later request superseded the first challenge; neither is counted as successful verification.
+- Incident repair: launch authentication mail before request completion; retain CPU until an already-claimed launch acknowledges; keep recovery identity lookup in the worker, bound cloud acknowledgement and worker retries, and hand off pending outbox work before a worker exits. This uses existing infrastructure and retains unknown-outcome leases/idempotency. It does not switch to instance-based billing or change hosting plans. The production API uses request-based CPU allocation, under which detached background activity can stall; see [Google Cloud's guidance](https://cloud.google.com/run/docs/tips/general#avoid_background_activities). Actual Resend delivery and the fresh customer journey must be retested after this repair is deployed.
+- P0 pending: deploy and verify the mail repair, then one owner-entered fresh OTP verification → exact7-day trial → genuine website research → five reviewed ICPs → saved context → dashboard → logout/password-login and recovery. Do not retrieve passwords, OTPs or private user tokens. Do not repeat the completed customer reset or reopen legal/pricing/hosting decisions.

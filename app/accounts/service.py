@@ -196,8 +196,8 @@ def reset_password(body:models.Reset,client_id):
         c.execute('UPDATE customer_sessions SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL',(stamp,actor))
         c.execute('UPDATE account_login_tickets SET consumed_at=? WHERE user_id=? AND consumed_at IS NULL',(stamp,actor))
         security.audit(c,actor,'PASSWORD_CHANGED')
-        mail.queue(c,account['email'],'PASSWORD_CHANGED',row['id'],{},dedupe_key='password-changed:'+row['id'],expires_at=int(time.time())+86400)
-    return {'reset':True,'message':'Password changed. Sign in again with your new password.'}
+        notification=mail.queue(c,account['email'],'PASSWORD_CHANGED',row['id'],{},dedupe_key='password-changed:'+row['id'],expires_at=int(time.time())+86400)
+    return {'reset':True,'message':'Password changed. Sign in again with your new password.','notification_id':notification}
 
 
 def resend_verification(body:models.Resend,client_id):
@@ -239,8 +239,8 @@ def start_password(c,actor,token,body):
     security.lock(c,actor)
     c.execute("UPDATE account_verifications SET invalidated_at=? WHERE email=? AND purpose='SET_PASSWORD' AND consumed_at IS NULL AND invalidated_at IS NULL",(created,actor))
     c.execute("INSERT INTO account_verifications(id,email,purpose,capability_hash,code_hash,payload_json,request_id,request_fingerprint,expires_at,created_at) VALUES(?,?,'SET_PASSWORD',?,?,?,?,?,?,?)",(key,actor,security.digest('verify-capability',cap),security.digest('otp',key+':'+code),json.dumps(payload),str(body.request_id),digest,stamp+600,created))
-    mail.queue(c,actor,'SET_PASSWORD_OTP',key,{'code':code},dedupe_key='set-password:'+key,expires_at=stamp+600)
-    return ticket(c.execute('SELECT * FROM account_verifications WHERE id=?',(key,)).fetchone())
+    notification=mail.queue(c,actor,'SET_PASSWORD_OTP',key,{'code':code},dedupe_key='set-password:'+key,expires_at=stamp+600)
+    return {**ticket(c.execute('SELECT * FROM account_verifications WHERE id=?',(key,)).fetchone()),'notification_id':notification}
 
 def accept_terms(c,actor,token,body):
     enabled();sessions.validate(c,actor,token,require_current_terms=False)

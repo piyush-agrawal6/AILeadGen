@@ -139,11 +139,21 @@ if __name__ == "__main__":
         from app.cloud_doctor import worker_canary
         worker_canary()
         raise SystemExit(0)
+    recovery_id=os.environ.get('PLANEBYTE_ACCOUNT_RECOVERY_ID','')
+    if recovery_id:
+        recovery_id=str(uuid.UUID(recovery_id))
+        from app.accounts.service import prepare_recovery
+        from app.notifications.dispatch import deliver_bounded
+        with db_session() as c:verify_schema(c)
+        prepare_recovery(recovery_id)
+        with db_session() as c:row=c.execute('SELECT id FROM transactional_notifications WHERE dedupe_key=?',('password-reset:'+recovery_id,)).fetchone()
+        if row:deliver_bounded(row['id'])
+        raise SystemExit(0)
     notification_id=os.environ.get('PLANEBYTE_NOTIFICATION_ID','')
     if notification_id:
-        from app.notifications.transactional import deliver
+        from app.notifications.dispatch import deliver_bounded
         with db_session() as c:verify_schema(c)
-        deliver(str(uuid.UUID(notification_id)))
+        deliver_bounded(str(uuid.UUID(notification_id)))
         raise SystemExit(0)
     intelligence_job_id=os.environ.get('LEADENGINE_INTELLIGENCE_JOB_ID','')
     if intelligence_job_id:

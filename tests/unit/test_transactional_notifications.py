@@ -91,6 +91,105 @@ def test_notification_cloud_mode_clears_other_work_and_outreach_flags(customer):
         def post(self,url,**kw):seen.append(kw);return httpx.Response(200,json={'name':'fixture-cloud-operation'})
     assert run_job(None,Session(),notification_id=key)=='fixture-cloud-operation'
     options=seen[0]['json']['overrides'];env={r['name']:r['value'] for r in options['containerOverrides'][0]['env']}
-    assert options['timeout']=='90s' and env['PLANEBYTE_NOTIFICATION_ID']==key
+    assert options['timeout']=='150s' and env['PLANEBYTE_NOTIFICATION_ID']==key
     assert env['LEADENGINE_RUN_ID']==env['LEADENGINE_INTELLIGENCE_JOB_ID']==env['LEADENGINE_AUTOMATION_MODE']==''
     assert env['LEADENGINE_EMAIL_SYNC']==env['LEADENGINE_CANARY']=='0'
+
+
+def test_request_dispatch_launches_only_its_committed_notification(customer,monkeypatch):
+    from app.api.services import cloud_executor
+    c,s=customer;key,_=pending(c)
+    other_receipt=service.begin_signup(signup('other@example.com'),'other-client')
+    other=c.execute('SELECT id FROM transactional_notifications WHERE authority_id=?',(other_receipt['challenge_id'],)).fetchone()[0]
+    monkeypatch.setattr(s,'app_env','production');launched=[]
+    from app.database.connection import db_session
+    from pathlib import Path
+    monkeypatch.setattr(dispatch,'db_session',lambda:db_session(Path(s.database_path)))
+    def launch(run_id,**kw):launched.append(kw);return 'request-cloud-operation'
+    monkeypatch.setattr(cloud_executor,'run_job',launch)
+    dispatch.enqueue_notification(key)
+    assert launched==[{'notification_id':key}]
+    assert c.execute('SELECT execution_name FROM transactional_notifications WHERE id=?',(key,)).fetchone()[0]=='request-cloud-operation'
+    assert c.execute('SELECT execution_name FROM transactional_notifications WHERE id=?',(other,)).fetchone()[0] is None
+    dispatch.enqueue_notification(key)
+    assert len(launched)==1
+
+
+def test_request_keeps_cpu_until_existing_background_launch_acknowledges(customer,monkeypatch):
+    from app.api.services import cloud_executor
+    c,s=customer;key,_=pending(c);claimed=dispatch.prepare();assert len(claimed)==1
+    marker=claimed[0][1];monkeypatch.setattr(s,'app_env','production')
+    from app.database.connection import db_session
+    from pathlib import Path
+    monkeypatch.setattr(dispatch,'db_session',lambda:db_session(Path(s.database_path)))
+    monkeypatch.setattr(cloud_executor,'run_job',lambda *a,**k:pytest.fail('Must not duplicate an in-flight launch'))
+    waits=[]
+    def acknowledge(delay):waits.append(delay);dispatch.record(key,marker,'background-ack')
+    monkeypatch.setattr(dispatch.time,'sleep',acknowledge)
+    dispatch.enqueue_notification(key)
+    assert waits and c.execute('SELECT execution_name FROM transactional_notifications WHERE id=?',(key,)).fetchone()[0]=='background-ack'
+
+
+def test_recovery_dispatch_defers_identity_lookup_and_is_globally_bounded(customer,monkeypatch):
+    from app.api.services import cloud_executor
+    c,s=customer;monkeypatch.setattr(s,'app_env','production');monkeypatch.setattr(s,'transactional_mail_daily_limit',2)
+    from app.database.connection import db_session
+    from pathlib import Path
+    monkeypatch.setattr(dispatch,'db_session',lambda:db_session(Path(s.database_path)))
+    launched=[];monkeypatch.setattr(cloud_executor,'run_job',lambda *a,**k:launched.append(k) or 'recovery-op')
+    monkeypatch.setattr(service,'prepare_recovery',lambda *a:pytest.fail('Account lookup must remain outside the public response'))
+    keys=[str(uuid.uuid4()) for _ in range(3)]
+    for key in keys:dispatch.enqueue_recovery(key)
+    assert launched==[{'recovery_request_id':key} for key in keys[:2]]
+    assert c.execute('SELECT COUNT(*) FROM transactional_notifications').fetchone()[0]==0
+
+
+def test_recovery_cloud_override_is_bounded_and_clears_every_other_mode(customer):
+    from app.api.services.cloud_executor import run_job
+    _,_=customer;key=str(uuid.uuid4());seen=[]
+    class Session:
+        def post(self,url,**kw):seen.append(kw);return httpx.Response(200,json={'name':'fixture-recovery-operation'})
+    assert run_job(None,Session(),recovery_request_id=key)=='fixture-recovery-operation'
+    options=seen[0]['json']['overrides'];rows=options['containerOverrides'][0]['env'];env={r['name']:r['value'] for r in rows}
+    assert len(rows)==len(env) and options['timeout']=='150s' and seen[0]['timeout']==8
+    assert env['PLANEBYTE_ACCOUNT_RECOVERY_ID']==key and env['PLANEBYTE_NOTIFICATION_ID']==''
+    assert env['LEADENGINE_RUN_ID']==env['LEADENGINE_AUTOMATION_MODE']==env['LEADENGINE_SHEET_EXPORT_ID']==''
+    assert env['LEADENGINE_EMAIL_SYNC']==env['LEADENGINE_CANARY']=='0'
+
+
+@pytest.mark.parametrize('failures,expected',[(1,'ACCEPTED'),(3,'FAILED')])
+def test_worker_retry_is_bounded_idempotent_and_hands_off_outbox(customer,monkeypatch,failures,expected):
+    from unittest.mock import AsyncMock
+    c,s=customer;key,_=pending(c);clock=[int(time.time())];calls=[]
+    monkeypatch.setattr(s,'app_env','development')
+    monkeypatch.setattr(dispatch.time,'time',lambda:clock[0])
+    monkeypatch.setattr(dispatch.time,'sleep',lambda delay:clock.__setitem__(0,clock[0]+delay))
+    handoff=AsyncMock();monkeypatch.setattr(dispatch,'tick',handoff)
+    def provider(payload,request_id):
+        calls.append(request_id)
+        if len(calls)<=failures:raise httpx.ReadTimeout('Synthetic retry')
+        return 'fixture-provider-accepted'
+    monkeypatch.setattr(mail,'send_provider',provider)
+    dispatch.deliver_bounded(key)
+    row=c.execute('SELECT status,attempts FROM transactional_notifications WHERE id=?',(key,)).fetchone()
+    assert row['status']==expected and row['attempts']==min(3,failures+1)
+    assert all(value==key for value in calls) and len(calls)<=3
+    handoff.assert_awaited_once()
+
+
+def test_signup_http_commits_outbox_and_launches_before_acknowledging(customer,monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.api.server import app
+    from app.database.connection import db_session
+    from test_customer_accounts import sign,PASSWORD
+    c,s=customer;body=signup();payload={**body.model_dump(mode='json'),'password':PASSWORD};launched=[]
+    def launch(key):
+        with db_session() as committed:
+            row=committed.execute('SELECT account_email,status FROM transactional_notifications WHERE id=?',(key,)).fetchone()
+            assert row and row['account_email']==body.email and row['status']=='QUEUED'
+        launched.append(key)
+    monkeypatch.setattr(dispatch,'enqueue_notification',launch)
+    client=TestClient(app)
+    response=sign(client,s,'/api/organization/accounts/signup',body.email,payload)
+    assert response.status_code==200 and response.json()['accepted'] and launched
+    assert 'notification_id' not in response.json()

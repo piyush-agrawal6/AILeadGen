@@ -30,7 +30,10 @@ def state(request):return request.state.user_email,request.headers.get('x-le-ses
 @router.post('/signup')
 def signup(body:models.Signup,request:Request,response:Response,client=Depends(broker)):
     identity(request,body.email);result=service.begin_signup(body,client)
-    result.pop('notification_id',None)
+    notification=result.pop('notification_id',None)
+    if notification:
+        from app.notifications.dispatch import enqueue_notification
+        enqueue_notification(notification)
     return result
 
 @router.post('/verify-email')
@@ -43,7 +46,10 @@ def verify(body:models.Verify,request:Request,response:Response,client=Depends(b
 @router.post('/resend-verification')
 def resend(body:models.Resend,request:Request,response:Response,client=Depends(broker),c=Depends(get_db,scope='function')):
     challenge_identity(c,request,body.challenge_id)
-    result=service.resend_verification(body,client);result.pop('notification_id',None)
+    result=service.resend_verification(body,client);notification=result.pop('notification_id',None)
+    if notification:
+        from app.notifications.dispatch import enqueue_notification
+        enqueue_notification(notification)
     return result
 
 @router.post('/login')
@@ -62,13 +68,19 @@ def exchange(body:models.Exchange,request:Request,response:Response,client=Depen
 
 @router.post('/recovery')
 def recovery(body:models.Recovery,request:Request,response:Response,client=Depends(broker)):
-    identity(request,body.email);service.recover(body,client)
+    identity(request,body.email);result=service.recover(body,client)
+    from app.notifications.dispatch import enqueue_recovery
+    enqueue_recovery(result['recovery_request_id'])
     return {'accepted':True,'message':'If this account supports password recovery, a reset link will be emailed shortly.'}
 
 @router.post('/reset-password')
 def reset(body:models.Reset,request:Request,response:Response,client=Depends(broker)):
     result=service.reset_password(body,client)
     if not result['reset']:response.status_code=400
+    notification=result.pop('notification_id',None)
+    if notification:
+        from app.notifications.dispatch import enqueue_notification
+        enqueue_notification(notification)
     return result
 
 @router.post('/session')
@@ -89,7 +101,12 @@ def link(request:Request,response:Response,client=Depends(broker),c=Depends(get_
 def set_password(body:models.SetPassword,request:Request,response:Response,client=Depends(broker),c=Depends(get_db,scope='function')):
     from app.accounts import security
     security.throttle('set-password',request.state.user_email,client,email_limit=3,client_limit=10)
-    return service.start_password(c,*state(request),body)
+    result=service.start_password(c,*state(request),body);c.commit()
+    notification=result.pop('notification_id',None)
+    if notification:
+        from app.notifications.dispatch import enqueue_notification
+        enqueue_notification(notification)
+    return result
 
 @router.post('/terms')
 def terms(body:models.AcceptTerms,request:Request,response:Response,client=Depends(broker),c=Depends(get_db,scope='function')):
