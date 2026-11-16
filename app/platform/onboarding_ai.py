@@ -216,7 +216,7 @@ async def generate_job(c,row,active):
     await asyncio.to_thread(active,'ANALYZING')
     if row['source_kind']=='ICP_RECOMMENDATIONS':
         from app.icp import builder
-        result=await builder.generate(c,builder.Generate(mode='BUSINESS_PROFILE',prompt=inputs.get('prompt',''),candidate_count=5),operation_id='setup-icp:'+row['id'])
+        result=await builder.generate(c,builder.Generate(mode='BUSINESS_PROFILE',prompt=inputs.get('prompt',''),candidate_count=5),operation_id='setup-icp:'+row['id'],require_exact_count=True)
     else:
         from app.acquisition import ai
         from app.platform import ai_usage

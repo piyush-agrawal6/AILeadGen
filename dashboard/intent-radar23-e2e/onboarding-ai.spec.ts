@@ -9,9 +9,10 @@ test('owner resumes AI setup, reviews saved context and shares defaults without 
  for(const button of await page.getByRole('button',{name:'Accept this section'}).all())await button.click();
  await page.getByRole('button',{name:'Approve profile & prepare ideal customers'}).click();
  await expect(page.getByText('Review segment 1',{exact:true})).toBeVisible({timeout:45000});
+ await expect(page.getByRole('checkbox',{name:/Review segment/})).toHaveCount(5);
  const before=await(await context.request.get('/api/organization/icps')).json();expect(before.total).toBe(0);
  await page.getByRole('checkbox',{name:'Review segment 1'}).check();await page.getByRole('checkbox',{name:'Review segment 2'}).check();
- await page.getByRole('radio',{name:'Use as primary ICP'}).last().check();
+ await page.getByRole('radio',{name:'Use as primary ICP'}).nth(1).check();
  await expect(page.getByRole('textbox',{name:'Research keywords',exact:true})).toHaveValue(/Custom applications/);
  for(const theme of ['light','dark'])for(const width of [1440,768,390,320]){await page.setViewportSize({width,height:900});await page.evaluate(value=>document.documentElement.classList.toggle('dark',value==='dark'),theme);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.evaluate(()=>{window.scrollTo(0,0);document.querySelector('main')?.scrollTo(0,0)});await page.screenshot({path:info.outputPath(`icp-${theme}-${width}.png`),fullPage:true});}
  await page.getByRole('button',{name:'Save reviewed customer profiles'}).click();await expect(page.getByRole('heading',{name:'Ready to explore, on your terms'})).toBeVisible();await page.reload();await expect(page.getByRole('heading',{name:'Ready to explore, on your terms'})).toBeVisible();

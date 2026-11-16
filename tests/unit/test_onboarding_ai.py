@@ -13,7 +13,7 @@ from app.icp import builder,ai as icp_ai
 from app.acquisition import ai as gateway
 from app.acquisition.config import AcquisitionSettings
 from test_company_autofill import SOURCE,result as company_result
-from test_icp_business_builder import candidate
+from test_icp_business_builder import candidate,five_candidates
 
 BASE='/api/organization/onboarding'
 OWNER={'x-le-user':'setup@example.test'}
@@ -27,7 +27,7 @@ def setup_client(tmp_path,monkeypatch):
     provider=AsyncMock()
     async def structured(instruction,payload,schema,**kwargs):
         if schema is autofill.Extraction:return company_result()
-        if schema is builder.Suggestions:return builder.Suggestions(candidates=[candidate('Software builders'),candidate('Product studios')])
+        if issubclass(schema,builder.Suggestions):return schema(candidates=five_candidates())
         from app.platform.onboarding_ai import Advice
         return Advice(answer='Review whether your offering addresses the suggested audience needs.',source_fields=['description'])
     provider.structured.side_effect=structured;monkeypatch.setattr(gateway,'provider',lambda c:provider)
@@ -70,6 +70,8 @@ def test_ai_setup_review_resume_approval_shared_defaults_and_completion_without_
     repeat=http.post(BASE+'/recommendations',headers=OWNER,json=request);assert repeat.status_code==202,repeat.text
     state=http.get(BASE+'/assistant-context',headers=OWNER).json();proposal=state['reviews']['icp']['preview']
     assert state['reviews']['icp']['status']=='READY',state
+    assert len(proposal['candidates'])==5
+    assert provider.structured.call_args.args[2].model_json_schema()['properties']['candidates']['minItems']==5
     private=state['reviews']['icp']['id']
     assert http.get(BASE+'/reviews/'+private,headers={'x-le-user':'admin@example.test'}).status_code==404
     assert http.get('/api/organization/website-reviews/'+private,headers={'x-le-user':'admin@example.test'}).status_code==404
@@ -184,3 +186,31 @@ def test_qualified_saved_profile_references_are_normalized_but_unknown_fields_fa
     assert reviewed['preview']['source_fields']==['products_services','target_customers']
     with pytest.raises(ValidationError):Advice(answer='Unsupported reference should never be accepted.',source_fields=['saved_company.credentials'])
     with pytest.raises(ValidationError):Advice(answer='Nested arbitrary paths should never be accepted.',source_fields=['saved_company.products_services.secret'])
+
+
+def test_onboarding_requires_five_and_does_not_reuse_shorter_general_proposals(setup_client):
+    http,provider,*_=setup_client
+    approved=approve(http)
+    short=builder.Suggestions(candidates=five_candidates()[:3])
+    provider.structured.side_effect=None;provider.structured.return_value=short
+    # The optional general builder retains its up-to-five contract. Its cache
+    # must never satisfy the exact-five onboarding request.
+    general=http.post('/api/organization/icps/suggest',headers=OWNER,json={'mode':'BUSINESS_PROFILE','candidate_count':5})
+    assert general.status_code==200,general.text
+    started=http.post(BASE+'/recommendations',headers=OWNER,json={'revision':approved['progress']['revision'],'request_id':str(uuid.uuid4())})
+    assert started.status_code==202,started.text
+    detail=http.get(BASE+'/reviews/'+started.json()['review']['id'],headers=OWNER).json()
+    assert detail['status']=='FAILED' and detail['error_code']=='ICP_TOO_FEW_SEGMENTS',detail
+    assert detail['preview'] is None
+    assert provider.structured.await_count==2
+    assert http.get('/api/organization/icps',headers=OWNER).json()['total']==0
+
+def test_exact_suggestion_schema_rejects_short_or_padded_output():
+    from pydantic import ValidationError
+    schema=builder.exact_suggestions(5)
+    with pytest.raises(ValidationError):schema(candidates=five_candidates()[:3])
+    complete=schema(candidates=five_candidates())
+    assert len(builder._check_suggestions(complete,5,[],exact=True).candidates)==5
+    complete.candidates[-1]=complete.candidates[0].model_copy(deep=True)
+    with pytest.raises(gateway.AiOutputError,match='ICP_DUPLICATE_SEGMENTS'):
+        builder._check_suggestions(complete,5,[],exact=True)

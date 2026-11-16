@@ -28,8 +28,8 @@ async def structured(instruction,payload,schema,**kwargs):
     if schema is autofill.Extraction:
         quote={'source_id':'S1','quote':'Synthetic Browser Engineering builds Custom applications for Software teams.'}
         return autofill.Extraction(fields=[{'field':'name','value':'Synthetic Browser Engineering','evidence':[quote]},{'field':'description','value':quote['quote'],'evidence':[quote]},{'field':'products_services','value':[{'name':'Custom applications'}],'evidence':[quote]}])
-    if schema is builder.Suggestions:
-        return builder.Suggestions(candidates=[builder.Candidate(draft={'name':name,'criteria':{'company':{'industries':['Software']},'contact':{'job_titles':['CTO']},'intent':{'business_needs':['Custom applications'],'pain_points':['delivery bottlenecks'],'exclusions':['recruitment']}}},reason='Synthetic fixture recommendation based on the approved offering.',assumptions=['Suggested audience; no actual customer relationship established.']) for name in ('Product engineering teams','Software studios')])
+    if issubclass(schema,builder.Suggestions):
+        return schema(candidates=[builder.Candidate(draft={'name':name,'criteria':{'company':{'industries':['Software']},'contact':{'job_titles':['CTO']},'intent':{'business_needs':[need],'pain_points':['delivery bottlenecks'],'exclusions':['recruitment']}}},reason='Synthetic fixture recommendation based on the approved offering.',assumptions=['Suggested audience; no actual customer relationship established.']) for name,need in [('Product engineering teams','Custom applications'),('Software studios','Product modernization'),('Workflow teams','Workflow automation'),('Analytics teams','Analytics integration'),('Mobile teams','Mobile applications')]])
     if schema is Advice:return Advice(answer='Review the suggested business needs before choosing an audience.',source_fields=['description'])
     raise AssertionError('Unexpected isolated onboarding provider schema')
 ai.provider=lambda c=None:SimpleNamespace(structured=structured,last_provider='SYNTHETIC',last_model='SYNTHETIC-browser-fixture',last_usage={})

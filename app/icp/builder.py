@@ -10,10 +10,11 @@ import json
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from typing import Literal
 
 from fastapi import HTTPException
-from pydantic import Field, model_validator
+from pydantic import Field, create_model, model_validator
 
 from app.acquisition import ai as gateway
 from app.api.organization import require_role
@@ -47,6 +48,15 @@ class Candidate(Strict):
 class Suggestions(Strict):
     candidates: list[Candidate] = Field(min_length=1, max_length=5)
     questions: list[str] = Field(default_factory=list, max_length=3)
+
+
+@lru_cache(maxsize=5)
+def exact_suggestions(count):
+    """Tell the provider the required size, and validate its response again locally."""
+    if type(count) is not int or not 1 <= count <= 5:
+        raise ValueError('Unsupported recommendation count.')
+    return create_model('ExactSuggestions'+str(count), __base__=Suggestions,
+                        candidates=(list[Candidate], Field(min_length=count, max_length=count)))
 
 
 class Refine(Strict):
@@ -90,10 +100,18 @@ Countries must be recognized country names or ISO alpha-2 codes. Standard compan
 size ranges are 1-10, 11-50, 51-200, 201-500, 501-1000, 1001-5000, 5001-10000, 10001+.
 For exact employee ranges use employee_min/employee_max. Unknown information stays
 empty/null. Do not silently drop requested unsupported criteria: put these in
-questions. Keep status INACTIVE. Return up to the requested candidate count, each
-with distinct targeting. All text must be concise; no assertions of measured fit.'''
+questions. Keep status INACTIVE. All text must be concise; no assertions of measured fit.'''
 
-INSTRUCTION+=''' Prefer 3–5 useful, genuinely different segments when the business
+EXACT_INSTRUCTION=INSTRUCTION+''' Return exactly the requested candidate count as
+distinct, editable targeting hypotheses. Vary industry/use case, buyer roles and
+concrete needs/pain points; different names alone are not distinct segments.
+Explicitly label inferred targeting as assumptions, never existing customer facts.
+Do not pad the list with duplicates or invented evidence. If you cannot propose
+the requested number reliably, fail instead of presenting a shorter list as a
+completed request. Omit empty/default criteria. Use exact supplied service names
+and canonical size ranges.'''
+
+INSTRUCTION+=''' Return up to the requested candidate count. Prefer 3–5 useful, genuinely different segments when the business
 evidence supports them. Different names alone are not distinct segments: vary
 industry/use case, buyer roles and concrete business needs/pain points. Include
 those criteria and concise use cases in each description. If evidence cannot
@@ -135,7 +153,9 @@ def _validated(draft):
     return draft
 
 
-def _check_suggestions(value, count, services):
+def _check_suggestions(value, count, services, *, exact=False):
+    if exact and len(value.candidates) < count:
+        raise gateway.AiOutputError('ICP_TOO_FEW_SEGMENTS')
     if len(value.candidates) > count:
         raise gateway.AiOutputError('ICP_TOO_MANY_SEGMENTS')
     for candidate in value.candidates:
@@ -215,7 +235,7 @@ async def _call(c, task, payload, schema, instruction, validator,operation_id=No
         raise SetupAIError(error_code(error)) from None
 
 
-async def generate(c, body: Generate, *, operation_id=None):
+async def generate(c, body: Generate, *, operation_id=None, require_exact_count=False):
     _allowed(c)
     profile = read_profile(c)
     # read_profile is saved owner-approved information, not an unapplied website proposal.
@@ -227,9 +247,13 @@ async def generate(c, body: Generate, *, operation_id=None):
     inputs = {'approved_business': approved, 'profile_version': profile['version'],
               'user_request': body.prompt, 'candidate_count': body.candidate_count,
               'mode': body.mode}
+    if require_exact_count:inputs['exact_candidate_count']=body.candidate_count
     services = [item['name'] for item in profile['products_services']]
-    result, hit = await _call(c, 'ICP_RECOMMENDATIONS_V2', inputs, Suggestions, INSTRUCTION,
-                              lambda value: _check_suggestions(value, body.candidate_count, services),operation_id=operation_id)
+    schema=exact_suggestions(body.candidate_count) if require_exact_count else Suggestions
+    instruction=EXACT_INSTRUCTION if require_exact_count else INSTRUCTION
+    task='ICP_RECOMMENDATIONS_EXACT_V1' if require_exact_count else 'ICP_RECOMMENDATIONS_V2'
+    result, hit = await _call(c, task, inputs, schema, instruction,
+                              lambda value: _check_suggestions(value, body.candidate_count, services, exact=require_exact_count),operation_id=operation_id)
     from app.config.locations import country
     approved_countries = set()
     for value in profile['countries_served']:

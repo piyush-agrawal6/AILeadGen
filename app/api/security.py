@@ -163,8 +163,12 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
         if inserted != 1:
             return JSONResponse({"detail": "Request has already been used."}, status_code=401)
         if actor not in settings.allowed_emails and not bootstrap:
-            with db_session() as c:
-                if not account_access(c,actor,require_terms=request.url.path!='/api/organization/admission/google'):return JSONResponse({'detail':'Account access is not enabled.'},status_code=401)
+            # Pool checkout and fresh admission reads may block. Never hold the
+            # event loop while another request needs it to release a connection.
+            def admitted():
+                with db_session() as c:
+                    return account_access(c,actor,require_terms=request.url.path!='/api/organization/admission/google')
+            if not await asyncio.to_thread(admitted):return JSONResponse({'detail':'Account access is not enabled.'},status_code=401)
         request.state.user_email = actor
         request.state.internal_verified = True
         # Admission is an account-only broker operation, including renewed terms
