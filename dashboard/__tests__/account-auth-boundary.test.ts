@@ -11,6 +11,9 @@ import {sealAccountCookie,openAccountCookie} from '@/lib/server/account-cookies'
 
 describe('private account capability boundary',()=>{
  beforeEach(()=>state.request.mockReset());
+ it('invalidates previously signed personal-email JWTs instead of exposing an authenticated session',()=>{
+  expect(state.config.callbacks.jwt({token:{email:'planebyte@gmail.com'}})).toBeNull();
+ });
  it('keeps the opaque backend capability out of public Auth.js sessions',async()=>{
   const token=state.config.callbacks.jwt({token:{email:'owner@example.com'},user:{email:'owner@example.com',planeByteAdmitted:true,planeByteSession:'PRIVATE-BACKEND-CAPABILITY'}});
   expect(token.planeByteSession).toBe('PRIVATE-BACKEND-CAPABILITY');

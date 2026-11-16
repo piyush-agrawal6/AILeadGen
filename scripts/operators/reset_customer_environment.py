@@ -10,7 +10,7 @@ import psycopg
 from psycopg import sql
 from dotenv import dotenv_values
 from app.database.postgres import session_url
-from scripts.rehearse_beta_restore import fingerprint
+
 
 SYSTEM={'schema_migrations','billing_plan_mappings','scan_markets','experiment_catalog','provider_rate_limits','intent_provider_limits','worker_health','intent_worker_health','internal_request_nonces','recovery_checkpoints'}
 PROTECTED={'billing_payments','billing_subscriptions','billing_customers','billing_webhook_events','payu_access_orders','payu_access_refunds','payu_access_callback_events','payu_access_refunds','payu_refund_observations','commercial_contracts','audit_log','account_security_events','account_privacy_requests','account_terms_acceptances','email_address_suppressions','customer_mail_suppressions','transactional_suppressions','contacted_recipients','contacted_recipient_sends','contacted_unsubscribe_tokens','deletion_batches','deletion_targets'}
@@ -28,33 +28,52 @@ def schema(c):
  nullable={(t,col) for t,col in c.execute("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public' AND is_nullable='YES'")}
  return tables,fks,nullable
 
+def queued(c,statements):
+ # All statements remain parameter-bound and on the same locked transaction.
+ # A single network flush avoids minutes of cross-region lock-held idle time.
+ with c.pipeline():cursors=[c.execute(q,args) for q,args in statements]
+ return cursors
+
+def fingerprint(c,tables):
+ queries=[]
+ for table in tables:
+  q=sql.SQL("SELECT COUNT(*),encode(sha256(convert_to(COALESCE(string_agg(digest,chr(10) ORDER BY digest),''),'UTF8')),'hex') FROM (SELECT encode(sha256(convert_to(to_jsonb(t)::text,'UTF8')),'hex') digest FROM {} t) records").format(sql.Identifier(table))
+  queries.append((q,()))
+ return {t:dict(zip(('count','sha256'),cursor.fetchone())) for t,cursor in zip(tables,queued(c,queries))}
+
 def reset(c,*,commit=False):
  tables,fks,nullable=schema(c)
  if not (SYSTEM|PROTECTED|ZERO)<=set(tables):raise RuntimeError('Expected reset table inventory changed')
  c.execute("SET LOCAL lock_timeout='15s'");c.execute("SET LOCAL statement_timeout='60s'")
  c.execute(sql.SQL('LOCK TABLE {} IN ACCESS EXCLUSIVE MODE').format(sql.SQL(',').join(sql.Identifier(t) for t in tables)))
- before=fingerprint(c)
+ before=fingerprint(c,tables)
  keep={t:'reset_keep_'+str(i) for i,t in enumerate(tables)}
+ setup=[]
  for t in tables:
-  c.execute(sql.SQL('CREATE TEMP TABLE {} (row_tid tid PRIMARY KEY) ON COMMIT DROP').format(sql.Identifier(keep[t])))
-  if t in SYSTEM|PROTECTED:c.execute(sql.SQL('INSERT INTO {} SELECT ctid FROM {}').format(sql.Identifier(keep[t]),sql.Identifier(t)))
+  setup.append((sql.SQL('CREATE TEMP TABLE {} (row_tid tid PRIMARY KEY) ON COMMIT DROP').format(sql.Identifier(keep[t])),()))
+  if t in SYSTEM|PROTECTED:setup.append((sql.SQL('INSERT INTO {} SELECT ctid FROM {}').format(sql.Identifier(keep[t]),sql.Identifier(t)),()))
+ queued(c,setup)
  # Preserve only parent rows actually required by a protected record, recursively.
  for iteration in range(len(tables)+1):
-  inserted=0
+  queries=[]
   for fk in fks:
    joins=sql.SQL(' AND ').join(sql.SQL('ch.{}=pa.{}').format(sql.Identifier(a),sql.Identifier(b)) for a,b in zip(fk['columns'],fk['references']))
    q=sql.SQL('INSERT INTO {} SELECT DISTINCT pa.ctid FROM {} ch JOIN {} k ON k.row_tid=ch.ctid JOIN {} pa ON {} ON CONFLICT DO NOTHING').format(sql.Identifier(keep[fk['parent']]),sql.Identifier(fk['child']),sql.Identifier(keep[fk['child']]),sql.Identifier(fk['parent']),joins)
-   inserted+=c.execute(q).rowcount
+   queries.append((q,()))
+  inserted=sum(cur.rowcount for cur in queued(c,queries))
   if not inserted:break
  else:raise RuntimeError('Protected parent closure did not converge')
- targets={t:before[t]['count']-c.execute(sql.SQL('SELECT COUNT(*) FROM {}').format(sql.Identifier(keep[t]))).fetchone()[0] for t in tables}
+ counts=queued(c,[(sql.SQL('SELECT COUNT(*) FROM {}').format(sql.Identifier(keep[t])),()) for t in tables])
+ targets={t:before[t]['count']-cur.fetchone()[0] for t,cur in zip(tables,counts)}
  if any(before[t]['count']-targets[t] for t in ZERO):raise RuntimeError('A protected record requires a live customer authentication/resource row; isolate that exception before resetting')
  # Nullable pointers in records being removed can be cleared to break cycles.
  # Their primary keys and the protected records remain unchanged.
+ updates=[]
  for fk in fks:
   t=fk['child'];column=next((x for x in fk['columns'] if (t,x) in nullable),None)
   if column and targets[t]:
-   c.execute(sql.SQL('UPDATE {} SET {}=NULL WHERE ctid NOT IN (SELECT row_tid FROM {})').format(sql.Identifier(t),sql.Identifier(column),sql.Identifier(keep[t])))
+   updates.append((sql.SQL('UPDATE {} SET {}=NULL WHERE ctid NOT IN (SELECT row_tid FROM {})').format(sql.Identifier(t),sql.Identifier(column),sql.Identifier(keep[t])),()))
+ queued(c,updates)
  # Only populated delete-target edges can block deletion. Empty tables and
  # protected-only children have already been accounted for by parent closure.
  remaining={t for t in tables if targets[t]};deleted={t:0 for t in tables};order=[]
@@ -75,7 +94,7 @@ def reset(c,*,commit=False):
  c.execute("UPDATE organizations SET status='ARCHIVED',name='Retired protected ledger',slug='retired-'||id")
  # Pending provider work/credentials/access never remain in a retained ledger.
  if c.execute("SELECT COUNT(*) FROM customer_sessions WHERE revoked_at IS NULL").fetchone()[0]:raise RuntimeError('An active customer session survived')
- after=fingerprint(c)
+ after=fingerprint(c,tables)
  for t in SYSTEM|PROTECTED:
   if before[t]!=after[t]:raise RuntimeError('Protected record content changed: '+t)
  for t in ZERO:

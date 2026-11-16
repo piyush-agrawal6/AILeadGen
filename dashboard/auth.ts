@@ -39,6 +39,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return Boolean(admitted);
     },
     jwt({token,user}){
+      if(typeof token.email==='string'&&!isWorkEmail(token.email))return null;
       if(user)token.planeByteSession=(user as typeof user & {planeByteSession?:string}).planeByteSession;
       if(user)token.planeByteAdmitted=(user as typeof user & {planeByteAdmitted?:boolean}).planeByteAdmitted===true;
       return token;
