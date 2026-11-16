@@ -79,7 +79,7 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
 
       {/* Minimal Footer */}
       <footer className="pb-auth-footer auth-footer">
-        <span>© {new Date().getFullYear()} PlaneByte, Inc. All rights reserved.</span>
+        <span>© {new Date().getFullYear()} PlaneByte. All rights reserved.</span>
         <nav aria-label="Legal" className="pb-auth-footer-links">
           <a href="https://planebyte.com" target="_blank" rel="noopener noreferrer">
             Website
