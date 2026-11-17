@@ -121,12 +121,13 @@ def create(c,body):
     elif not c.in_transaction:c.execute('BEGIN IMMEDIATE')
     require_role(c,current().actor,org,('OWNER','ADMIN'))
     legacy_digest=hashlib.sha256(json.dumps(body.model_dump(exclude={'request_id'}),sort_keys=True).encode()).hexdigest()
-    digest=hashlib.sha256(('setup-v2:'+legacy_digest).encode()).hexdigest() if body.use_ai else legacy_digest
+    digest=hashlib.sha256(('setup-v3:'+legacy_digest).encode()).hexdigest() if body.use_ai else legacy_digest
+    previous_digest=hashlib.sha256(('setup-v2:'+legacy_digest).encode()).hexdigest() if body.use_ai else legacy_digest
     prior=c.execute('SELECT * FROM organization_profile_jobs WHERE organization_id=? AND request_id=?',(org,str(body.request_id))).fetchone()
     if prior:
         if body.source_kind in ('ICP_RECOMMENDATIONS','ONBOARDING_ADVICE') and prior['created_by']!=current().actor:raise HTTPException(409,'This request belongs to another setup review.')
         prior_hash=prior['input_hash'] or hashlib.sha256(json.dumps({'website':prior['website'],'source_kind':'WEBSITE','description':'','use_ai':False},sort_keys=True).encode()).hexdigest()
-        if prior_hash not in (digest,legacy_digest):raise HTTPException(409,'This review request already belongs to different company information.')
+        if prior_hash not in (digest,previous_digest,legacy_digest):raise HTTPException(409,'This review request already belongs to different company information.')
         return detail(c,prior['id'])
     fresh=(datetime.now(timezone.utc)-timedelta(hours=24)).isoformat()
     cached=c.execute("SELECT id,created_by FROM organization_profile_jobs WHERE organization_id=? AND (input_hash=? OR (input_hash='' AND website=? AND use_ai=0 AND ?=0)) AND (?=0 OR created_by=?) AND ((status='READY' AND updated_at>?) OR status='QUEUED' OR (status='RUNNING' AND lease_expires_at>?)) ORDER BY updated_at DESC LIMIT 1",(org,digest,body.website,int(body.use_ai),int(body.source_kind in ('ICP_RECOMMENDATIONS','ONBOARDING_ADVICE')),current().actor,fresh,now())).fetchone()

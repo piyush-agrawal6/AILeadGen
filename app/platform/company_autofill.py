@@ -81,6 +81,44 @@ def capabilities(c):
 def require_ai():
     if not get_settings().heysow_company_ai_enabled:raise HTTPException(503,'Company profile AI is not enabled. Manual editing remains available.')
 
+def declared_offerings(value):
+    """Keep literal name/function pairs from the same public JSON-LD object."""
+    result=[]
+    def visit(item,depth=0):
+        if depth>5 or len(result)>=8:return
+        if isinstance(item,list):
+            for child in item[:30]:visit(child,depth+1)
+        elif isinstance(item,dict):
+            kinds=item.get('@type',[]);kinds=[kinds] if isinstance(kinds,str) else kinds
+            name,description=item.get('name'),item.get('description')
+            if isinstance(kinds,list) and set(kinds)&{'Product','SoftwareApplication','Service'} and isinstance(name,str) and isinstance(description,str) and 2<=len(name)<=120 and 10<=len(description)<=1000:
+                import json
+                result.append({'name':name,'description':description,'quotes':[json.dumps(k)+': '+json.dumps(item[k],ensure_ascii=False) for k in ('name','description')]})
+            visit(item.get('@graph'),depth+1)
+            for key in ('mainEntity','hasOfferCatalog','itemListElement','itemOffered'):visit(item.get(key),depth+1)
+    visit(value)
+    return result
+
+def offering_evidence(candidate,proofs,indexed):
+    if candidate.field!='products_services' or not isinstance(candidate.value,list):return candidate.value
+    values=[]
+    for item in candidate.value:
+        if not isinstance(item,CompanyService):values.append(item);continue
+        matches=[]
+        for source_id in {p['source_id'] for p in proofs}:
+            source=indexed[source_id]
+            for declared in source.get('declared_offerings',[]):
+                name=normalize(declared['name']);requested=normalize(item.name)
+                if (name==requested or name.endswith(' '+requested)) and normalize(item.description)==normalize(declared['description']) and all(normalize(q) in normalize(source['text']) for q in declared['quotes']):
+                    matches.append((source_id,declared))
+        if len(matches)==1:
+            source_id,declared=matches[0]
+            for quote in declared['quotes']:
+                if not any(p['source_id']==source_id and p['quote']==quote for p in proofs):proofs.append({'source_id':source_id,'url':indexed[source_id].get('url'),'quote':quote})
+            item=CompanyService(name=declared['name'],description=declared['description'])
+        values.append(item)
+    return values
+
 def preview_from_result(result,sources,website,*,supported_interpretations=()):
     indexed={source['id']:source for source in sources};suggestions={};evidence={};provenance={};rejected=result._rejected_fields;seen=set()
     for candidate in result.fields:
@@ -92,7 +130,8 @@ def preview_from_result(result,sources,website,*,supported_interpretations=()):
             if not source or normalize(quote.quote) not in normalize(source['text']):continue
             proofs.append({'source_id':quote.source_id,'url':source.get('url'),'quote':quote.quote})
         if not proofs:rejected+=1;continue
-        supporting=normalize(' '.join(item['quote'] for item in proofs));value=candidate.value
+        value=offering_evidence(candidate,proofs,indexed)
+        supporting=normalize(' '.join(item['quote'] for item in proofs))
         if candidate.field=='products_services' and isinstance(value,list) and all(isinstance(item,CompanyService) for item in value):
             # Independently supported offerings survive an unsupported sibling.
             valid=[item for item in value if normalize(item.name) in supporting and
@@ -185,7 +224,7 @@ async def collect_sources(website,active):
                 if re.search(r'\b(?:noai|no-content-ai|nosnippet|noarchive)\b',restrictions,re.I):raise ValueError('Publisher content-use restrictions prevent AI research')
                 # Metadata and JSON-LD are public source assertions, not verified
                 # company facts. Keep their literal text available for citation.
-                metadata=[]
+                metadata=[];offerings=[]
                 for meta in soup.find_all('meta')[:100]:
                     if str(meta.get('name') or meta.get('property') or '').casefold() in ('description','og:description','og:site_name','og:title'):
                         metadata.append(str(meta.get('content',''))[:1500])
@@ -193,7 +232,8 @@ async def collect_sources(website,active):
                     raw=script.string or script.get_text()
                     if len(raw)<=20000:
                         import json
-                        try:metadata.append(json.dumps(json.loads(raw),ensure_ascii=False)[:10000])
+                        try:
+                            data=json.loads(raw);metadata.append(json.dumps(data,ensure_ascii=False)[:10000]);offerings.extend(declared_offerings(data))
                         except ValueError:pass
                 visible=' '.join(soup.get_text(' ',strip=True).split())
                 if len(visible)<400 and get_settings().heysow_company_js_enabled:
@@ -206,7 +246,7 @@ async def collect_sources(website,active):
                 links=[urljoin(final,str(link['href'])) for link in soup.find_all('a',href=True)[:200]]
                 for element in soup(['script','style','noscript','iframe','svg']):element.decompose()
                 text=' '.join((' '.join(metadata)+' '+soup.get_text(' ',strip=True)).split())[:12000]
-                if text:sources.append({'url':final,'text':text})
+                if text:sources.append({'url':final,'text':text,'declared_offerings':offerings[:8]})
                 return links
         links=await asyncio.wait_for(fetch(website),timeout=12)
         def priority(url):
@@ -251,6 +291,6 @@ async def generate(c,row,active):
     def checked(value):
         meaningful_preview(preview_from_result(value.extraction,sources,row['website'],supported_interpretations=value.supported_interpretations))
         return value
-    result,hit=await ai.cached(c,current().actor,'COMPANY_PROFILE_V2',{'sources':sources,'website':row['website']},produce,ReviewedExtraction,checked)
+    result,hit=await ai.cached(c,current().actor,'COMPANY_PROFILE_V3',{'sources':sources,'website':row['website']},produce,ReviewedExtraction,checked)
     preview=meaningful_preview(preview_from_result(result.extraction,sources,row['website'],supported_interpretations=result.supported_interpretations));preview['cached']=hit
     return preview

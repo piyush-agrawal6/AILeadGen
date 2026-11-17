@@ -92,6 +92,21 @@ def test_malformed_optional_field_does_not_discard_independent_grounded_fields()
  with pytest.raises(gateway.AiOutputError):
   autofill.meaningful_preview(autofill.preview_from_result(autofill.Extraction.model_validate(payload),[SOURCE],'https://example.com'))
 
+
+def test_product_name_and_function_must_come_from_the_same_structured_object():
+ import json
+ declaration={'@type':'SoftwareApplication','name':'PlaneByte Intent Radar','description':'Find and evaluate public buyer demand.'}
+ other={'@type':'Product','name':'Separate product','description':'A different unrelated capability.'}
+ document={'@graph':[declaration,other]}
+ source={'id':'S1','url':'https://example.com','text':json.dumps(document,ensure_ascii=False),'declared_offerings':autofill.declared_offerings(document)}
+ candidate=proposal('products_services',[{'name':'Intent Radar','description':declaration['description']}],declaration['description'])
+ preview=autofill.preview_from_result(autofill.Extraction(fields=[candidate]),[source],'https://example.com')
+ assert preview['suggestions']['products_services']==[{'name':'PlaneByte Intent Radar','category':'','description':declaration['description']}]
+ assert all(autofill.normalize(p['quote']) in autofill.normalize(source['text']) for p in preview['evidence']['products_services'])
+ candidate=proposal('products_services',[{'name':'Intent Radar','description':other['description']}],other['description'])
+ rejected=autofill.preview_from_result(autofill.Extraction(fields=[candidate]),[source],'https://example.com')
+ assert 'products_services' not in rejected['suggestions']
+
 def test_review_permissions_flag_and_failed_ai_budget_do_not_change_profile(client):
  http,provider,crawl,s,org,_=client
  viewer={'x-le-user':'viewer@example.test'}
