@@ -7,8 +7,9 @@ import {leadEngineEnabled,isLeadEnginePage} from '@/lib/product-availability';
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const developerApi=process.env.HEYSOW_DEVELOPER_API_ENABLED==='true'&&isDeveloperApiPath(pathname);
+  const paymentReturn=pathname==='/api/payments/payu-return'&&request.method==='POST';
   const tracking=/^\/t\/[ocu]\/[A-Za-z0-9_-]{43}(?:\.gif)?$/.test(pathname);
-  if (!developerApi && !tracking && !isPublicBrandAsset(pathname) && !isPublicPage(pathname) && !(pathname==='/api/auth'||pathname.startsWith('/api/auth/')) && !(await currentUser())) {
+  if (!developerApi && !paymentReturn && !tracking && !isPublicBrandAsset(pathname) && !isPublicPage(pathname) && !(pathname==='/api/auth'||pathname.startsWith('/api/auth/')) && !(await currentUser())) {
     if (pathname.startsWith("/api/")) return NextResponse.json({ detail: "Sign in to continue." }, { status: 401 });
     return NextResponse.redirect(new URL("/login", request.url));
   }

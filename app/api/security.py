@@ -15,8 +15,11 @@ from app.database.connection import db_session
 logger = logging.getLogger(__name__)
 
 
-def canonical_request(timestamp, nonce, method, path, body, actor):
-    return "\n".join([timestamp, nonce, method, path, hashlib.sha256(body).hexdigest(), actor])
+def canonical_request(timestamp, nonce, method, path, body, actor, session_token='', client_id=''):
+    parts=[timestamp, nonce, method, path, hashlib.sha256(body).hexdigest(), actor]
+    if session_token:parts.append('session-sha256:'+hashlib.sha256(session_token.encode()).hexdigest())
+    if client_id:parts.append('client:'+client_id)
+    return "\n".join(parts)
 
 
 _nonce_cleanup_lock=threading.Lock()
@@ -37,7 +40,7 @@ def claim_nonce(nonce):
 class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
     # Paths that must work before an organization exists (onboarding, personal
     # profile, identity). Everything else requires completed company onboarding.
-    ORG_OPTIONAL_PREFIXES = ('/api/organization', '/api/profile', '/api/foundation/me')
+    ORG_OPTIONAL_PREFIXES = ('/api/organization', '/api/profile', '/api/foundation/me','/api/billing')
     # Setup administration is available to verified active members before product
     # activation. Existing RBAC still controls every write; execution is excluded.
     SETUP_CONFIGURATION_PATHS = frozenset(('/api/settings','/api/workflow/defaults','/api/workflow/safety',
@@ -63,6 +66,12 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
             from app.platform.modules import guard_route,guard_product_route
             from app.platform.context import workspace_scope
             with db_session() as c:
+                if get_settings().heysow_accounts_enabled:
+                    from app.accounts.policy import require_work_identity
+                    require_work_identity(request.state.user_email)
+                if get_settings().heysow_accounts_enabled and (request.state.user_email not in get_settings().allowed_emails or request.headers.get('x-le-session')):
+                    from app.accounts.sessions import validate
+                    validate(c,request.state.user_email,request.headers.get('x-le-session',''))
                 state=org_context.resolve(c,request.state.user_email)
                 request.state.organization=state
                 request.state.organization_id=state['organization_id'] if state else None
@@ -100,6 +109,9 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
         finally:request_metrics.finish(token)
 
     async def _dispatch(self, request, call_next):
+        if request.url.path in ('/api/billing/webhooks/creem','/api/billing/webhooks/creem/test') and request.method=='POST':return await call_next(request)
+        if request.url.path=='/api/billing/payments/payu/callback' and request.method=='POST':return await call_next(request)
+        if request.url.path=='/api/notifications/webhooks/resend' and request.method=='POST':return await call_next(request)
         if request.url.path=='/api/billing/webhooks/razorpay' and request.method=='POST':
             # This one provider callback uses its own bounded raw-body HMAC;
             # arbitrary billing/API prefixes never bypass signed authentication.
@@ -116,10 +128,12 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
             return await self.authenticated(request,call_next)
         if not settings.api_signing_secret:
             return JSONResponse({"detail": "API authentication is not configured."}, status_code=503)
+        from app.api.routes.accounts import PUBLIC,SESSION
+        account_path=request.url.path in PUBLIC|SESSION
         body = bytearray()
         async for chunk in request.stream():
             body.extend(chunk)
-            if len(body) > (4_000_000 if request.url.path=='/api/experiments/catalog' else 1_048_576):
+            if len(body) > (8192 if account_path else 4_000_000 if request.url.path=='/api/experiments/catalog' else 1_048_576):
                 return JSONResponse({"detail": "Request too large."}, status_code=413)
         # Cache the bounded body for downstream Pydantic parsing.
         request._body = bytes(body)
@@ -132,7 +146,8 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
         if query:
             path += "?" + query
         from app.platform.admission import is_bootstrap,access as account_access
-        bootstrap=is_bootstrap(request.url.path,request.method)
+        account_bootstrap=settings.heysow_accounts_enabled and account_path and request.method=='POST'
+        bootstrap=is_bootstrap(request.url.path,request.method) or account_bootstrap
         candidate=actor in settings.allowed_emails or bootstrap or settings.heysow_customer_access_enabled
         valid_fields = (timestamp.isdigit() and abs(time.time() - int(timestamp)) <= 60
                         and re.fullmatch(r"[a-zA-Z0-9-]{16,100}", nonce)
@@ -141,7 +156,7 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
         if not valid_fields:
             logger.warning("Internal request rejected: invalid authentication fields")
             return JSONResponse({"detail": "Invalid internal authentication."}, status_code=401)
-        expected = hmac.new(settings.api_signing_secret.encode(), canonical_request(timestamp, nonce, request.method, path, body, actor).encode(), hashlib.sha256).hexdigest()
+        expected = hmac.new(settings.api_signing_secret.encode(), canonical_request(timestamp, nonce, request.method, path, body, actor, request.headers.get('x-le-session',''),request.headers.get('x-le-client','')).encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, supplied):
             logger.warning("Internal request rejected: signature mismatch")
             return JSONResponse({"detail": "Invalid internal authentication."}, status_code=401)
@@ -149,13 +164,17 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
         if inserted != 1:
             return JSONResponse({"detail": "Request has already been used."}, status_code=401)
         if actor not in settings.allowed_emails and not bootstrap:
-            with db_session() as c:
-                if not account_access(c,actor,require_terms=request.url.path!='/api/organization/admission/google'):return JSONResponse({'detail':'Account access is not enabled.'},status_code=401)
+            # Pool checkout and fresh admission reads may block. Never hold the
+            # event loop while another request needs it to release a connection.
+            def admitted():
+                with db_session() as c:
+                    return account_access(c,actor,require_terms=request.url.path!='/api/organization/admission/google')
+            if not await asyncio.to_thread(admitted):return JSONResponse({'detail':'Account access is not enabled.'},status_code=401)
         request.state.user_email = actor
         request.state.internal_verified = True
         # Admission is an account-only broker operation, including renewed terms
         # for viewers. It cannot inherit the account's selected workspace scope.
-        if request.url.path=='/api/organization/admission/google' and request.method=='POST':
+        if account_bootstrap or request.url.path=='/api/organization/admission/google' and request.method=='POST':
             return await call_next(request)
         return await self.authenticated(request,call_next)
 

@@ -36,6 +36,9 @@ def workspace_scope(conn, actor, organization_id):
     from app.api.organization import membership_role
     from app.config.settings import get_settings
     settings=get_settings()
+    if settings.heysow_accounts_enabled:
+        from app.accounts.policy import require_work_identity
+        require_work_identity(actor)
     if actor not in settings.allowed_emails:
         if settings.heysow_customer_access_enabled:
             from app.platform.admission import access
@@ -93,6 +96,10 @@ def job_scope(conn, kind, identifier):
     grants access, and an existing scope cannot be switched to a different tenant.
     """
     import json
+    if kind in ('acquisition','workflow','scan','report'):
+        from app.config.settings import get_settings
+        if not get_settings().lead_engine_available:
+            raise HTTPException(404,'Lead Engine is unavailable for this workspace job.')
     tables = {"acquisition": ("acquisition_jobs", "owner"),
               "workflow": ("workflow_runs", "created_by"),
               "scan": ("pipeline_runs", None),
@@ -109,6 +116,9 @@ def job_scope(conn, kind, identifier):
         raise HTTPException(409, "Job has no verified workspace owner.")
     owner = row[owner_field] if owner_field else json.loads(row["run_configuration_json"] or "{}").get("created_by")
     with workspace_scope(conn, owner, row["organization_id"]) as context:
+        if kind=='intelligence':
+            from app.billing.subscription_access import require_product
+            require_product(conn,context.organization_id)
         if kind in ('acquisition','workflow','scan','report'):
             from app.api.organization import products
             if not products(conn,context.organization_id).get('LEADGEN'):

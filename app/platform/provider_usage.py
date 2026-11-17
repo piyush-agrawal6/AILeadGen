@@ -37,6 +37,8 @@ def price(config,model,usage):
     except (ValueError,KeyError,TypeError,InvalidOperation):return None,None
 
 def record(provider,usage,status,start):
+    from app.platform.setup_diagnostics import provider_observed
+    provider_observed(provider)
     provider.last_usage={**usage,'basis':'PROVIDER_REPORTED' if any(v is not None for v in usage.values()) else 'NOT_REPORTED'}
     from app.platform.context import current
     try:ctx=current()

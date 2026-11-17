@@ -10,15 +10,15 @@ from app.platform import onboarding_ai as setup,company_discovery as reviews,com
 from app.acquisition.config import AcquisitionSettings
 from app.acquisition import ai as gateway
 from app.icp import builder,ai as icp_ai
-from test_icp_business_builder import candidate
+from test_icp_business_builder import five_candidates
 
 
 def test_postgres_reviewed_setup_worker_replay_defaults_and_no_automatic_actions(pg_radar,monkeypatch):
     c,org,_=pg_radar;s=get_settings()
-    for flag in ('heysow_workspace_management_enabled','heysow_company_discovery_enabled','heysow_company_ai_enabled','heysow_icp_ai_enabled'):monkeypatch.setattr(s,flag,True)
+    for flag in ('heysow_workspace_management_enabled','heysow_company_discovery_enabled','heysow_company_ai_enabled','heysow_icp_ai_enabled','heysow_setup_diagnostics_enabled'):monkeypatch.setattr(s,flag,True)
     cfg=AcquisitionSettings(_env_file=None,VERTEX_AI_ENABLED=True,AI_PRIMARY_PROVIDER='vertex')
     monkeypatch.setattr(company_autofill,'provider_settings',lambda:cfg);monkeypatch.setattr(icp_ai,'provider_settings',lambda:cfg)
-    provider=AsyncMock();provider.structured.return_value=builder.Suggestions(candidates=[candidate('PostgreSQL software audience')]);monkeypatch.setattr(gateway,'provider',lambda c:provider)
+    provider=AsyncMock();provider.structured.return_value=builder.exact_suggestions(5)(candidates=five_candidates());monkeypatch.setattr(gateway,'provider',lambda c:provider)
     @contextmanager
     def session(path=None):
         db=PostgresConnection(s.database_url,schema=c.schema)
@@ -35,6 +35,10 @@ def test_postgres_reviewed_setup_worker_replay_defaults_and_no_automatic_actions
         request=setup.Recommend(revision=saved['progress']['revision'],request_id=uuid.uuid4())
         job=setup.recommendations(c,request);c.commit();reviews.execute(job['review']['id'])
         reviewed=setup.detail(c,job['review']['id']);assert reviewed['status']=='READY',reviewed
+        assert len(reviewed['preview']['candidates'])==5
+        assert reviewed['attempt_history'][0]['outcome']=='STARTED'
+        assert reviewed['attempt_history'][-1]['outcome']=='READY'
+        assert all(event['attempt']==1 for event in reviewed['attempt_history'])
         again=setup.recommendations(c,request);assert again['progress']['revision']==job['progress']['revision'];c.commit()
         proposal=reviewed['preview'];draft=proposal['candidates'][0]['draft']
         body=setup.Accept(revision=job['progress']['revision'],proposal_id=proposal['proposal_id'],candidates=[{'candidate_index':0,**{k:v for k,v in draft.items() if k in ('name','description','criteria')}}],primary_index=0,request_id=uuid.uuid4(),research_keywords=['Custom applications'])

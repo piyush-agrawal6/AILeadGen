@@ -6,6 +6,8 @@ from app.api.permissions import authorize
 
 def _enabled(c, organization_id, row):
     settings=get_settings();stage=settings.intent_radar_stage
+    from app.billing.subscription_access import required,product_grant
+    if required(c,organization_id) and not product_grant(c,organization_id):return False
     enabled=bool(row and row['organization_status']=='ACTIVE' and row['onboarding_status']=='COMPLETED' and stage!='Disabled')
     if enabled and not row['manual_grant']:
         from app.billing.service import granted
@@ -22,6 +24,8 @@ def availability(c, organization_id):
 
 def context(c, write=False, manager=False):
     ctx=current()
+    from app.billing.subscription_access import require_product
+    require_product(c,ctx.organization_id)
     row=c.execute("""SELECT m.role,o.status organization_status,b.status onboarding_status,COALESCE(p.enabled,0) manual_grant
         FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id
         LEFT JOIN organization_onboarding b ON b.organization_id=o.id
@@ -29,7 +33,10 @@ def context(c, write=False, manager=False):
         WHERE m.organization_id=? AND m.user_id=? AND m.status='ACTIVE'""",(ctx.organization_id,ctx.actor)).fetchone()
     if not row or row['organization_status']!='ACTIVE':raise HTTPException(403,'Active workspace membership is required.')
     if not _enabled(c,ctx.organization_id,row):raise HTTPException(404,'Intent Radar is not enabled for this workspace.')
-    if write:authorize(c,ctx.actor,'POST','/api/intent-radar',{},ctx.organization_id)
+    if write:
+        from app.billing.access_periods import require_current
+        require_current(c,ctx.organization_id)
+        authorize(c,ctx.actor,'POST','/api/intent-radar',{},ctx.organization_id)
     if manager and row['role'] not in ('OWNER','ADMIN'):raise HTTPException(403,'Intent Radar settings require a workspace administrator.')
     return ctx
 

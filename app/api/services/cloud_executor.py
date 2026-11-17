@@ -8,7 +8,7 @@ from app.database.connection import db_session
 from app.database.repositories import PipelineRunRepository
 
 
-def run_job(run_id, session=None, *, report_id=None, profile_job_id=None, intelligence_job_id=None,webhook_endpoint_id=None,webhook_dispatch_token=None,sheet_export_id=None):
+def run_job(run_id, session=None, *, report_id=None, profile_job_id=None, intelligence_job_id=None,webhook_endpoint_id=None,webhook_dispatch_token=None,sheet_export_id=None,notification_id=None,recovery_request_id=None,subscription_event_id=None,subscription_event_environment=None):
     if sheet_export_id:
         from app.integrations.service import require_enabled
         require_enabled()
@@ -23,10 +23,30 @@ def run_job(run_id, session=None, *, report_id=None, profile_job_id=None, intell
         import google.auth
         from google.auth.transport.requests import AuthorizedSession
         credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
-        session = AuthorizedSession(credentials)
+        session = AuthorizedSession(credentials,refresh_timeout=5 if notification_id or recovery_request_id else None)
     url = f"https://run.googleapis.com/v2/projects/{settings.gcp_project_id}/locations/{settings.gcp_region}/jobs/{settings.cloud_run_job}:run"
     overrides={"taskCount":1,"containerOverrides":[{"env":[{"name":"LEADENGINE_RUN_ID","value":str(run_id) if run_id else ""},{"name":"LEADENGINE_REPORT_ID","value":report_id or ""}]}]}
-    if sheet_export_id:
+    if subscription_event_id:
+        import re
+        if not re.fullmatch(r'[A-Za-z0-9_-]{1,160}',subscription_event_id) or subscription_event_environment not in ('production','test'):raise ValueError('Valid subscription event required')
+        overrides['timeout']='120s'
+        overrides['containerOverrides'][0]['env']=[{'name':'PLANEBYTE_SUBSCRIPTION_EVENT_ID','value':subscription_event_id},{'name':'PLANEBYTE_SUBSCRIPTION_EVENT_ENVIRONMENT','value':subscription_event_environment}]+[{'name':key,'value':''} for key in ('PLANEBYTE_ACCOUNT_RECOVERY_ID','PLANEBYTE_NOTIFICATION_ID','LEADENGINE_AUTOMATION_MODE','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID','LEADENGINE_INTELLIGENCE_JOB_ID','LEADENGINE_PROFILE_DISCOVERY_ID','LEADENGINE_WEBHOOK_ENDPOINT_ID','LEADENGINE_WEBHOOK_DISPATCH_TOKEN','LEADENGINE_SHEET_EXPORT_ID')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
+    elif recovery_request_id:
+        from app.accounts.service import enabled
+        from app.notifications.transactional import require_enabled
+        enabled();require_enabled()
+        import uuid
+        recovery_request_id=str(uuid.UUID(recovery_request_id))
+        overrides['timeout']='150s'
+        overrides['containerOverrides'][0]['env']=[{'name':'PLANEBYTE_ACCOUNT_RECOVERY_ID','value':recovery_request_id}]+[{'name':key,'value':''} for key in ('PLANEBYTE_NOTIFICATION_ID','LEADENGINE_AUTOMATION_MODE','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID','LEADENGINE_INTELLIGENCE_JOB_ID','LEADENGINE_PROFILE_DISCOVERY_ID','LEADENGINE_WEBHOOK_ENDPOINT_ID','LEADENGINE_WEBHOOK_DISPATCH_TOKEN','LEADENGINE_SHEET_EXPORT_ID')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
+    elif notification_id:
+        from app.notifications.transactional import require_enabled
+        require_enabled()
+        import uuid
+        notification_id=str(uuid.UUID(notification_id))
+        overrides['timeout']='150s'
+        overrides['containerOverrides'][0]['env']=[{'name':'PLANEBYTE_NOTIFICATION_ID','value':notification_id}]+[{'name':key,'value':''} for key in ('LEADENGINE_AUTOMATION_MODE','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID','LEADENGINE_INTELLIGENCE_JOB_ID','LEADENGINE_PROFILE_DISCOVERY_ID','LEADENGINE_WEBHOOK_ENDPOINT_ID','LEADENGINE_WEBHOOK_DISPATCH_TOKEN','LEADENGINE_SHEET_EXPORT_ID')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
+    elif sheet_export_id:
         overrides['timeout']='90s'
         overrides['containerOverrides'][0]['env']=[{'name':'LEADENGINE_SHEET_EXPORT_ID','value':sheet_export_id}]+[{'name':key,'value':''} for key in ('LEADENGINE_AUTOMATION_MODE','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID','LEADENGINE_INTELLIGENCE_JOB_ID','LEADENGINE_PROFILE_DISCOVERY_ID','LEADENGINE_WEBHOOK_ENDPOINT_ID','LEADENGINE_WEBHOOK_DISPATCH_TOKEN')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
     elif webhook_endpoint_id:
@@ -42,7 +62,11 @@ def run_job(run_id, session=None, *, report_id=None, profile_job_id=None, intell
         overrides['containerOverrides'][0]['env']=[{'name':'LEADENGINE_PROFILE_DISCOVERY_ID','value':profile_job_id}]+[{'name':key,'value':''} for key in ('LEADENGINE_AUTOMATION_MODE','LEADENGINE_REPORT_ID','LEADENGINE_RUN_ID')]+[{'name':'LEADENGINE_EMAIL_SYNC','value':'0'},{'name':'LEADENGINE_CANARY','value':'0'}]
     elif report_id:overrides['timeout']='300s'
     elif not profile_job_id:overrides['containerOverrides'][0]['env']=overrides['containerOverrides'][0]['env'][:1]
-    response = session.post(url, json={"overrides":overrides}, timeout=30)
+    if settings.subscription_onboarding_required and not subscription_event_id:
+        overrides['containerOverrides'][0]['env'] += [{'name':'PLANEBYTE_SUBSCRIPTION_EVENT_ID','value':''},{'name':'PLANEBYTE_SUBSCRIPTION_EVENT_ENVIRONMENT','value':''}]
+    if not recovery_request_id:overrides['containerOverrides'][0]['env'].append({'name':'PLANEBYTE_ACCOUNT_RECOVERY_ID','value':''})
+    if not notification_id and not recovery_request_id:overrides['containerOverrides'][0]['env'].append({'name':'PLANEBYTE_NOTIFICATION_ID','value':''})
+    response = session.post(url, json={"overrides":overrides}, timeout=8 if notification_id or recovery_request_id or subscription_event_id else 30)
     if response.status_code >= 400:
         # Cloud error bodies can contain infrastructure data: never expose them to UI.
         raise RuntimeError(f"Cloud Run job dispatch rejected (HTTP {response.status_code})")

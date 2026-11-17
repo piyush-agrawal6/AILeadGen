@@ -1,12 +1,13 @@
 import 'server-only';
 import {cache} from 'react';
-import {createHash,createHmac,randomUUID} from 'node:crypto';
+import {signedHeaders} from './account-broker';
+import {privateSession} from './private-session';
 import {currentUser} from './session';
 import {serverEnv} from './env';
 import type {ProductAccess} from '@/lib/intent-radar';
 export const productAccess=cache(async function productAccess():Promise<ProductAccess|null>{
  const user=await currentUser();if(!user?.email)return null;
- const env=serverEnv(),path='/api/organization/products',timestamp=String(Math.floor(Date.now()/1000)),nonce=randomUUID(),actor=user.email.toLowerCase();
- const canonical=[timestamp,nonce,'GET',path,createHash('sha256').update('').digest('hex'),actor].join('\n');
- try{const result=await fetch(env.apiUrl+path,{cache:'no-store',redirect:'error',signal:AbortSignal.timeout(45000),headers:{'x-le-timestamp':timestamp,'x-le-nonce':nonce,'x-le-user':actor,'x-le-signature':createHmac('sha256',env.secret).update(canonical).digest('hex')}});return result.ok?await result.json() as ProductAccess:null;}catch{return null;}
+ const env=serverEnv(),path='/api/organization/products',actor=user.email.toLowerCase();
+ const headers=signedHeaders('GET',path,'',actor,await privateSession());
+ try{const result=await fetch(env.apiUrl+path,{cache:'no-store',redirect:'error',signal:AbortSignal.timeout(45000),headers});return result.ok?await result.json() as ProductAccess:null;}catch{return null;}
 });

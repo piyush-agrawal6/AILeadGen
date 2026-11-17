@@ -57,7 +57,7 @@ def owned(c,key):
 def detail(c,key):
     row=owned(c,key)
     expired=row['status'] in ('QUEUED','RUNNING') and row['lease_expires_at'] and row['lease_expires_at']<now()
-    return {name:row[name] for name in ('id','website','status','error_code','created_at','updated_at','source_kind','progress_stage')}|{'preview':json.loads(row['result_json']) if row['result_json'] else None,'can_retry':row['attempts']<3 and (row['status']=='FAILED' or bool(expired) or row['status']=='QUEUED' and not row['execution_name'])}
+    return {name:row[name] for name in ('id','website','status','error_code','created_at','updated_at','source_kind','progress_stage')}|{'preview':json.loads(row['result_json']) if row['result_json'] else None,'attempt_history':__import__('app.platform.setup_diagnostics',fromlist=['history']).history(c,key),'can_retry':row['attempts']<3 and (row['status']=='FAILED' or bool(expired) or row['status']=='QUEUED' and not row['execution_name'])}
 
 
 def control(c,key,action):
@@ -120,12 +120,13 @@ def create(c,body):
     if getattr(c,'backend',None)=='postgres':c.execute('SELECT id FROM organizations WHERE id=? FOR UPDATE',(org,))
     elif not c.in_transaction:c.execute('BEGIN IMMEDIATE')
     require_role(c,current().actor,org,('OWNER','ADMIN'))
-    digest=hashlib.sha256(json.dumps(body.model_dump(exclude={'request_id'}),sort_keys=True).encode()).hexdigest()
+    legacy_digest=hashlib.sha256(json.dumps(body.model_dump(exclude={'request_id'}),sort_keys=True).encode()).hexdigest()
+    digest=hashlib.sha256(('setup-v2:'+legacy_digest).encode()).hexdigest() if body.use_ai else legacy_digest
     prior=c.execute('SELECT * FROM organization_profile_jobs WHERE organization_id=? AND request_id=?',(org,str(body.request_id))).fetchone()
     if prior:
         if body.source_kind in ('ICP_RECOMMENDATIONS','ONBOARDING_ADVICE') and prior['created_by']!=current().actor:raise HTTPException(409,'This request belongs to another setup review.')
         prior_hash=prior['input_hash'] or hashlib.sha256(json.dumps({'website':prior['website'],'source_kind':'WEBSITE','description':'','use_ai':False},sort_keys=True).encode()).hexdigest()
-        if prior_hash!=digest:raise HTTPException(409,'This review request already belongs to different company information.')
+        if prior_hash not in (digest,legacy_digest):raise HTTPException(409,'This review request already belongs to different company information.')
         return detail(c,prior['id'])
     fresh=(datetime.now(timezone.utc)-timedelta(hours=24)).isoformat()
     cached=c.execute("SELECT id,created_by FROM organization_profile_jobs WHERE organization_id=? AND (input_hash=? OR (input_hash='' AND website=? AND use_ai=0 AND ?=0)) AND (?=0 OR created_by=?) AND ((status='READY' AND updated_at>?) OR status='QUEUED' OR (status='RUNNING' AND lease_expires_at>?)) ORDER BY updated_at DESC LIMIT 1",(org,digest,body.website,int(body.use_ai),int(body.source_kind in ('ICP_RECOMMENDATIONS','ONBOARDING_ADVICE')),current().actor,fresh,now())).fetchone()
@@ -203,18 +204,22 @@ async def fetch_preview(website):
 def execute(key,db_path=None):
     require_enabled()
     from app.database.migrations import verify_schema
+    from app.platform import setup_diagnostics as diagnostic
     lease=str(uuid.uuid4())
     with db_session(db_path) as scope:
         verify_schema(scope)
-        with job_scope(scope,'company_profile',key):
+        from app.billing.subscription_access import setup_scope
+        with job_scope(scope,'company_profile',key),setup_scope(scope,key),diagnostic.attempt() as trace:
             require_enabled()
             require_role(scope,current().actor,organization(),('OWNER','ADMIN'))
             with db_session(db_path) as c:
                 row=owned(c,key)
                 if row['status'] not in ('QUEUED','RUNNING'):return
-                expiry=(datetime.now(timezone.utc)+timedelta(seconds=90)).isoformat()
+                expiry=(datetime.now(timezone.utc)+timedelta(seconds=135)).isoformat()
                 changed=c.execute("UPDATE organization_profile_jobs SET status='RUNNING',lease_owner=?,lease_expires_at=?,attempts=attempts+1,updated_at=? WHERE id=? AND organization_id=? AND attempts<3 AND (status='QUEUED' OR (status='RUNNING' AND lease_expires_at<?))",(lease,expiry,now(),key,organization(),now())).rowcount
                 if changed!=1:return
+                attempt_number=row['attempts']+1
+                diagnostic.event(c,row,attempt_number,'STARTING','STARTED',trace)
             def active(stage=None):
                 require_enabled()
                 if row['use_ai']:
@@ -227,27 +232,38 @@ def execute(key,db_path=None):
                     require_role(c,row['created_by'],organization(),('OWNER','ADMIN'))
                     present=owned(c,key)
                     if present['status']!='RUNNING' or present['lease_owner']!=lease or present['lease_expires_at']<now():raise HTTPException(409,'Company review is no longer active.')
-                    if stage:c.execute('UPDATE organization_profile_jobs SET progress_stage=? WHERE id=? AND organization_id=? AND lease_owner=?',(stage,key,organization(),lease))
+                    if stage and stage!=trace['stage']:
+                        diagnostic.event(c,row,attempt_number,stage,'PROGRESS',trace)
+                        trace['stage']=stage
+                        c.execute('UPDATE organization_profile_jobs SET progress_stage=? WHERE id=? AND organization_id=? AND lease_owner=?',(stage,key,organization(),lease))
             try:
                 active('ANALYZING' if row['source_kind'] in ('DESCRIPTION','ICP_RECOMMENDATIONS','ONBOARDING_ADVICE') else 'READING_WEBSITE')
                 if row['source_kind'] in ('ICP_RECOMMENDATIONS','ONBOARDING_ADVICE'):
                     from app.platform.onboarding_ai import generate_job
-                    with db_session(db_path) as c:result=asyncio.run(asyncio.wait_for(generate_job(c,row,active),timeout=65))
+                    with db_session(db_path) as c:result=asyncio.run(asyncio.wait_for(generate_job(c,row,active),timeout=90))
                 elif row['use_ai']:
                     from app.platform.company_autofill import generate
-                    with db_session(db_path) as c:result=asyncio.run(asyncio.wait_for(generate(c,row,active),timeout=65))
+                    with db_session(db_path) as c:result=asyncio.run(asyncio.wait_for(generate(c,row,active),timeout=90))
                 else:result=asyncio.run(asyncio.wait_for(fetch_preview(row['website']),timeout=25))
+                active('VALIDATING')
             except Exception as error:
-                code='WEBSITE_REVIEW_FAILED'
-                if row['source_kind'] in ('ICP_RECOMMENDATIONS','ONBOARDING_ADVICE'):
-                    from app.acquisition.ai import AiOutputError
-                    from pydantic import ValidationError
-                    code='SETUP_AI_OUTPUT_INVALID' if isinstance(error,(AiOutputError,ValidationError)) else 'SETUP_REVIEW_TIMEOUT' if isinstance(error,TimeoutError) else {403:'SETUP_ACCESS_REVOKED',409:'SETUP_CONTEXT_CHANGED',429:'SETUP_LIMIT_EXHAUSTED',503:'SETUP_AI_UNAVAILABLE'}.get(getattr(error,'status_code',None),'SETUP_REVIEW_FAILED')
-                    import logging
-                    logging.getLogger(__name__).warning('Setup review failed: %s: %s', type(error).__name__, error, extra={'job_id':key,'error_type':type(error).__name__,'error_code':code})
-                with db_session(db_path) as c:c.execute("UPDATE organization_profile_jobs SET status='FAILED',progress_stage='FAILED',error_code=?,lease_owner=NULL,lease_expires_at=NULL,updated_at=? WHERE id=? AND organization_id=? AND lease_owner=? AND status='RUNNING'",(code,now(),key,organization(),lease))
+                code=diagnostic.error_code(error)
+                if row['source_kind']=='WEBSITE' and not row['use_ai']:code='WEBSITE_REVIEW_FAILED'
+                # Fixed codes and identifiers only: logging extras were not
+                # retained by the old text logger, losing first-attempt causes.
+                import logging
+                logging.getLogger(__name__).warning('setup_attempt %s',json.dumps({'job_id':key,'organization_id':organization(),'attempt':attempt_number,'stage':trace['stage'],'error_code':code,'error_type':type(error).__name__}))
+                with db_session(db_path) as c:
+                    present=owned(c,key)
+                    if present['status']=='CANCELLED':
+                        diagnostic.event(c,row,attempt_number,trace['stage'],'CANCELLED',trace)
+                    elif present['lease_owner']==lease and present['status']=='RUNNING':
+                        diagnostic.event(c,row,attempt_number,trace['stage'],'FAILED',trace,code)
+                        c.execute("UPDATE organization_profile_jobs SET status='FAILED',progress_stage='FAILED',error_code=?,lease_owner=NULL,lease_expires_at=NULL,updated_at=? WHERE id=? AND organization_id=? AND lease_owner=? AND status='RUNNING'",(code,now(),key,organization(),lease))
+                    else:diagnostic.event(c,row,attempt_number,trace['stage'],'SUPERSEDED',trace)
                 return
             with db_session(db_path) as c:
-                # A revoked/cancelled job cannot apply a late result.
+                # Final authorization, cancellation AND expiry/lease fencing.
                 require_role(c,row['created_by'],organization(),('OWNER','ADMIN'))
-                c.execute("UPDATE organization_profile_jobs SET status='READY',progress_stage='READY',result_json=?,error_code=NULL,lease_owner=NULL,lease_expires_at=NULL,updated_at=? WHERE id=? AND organization_id=? AND lease_owner=? AND status='RUNNING'",(json.dumps(result),now(),key,organization(),lease))
+                changed=c.execute("UPDATE organization_profile_jobs SET status='READY',progress_stage='READY',result_json=?,error_code=NULL,lease_owner=NULL,lease_expires_at=NULL,updated_at=? WHERE id=? AND organization_id=? AND lease_owner=? AND status='RUNNING' AND lease_expires_at>?",(json.dumps(result),now(),key,organization(),lease,now())).rowcount
+                diagnostic.event(c,row,attempt_number,'READY' if changed else trace['stage'],'READY' if changed else 'SUPERSEDED',trace)

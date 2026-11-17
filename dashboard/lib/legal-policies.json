@@ -1,0 +1,488 @@
+{
+  "terms": {
+    "title": "PlaneByte Terms of Service",
+    "sections": [
+      {
+        "title": "1. Who provides the service",
+        "blocks": [
+          {
+            "text": "PlaneByte is the trading/product name used for the service provided by **Planebyte, an individually operated business owned by Piyush Agrawal**, with its legal-notice/business address at **House No. 1005, Attabira, Bargarh, Odisha 768027, India**, referred to as \u201cPlaneByte,\u201d \u201cwe,\u201d \u201cus\u201d or \u201cour.\u201d General service enquiries may be sent to contact@planebyte.com. Formal notices may be sent to that address or contact@planebyte.com. Our business website is https://planebyte.com and the service application is https://app.planebyte.com."
+          },
+          {
+            "text": "These Terms govern the PlaneByte application and the Intent Radar and Growth Intelligence features made available to your workspace. \u201cYou\u201d means the person accepting these Terms and, where that person acts with authority for an organization, that organization. You must be legally able and authorized to enter this agreement. If you act for an organization, you confirm your authority to bind it."
+          }
+        ]
+      },
+      {
+        "title": "2. Acceptance and account security",
+        "blocks": [
+          {
+            "text": "Review these Terms and the Privacy Policy before creating an account or purchasing access. We record acceptance of the applicable version. Do not use the service if you cannot accept the applicable agreement."
+          },
+          {
+            "text": "New commercial workspace registration requires a company-managed email address. Email/password registration requires verification of mailbox control. Google registration requires a verified Google identity. Existing expressly authorized accounts may continue to use their approved sign-in method. Verification of a mailbox does not establish legal ownership of a company domain or entitle its holder to join every workspace associated with that domain."
+          },
+          {
+            "text": "Provide accurate account details, protect passwords and developer credentials, and promptly notify us of suspected compromise. Sessions expire after eight hours and can be revoked. Password reset requires a valid recovery process and revokes existing account sessions. Google-only accounts use Google recovery unless a PlaneByte password has been explicitly configured. Connecting an additional sign-in method requires an authenticated linking process; matching email addresses alone do not authorize an automatic merge."
+          }
+        ]
+      },
+      {
+        "title": "3. Workspaces and permitted users",
+        "blocks": [
+          {
+            "text": "Workspace owners manage invitations, membership and roles, subject to purchased seat capacity and server-side permissions. An invitation requires explicit acceptance by its intended recipient. A shared email domain does not automatically create membership or transfer ownership."
+          },
+          {
+            "text": "You are responsible for authorized users acting on your behalf, the accuracy and lawful use of information you provide, and the permissions needed to upload or process it. A workspace member's personal account and an organization's workspace records can have different ownership and retention requirements. Changing employment or removing a member does not by itself authorize deletion of the organization's records."
+          }
+        ]
+      },
+      {
+        "title": "4. Included service and research limitations",
+        "blocks": [
+          {
+            "text": "The current offering is Intent Radar and Growth Intelligence. Available features and limits are described in the approved plan comparison and your workspace's authoritative billing and usage view. Lead Engine is reserved for a future release and is not included in this public offering."
+          },
+          {
+            "text": "Research uses sources that are available and authorized for the relevant workflow. Coverage, freshness and results vary by source, geography and query. Public source availability does not override publisher terms or permissions. We do not promise access to every network, an unrestricted crawl, a particular number of prospects or a commercial outcome."
+          },
+          {
+            "text": "AI-generated interpretations, scores, profiles, summaries and recommendations may contain errors or omissions. Source quotations and links are evidence to review, not independent verification of a person's employment, identity, buying intent or willingness to receive contact. You remain responsible for reviewing results before relying on them. The service does not supply legal, tax, financial or other regulated professional advice."
+          },
+          {
+            "text": "Onboarding prepares editable suggestions. Saving a profile or accepting an AI suggestion does not automatically authorize outreach, payment or an unrequested research run. Third-party integrations require their own permissions and may have additional terms. Google sign-in is separate from permission to access a mailbox or other connected service."
+          }
+        ]
+      },
+      {
+        "title": "5. New customer setup and three-day card trial",
+        "blocks": [
+          {
+            "text": "New customers must save their company and ideal customer profiles and complete Choose Your Plan & Payment before entering the full Intent Radar dashboard. Setup-only AI capacity is bounded and is not a free product trial. Authentication, saved setup, billing and cancellation remain accessible while product access is restricted."
+          },
+          {
+            "text": "A new eligible trial lasts exactly 72 hours from provider-confirmed activation. You must select Starter, Growth or Scale, provide a supported card through secure provider-hosted checkout and explicitly accept recurring authorization. No subscription payment is due during a free trial. The selected plan then renews automatically each month unless canceled. Hosted checkout shows the exact charge amount, currency, first-charge date/time and cancellation terms before authorization. If an unavoidable card-verification charge is required, it must be disclosed and authorized separately; otherwise the advertised free path is unavailable."
+          },
+          {
+            "text": "Trial limits are five searches, three AI operations, 150,000 reserved AI tokens, one manual monitor and one user. Scheduled checks, reports, developer API and MCP require paid allowances. One trial is allowed per verified person and business domain; earlier trials count toward eligibility. Failed, canceled or unverified checkout grants no trial or paid access. Existing customer trials and purchased entitlements retain their recorded terms."
+          }
+        ]
+      },
+      {
+        "title": "6. Prices, providers and tax",
+        "blocks": [
+          {
+            "text": "Monthly subscription prices are USD59 for Starter, USD149 for Growth and USD379 for Scale. Enterprise is quoted individually. Yearly checkout is disabled until exact prices and allowance timing are approved. Published allowances are subject to their versioned catalog and the verified contract snapshot."
+          },
+          {
+            "text": "Eligible international checkout uses Creem, the merchant of record, with tax-inclusive USD product prices. Creem calculates and discloses applicable taxes, payment totals and invoices under its terms. PlaneByte does not store card numbers or CVVs. Creem handles checkout for all supported countries. Changing a country field does not verify billing location or switch an existing provider. PlaneByte has no GSTIN and does not independently add unverified GST."
+          },
+          {
+            "text": "Each provider path opens only after merchant permissions, payment acceptance and applicable disclosures are verified. A browser success page is not payment evidence. We activate access only after authenticated provider confirmation and independent reconciliation. Product creation or a webhook test does not establish payment or payout readiness."
+          }
+        ]
+      },
+      {
+        "title": "7. Subscription renewal, cancellation and legacy purchases",
+        "blocks": [
+          {
+            "text": "A Creem monthly subscription renews using the provider-confirmed billing period and schedule, rather than an internal timer that charges stored cards. Your selected plan, amount, currency and renewal date are displayed before authorization and in Billing & Subscription. Provider-confirmed failed, unpaid, paused, disputed or expired states can restrict product access while preserving billing and cancellation controls."
+          },
+          {
+            "text": "You may cancel future automatic billing through Settings \u2192 Billing & Subscription or the secure provider portal without contacting support. Cancellation is complete only when confirmed by the provider. During a trial, cancel before the first-charge date to prevent conversion. Confirmed cancellation preserves access until the agreed current period ends unless mandatory rights, a verified refund or a security restriction require otherwise. We show and email confirmed cancellation; if a request is unverified, we say so and allow status refresh or recovery."
+          },
+          {
+            "text": "All new purchases use Creem subscriptions in every supported country, including India where Creem permits transactions. Creem determines available payment methods, local-currency presentation, taxes and invoicing at secure checkout. PlaneByte does not convert USD list prices itself. Existing prepaid purchases preserve their original access dates and consent; they do not silently become recurring subscriptions. No silent provider transfer, early upgrade, proration or unused-time credit is promised. Plan changes with monetary consequences require disclosed amounts, effective dates and explicit authorization."
+          }
+        ]
+      },
+      {
+        "title": "8. Allowances and usage",
+        "blocks": [
+          {
+            "text": "Plan allowances, daily safety limits and capacity limits are distinct. The workspace usage view shows the applicable period and remaining capacity. Scheduled checks consume the applicable search and monitor allowances. AI operation counts, reserved token capacity, reported provider tokens and estimated provider cost are separate measurements; an estimate is not a guarantee of actual cost or complete token reporting."
+          },
+          {
+            "text": "Limits are enforced on the server. Retries reuse the relevant operation record where supported; an uncertain provider outcome may retain reserved capacity until reconciled. The service can refuse further operations when capacity is exhausted, access expires or a safety limit is reached. Existing saved research is retained according to the approved retention policy. Do not bypass limits, share credentials to evade seat restrictions, or manipulate client state to obtain unpurchased access."
+          }
+        ]
+      },
+      {
+        "title": "9. Refunds, billing errors and cancellation",
+        "blocks": [
+          {
+            "text": "For an initial paid purchase, request refund review within seven days of verified payment through Billing or contact@planebyte.com. Include the payment reference and reason without card information. We review duplicate charges, billing errors, service circumstances and applicable rights. No undisclosed usage-percentage exclusion or universal no-refund rule applies. Renewals and other requests are reviewed under their agreement and mandatory rights."
+          },
+          {
+            "text": "Canceling a future renewal, leaving checkout, account closure and refunding an already captured payment are separate actions. A free trial has no subscription payment to refund. Refund success and timing are confirmed through the provider; submitting a request does not move money or prove bank settlement. Existing payment and audit records may be retained where legally required."
+          }
+        ]
+      },
+      {
+        "title": "10. Customer information and intellectual property",
+        "blocks": [
+          {
+            "text": "You retain your rights in content you provide. You authorize processing of that content to operate the requested service, secure the account, provide support and perform the workflows you authorize, as described in the Privacy Policy. You must have the necessary rights and permissions for that content."
+          },
+          {
+            "text": "PlaneByte retains its rights in the service, software and branding. Your access permits use within the purchased or trial scope; it does not transfer ownership of the software. Third-party materials remain subject to their owners' rights. AI output may not be unique and is not a representation that all underlying material is exclusively owned by you or PlaneByte."
+          }
+        ]
+      },
+      {
+        "title": "11. Acceptable use",
+        "blocks": [
+          {
+            "text": "Do not use the service unlawfully, infringe others' rights, bypass access controls, impersonate another person, attempt unauthorized security testing, extract private content without permission, or interfere with another workspace. Do not use credentials, integrations, sources or developer tools beyond their authorized scope."
+          },
+          {
+            "text": "Product access does not authorize cold outreach, mass messaging or disregard of consent, opt-outs and suppression requirements. Features unavailable in your workspace must not be accessed through direct API calls or workers. Report a suspected vulnerability privately to contact@planebyte.com without exposing customer information."
+          },
+          {
+            "text": "**AI-generated content and prohibited NSFW outputs**: PlaneByte's Intent Radar platform includes AI-powered synthesis, summaries, interpretations, and analytical features. Users are strictly prohibited from using these features to request, generate, create, or distribute Not Safe for Work (NSFW), pornographic, sexually explicit, or otherwise unlawful sexual content. This restriction applies to user prompts, AI-generated interpretations, synthesized reports, summaries, and all other AI-generated outputs. Any content involving the sexual exploitation or abuse of minors is strictly prohibited. PlaneByte reserves the right to restrict access, remove prohibited content where technically possible, suspend accounts, or terminate services for violations of this policy."
+          }
+        ]
+      },
+      {
+        "title": "12. Service operation, suspension and termination",
+        "blocks": [
+          {
+            "text": "We may restrict activity necessary to address account compromise, unlawful use, material misuse, provider restrictions or risks to the service or other users. We will provide an explanation and a route to support when lawful and practicable. A temporary restriction is not authority to erase retained customer or accounting records."
+          },
+          {
+            "text": "Service availability depends in part on third-party infrastructure and providers. No uninterrupted service, service-level credit, compliance certification or particular performance commitment is promised unless a separate written agreement expressly supplies one. We may maintain and improve the service; changes affecting paid access are subject to the applicable purchase agreement, approved refund policy and mandatory rights."
+          }
+        ]
+      },
+      {
+        "title": "13. Account closure, retention and deletion",
+        "blocks": [
+          {
+            "text": "You may download personal account details and use the available workspace research exports, or request a full export through Sign-in & Security or contact@planebyte.com. Once account closure is verified through the review process, ordinary account data is scheduled for deletion or anonymization within 30 days, subject to the exceptions below. Backups are removed through their normal retention cycle, targeted at no more than 90 days after verified closure. Access expiry alone is not a closure request, and a submitted request does not immediately erase a workspace."
+          },
+          {
+            "text": "Submit an authenticated data request in Settings \u2192 Account \u2192 Sign-in & Security, or contact contact@planebyte.com. The application records a case reference. Support verifies identity, organizational authority, the requested scope and applicable retention exceptions before confirming closure or deletion. Additional information is requested only as needed for a proportionate review. Verified closure starts the tracked retention deadlines; no deletion is claimed until the case has been fulfilled and verified. Contact the same channel with the case reference for status or escalation. Deletion may be limited by applicable legal obligations, payment/refund records, disputes, fraud/security needs, legal holds, and the need to preserve contact history and suppression records. A member's deletion request must not automatically remove records controlled by another authorized workspace or erase evidence required to honor an opt-out. We will explain applicable limitations through the approved process."
+          }
+        ]
+      },
+      {
+        "title": "14. Responsibilities and mandatory rights",
+        "blocks": [
+          {
+            "text": "Use reasonable care in evaluating source material and AI output, preserving your own necessary records, and managing authorized users. We remain responsible for obligations that applicable law does not permit us to exclude. Nothing in these Terms removes mandatory consumer or data-protection rights, excuses fraud or willful misconduct, or limits liability where such a limitation would be unlawful. No monetary liability cap, indemnity or exclusive foreign court is imposed by these Terms."
+          }
+        ]
+      },
+      {
+        "title": "15. Changes, notices and disputes",
+        "blocks": [
+          {
+            "text": "We will identify the published version and effective date of these Terms. Material changes requiring renewed acceptance will be presented through the account or purchase flow before they apply as required by the applicable agreement and law. A revised price does not silently authorize a charge or alter a previously verified order."
+          },
+          {
+            "text": "Contact contact@planebyte.com to raise a service or billing concern and provide the relevant workspace/order reference without sending passwords, verification codes or card details. Formal notices use the contracting identity and address in section 1. Applicable mandatory law and lawful rights to seek regulatory or judicial remedies remain available; no unapproved governing-law or venue clause is invented. If a provision cannot lawfully apply, the remaining lawful provisions continue to operate. A separately signed agreement governs only to the extent it expressly varies these Terms for the relevant customer."
+          }
+        ]
+      }
+    ]
+  },
+  "privacy": {
+    "title": "PlaneByte Privacy Policy",
+    "sections": [
+      {
+        "title": "1. Scope and responsible organization",
+        "blocks": [
+          {
+            "text": "This Policy explains the account, workspace, research, security and payment information processed for PlaneByte Intent Radar and Growth Intelligence, and related customer support. PlaneByte is operated by **Planebyte, an individually operated business owned by Piyush Agrawal**, with its legal-notice/business address at **House No. 1005, Attabira, Bargarh, Odisha 768027, India**. Support, privacy requests and grievances may be sent to contact@planebyte.com. Our business website is https://planebyte.com and the application is https://app.planebyte.com."
+          },
+          {
+            "text": "Where an organization controls information uploaded to its workspace, it may determine the purposes and permitted users of that information. PlaneByte operates the service on its behalf and also processes account administration, service security and transaction records for the purposes described here. A separate applicable data-processing agreement or mandatory law may specify additional responsibilities. A workspace member's personal rights and a workspace owner's authority are not interchangeable."
+          },
+          {
+            "text": "This Policy does not authorize an unconnected third-party integration, unpublished product, outreach campaign or provider access. Third-party websites, Google and Creem also provide their own applicable privacy notices. Marketing-site analytics or nonessential tracking, if introduced, require an accurate inventory and separate notice/consent where required; this draft does not assert that every marketing-site script has been audited."
+          }
+        ]
+      },
+      {
+        "title": "2. Information we process",
+        "blocks": [
+          {
+            "table": [
+              [
+                "Category",
+                "Examples and source"
+              ],
+              [
+                "Account identity",
+                "Company email, name, company name, verified-email status and the sign-in method supplied by you or verified Google claims."
+              ],
+              [
+                "Authentication and security",
+                "A securely hashed local password when configured; verification/recovery records; session and revocation records; consent-version records; abuse/rate-limit and security events. Google passwords are not collected by PlaneByte."
+              ],
+              [
+                "Workspace administration",
+                "Workspace/company profile, roles, invitations, membership, onboarding progress, preferences and authorized integration references."
+              ],
+              [
+                "Research and customer content",
+                "Company websites, reviewed ICPs, offerings, keywords, questions, assistant conversations, source excerpts, URLs, publication/collection dates, saved signals, opportunities, monitors and reports. These come from you, authorized workspace users and permitted sources."
+              ],
+              [
+                "Usage and diagnostics",
+                "Operation/job states, quota reservations and settlements, reported provider tokens, available cost estimates, errors and bounded operational diagnostics."
+              ],
+              [
+                "Billing",
+                "Plan and price snapshots, billing contact/address supplied for checkout, currency and total, order and provider references, test/live classification, payment verification, access dates, receipts and refund-review/reconciliation records. Card details are entered only on Creem's hosted checkout pages."
+              ],
+              [
+                "Messages and support",
+                "Transactional delivery identifiers, delivery/bounce/complaint events, suppression information and enquiries you send to support."
+              ]
+            ]
+          },
+          {
+            "text": "Verification and recovery credentials are short-lived. Verification values used for comparison are protected with one-way cryptographic checks; message content can temporarily exist in encrypted transactional delivery storage so the requested email can be delivered. Plaintext local passwords are not stored. Do not include payment-card details, passwords, private keys or verification codes in support enquiries or research prompts."
+          },
+          {
+            "text": "Subscription records may include provider customer, checkout, subscription, payment, mandate-status and invoice references; verified billing country; plan and trial-conversion choice; consent version/time; renewal/cancellation dates; and authenticated lifecycle events. Raw webhook payloads are encrypted at rest and access is restricted. Payment methods are collected by hosted providers; PlaneByte does not store raw card numbers or CVVs."
+          }
+        ]
+      },
+      {
+        "title": "3. Why information is used",
+        "blocks": [
+          {
+            "text": "We use the information needed to provide the service you request: verify and secure accounts; provision the correct workspace and roles; preserve onboarding progress; run authorized research and AI tasks; save and retrieve results; account for usage; verify payments; activate and expire fixed-term access; reconcile refunds; deliver necessary account/billing messages; handle support; and maintain the service."
+          },
+          {
+            "text": "We also use appropriate records to prevent fraud and abuse, investigate incidents and disputes, enforce source and workspace permissions, and meet applicable legal obligations. Where consent is required, we obtain it for the specified purpose and provide the applicable withdrawal route. Where another lawful basis is permitted and appropriate, processing is limited to that basis. Acceptance of general Terms is not treated as blanket consent to unrelated marketing or every future use."
+          },
+          {
+            "text": "Research relevance or intent labels are interpretations of available evidence. They are not conclusive decisions about an individual or a guarantee that someone wants to be contacted. Workspace users must review results and ensure their subsequent use is lawful."
+          }
+        ]
+      },
+      {
+        "title": "4. Google, integrations and workspace access",
+        "blocks": [
+          {
+            "text": "Google sign-in supplies the verified identity claims needed to authenticate you. It does not automatically authorize access to Gmail, Google Sheets or a company's records. Additional integrations require the permissions and authorization applicable to that connection. Credentials for supported customer connections stay on the server and are subject to workspace ownership checks."
+          },
+          {
+            "text": "Workspace roles determine which authorized users can see or manage workspace information. Owners and administrators may manage membership within their authority. An email-domain match does not automatically join an account to an existing workspace. Linking a password and Google identity requires an authenticated process; an email match alone does not authorize merging accounts."
+          }
+        ]
+      },
+      {
+        "title": "5. Research sources and AI processing",
+        "blocks": [
+          {
+            "text": "Authorized research can retrieve public or otherwise permitted material from operational sources. Records can include usernames or author references, professional/company information, quotations, URLs and timestamps where the source provides them and the workflow permits their use. Public availability does not mean unrestricted reuse or erase individuals' applicable rights. Source coverage is described in the application; unavailable or unapproved connections are not represented as operational."
+          },
+          {
+            "text": "When you request an AI feature, the relevant company context, task instructions and source excerpts may be sent to the configured AI provider to produce the requested result. The current primary AI infrastructure is Google Cloud Vertex AI. AI responses can be incomplete or inaccurate. Review suggestions before saving or acting on them. We do not represent a source quote as an AI-verified fact, or claim a provider training/retention opt-out that has not been contractually verified. Provider-specific processing controls must be reflected accurately in the published disclosures and applicable agreements."
+          }
+        ]
+      },
+      {
+        "title": "6. Service providers, disclosures and processing locations",
+        "blocks": [
+          {
+            "text": "The current architecture uses Vercel for the application frontend, Google Cloud for the API/workers and Vertex AI, Neon PostgreSQL for stored application data, Creem for hosted checkout and billing, and Netlify for the separate marketing website. Resend delivers transactional account messages. Creem is merchant of record for new payments; historical financial records retain their original attribution."
+          },
+          {
+            "text": "Providers receive information relevant to the function they perform. The application API/workers are deployed in India and the current database region is in the United States; other provider processing depends on the applicable service configuration and agreements. Do not infer that all information remains in one country. Applicable cross-border processing requirements and provider disclosures must be verified before publication."
+          },
+          {
+            "text": "We may disclose information to authorized workspace users, necessary service providers, professional advisers handling a relevant matter, or public authorities where disclosure is lawfully required. We may also preserve or disclose appropriate records to investigate security incidents, fraud, disputes or legal claims. Such disclosures must be limited to the relevant purpose and authority. This Policy does not authorize sale of workspace content or unrestricted disclosure to data partners."
+          },
+          {
+            "text": "Creem is the sole merchant of record for new checkout in all supported countries, including India where it permits transactions. It handles payment processing, supported currency presentation, applicable taxes, invoices and its hosted billing portal. Creem applies geographic and payment-method restrictions. Provider privacy and payment terms apply to information submitted directly to it. Subscription messages include trial, payment, failure, cancellation and refund notices. A successful checkout is not evidence that merchant payouts have settled."
+          }
+        ]
+      },
+      {
+        "title": "7. Cookies and local preferences",
+        "blocks": [
+          {
+            "text": "The application uses essential session cookies and security mechanisms for authentication and protection of account actions. It may store functional preferences such as theme, navigation state and workspace context. Production authentication cookies are protected against ordinary client-side access and use secure transport settings."
+          },
+          {
+            "text": "Disabling essential cookies can prevent sign-in and account functions from working. A theme preference is separate from permission to perform research, access a source, process a payment or send outreach. Any nonessential analytics or advertising technology requires its own accurate disclosure and applicable consent controls; no advertising or analytics consent is bundled into an account verification code."
+          }
+        ]
+      },
+      {
+        "title": "8. Transactional messages and communication choices",
+        "blocks": [
+          {
+            "text": "Account verification, password recovery, explicit team invitations, payment confirmations, renewal/expiry notices and important security messages support the requested service. Delivery is bounded, deduplicated and subject to suppression and authorization checks. A queued message does not establish that it arrived; delivery and complaint events may be processed from the configured email provider."
+          },
+          {
+            "text": "General workspace notifications require the relevant enabled feature and recipient preferences. Bulk outreach and marketing are separate from transactional messages and are not authorized merely by enabling account email delivery. An opt-out or suppression record may need to be retained so the choice continues to be honored. The approved deletion process below will explain the scope of such retention."
+          }
+        ]
+      },
+      {
+        "title": "9. Retention after expiry or account closure",
+        "blocks": [
+          {
+            "text": "Fixed-term access expires at its recorded time without automatically deleting saved research, payment history or other retained records. Workspace closure, personal account closure, expiry, membership removal and a verified deletion request have different effects."
+          },
+          {
+            "text": "After verified account closure, ordinary account data is scheduled for deletion or anonymization within 30 days, subject to justified exceptions below. Backup removal follows the normal retention cycle, targeted at no more than 90 days after verified closure. These targets come from the owner\u2019s launch policy. The operator records closure and its deadlines; submitting a request alone does not execute a purge. Existing workspace exports and a personal account-detail download are available, and a fuller export can be requested for review."
+          },
+          {
+            "text": "Retention must account for the purpose and applicable obligations for each record category. Accounting/refund records, consent and security records, legal holds/disputes, contact/message history and suppression information can require different treatment from an unused research draft. Backups are recovery copies; any eventual deletion process must define how deletions remain effective after recovery and how retained backup copies age out, without promising immediate removal from every copy."
+          }
+        ]
+      },
+      {
+        "title": "10. Requests, correction, withdrawal and deletion",
+        "blocks": [
+          {
+            "text": "Depending on applicable law and your relationship with the workspace, you may have rights to obtain information about processing, access or correct your personal information, request erasure, withdraw consent, raise a grievance, or use other rights available to you. A workspace administrator can help with organizational records within that administrator's authority. Applicable rights are not limited to the application controls currently available."
+          },
+          {
+            "text": "Use Settings \u2192 Account \u2192 Sign-in & Security to submit an authenticated full-export, account-closure/deletion or erasure-review request, or contact contact@planebyte.com. The application acknowledges the request with a reference. Support reviews identity, workspace authority and retention exceptions, requests proportionate clarification where needed, and records verified closure and the applicable 30/90-day targets. Use the case reference with the same contact for status, correction or escalation. Request handling also observes any additional applicable legal requirements. No named privacy officer or legally required designation is invented."
+          },
+          {
+            "text": "Use the approved channel and provide enough context to locate the relevant account/workspace without sending a password, OTP or unnecessary identity document. Verification should be proportionate and prevent one person from deleting another person's or organization's records. We will explain any valid reason a request cannot be completed in full and any available escalation or review route under the approved process and applicable law."
+          },
+          {
+            "text": "Deletion or withdrawal may affect features that need the relevant information. Retention may remain necessary for payment/refund and legal records, fraud/security investigations, dispute resolution, lawful holds, contact history or suppression choices. No blanket exception permits keeping every record indefinitely, and no request automatically authorizes a production reset or deletion of another workspace. Closing access is not a substitute for implementing and verifying an approved deletion request."
+          }
+        ]
+      },
+      {
+        "title": "11. Security and incidents",
+        "blocks": [
+          {
+            "text": "The service uses workspace authorization, protected authentication/session records, server-side secret handling, access controls and protected storage/transit mechanisms appropriate to the relevant component. No system can guarantee absolute security. We do not claim a security certification or guarantee against every incident."
+          },
+          {
+            "text": "We investigate suspected incidents, take appropriate containment and recovery measures, and provide notifications required by applicable law and the relevant agreement. Contact contact@planebyte.com if you suspect unauthorized access, and avoid disclosing another person's information or credentials in the report. Support, privacy and security escalation use contact@planebyte.com, addressed to the business owner, Piyush Agrawal."
+          }
+        ]
+      },
+      {
+        "title": "12. Eligibility, policy changes and contact",
+        "blocks": [
+          {
+            "text": "The service is intended for authorized business use. It is not designed to solicit children's personal information. If information appears to have been supplied without the authority or lawful consent required for that person, contact us so it can be assessed through the approved request process. No unapproved age threshold or guardian-consent mechanism is asserted by this draft."
+          },
+          {
+            "text": "The published Policy will identify its version and effective date. Material changes will be communicated as required, and additional consent will be obtained where the applicable processing requires it. A policy update does not silently authorize unrelated outreach, a payment or a new source connection."
+          },
+          {
+            "text": "Support and privacy contact: contact@planebyte.com, addressed to Piyush Agrawal, business owner. Responsible business: Planebyte (Individual), House No. 1005, Attabira, Bargarh, Odisha 768027, India. Use the request and escalation process in section 10. Mandatory rights and lawful access to an appropriate authority remain available."
+          }
+        ]
+      }
+    ]
+  },
+  "refund": {
+    "title": "PlaneByte Refund Policy",
+    "sections": [
+      {
+        "title": "Initial purchases",
+        "blocks": [
+          {
+            "text": "You may request a refund for an initial prepaid purchase within seven days of verified payment. Submit Request refund review in Settings \u2192 Billing & Usage, or email contact@planebyte.com with your order reference and the reason. Do not send passwords, OTPs or card details. The policy applies to the initial purchase; additional rights required by applicable law remain available for every purchase."
+          },
+          {
+            "text": "The request is reviewed against the actual purchase, payment evidence, service circumstances and applicable rights. The seven-day window is not an unreviewed promise that every request has already been approved. No undisclosed usage-percentage condition is imposed. If a request cannot be approved in full, we explain the reason and the available support/escalation route. No blanket exclusion of mandatory rights is intended."
+          }
+        ]
+      },
+      {
+        "title": "Billing errors, duplicates and uncertain payments",
+        "blocks": [
+          {
+            "text": "Contact us about an incorrect or duplicate charge even if you are unsure whether the initial-purchase window applies. We reconcile the specific transactions before deciding what action is appropriate. A pending payment is not assumed successful. Check your payment history and contact support before paying again when a prior result is uncertain."
+          },
+          {
+            "text": "A recorded request is an acknowledgement of review, not proof that money was refunded. Creem processes new financial transactions as merchant of record; historical payments retain their original provider records. A refund is treated as completed only after independent provider verification; actual banking credit timing can vary. We do not promise a settlement deadline that the provider has not confirmed."
+          }
+        ]
+      },
+      {
+        "title": "Renewals, subscriptions and legacy fixed terms",
+        "blocks": [
+          {
+            "text": "Canceling a subscription prevents provider-confirmed future renewal; it does not automatically refund a prior charge. Renewal refund requests remain subject to the actual agreement, service circumstances and mandatory rights. Initial paid purchase requests remain eligible for review within seven days. No blanket exclusion of mandatory rights applies."
+          },
+          {
+            "text": "Legacy fixed-term purchases retain their original manual-renewal terms. New recurring trials require hosted card authorization and a selected conversion plan; no subscription charge is due during the advertised72hours. Yearly checkout remains disabled. Refunds are processed only through approved provider workflows and are not assumed successful from a browser return."
+          }
+        ]
+      },
+      {
+        "title": "Access and retained records",
+        "blocks": [
+          {
+            "text": "A full refund independently confirmed in the original purchase currency revokes the access attributable to that purchase. It does not delete saved research, another purchase or the original accounting record. Partial refunds and missing currency evidence require review; they do not automatically create a new entitlement or a credit balance. Payment/refund and other justified retention exceptions are explained in the Privacy Policy."
+          },
+          {
+            "text": "Contact contact@planebyte.com with the case/order reference for status or escalation. Nothing in this policy limits rights that applicable law does not permit us to exclude."
+          }
+        ]
+      }
+    ]
+  },
+  "cancellation": {
+    "title": "PlaneByte Cancellation Policy",
+    "sections": [
+      {
+        "title": "Cancel automatic renewal",
+        "blocks": [
+          {
+            "text": "For a provider-confirmed recurring subscription, open Settings \u2192 Billing & Subscription and choose Cancel automatic renewal, or use the secure provider billing portal. No support contact is required. Review the confirmed effective date. Cancellation must be confirmed by the provider; a pending or failed request is not shown as successful. Billing and cancellation remain accessible even if product access is restricted."
+          },
+          {
+            "text": "For a72-hour card trial, cancel before the displayed first-charge date/time to prevent the selected monthly paid plan from starting. Once cancellation is provider-confirmed, no later automatic charge is authorized by that subscription. Trial or current paid access continues to its agreed end unless mandatory rights, a verified refund or a security restriction require otherwise. A confirmation is shown and sent by transactional email."
+          },
+          {
+            "text": "Legacy one-time purchases do not automatically renew and never authorize a recurring card mandate. Their saved start/end dates and original manual-renewal terms remain unchanged."
+          }
+        ]
+      },
+      {
+        "title": "Canceled or failed checkout",
+        "blocks": [
+          {
+            "text": "If hosted checkout is canceled, fails or remains unverified, your onboarding stays saved at Choose Your Plan & Payment. No trial or paid access is granted. You may reconcile or safely retry the saved checkout. Reaching a success URL does not activate a subscription. Canceling checkout does not refund an independently captured payment; use the refund-review workflow where applicable."
+          }
+        ]
+      },
+      {
+        "title": "Provider, plan changes and payment failures",
+        "blocks": [
+          {
+            "text": "Creem is the sole provider for all new customer payments. Its hosted checkout applies supported-country, payment-method and compliance restrictions. Those restrictions are not bypassed. Plan changes must disclose the provider amount, effective date, recurring terms and any approved proration before authorization."
+          },
+          {
+            "text": "For failed renewal, use Billing & Subscription or the secure provider portal to review payment recovery. Product operations may be restricted while the provider reports unpaid, past-due or expired access; authentication, billing and cancellation remain available. Yearly checkout is unavailable until approved."
+          }
+        ]
+      },
+      {
+        "title": "Account closure and data",
+        "blocks": [
+          {
+            "text": "You may request account closure, a full export or erasure review through Settings \u2192 Account \u2192 Sign-in & Security or contact@planebyte.com. The request is recorded and reviewed for identity, workspace authority and retained-record obligations. It does not immediately delete data, remove another user's records or issue a refund. Ordinary account data is scheduled for deletion/anonymization within 30 days after verified closure, with backup aging targeted within 90 days, subject to justified exceptions in the Privacy Policy."
+          },
+          {
+            "text": "Expiry of access alone preserves saved research under the applicable retention policy. Closure of a personal account and the handling of an organization's workspace are separate matters; organizational authority must be verified. Contact support before closure if you need help exporting records or transferring authorized workspace ownership."
+          },
+          {
+            "text": "For refund review, use the separate Refund Policy, including its seven-day initial-purchase request window and any additional mandatory rights. For questions or escalation, contact contact@planebyte.com with the order or request reference. No password, OTP or card details are required in that message."
+          }
+        ]
+      }
+    ]
+  }
+}

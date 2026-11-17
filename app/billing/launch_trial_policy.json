@@ -1,0 +1,1 @@
+{"version":"2026-11-15.1","approval":"Owner approved in chat on 2026-11-15","duration_days":7,"requires_card":false,"automatic_renewal":false,"one_per_verified_account":true,"one_per_company_domain":true,"limits":{"searches":5,"ai_calls":3,"ai_tokens":150000,"monitors":1,"monitor_executions":0,"reports":0,"team_members":1,"api_requests":0,"monitor_interval_hours":24}}

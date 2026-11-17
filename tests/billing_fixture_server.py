@@ -10,3 +10,6 @@ settings.razorpay_key_secret=SecretStr('synthetic-browser-api-secret-only')
 settings.razorpay_webhook_secret=SecretStr('synthetic-browser-webhook-secret-only')
 # Missing provider mappings intentionally block payment initiation. This verifies
 # real backend reads + access controls without pretending provider acceptance.
+
+# Explicit archived-provider fixture; production defaults to Creem.
+settings.billing_provider="razorpay"

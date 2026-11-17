@@ -2,6 +2,7 @@ import "server-only";
 import {cookies} from "next/headers";
 import {createHash,createHmac,randomUUID,timingSafeEqual} from "node:crypto";
 import {serverEnv} from "./env";
+import {readAccountCookie,linkCookie} from "./account-cookies";
 
 export const signupCookie="planebyte-signup-consent";
 export const invitationCookie="planebyte-invitation-review";
@@ -22,18 +23,20 @@ export function decodeConsent(value:string,secret:string):Consent|null{
 export async function admitGoogle(profile:{email:string;sub:string;email_verified:unknown;name?:string}){
   const env=serverEnv();if(!env.customerAccess||!env.termsVersion||env.secret.length<32||profile.email_verified!==true)return false;
   const jar=await cookies(),ticket=decodeConsent(jar.get(signupCookie)?.value||"",env.secret);
+  const linking=env.accounts?await readAccountCookie(linkCookie):null;
   const actor=profile.email.trim().toLowerCase(),path="/api/organization/admission/google";
-  const body=JSON.stringify({email:actor,google_subject:profile.sub,client_id:process.env.AUTH_GOOGLE_ID||"",email_verified:true,name:profile.name||"",...(ticket?{terms_version:ticket.version,accepted_at:ticket.accepted_at,acceptance_nonce:ticket.nonce,...(ticket.invitation_token?{invitation_token:ticket.invitation_token}:{})}:{})});
+  const body=JSON.stringify({email:actor,google_subject:profile.sub,client_id:process.env.AUTH_GOOGLE_ID||"",email_verified:true,name:profile.name||"",...(linking&&linking.email===actor&&typeof linking.link_token==="string"?{link_token:linking.link_token}:{}),...(ticket?{terms_version:ticket.version,accepted_at:ticket.accepted_at,acceptance_nonce:ticket.nonce,...(ticket.invitation_token?{invitation_token:ticket.invitation_token}:{})}:{})});
   const timestamp=String(Math.floor(Date.now()/1000)),nonce=randomUUID();
   const canonical=[timestamp,nonce,"POST",path,createHash("sha256").update(body).digest("hex"),actor].join("\n");
   try{
-    const response=await fetch(env.apiUrl.replace(/\/$/,"")+path,{method:"POST",body,headers:{"content-type":"application/json","x-le-user":actor,"x-le-timestamp":timestamp,"x-le-nonce":nonce,"x-le-signature":createHmac("sha256",env.secret).update(canonical).digest("hex")},cache:"no-store",redirect:"error",signal:AbortSignal.timeout(5000)});
+    const response=await fetch(env.apiUrl.replace(/\/$/,"")+path,{method:"POST",body,headers:{"content-type":"application/json","x-le-user":actor,"x-le-timestamp":timestamp,"x-le-nonce":nonce,"x-le-signature":createHmac("sha256",env.secret).update(canonical).digest("hex")},cache:"no-store",redirect:"error",signal:AbortSignal.timeout(25000)});
     if(!response.ok)return false;const result=await response.json();
-    if(result.user_id!==actor||result.status!=="ACTIVE")return false;
+    if(result.user_id!==actor||result.status!=="ACTIVE"||env.accounts&&(typeof result.session_token!=="string"||!/^[A-Za-z0-9_-]{43}$/.test(result.session_token)))return false;
+    if(linking)jar.delete(linkCookie);
     if(ticket){
       if(ticket.invitation_token)jar.set(invitationCookie,encodeConsent(ticket,env.secret),{httpOnly:true,secure:env.production,sameSite:"lax",path:"/accept-invitation",maxAge:600});
       jar.delete(signupCookie);
     }
-    return true;
+    return env.accounts&&typeof result.session_token==="string"?{session_token:result.session_token}:true;
   }catch{return false;}
 }

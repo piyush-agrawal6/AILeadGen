@@ -5,7 +5,7 @@ Never restores to production. Credentials stay in process memory/child environme
 import hashlib,json,os,subprocess,time
 from datetime import datetime,timezone
 from pathlib import Path
-from urllib.parse import urlsplit,unquote
+from urllib.parse import urlsplit,unquote,parse_qs
 import psycopg
 from psycopg import sql
 from dotenv import dotenv_values
@@ -14,7 +14,7 @@ from app.database.migrations import run_migrations,verify_schema
 
 ROOT=Path(__file__).resolve().parents[1]
 BIN=Path(os.environ.get('HEYSOW_PG_TEST_BIN',str(ROOT/'data/artifacts/runtime/postgres18-install/bin')))
-LOCAL='postgresql://planebyte@/postgres?host=/private/tmp/planebyte-beta-pg18&port=15433'
+LOCAL=os.environ.get('PLANEBYTE_RESTORE_LOCAL_URL','postgresql://planebyte@/postgres?host=/private/tmp/planebyte-beta-pg18&port=15433')
 
 def fingerprint(c,tables=None):
     tables=tables or [r[0] for r in c.execute("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename")]
@@ -45,7 +45,12 @@ def main():
     os.umask(0o077)
     stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
     folder=ROOT/'data/backups'/('beta-recovery-'+stamp);folder.mkdir(parents=True,mode=0o700)
-    conf=dotenv_values(ROOT/'.env',interpolate=False);source=session_url(conf['DATABASE_URL'])
+    local_parts=urlsplit(LOCAL)
+    local_query=parse_qs(local_parts.query,keep_blank_values=True)
+    socket=local_query.get('host',[])
+    if local_parts.hostname or local_parts.path!='/postgres' or local_parts.fragment or set(local_query)-{'host','port'} or len(socket)!=1 or not socket[0].startswith('/private/tmp/') or any(ch in socket[0] for ch in (',',' ', '\n')) or local_query.get('port')!=['15433']:
+        raise RuntimeError('Restore must target the single local private Unix socket on port15433, never a remote database.')
+    conf=dotenv_values(os.environ.get('PLANEBYTE_OPERATOR_ENV_FILE',str(ROOT/'.env')),interpolate=False);source=session_url(conf['DATABASE_URL'])
     parsed=urlsplit(source)
     if not (parsed.hostname or '').endswith('.neon.tech'):raise RuntimeError('Expected existing production Neon source.')
     env={**os.environ,'PGHOST':parsed.hostname,'PGPORT':str(parsed.port or 5432),'PGUSER':unquote(parsed.username or ''),'PGPASSWORD':unquote(parsed.password or ''),'PGDATABASE':unquote(parsed.path.lstrip('/')),'PGSSLMODE':'require','PGCONNECT_TIMEOUT':'15'}

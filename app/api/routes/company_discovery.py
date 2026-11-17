@@ -20,6 +20,7 @@ class Review(BaseModel):
     can_retry:bool
     source_kind:Literal['WEBSITE','DESCRIPTION','ICP_RECOMMENDATIONS','ONBOARDING_ADVICE']='WEBSITE'
     progress_stage:str=''
+    attempt_history:list[dict[str,Any]]=[]
 
 class Control(BaseModel):
     model_config=ConfigDict(extra='forbid')

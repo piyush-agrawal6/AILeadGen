@@ -12,7 +12,7 @@ FETCH_TIMEOUT_SECONDS=28
 class ExecutionInvalidated(RuntimeError):
     """An old lease or monitor configuration cannot authorize source results."""
 
-def create(c, body):
+def create(c, body, *, scheduled=False):
     ctx=context(c,True); lock(c)
     connectors.validate(c,body.configuration)
     config=body.configuration.model_dump(mode='json')
@@ -31,9 +31,10 @@ def create(c, body):
         total=c.execute('SELECT COUNT(*) FROM intent_discoveries WHERE created_at>=?',(day,)).fetchone()[0]
         if used>=settings.intent_radar_daily_searches or total>=settings.intent_radar_global_daily_searches:raise HTTPException(429,'Intent Radar daily search capacity is exhausted. Stored signals remain available.')
         from app.billing.usage import reserve
-        reserve(c,{'searches':1,**({'monitor_executions':1} if body.monitor_id else {})},key)
+        from app.billing.access_periods import managed
+        reserve(c,{'searches':1,**({'monitor_executions':1} if body.monitor_id and (scheduled or not managed(c,ctx.organization_id)) else {})},key)
         from app.billing.commercial_usage import settle
-        if get_settings().payu_billing_enabled:settle(c,key)
+        if get_settings().payu_billing_enabled or get_settings().heysow_access_periods_enabled:settle(c,key)
         c.execute('INSERT INTO intent_discoveries(id,organization_id,created_by,monitor_id,monitor_revision,configuration_json,created_at) VALUES(?,?,?,?,?,?,?)',(key,ctx.organization_id,ctx.actor,str(body.monitor_id) if body.monitor_id else None,monitor['revision'] if body.monitor_id else None,encoded,now()))
     from app.intelligence import jobs
     result=jobs.create(c,jobs.Start(kind='INTENT_DISCOVER',resource_ids=[key],request_id=body.request_id,reuse_days=0))

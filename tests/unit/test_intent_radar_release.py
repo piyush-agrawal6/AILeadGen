@@ -250,6 +250,7 @@ def test_semantic_duplicate_urls_do_not_double_spend_or_inflate_matches(radar,mo
         assert service.listing(c,'signals')['total']==2 # original family attribution is preserved
 
 def test_disabled_monitor_history_cannot_starve_enabled_workspace_dispatch(radar,monkeypatch):
+    monkeypatch.setattr(get_settings(),'intent_radar_min_schedule_hours',6)
     from app.intent_radar import schedules
     c,path,org,other=radar
     monkeypatch.setattr(get_settings(),'intent_radar_schedules_enabled',True)

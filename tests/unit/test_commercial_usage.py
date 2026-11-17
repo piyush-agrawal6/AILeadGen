@@ -129,7 +129,7 @@ def test_schema46_upgrade_preserves_rows_and_requires47_only_for_payu(radar,monk
     monkeypatch.setattr(get_settings(),'payu_billing_enabled',False);migrations.verify_schema(c)
     monkeypatch.setattr(get_settings(),'payu_billing_enabled',True)
     with pytest.raises(RuntimeError):migrations.verify_schema(c)
-    assert migrations.run_migrations(c)==1 and migrations.run_migrations(c)==0
+    assert migrations.run_migrations(c)==len(full)-46 and migrations.run_migrations(c)==0
     migrations.verify_schema(c)
     assert all(c.execute('SELECT COUNT(*) FROM '+table).fetchone()[0]==count for table,count in before.items())
     assert c.execute('SELECT COUNT(*) FROM commercial_contracts').fetchone()[0]==0

@@ -42,7 +42,11 @@ async def lifespan(app: FastAPI):
     from contextlib import suppress
     task=None
     radar_task=None
-    if get_settings().intent_radar_schedules_enabled and get_settings().app_env!='test':
+    mail_task=None
+    if get_settings().database_background_polling_enabled and get_settings().transactional_mail_enabled and get_settings().app_env!='test':
+        from app.notifications.dispatch import loop as mail_loop
+        mail_task=asyncio.create_task(mail_loop())
+    if get_settings().database_background_polling_enabled and get_settings().intent_radar_schedules_enabled and get_settings().app_env!='test':
         from app.intent_radar.schedules import loop
         radar_task=asyncio.create_task(loop())
     if get_settings().heysow_webhooks_enabled and get_settings().app_env=='development' and os.environ.get('HEYSOW_LOCAL_PREVIEW')=='true':
@@ -51,6 +55,9 @@ async def lifespan(app: FastAPI):
     try:
         async with mcp.session_manager.run():yield
     finally:
+        if mail_task:
+            mail_task.cancel()
+            with suppress(asyncio.CancelledError):await mail_task
         if radar_task:
             radar_task.cancel()
             with suppress(asyncio.CancelledError):await radar_task
@@ -100,6 +107,17 @@ def create_app() -> FastAPI:
     async def sanitized_error(request: Request, exc: Exception):
         return JSONResponse({"detail": "The engine could not complete this request. Please retry."}, status_code=500)
 
+    from fastapi.exceptions import RequestValidationError
+    from fastapi.exception_handlers import request_validation_exception_handler
+    @app.exception_handler(RequestValidationError)
+    async def safe_validation(request: Request, exc: RequestValidationError):
+        from app.api.routes.accounts import PREFIX
+        if request.url.path.startswith(PREFIX) or request.url.path=='/api/organization/admission/google':
+            # Pydantic SecretStr does not redact FastAPI's input field by itself.
+            # Never echo password, OTP, token, provider claim or input context.
+            return JSONResponse({'detail':'Check the account details and try again.'},status_code=422,headers={'Cache-Control':'private, no-store'})
+        return await request_validation_exception_handler(request,exc)
+
     # Health check
     @app.get("/api/health", tags=["System"])
     def health_check():
@@ -123,6 +141,10 @@ def create_app() -> FastAPI:
     app.include_router(growth_intelligence.router,prefix='/api')
     from app.api.routes import billing
     app.include_router(billing.router,prefix='/api')
+    from app.api.routes import fixed_term_billing
+    app.include_router(fixed_term_billing.router,prefix='/api')
+    from app.api.routes import subscriptions
+    app.include_router(subscriptions.router,prefix='/api')
     app.include_router(automation.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(markets.router, prefix="/api")
@@ -131,6 +153,10 @@ def create_app() -> FastAPI:
     app.include_router(organizations.router,prefix="/api")
     from app.api.routes import admission
     app.include_router(admission.router,prefix='/api')
+    from app.api.routes import accounts
+    app.include_router(accounts.router,prefix='/api')
+    from app.api.routes import transactional
+    app.include_router(transactional.router,prefix='/api')
     from app.api.routes import icp
     app.include_router(icp.router,prefix="/api")
     from app.api.routes import onboarding

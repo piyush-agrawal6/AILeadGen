@@ -36,12 +36,12 @@ class Citation(Strict):
 class Theme(Strict):
     name:str=Field(min_length=3,max_length=100)
     description:str=Field(min_length=3,max_length=500)
-    citations:list[Citation]=Field(min_length=1,max_length=12)
+    citations:list[Citation]=Field(min_length=1,max_length=12,description='One exact contiguous quotation per distinct signal_id. Never repeat a signal_id within this theme.')
 
 class Finding(Strict):
     section:Literal['Customer problem','Comparison','Intent evidence','Opportunity','Limitation','Next research']
     interpretation:str=Field(min_length=3,max_length=500)
-    citations:list[Citation]=Field(min_length=1,max_length=5)
+    citations:list[Citation]=Field(min_length=1,max_length=5,description='One exact contiguous quotation per distinct signal_id. Never repeat a signal_id within this finding.')
 
 class Interpretation(Strict):
     themes:list[Theme]=Field(default_factory=list,max_length=8)

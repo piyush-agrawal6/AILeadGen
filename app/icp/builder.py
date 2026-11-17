@@ -10,10 +10,11 @@ import json
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from typing import Literal
 
 from fastapi import HTTPException
-from pydantic import Field, model_validator
+from pydantic import Field, create_model, model_validator
 
 from app.acquisition import ai as gateway
 from app.api.organization import require_role
@@ -49,9 +50,18 @@ class Suggestions(Strict):
     questions: list[str] = Field(default_factory=list, max_length=5)
 
 
+@lru_cache(maxsize=5)
+def exact_suggestions(count):
+    """Tell the provider the required size, and validate its response again locally."""
+    if type(count) is not int or not 1 <= count <= 5:
+        raise ValueError('Unsupported recommendation count.')
+    return create_model('ExactSuggestions'+str(count), __base__=Suggestions,
+                        candidates=(list[Candidate], Field(min_length=count, max_length=count)))
+
+
 class Refine(Strict):
     proposal_id: uuid.UUID
-    candidate_index: int = Field(ge=0, le=2)
+    candidate_index: int = Field(ge=0, le=4)
     draft: ai.Draft
     prompt: str = Field(min_length=5, max_length=2000)
 
@@ -90,8 +100,24 @@ Countries must be recognized country names or ISO alpha-2 codes. Standard compan
 size ranges are 1-10, 11-50, 51-200, 201-500, 501-1000, 1001-5000, 5001-10000, 10001+.
 For exact employee ranges use employee_min/employee_max. Unknown information stays
 empty/null. Do not silently drop requested unsupported criteria: put these in
-questions. Keep status INACTIVE. Return up to the requested candidate count, each
-with distinct targeting. All text must be concise; no assertions of measured fit.'''
+questions. Keep status INACTIVE. All text must be concise; no assertions of measured fit.'''
+
+EXACT_INSTRUCTION=INSTRUCTION+''' Return exactly the requested candidate count as
+distinct, editable targeting hypotheses. Vary industry/use case, buyer roles and
+concrete needs/pain points; different names alone are not distinct segments.
+Explicitly label inferred targeting as assumptions, never existing customer facts.
+Do not pad the list with duplicates or invented evidence. If you cannot propose
+the requested number reliably, fail instead of presenting a shorter list as a
+completed request. Omit empty/default criteria. Use exact supplied service names
+and canonical size ranges.'''
+
+INSTRUCTION+=''' Return up to the requested candidate count. Prefer 3–5 useful, genuinely different segments when the business
+evidence supports them. Different names alone are not distinct segments: vary
+industry/use case, buyer roles and concrete business needs/pain points. Include
+those criteria and concise use cases in each description. If evidence cannot
+support that many useful segments, return fewer and explain what is missing in
+questions. Omit empty/default criteria rather than repeating every schema field.
+Use exact supplied service names and canonical size ranges, not renamed services.'''
 
 REFINE_INSTRUCTION = INSTRUCTION + ''' Refine the supplied editable draft using only
 the explicit follow-up request. Return a minimal set of changed leaf paths, with
@@ -137,21 +163,34 @@ def _validated(draft):
         if re.search(r'\b(?:our|your) (?:existing clients|customers include|revenue)|guaranteed|\d+% (?:increase|growth|return)', ' '.join(texts), re.I):
             raise ValueError('Unsupported factual claim.')
     except ValueError:
-        raise gateway.AiOutputError('Review unsupported countries, sizes or claims.') from None
+        raise gateway.AiOutputError('ICP_UNSUPPORTED_CRITERIA') from None
     return draft
 
 
-def _check_suggestions(value, count, services):
+def _check_suggestions(value, count, services, *, exact=False):
+    if exact and len(value.candidates) < count:
+        raise gateway.AiOutputError('ICP_TOO_FEW_SEGMENTS')
     if len(value.candidates) > count:
-        raise gateway.AiOutputError('Too many suggestions.')
+        raise gateway.AiOutputError('ICP_TOO_MANY_SEGMENTS')
     for candidate in value.candidates:
         _validated(candidate.draft)
-        if any(name not in services for name in candidate.based_on_services):
-            raise gateway.AiOutputError('The recommendation used an unknown service.')
+        # Case/Unicode/spacing variation is not a fabricated service. Map only
+        # exact normalized names back to the canonical saved names.
+        canonical={ai._text(name):name for name in services}
+        if any(ai._text(name) not in canonical for name in candidate.based_on_services):
+            raise gateway.AiOutputError('ICP_UNKNOWN_SERVICE')
+        candidate.based_on_services=[canonical[ai._text(name)] for name in candidate.based_on_services]
         if len(candidate.reason) > 600 or any(len(text) > 600 for text in candidate.assumptions + value.questions):
-            raise gateway.AiOutputError('The recommendation is too long.')
+            raise gateway.AiOutputError('ICP_VERBOSE_RESPONSE')
     if len({candidate.draft.name.casefold() for candidate in value.candidates}) != len(value.candidates):
-        raise gateway.AiOutputError('Suggestions must be distinct.')
+        raise gateway.AiOutputError('ICP_DUPLICATE_SEGMENTS')
+    if len(value.candidates)>=3:
+        fingerprints=set()
+        for candidate in value.candidates:
+            criteria=candidate.draft.criteria
+            fingerprint=json.dumps({'industries':sorted(ai._text(v) for v in criteria.company.industries),'roles':sorted(ai._text(v) for v in criteria.contact.job_titles),'needs':sorted(ai._text(v) for v in criteria.intent.business_needs),'pains':sorted(ai._text(v) for v in criteria.intent.pain_points)},sort_keys=True)
+            if fingerprint in fingerprints:raise gateway.AiOutputError('ICP_DUPLICATE_SEGMENTS')
+            fingerprints.add(fingerprint)
     return value
 
 
@@ -205,11 +244,12 @@ async def _call(c, task, payload, schema, instruction, validator,operation_id=No
                 max_response_bytes=60000, retry_transient=False,attempts_per_provider=1), timeout=30)
     try:
         return await gateway.cached(c, current().actor, task, payload, produce, schema, validator)
-    except (gateway.AiUnavailable, gateway.AiApplicationError, asyncio.TimeoutError, ValueError):
-        raise HTTPException(503, 'AI could not prepare reliable targeting suggestions. Your saved profiles are unchanged. Retry or use the manual builder.') from None
+    except (gateway.AiUnavailable, gateway.AiApplicationError, asyncio.TimeoutError, ValueError) as error:
+        from app.platform.setup_diagnostics import SetupAIError,error_code
+        raise SetupAIError(error_code(error)) from None
 
 
-async def generate(c, body: Generate, *, operation_id=None):
+async def generate(c, body: Generate, *, operation_id=None, require_exact_count=False):
     _allowed(c)
     profile = read_profile(c)
     # read_profile is saved owner-approved information, not an unapplied website proposal.
@@ -221,9 +261,13 @@ async def generate(c, body: Generate, *, operation_id=None):
     inputs = {'approved_business': approved, 'profile_version': profile['version'],
               'user_request': body.prompt, 'candidate_count': body.candidate_count,
               'mode': body.mode}
+    if require_exact_count:inputs['exact_candidate_count']=body.candidate_count
     services = [item['name'] for item in profile['products_services']]
-    result, hit = await _call(c, 'ICP_RECOMMENDATIONS_V1', inputs, Suggestions, INSTRUCTION,
-                              lambda value: _check_suggestions(value, body.candidate_count, services),operation_id=operation_id)
+    schema=exact_suggestions(body.candidate_count) if require_exact_count else Suggestions
+    instruction=EXACT_INSTRUCTION if require_exact_count else INSTRUCTION
+    task='ICP_RECOMMENDATIONS_EXACT_V1' if require_exact_count else 'ICP_RECOMMENDATIONS_V2'
+    result, hit = await _call(c, task, inputs, schema, instruction,
+                              lambda value: _check_suggestions(value, body.candidate_count, services, exact=require_exact_count),operation_id=operation_id)
     from app.config.locations import country
     approved_countries = set()
     for value in profile['countries_served']:

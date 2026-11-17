@@ -76,7 +76,48 @@ def _execute_owned(run_id):
         dispatch_queued()
 
 
+def validate_schema_mode():
+    """Excluded legacy workers fail before touching the clean database."""
+    if get_settings().database_schema_profile!='intent-radar-v1':return
+    excluded=('LEADENGINE_CUSTOMER_MAILBOX_ID','LEADENGINE_SHEET_EXPORT_ID',
+              'LEADENGINE_RUN_ID','LEADENGINE_REPORT_ID')
+    mode=os.environ.get('LEADENGINE_AUTOMATION_MODE','')
+    if any(os.environ.get(k) for k in excluded) or os.environ.get('LEADENGINE_EMAIL_SYNC')=='1' or (mode and mode not in ('intent-radar-dispatch','webhooks-dispatch')):
+        raise SystemExit('This worker mode is unavailable on the Intent Radar database profile.')
+
+
 if __name__ == "__main__":
+    if os.environ.get('PLANEBYTE_DATABASE_PREFLIGHT')=='1':
+        # Operator-only Cloud Run validation before cutover. No customer is
+        # seeded and even the system write/read probe is rolled back.
+        import json
+        from app.database.intent_profile import assert_fresh
+        if get_settings().database_schema_profile!='intent-radar-v1':
+            raise SystemExit('Database preflight requires the explicit clean schema profile')
+        with db_session() as c:
+            proof=assert_fresh(c)
+            key='preflight-'+str(uuid.uuid4())
+            c.execute('INSERT INTO intent_worker_health(worker_id,last_tick_at,state,detail_json) VALUES(?,?,?,?)',(key,datetime.now(timezone.utc).isoformat(),'READY','{}'))
+            if not c.execute('SELECT 1 FROM intent_worker_health WHERE worker_id=?',(key,)).fetchone():
+                raise SystemExit('Database preflight write/read failed')
+            c.rollback()
+            if c.execute('SELECT 1 FROM intent_worker_health WHERE worker_id=?',(key,)).fetchone():
+                raise SystemExit('Database preflight rollback failed')
+        print(json.dumps({'status':'PASS',**proof,'write_read_rollback':True}))
+        raise SystemExit(0)
+    validate_schema_mode()
+    if os.environ.get('PLANEBYTE_SUBSCRIPTION_EVENT_ID'):
+        import re
+        key=os.environ['PLANEBYTE_SUBSCRIPTION_EVENT_ID'];environment=os.environ.get('PLANEBYTE_SUBSCRIPTION_EVENT_ENVIRONMENT')
+        if not re.fullmatch(r'[A-Za-z0-9_-]{1,160}',key) or environment not in ('production','test'):raise SystemExit('Valid subscription event required')
+        if not get_settings().subscription_onboarding_required:raise SystemExit('Subscription reconciliation is unavailable')
+        with db_session() as c:verify_schema(c,minimum_version=1006)
+        from app.billing.subscription_sync import process_event
+        process_event(key,environment)
+        if get_settings().transactional_mail_enabled:
+            from app.notifications.dispatch import tick
+            asyncio.run(tick())
+        raise SystemExit(0)
     customer_mailbox_id=os.environ.get('LEADENGINE_CUSTOMER_MAILBOX_ID','')
     if customer_mailbox_id:
         from app.mail.customer import sync_owned_account
@@ -138,6 +179,22 @@ if __name__ == "__main__":
     if os.environ.get("LEADENGINE_CANARY") == "1":
         from app.cloud_doctor import worker_canary
         worker_canary()
+        raise SystemExit(0)
+    recovery_id=os.environ.get('PLANEBYTE_ACCOUNT_RECOVERY_ID','')
+    if recovery_id:
+        recovery_id=str(uuid.UUID(recovery_id))
+        from app.accounts.service import prepare_recovery
+        from app.notifications.dispatch import deliver_bounded
+        with db_session() as c:verify_schema(c)
+        prepare_recovery(recovery_id)
+        with db_session() as c:row=c.execute('SELECT id FROM transactional_notifications WHERE dedupe_key=?',('password-reset:'+recovery_id,)).fetchone()
+        if row:deliver_bounded(row['id'])
+        raise SystemExit(0)
+    notification_id=os.environ.get('PLANEBYTE_NOTIFICATION_ID','')
+    if notification_id:
+        from app.notifications.dispatch import deliver_bounded
+        with db_session() as c:verify_schema(c)
+        deliver_bounded(str(uuid.UUID(notification_id)))
         raise SystemExit(0)
     intelligence_job_id=os.environ.get('LEADENGINE_INTELLIGENCE_JOB_ID','')
     if intelligence_job_id:

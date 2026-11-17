@@ -13,7 +13,7 @@ from app.billing import catalog,provider,service,usage,webhooks
 @pytest.fixture
 def billing(radar,monkeypatch):
     c,path,org,other=radar;s=get_settings()
-    for name,value in {'billing_enabled':True,'billing_test_workspaces':org,'billing_test_mode':True,'razorpay_key_id':'rzp_test_fixture','razorpay_key_secret':SecretStr('synthetic-api-secret'),'razorpay_webhook_secret':SecretStr('synthetic-webhook-secret'),'razorpay_test_plan_id_starter':'plan_fixture1','razorpay_test_plan_id_growth':'plan_fixture2','razorpay_test_plan_id_scale':'plan_fixture3'}.items():monkeypatch.setattr(s,name,value)
+    for name,value in {'billing_provider':'razorpay','billing_enabled':True,'billing_test_workspaces':org,'billing_test_mode':True,'razorpay_key_id':'rzp_test_fixture','razorpay_key_secret':SecretStr('synthetic-api-secret'),'razorpay_webhook_secret':SecretStr('synthetic-webhook-secret'),'razorpay_test_plan_id_starter':'plan_fixture1','razorpay_test_plan_id_growth':'plan_fixture2','razorpay_test_plan_id_scale':'plan_fixture3'}.items():monkeypatch.setattr(s,name,value)
     return c,path,org,other
 
 def mock_provider(monkeypatch):

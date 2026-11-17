@@ -22,6 +22,13 @@ def candidate(name='Software teams'):
         assumptions=['Software teams and CTOs are recommended audiences, not verified existing customers.'])
 
 
+def five_candidates():
+    values=[candidate(name) for name in ('Software builders','Product studios','Workflow teams','Analytics teams','Mobile teams')]
+    for item,need in zip(values,('Customer portals','Product modernization','Workflow automation','Analytics integration','Mobile applications')):
+        item.draft.criteria.intent.business_needs=[need]
+    return values
+
+
 def setup_profile(http):
     response=http.get('/api/organization/profile');assert response.status_code==200,response.text
     data=response.json();fields={k:v for k,v in data.items() if k not in ('organization_id','can_edit','onboarding_status')}
@@ -31,7 +38,9 @@ def setup_profile(http):
 
 
 def generate(http,provider,count=3):
-    provider.structured.return_value=builder.Suggestions(candidates=[candidate('Software teams '+str(i)) for i in range(count)],questions=['Which roles are most important?'])
+    candidates=[candidate('Software teams '+str(i)) for i in range(count)]
+    for i,item in enumerate(candidates):item.draft.criteria.intent.business_needs=[('Customer portal delivery','Internal workflow automation','Product modernization','Analytics integration','Mobile product delivery')[i]]
+    provider.structured.return_value=builder.Suggestions(candidates=candidates,questions=['Which roles are most important?'])
     response=http.post('/api/organization/icps/suggest',json={'mode':'BUSINESS_PROFILE','candidate_count':count})
     assert response.status_code==200,response.text
     return response.json()
@@ -103,7 +112,7 @@ def test_missing_profile_fallback_disabled_roles_scope_and_usage(client,monkeypa
     settings.heysow_icp_ai_enabled=False
     assert http.post('/api/organization/icps/suggest',json={'mode':'BUSINESS_PROFILE'}).status_code==503
     assert provider.structured.await_count==1;settings.heysow_icp_ai_enabled=True
-    settings.heysow_icp_ai_daily_limit=1
+    monkeypatch.setattr(settings,'heysow_icp_ai_daily_limit',1)
     assert http.post('/api/organization/icps/suggest',json={'mode':'DESCRIPTION','prompt':'Find dentists in the United Kingdom.'}).status_code==429
     with db_session() as c:
         second=create_organization(c,'second@example.test','Second workspace')['organization_id'];c.commit()

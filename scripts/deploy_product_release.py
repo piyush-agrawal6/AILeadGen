@@ -9,7 +9,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 import httpx
 from dotenv import dotenv_values
-from scripts.deploy_beta_backend import command,REGION
+from scripts.deploy_beta_backend import command,REGION,OPERATOR_ENV
 from scripts.deploy_growth_release import spec
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'data/artifacts/verification'/os.environ.get('PLANEBYTE_RELEASE_EVIDENCE','final-product')
@@ -24,16 +24,23 @@ def app_hash():
 
 def frontend_hash():
     digest=hashlib.sha256()
-    for base in ('app','components','lib'):
+    for base in ('app','components','lib','public'):
         for p in sorted((ROOT/'dashboard'/base).rglob('*')):
-            if p.is_file() and p.suffix in ('.tsx','.ts','.css','.json'):
+            if p.is_file() and (base=='public' or p.suffix in ('.tsx','.ts','.css','.json')):
                 digest.update(str(p.relative_to(ROOT)).encode()+b'\0'+p.read_bytes()+b'\0')
+    for name in ('auth.ts','proxy.ts','next.config.mjs','package.json','package-lock.json'):
+        p=ROOT/'dashboard'/name
+        if p.is_file():digest.update(str(p.relative_to(ROOT)).encode()+b'\0'+p.read_bytes()+b'\0')
     return digest.hexdigest()
 
 def save(path,value):
     path.write_text(json.dumps(value,indent=2));path.chmod(0o600)
 
 def gate():
+    if OUT.name.startswith('onboarding-repair-'):
+        return public_launch_gate(repaired=True)
+    if OUT.name=='final' and OUT.parent.name=='public-launch':
+        return public_launch_gate()
     frozen=json.loads((OUT/'frozen-source.json').read_text())
     if app_hash()!=frozen['app_sha256']:raise RuntimeError('Backend changed after the frozen test run.')
     report=ET.parse(OUT/'backend-approved.xml').getroot();suites=list(report) if report.tag=='testsuites' else [report]
@@ -59,9 +66,40 @@ def gate():
     if subprocess.check_output(['git','diff','--diff-filter=D','--name-only','a608210','HEAD'],cwd=ROOT,text=True).strip():raise RuntimeError('Unexpected source deletion requires investigation.')
     return subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
 
+def public_launch_gate(repaired=False):
+    """Independent frozen acceptance for the newer, flag-off launch candidate."""
+    frozen=json.loads((OUT/'frozen-source.json').read_text())
+    if frozen['app_sha256']!=app_hash() or frozen['frontend_sha256']!=frontend_hash():raise RuntimeError('Application changed after frozen launch acceptance.')
+    report=ET.parse(OUT/'backend-approved.xml').getroot();suites=list(report) if report.tag=='testsuites' else [report]
+    if sum(int(s.get('tests',0)) for s in suites)<(1149 if repaired else 1140) or any(int(s.get('failures',0))+int(s.get('errors',0)) for s in suites):raise RuntimeError('Combined backend/PostgreSQL acceptance is not passing.')
+    passed={case.get('name') for case in report.iter('testcase') if not any(case.find(tag) is not None for tag in ('failure','error','skipped'))}
+    required={'test_postgres_customer_verification_concurrency_revocation_and_quota','test_postgres_fixed_term_fulfillment_race_and_refund_preserves_history','test_google_signup_cannot_bypass_disabled_native_access_enforcement','test_verified_closure_is_operator_only_tracks_deadlines_and_retains_history','test_signed_bootstrap_exact_paths_redacts_secrets_and_binds_session','test_callback_hash_duplicate_and_tampering','test_payu_refund_lookup_is_read_only_and_does_not_infer_currency'}
+    if repaired:
+        supplemental=ET.parse(OUT/'backend-supplemental.xml').getroot()
+        if any(supplemental.iter('failure')) or any(supplemental.iter('error')) or any(supplemental.iter('skipped')):raise RuntimeError('Setup migration/renderer/PostgreSQL supplementation did not pass.')
+        passed|={case.get('name') for case in supplemental.iter('testcase')}
+        required|={'test_paraphrase_requires_independent_grounding_and_cannot_invent_numeric_claims','test_unapproved_paraphrase_and_name_only_preview_fail_instead_of_fake_success','test_retry_keeps_first_attempt_cause_and_never_exposes_prompts','test_assistant_uses_private_followup_draft_and_saved_icps_without_saving_draft','test_different_names_do_not_make_duplicate_icp_criteria_distinct','test_schema51_is_additive_idempotent_and_cross_workspace_fk_is_enforced','test_render_executes_public_js_but_blocks_foreign_post_private_and_websocket','test_postgres_reviewed_setup_worker_replay_defaults_and_no_automatic_actions'}
+    if not required<=passed:raise RuntimeError('Critical launch security/payment cases are missing.')
+    for filename,count in ((('product-browser-results.json',10),('accounts-browser-results.json',1),('onboarding-browser-results.json',2)) if repaired else (('browser-results.json',10),('accounts-browser-results.json',1),('onboarding-browser-results.json',2))):
+        stats=json.loads((OUT/filename).read_text())['stats']
+        if stats.get('expected')!=count or stats.get('unexpected') or stats.get('skipped') or stats.get('flaky'):raise RuntimeError('Required launch browser acceptance did not pass: '+filename)
+    if 'Compiled successfully' not in (OUT/'frontend-build.log').read_text() or (OUT/'frontend-types.log').read_text().strip():raise RuntimeError('Frontend build/types are not passing.')
+    units=(OUT/('frontend-units.log' if repaired else 'frontend-units-corrected.log')).read_text()
+    if '181 passed' not in units or 'failed' in units.lower():raise RuntimeError('Merged frontend unit acceptance is not passing.')
+    recovery=json.loads((OUT/('recovery-result.json' if repaired else 'recovery50/recovery-result.json')).read_text())
+    if not recovery.get('restored_exactly') or recovery.get('row_loss') or recovery.get('second_migration_run')!=0 or recovery.get('target_schema')!=(51 if repaired else 50):raise RuntimeError('Current additive migration recovery did not pass.')
+    if repaired:
+        if set(recovery.get('changed_tables',{}))-{'schema_migrations'}:raise RuntimeError('Existing data changed in the recovery rehearsal.')
+        real=json.loads((OUT/'real-syntaxwars-2/result-private.json').read_text())
+        if real.get('status')!='PASS' or len(real['stages']['icps']['preview']['candidates'])<3 or not any(v['provider']=='VERTEX_AI' and v['status']=='SUCCEEDED' for v in real['provider_usage']):raise RuntimeError('Actual provider onboarding acceptance is missing.')
+        mail=json.loads((OUT/'real-owner-mail-1/result.json').read_text())
+        if mail.get('status')!='PASS' or not mail.get('signup_verified') or not mail.get('old_session_revoked') or any(v['provider_last_event'] not in ('delivered','opened','clicked') for v in mail['notifications']):raise RuntimeError('Actual authorized transactional delivery/recovery acceptance is missing.')
+    if subprocess.check_output(['git','status','--porcelain','--','app','dashboard','scripts'],cwd=ROOT,text=True).strip():raise RuntimeError('Launch source must be committed before staging.')
+    return subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+
 def signed(client,path,method='GET',body=None):
     raw=json.dumps(body,separators=(',',':')).encode() if body is not None else b''
-    values=dotenv_values(ROOT/'.env',interpolate=False);stamp=str(int(time.time()));nonce=secrets.token_hex(24);actor='planebyte@gmail.com'
+    values=dotenv_values(OPERATOR_ENV,interpolate=False);stamp=str(int(time.time()));nonce=secrets.token_hex(24);actor='planebyte@gmail.com'
     canonical='\n'.join((stamp,nonce,method,path,hashlib.sha256(raw).hexdigest(),actor))
     headers={'x-le-user':actor,'x-le-timestamp':stamp,'x-le-nonce':nonce,'x-le-signature':hmac.new(values['LEADENGINE_API_SIGNING_SECRET'].encode(),canonical.encode(),hashlib.sha256).hexdigest()}
     if raw:headers['content-type']='application/json'
@@ -107,7 +145,8 @@ def stage():
             if revision!=updated['status']['latestCreatedRevisionName']:raise RuntimeError('Staged API is not ready.')
             # Read smoke is complete before changing any worker image.
             save(folder/'staged-read-smoke.json',smoke('https://intent-only---leadengine-api-befca7xg4a-el.a.run.app'))
-    result={'source_commit':source,'revision':revision,'schema':46,'code_schema':47,'migration_run':False,'production_traffic_promoted':False,'checkpoint':str(folder)}
+    from app.database.migrations import MIGRATIONS
+    result={'source_commit':source,'revision':revision,'schema':46,'code_schema':len(MIGRATIONS),'migration_run':False,'production_traffic_promoted':False,'checkpoint':str(folder)}
     save(OUT/'staged-release.json',result);print(json.dumps(result))
 
 def promote():

@@ -9,12 +9,14 @@ export function LegalDocument({
   summary,
   activeTab: propActiveTab,
   eyebrow,
+  publishedVersion,
   children,
 }: {
   title: string;
   summary: string;
-  activeTab?: 'terms' | 'privacy' | 'help';
+  activeTab?: 'terms' | 'privacy' | 'refund' | 'cancellation' | 'help';
   eyebrow?: string;
+  publishedVersion?: string;
   children: React.ReactNode;
 }) {
   const activeTab =
@@ -136,6 +138,10 @@ export function LegalDocument({
                 PlaneByte never requests, manages, or stores your Google account password.
               </p>
             </div>
+          </div>
+        ) : publishedVersion ? (
+          <div className="pb-legal-notice-banner text-xs text-muted-foreground">
+            Published version: {publishedVersion}. Review all applicable policies before creating an account or purchasing access.
           </div>
         ) : (
           <div className="pb-legal-notice-banner flex items-start gap-3">

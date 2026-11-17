@@ -10,3 +10,9 @@ describe('Public branding assets',()=>{
  it.each(['/logo.png','/brand/mark.svg','/brand/heysow-mark.svg','/brand/pb-mark.png','/favicon.ico','/pb-logo.ico','/apple-touch-icon.png','/site.webmanifest','/fonts/planebyte-sans-regular.woff2','/fonts/planebyte-sans-medium.woff2','/fonts/planebyte-sans-bold.woff2'])('allows the exact public asset %s',path=>expect(isPublicBrandAsset(path)).toBe(true));
  it.each(['/brand/mark.svg/private','/brand/private.svg','/api/leads','/api/client-reports','/logo.png/private','/fonts/private.woff2','/fonts/../api/leads','/leads'])('keeps private routes protected: %s',path=>expect(isPublicBrandAsset(path)).toBe(false));
 });
+
+describe('strict work-email legacy allowlist denial',()=>{
+ it.each(['person@gmail.com','person@yahoo.com','person@hotmail.com','person@outlook.com','person@icloud.com','person@mailinator.com','person@sub.gmail.com'])('rejects personal or disposable identity even when allowlisted: %s',email=>{
+  expect(googleAccountAllowed({email,email_verified:true},[email])).toBe(false);
+ });
+});

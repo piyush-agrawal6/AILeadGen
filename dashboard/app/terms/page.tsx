@@ -1,82 +1,9 @@
-import { LegalDocument } from '@/components/auth/legal-document';
+import { PublishedPolicy } from '@/components/auth/published-policy';
 
-export const metadata = {
-  title: 'Terms of Service · PlaneByte',
-  description: 'Terms of Service for PlaneByte Intent Radar development release.',
-};
+export const metadata = { title: 'PlaneByte Terms of Service · PlaneByte', description: 'Approved PlaneByte PlaneByte Terms of Service.' };
 
-export default function Terms() {
-  return (
-    <LegalDocument
-      title="Terms of Service"
-      summary="Service information for the current development release. The applicable public service agreement must be approved before launch."
-    >
-      <section className="pb-legal-section">
-        <h2>Workspace access</h2>
-        <p>
-          Use your permitted verified account. Workspace owners control team membership and roles.
-          Public self-service registration is unavailable in this development release. Google sign-in
-          does not automatically authorize a connected business mailbox or spreadsheet.
-        </p>
-      </section>
+import { PublishedPolicy } from '@/components/auth/published-policy';
 
-      <section className="pb-legal-section">
-        <h2>Reviewed workflows</h2>
-        <p>
-          Users review targeting, discovery resource limits and outbound messages before consequential actions.
-          Creating or activating a targeting profile does not launch discovery or outreach. Data availability
-          varies by provider, geography and category. Fit and verification labels describe available evidence
-          and do not guarantee commercial results or message delivery.
-        </p>
-      </section>
+export const metadata = { title: 'PlaneByte Terms of Service · PlaneByte', description: 'Approved PlaneByte Terms of Service.' };
 
-      <section className="pb-legal-section">
-        <h2>Responsible use</h2>
-        <p>
-          Keep account and integration credentials private. Respect recipient opt-outs and workspace suppression
-          rules. Product access does not authorize active security testing of third-party websites.
-        </p>
-      </section>
-
-      <section className="pb-legal-section" id="ai-content">
-        <h2>AI-generated content and prohibited NSFW outputs</h2>
-        <p>
-          PlaneByte's Intent Radar platform includes AI-powered synthesis, summaries, interpretations, and analytical features.
-        </p>
-        <p className="mt-2">
-          Users are strictly prohibited from using these features to request, generate, create, or distribute Not Safe for Work (NSFW),
-          pornographic, sexually explicit, or otherwise unlawful sexual content.
-        </p>
-        <p className="mt-2">
-          This restriction applies to user prompts, AI-generated interpretations, synthesized reports, summaries, and all other AI-generated outputs.
-        </p>
-        <p className="mt-2">
-          Any content involving the sexual exploitation or abuse of minors is strictly prohibited.
-        </p>
-        <p className="mt-2">
-          PlaneByte reserves the right to restrict access, remove prohibited content where technically possible, suspend accounts, or terminate services for violations of this policy.
-        </p>
-      </section>
-
-      <section className="pb-legal-section">
-        <h2>Commercial and legal terms pending approval</h2>
-        <p>
-          The owner must approve the contracting entity, available plans, payment and cancellation terms,
-          acceptable-use agreement, liability provisions, dispute process and governing law before public release.
-          No subscription pricing, service-level guarantee or compliance certification is asserted by this development copy.
-        </p>
-      </section>
-
-      <section className="pb-legal-section">
-        <h2>Contact</h2>
-        <p>
-          Ask your workspace administrator or contact{' '}
-          <a href="mailto:contact@planebyte.com" className="text-primary underline">
-            contact@planebyte.com
-          </a>{' '}
-          for the applicable agreement and service questions.
-        </p>
-      </section>
-    </LegalDocument>
-  );
-}
+export default function Page() { return <PublishedPolicy policy="terms" />; }

@@ -66,7 +66,7 @@ class InvitationCreated(BaseModel):
     status:Literal['PENDING']
     expires_at:str
     token:str
-    delivery:Literal['MANUAL_SHARE']
+    delivery:Literal['MANUAL_SHARE','EMAIL_QUEUED']
 
 
 class InvitationResult(BaseModel):
@@ -114,6 +114,8 @@ def _expire(c,org):
 
 
 def create(c,body:InviteCreate):
+    from app.accounts.policy import require_work_identity
+    require_work_identity(body.email)
     org=organization();actor=current().actor
     _manager(c,org,actor,body.role)
     _lock(c,org)
@@ -126,12 +128,26 @@ def create(c,body:InviteCreate):
     from app.config.settings import get_settings
     if c.execute("SELECT COUNT(*) FROM workspace_invitations WHERE organization_id=? AND status='PENDING'",(org,)).fetchone()[0]>=get_settings().heysow_pending_invitation_limit:
         raise HTTPException(409,'This workspace has reached its pending invitation limit.')
+    from app.billing.usage import capacity_for_workspace
+    seats=c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0]
+    pending=c.execute("SELECT COUNT(*) FROM workspace_invitations WHERE organization_id=? AND status='PENDING'",(org,)).fetchone()[0]
+    capacity_for_workspace(c,org,'team_members',seats+pending)
+    if get_settings().heysow_accounts_enabled and body.email not in get_settings().allowed_emails and not c.execute('SELECT 1 FROM users WHERE id=?',(body.email,)).fetchone():
+        from app.accounts.policy import work_email
+        try:work_email(body.email)
+        except ValueError:raise HTTPException(422,'Invite a teammate using their company email address.') from None
     key=str(uuid.uuid4());token=secrets.token_urlsafe(32);stamp=now()
     expiry=(datetime.now(timezone.utc)+timedelta(days=body.expires_in_days)).isoformat()
     c.execute("INSERT INTO workspace_invitations(id,organization_id,email,role,token_hash,status,invited_by,created_at,expires_at) VALUES(?,?,?,?,?,'PENDING',?,?,?)",
         (key,org,body.email,body.role,hashlib.sha256(token.encode()).hexdigest(),actor,stamp,expiry))
     _audit(c,org,actor,'INVITATION_CREATED',key,{'role':body.role})
-    return {'id':key,'email':body.email,'role':body.role,'status':'PENDING','expires_at':expiry,'token':token,'delivery':'MANUAL_SHARE'}
+    delivery='MANUAL_SHARE'
+    from app.notifications import transactional as mail
+    if get_settings().transactional_mail_enabled and mail.configured():
+        company=c.execute('SELECT name FROM organizations WHERE id=?',(org,)).fetchone()[0]
+        mail.queue(c,body.email,'TEAM_INVITATION',key,{'token':token,'company':company},dedupe_key='team-invitation:'+key,expires_at=int(datetime.fromisoformat(expiry).timestamp()),organization_id=org)
+        delivery='EMAIL_QUEUED'
+    return {'id':key,'email':body.email,'role':body.role,'status':'PENDING','expires_at':expiry,'token':token,'delivery':delivery}
 
 
 def list_invitations(c,page=1):
@@ -161,8 +177,15 @@ def pending_for_account(c,actor,token):
     row=c.execute('SELECT * FROM workspace_invitations WHERE token_hash=?',(digest,)).fetchone()
     if not row or row['email']!=actor.strip().lower():
         raise HTTPException(404,'Invitation is unavailable for this account.')
+    return pending_by_id(c,actor,row['id'])
+
+def pending_by_id(c,actor,key):
+    from app.accounts.policy import require_work_identity
+    require_work_identity(actor)
+    row=c.execute('SELECT * FROM workspace_invitations WHERE id=? AND email=?',(key,actor.strip().lower())).fetchone()
+    if not row:raise HTTPException(404,'Invitation is unavailable for this account.')
     org=row['organization_id'];_lock(c,org)
-    row=c.execute('SELECT * FROM workspace_invitations WHERE token_hash=?',(digest,)).fetchone()
+    row=c.execute('SELECT * FROM workspace_invitations WHERE id=? AND email=?',(key,actor.strip().lower())).fetchone()
     if row['status']!='PENDING':raise HTTPException(409,'This invitation has already been used or revoked.')
     if row['expires_at']<=now():raise HTTPException(410,'This invitation has expired.')
     active=c.execute("SELECT 1 FROM organizations WHERE id=? AND status='ACTIVE'",(org,)).fetchone()
@@ -175,7 +198,6 @@ def pending_for_account(c,actor,token):
         if not access(c,row['invited_by']):raise HTTPException(403,'The inviting account is unavailable.')
     _manager(c,org,row['invited_by'],row['role'])
     return row
-
 
 def respond(c,actor,body:InviteRespond):
     # The signed authenticated account is the recipient authority; current

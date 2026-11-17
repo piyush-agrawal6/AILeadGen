@@ -1,3 +1,7 @@
+import {randomUUID} from 'node:crypto';
+import {AccountForm} from '@/components/auth/account-form';
+import {readAccountCookie} from '@/lib/server/account-cookies';
+import {createAccount} from '../account-actions';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ExternalLink, ShieldCheck, AlertCircle } from 'lucide-react';
@@ -21,8 +25,10 @@ export default async function Signup({
 }) {
   const user = await currentUser();
   const env = serverEnv();
+  const pendingInvite=env.accounts?await readAccountCookie('planebyte-pending-invitation'):null;
+  const initialInvitation=typeof pendingInvite?.invitation==='string'?pendingInvite.invitation:'';
   const registration =
-    (env.publicRegistration || env.invitedRegistration) &&
+    (env.publicRegistration || env.invitedRegistration || env.controlledRegistration) &&
     env.customerAccess &&
     !!env.termsVersion;
   const error = (await searchParams)?.error;
@@ -33,12 +39,13 @@ export default async function Signup({
       title="Join PlaneByte"
       description={
         registration
-          ? env.publicRegistration
-            ? 'Create your independent workspace account using your verified Google identity.'
+          ? env.publicRegistration || env.controlledRegistration
+            ? env.accounts?'Create a workspace with your company email or verified work Google account.':'Create your independent workspace account using your verified Google identity.'
             : 'Public registration is closed. Use your private invitation code and the Google account named in your invitation.'
           : 'Public self-service registration is currently closed. Request workspace access from our team or continue with an already approved Google account.'
       }
     >
+      {env.controlledRegistration&&!env.publicRegistration&&<p className="pb-auth-fineprint">Production signup is open to the owner-authorized company test address only. Public registration remains closed during acceptance.</p>}
       {error === 'terms_required' && (
         <div className="pb-auth-alert" role="alert">
           <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
@@ -72,17 +79,18 @@ export default async function Signup({
           </Link>
         </div>
       ) : registration ? (
-        <form action={signupWithGoogle} className="space-y-4 text-left">
+        <><form action={signupWithGoogle} className="space-y-4 text-left">
           <label className="block text-xs font-medium text-foreground">
-            Private invitation code{env.publicRegistration ? ' (optional)' : ''}
+            Private invitation code{env.publicRegistration || env.controlledRegistration ? ' (optional)' : ''}
             <input
               className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono"
               name="invitation_token"
+              defaultValue={initialInvitation}
               autoComplete="off"
               minLength={40}
               maxLength={100}
               placeholder="inv_..."
-              required={!env.publicRegistration}
+              required={!env.publicRegistration&&!env.controlledRegistration}
             />
           </label>
           <label className="flex items-start gap-2.5 text-xs text-muted-foreground cursor-pointer pt-1">
@@ -114,7 +122,7 @@ export default async function Signup({
           <p className="pb-auth-fineprint text-[11px] text-muted-foreground text-center">
             Only your verified Google account is admitted. No workspace or mailbox access is inherited.
           </p>
-        </form>
+        </form>{env.accounts&&<><div className="pb-auth-divider"><span>or use company email</span></div><AccountForm action={createAccount} kind="signup" requestId={randomUUID()} initialInvitation={initialInvitation} invitationRequired={!env.publicRegistration&&!env.controlledRegistration}/><p className="text-xs text-muted-foreground">New eligible trials last 72 hours and require a card plus authorization for the selected monthly plan. Payment and provider confirmation are mandatory before dashboard access. No subscription charge is due during the free trial.</p></>}</>
       ) : (
         <div className="space-y-4">
           <a
@@ -168,7 +176,7 @@ export default async function Signup({
       )}
 
       <p className="pb-auth-fineprint text-[11px] text-muted-foreground text-center">
-        Signing in never grants access to another company’s workspace. An invitation and authorized account are required.
+        Signing in never grants access to another company’s workspace. Use your verified company email; workspace access is checked on the server.
       </p>
     </AuthState>
   );

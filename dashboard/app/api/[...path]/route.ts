@@ -3,7 +3,8 @@ import { serverEnv } from "@/lib/server/env";
 import { currentUser } from "@/lib/server/session";
 import { NextRequest } from "next/server";
 import { sameOrigin } from "@/lib/origin-policy";
-import { createHash,createHmac,randomUUID } from "node:crypto";
+import {signedHeaders} from "@/lib/server/account-broker";
+import {privateSession} from "@/lib/server/private-session";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -15,15 +16,16 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   const { path } = await context.params;
   if (path.some(p => !/^[a-zA-Z0-9_.-]+$/.test(p) || p === "." || p === "..")) return Response.json({ detail: "Invalid API path." }, { status: 400 });
   const env = serverEnv();
+  if(path[0]==='organization'&&['accounts','admission'].includes(path[1]))return Response.json({detail:'Use the account form to continue.'},{status:404});
   const apiPath = `/api/${path.join("/")}${request.nextUrl.search}`;
   const bodyLimit=path.join("/") === "experiments/catalog" ? 4_000_000 : 1_048_576;
   if (Number(request.headers.get("content-length") || 0) > bodyLimit) return Response.json({ detail: "Request too large." }, { status: 413 });
   const chunks:Uint8Array[]=[];let length=0;const reader=request.body?.getReader();
   if(reader){for(;;){const next=await reader.read();if(next.done)break;length+=next.value.byteLength;if(length>bodyLimit){await reader.cancel();return Response.json({detail:"Request too large."},{status:413});}chunks.push(next.value);}}
   const body=new Uint8Array(length);let offset=0;for(const chunk of chunks){body.set(chunk,offset);offset+=chunk.byteLength;}
-  const timestamp = String(Math.floor(Date.now() / 1000)); const nonce = randomUUID(); const actor = user?.email?.toLowerCase()||"";
-  const canonical = [timestamp, nonce, request.method, apiPath, createHash("sha256").update(body).digest("hex"), actor].join("\n");
-  const headers: Record<string, string> = { "content-type": request.headers.get("content-type") || "application/json", "x-le-timestamp": timestamp, "x-le-nonce": nonce, "x-le-user": actor, "x-le-signature": createHmac("sha256", env.secret).update(canonical).digest("hex") };
+  const actor=user?.email?.toLowerCase()||'';
+  const headers:Record<string,string>=signedHeaders(request.method,apiPath,body,actor,external?'':await privateSession());
+  headers['content-type']=request.headers.get('content-type')||'application/json';
   if(external){
     const token=request.headers.get('authorization')||'';
     if(!/^Bearer pbk_[a-f0-9-]{36}\.[A-Za-z0-9_-]{43}$/.test(token))return Response.json({detail:'A valid scoped API credential is required.'},{status:401,headers:{'WWW-Authenticate':'Bearer','Cache-Control':'no-store'}});

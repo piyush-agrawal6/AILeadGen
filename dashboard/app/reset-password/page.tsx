@@ -1,3 +1,6 @@
+import {AccountForm} from '@/components/auth/account-form';
+import {resetAccountPassword} from '../account-actions';
+import {serverEnv} from '@/lib/server/env';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, ExternalLink, ShieldCheck } from 'lucide-react';
@@ -5,10 +8,12 @@ import { AuthState } from '@/components/auth/auth-state';
 
 export const metadata: Metadata = {
   title: 'Password Management · PlaneByte',
-  description: 'PlaneByte single sign-on password management via Google OAuth.',
+  description: 'Recover access to your PlaneByte account securely.',
 };
 
-export default function ResetPassword() {
+export default async function ResetPassword({searchParams}:{searchParams:Promise<{token?:string}>}) {
+ const token=(await searchParams).token;
+ if(serverEnv().accounts)return <AuthState eyebrow="ACCOUNT SECURITY" title="Choose a new password" description="This one-time recovery link expires after 20 minutes. Changing your password signs out existing customer sessions.">{typeof token==='string'&&/^[A-Za-z0-9_-]{43}$/.test(token)?<AccountForm action={resetAccountPassword} kind="reset" token={token}/>:<p role="alert">This reset link is invalid. Request a new recovery email.</p>}<Link href="/login" className="pb-auth-google-btn justify-center">Return to sign in</Link></AuthState>;
   return (
     <AuthState
       eyebrow="ACCOUNT SECURITY"

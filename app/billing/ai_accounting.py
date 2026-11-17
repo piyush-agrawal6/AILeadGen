@@ -10,7 +10,7 @@ import hashlib,uuid
 from contextlib import contextmanager,nullcontext
 from contextvars import ContextVar
 from dataclasses import dataclass,field
-from app.billing import commercial_usage as usage
+from app.billing import commercial_usage as usage,access_periods
 from app.config.settings import get_settings
 from app.database.connection import db_session
 
@@ -28,15 +28,16 @@ def finalize_operation(c,operation_id):
     org=verified_workspace(c)
     from app.developer.keys import lock
     lock(c,org)
-    row=c.execute("SELECT state FROM commercial_reservations WHERE organization_id=? AND operation_id=? AND dimension='ai_calls'",(org,operation_id)).fetchone()
+    _,reservations_table=access_periods.ledgers(c,org)
+    row=c.execute(f"SELECT state FROM {reservations_table} WHERE organization_id=? AND operation_id=? AND dimension='ai_calls'",(org,operation_id)).fetchone()
     if row and row['state']=='RESERVED':
         prefix='ai-attempt:'+hashlib.sha256(operation_id.encode()).hexdigest()[:32]+':%'
-        attempted=c.execute("SELECT 1 FROM commercial_reservations WHERE organization_id=? AND operation_id LIKE ? AND dimension='ai_tokens' AND state<>'RELEASED' LIMIT 1",(org,prefix)).fetchone()
+        attempted=c.execute(f"SELECT 1 FROM {reservations_table} WHERE organization_id=? AND operation_id LIKE ? AND dimension='ai_tokens' AND state<>'RELEASED' LIMIT 1",(org,prefix)).fetchone()
         usage.settle(c,operation_id,release=not bool(attempted),dimensions=('ai_calls',))
 
 @contextmanager
 def operation(operation_id):
-    scope=Scope(operation_id) if operation_id and get_settings().payu_billing_enabled else None
+    scope=Scope(operation_id) if operation_id and (get_settings().payu_billing_enabled or access_periods.enabled()) else None
     token=_scope.set(scope)
     try:yield
     finally:
@@ -78,10 +79,11 @@ def complete_attempt(provider,attempt,reported,*,rejected=False):
                 from app.billing.contracts import verified_workspace
                 from app.developer.keys import lock
                 org=verified_workspace(c);lock(c,org)
-                row=c.execute("SELECT * FROM commercial_reservations WHERE organization_id=? AND operation_id=? AND dimension='ai_tokens'",(org,attempt['id'])).fetchone()
+                usage_table,reservations_table=access_periods.ledgers(c,org)
+                row=c.execute(f"SELECT * FROM {reservations_table} WHERE organization_id=? AND operation_id=? AND dimension='ai_tokens'",(org,attempt['id'])).fetchone()
                 if row and row['state']=='RESERVED' and row['amount']<actual:
-                    c.execute("UPDATE commercial_reservations SET amount=? WHERE organization_id=? AND operation_id=? AND dimension='ai_tokens'",(actual,org,attempt['id']))
-                    c.execute("UPDATE commercial_usage SET reserved=reserved+? WHERE organization_id=? AND contract_id=? AND period_start=? AND dimension='ai_tokens'",(actual-row['amount'],org,row['contract_id'],row['period_start']))
+                    c.execute(f"UPDATE {reservations_table} SET amount=? WHERE organization_id=? AND operation_id=? AND dimension='ai_tokens'",(actual,org,attempt['id']))
+                    c.execute(f"UPDATE {usage_table} SET reserved=reserved+? WHERE organization_id=? AND contract_id=? AND period_start=? AND dimension='ai_tokens'",(actual-row['amount'],org,row['contract_id'],row['period_start']))
             usage.settle(c,attempt['id'],actual={'ai_tokens':actual})
             attempt['outcome']='REPORTED'
         c.commit()

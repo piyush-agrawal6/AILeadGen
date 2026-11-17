@@ -16,13 +16,13 @@ from app.api.server import app
 @pytest.fixture
 def accounts(tmp_path,monkeypatch):
     s=get_settings();path=tmp_path/'admission.db'
-    for name,value in {'database_path':str(path),'app_env':'development','auth_disabled_local':False,'allowed_user_emails':'internal@example.test','api_signing_secret':'synthetic-admission-signing-secret-32-characters','heysow_workspace_management_enabled':True,'heysow_customer_access_enabled':True,'heysow_public_registration_enabled':True,'heysow_google_admission_client_id':'synthetic-google-client','heysow_terms_version':'synthetic-review-version'}.items():monkeypatch.setattr(s,name,value)
+    for name,value in {'database_path':str(path),'app_env':'development','auth_disabled_local':False,'allowed_user_emails':'internal@example.com','api_signing_secret':'synthetic-admission-signing-secret-32-characters','heysow_workspace_management_enabled':True,'heysow_customer_access_enabled':True,'heysow_public_registration_enabled':True,'heysow_google_admission_client_id':'synthetic-google-client','heysow_terms_version':'synthetic-review-version'}.items():monkeypatch.setattr(s,name,value)
     c=get_connection(path);run_migrations(c)
     yield c,s
     c.close()
 
 
-def claim(email='new@example.test',subject='verified-google-subject',**updates):
+def claim(email='new@example.com',subject='verified-google-subject',**updates):
     return admission.GoogleAdmission(email=email,google_subject=subject,client_id='synthetic-google-client',email_verified=True,terms_version='synthetic-review-version',accepted_at=int(time.time()),acceptance_nonce=str(uuid.uuid4()),**updates)
 
 
@@ -51,7 +51,7 @@ def test_identity_consent_binding_and_replay_do_not_adopt_another_account(accoun
     c,_=accounts;first=claim();admission.admit(c,first,actor=first.email,broker_verified=True);c.commit()
     assert admission.admit(c,first,actor=first.email,broker_verified=True)['existing']
     assert c.execute('SELECT COUNT(*) FROM account_terms_acceptances').fetchone()[0]==1
-    for bad in (first.model_copy(update={'google_subject':'different-google-account'}),claim(email='other@example.test',subject=first.google_subject),claim(email='third@example.test',subject='new-subject').model_copy(update={'acceptance_nonce':first.acceptance_nonce}),first.model_copy(update={'email_verified':False}),first.model_copy(update={'client_id':'wrong-client'}),first.model_copy(update={'accepted_at':int(time.time())-700})):
+    for bad in (first.model_copy(update={'google_subject':'different-google-account'}),claim(email='other@example.com',subject=first.google_subject),claim(email='third@example.com',subject='new-subject').model_copy(update={'acceptance_nonce':first.acceptance_nonce}),first.model_copy(update={'email_verified':False}),first.model_copy(update={'client_id':'wrong-client'}),first.model_copy(update={'accepted_at':int(time.time())-700})):
         with pytest.raises(HTTPException):admission.admit(c,bad,actor=bad.email,broker_verified=True)
     assert c.execute('SELECT COUNT(*) FROM account_admissions').fetchone()[0]==1
 
@@ -89,7 +89,7 @@ def test_admission_migration_is_additive_and_preserves_existing_workspace(accoun
     import app.database.migrations as migrations
     c=sqlite3.connect(':memory:');c.row_factory=sqlite3.Row;full=migrations.MIGRATIONS
     monkeypatch.setattr(migrations,'MIGRATIONS',full[:-1]);run_migrations(c)
-    org=create_organization(c,'historical@example.test','Historical organization')['organization_id'];c.commit()
+    org=create_organization(c,'historical@example.com','Historical organization')['organization_id'];c.commit()
     before=dict(c.execute('SELECT * FROM organizations WHERE id=?',(org,)).fetchone())
     monkeypatch.setattr(migrations,'MIGRATIONS',full)
     assert run_migrations(c)==1 and run_migrations(c)==0
@@ -98,9 +98,9 @@ def test_admission_migration_is_additive_and_preserves_existing_workspace(accoun
     c.close()
 
 
-def private_invite(c,email='invited@example.test',role='VIEWER'):
+def private_invite(c,email='invited@example.com',role='VIEWER'):
     from app.platform.invitations import create,InviteCreate
-    owner='internal@example.test'
+    owner='internal@example.com'
     org=create_organization(c,owner,'Private invitation workspace')['organization_id']
     with workspace_scope(c,owner,org):
         invite=create(c,InviteCreate(email=email,role=role))
@@ -119,7 +119,7 @@ def test_invited_broker_admission_keeps_public_closed_and_requires_explicit_memb
         assert c.execute('SELECT COUNT(*) FROM organization_memberships WHERE user_id=?',(body.email,)).fetchone()[0]==0
         assert c.execute('SELECT status FROM workspace_invitations WHERE id=?',(invite['id'],)).fetchone()[0]=='PENDING'
         assert signed(client,s,'GET','/api/operations/dashboard',body.email).json()['code']=='ORGANIZATION_REQUIRED'
-        outsider=claim(email='uninvited@example.test',subject='outsider')
+        outsider=claim(email='uninvited@example.com',subject='outsider')
         assert signed(client,s,'POST',admission.PATH,outsider.email,outsider.model_dump()).status_code==403
         accepted=signed(client,s,'POST','/api/organization/invitations/respond',body.email,{'token':invite['token'],'action':'ACCEPT'})
         assert accepted.status_code==200,accepted.text
@@ -136,7 +136,7 @@ def test_invited_broker_admission_keeps_public_closed_and_requires_explicit_memb
 def test_invited_admission_rejects_stale_or_foreign_authority_without_creating_account(accounts,failure):
     c,s=accounts;org,invite=private_invite(c)
     s.heysow_public_registration_enabled=False;s.heysow_invited_registration_enabled=failure!='disabled'
-    body=claim(email='foreign@example.test' if failure=='wrong_recipient' else invite['email'],invitation_token=invite['token'])
+    body=claim(email='foreign@example.com' if failure=='wrong_recipient' else invite['email'],invitation_token=invite['token'])
     if failure=='expired':c.execute("UPDATE workspace_invitations SET expires_at='2000-01-01T00:00:00+00:00' WHERE id=?",(invite['id'],))
     if failure=='revoked':c.execute("UPDATE workspace_invitations SET status='REVOKED' WHERE id=?",(invite['id'],))
     if failure=='inviter_removed':c.execute("UPDATE organization_memberships SET status='REVOKED' WHERE organization_id=?",(org,))
@@ -151,10 +151,10 @@ def test_invited_admission_rejects_stale_or_foreign_authority_without_creating_a
 
 def test_suspended_customer_inviter_cannot_admit_new_accounts(accounts):
     from app.platform.invitations import create,InviteCreate
-    c,s=accounts;owner=claim(email='customer-owner@example.test',subject='customer-owner')
+    c,s=accounts;owner=claim(email='customer-owner@example.com',subject='customer-owner')
     admission.admit(c,owner,actor=owner.email,broker_verified=True);c.commit()
     org=create_organization(c,owner.email,'Customer inviter')['organization_id']
-    with workspace_scope(c,owner.email,org):invite=create(c,InviteCreate(email='teammate@example.test'))
+    with workspace_scope(c,owner.email,org):invite=create(c,InviteCreate(email='teammate@example.com'))
     c.execute("UPDATE account_admissions SET status='SUSPENDED' WHERE user_id=?",(owner.email,));c.commit()
     s.heysow_public_registration_enabled=False;s.heysow_invited_registration_enabled=True
     body=claim(email=invite['email'],subject='teammate',invitation_token=invite['token'])

@@ -56,7 +56,7 @@ class ExportConfig(BaseModel):
 class Settings(BaseSettings):
     # Billing is additive and sandbox-only. Public checkout is fail-closed.
     billing_enabled:bool=False
-    billing_provider:Literal['razorpay','payu']='razorpay'
+    billing_provider:Literal['creem','razorpay','payu']='creem'
     billing_test_mode:bool=True
     billing_public_checkout_enabled:bool=False
     billing_test_workspaces:str=''
@@ -120,6 +120,9 @@ class Settings(BaseSettings):
     )
     database_path: str = Field(default="data/lead_engine.db", alias="DATABASE_PATH")
     database_url: Optional[str] = Field(default=None, alias="DATABASE_URL", repr=False)
+    database_schema: str = Field(default='public',alias='DATABASE_SCHEMA',pattern=r'^[a-z][a-z0-9_]{0,62}$')
+    database_schema_profile: Literal['legacy','intent-radar-v1'] = Field(default='legacy',alias='DATABASE_SCHEMA_PROFILE')
+    database_background_polling_enabled: bool = Field(default=True,alias='DATABASE_BACKGROUND_POLLING_ENABLED')
     upstash_redis_rest_url: str = Field(default='',alias='UPSTASH_REDIS_REST_URL',repr=False)
     upstash_redis_rest_token: str = Field(default='',alias='UPSTASH_REDIS_REST_TOKEN',repr=False)
     api_signing_secret: str = Field(default="", alias="LEADENGINE_API_SIGNING_SECRET", repr=False)
@@ -132,6 +135,8 @@ class Settings(BaseSettings):
     heysow_domain_limit:int=Field(20,ge=1,le=100,alias='HEYSOW_DOMAIN_LIMIT')
     heysow_company_discovery_enabled:bool=Field(True,alias='HEYSOW_COMPANY_DISCOVERY_ENABLED')
     heysow_company_ai_enabled:bool=Field(True,alias='HEYSOW_COMPANY_AI_ENABLED')
+    heysow_company_js_enabled:bool=Field(False,alias='HEYSOW_COMPANY_JS_ENABLED')
+    heysow_setup_diagnostics_enabled:bool=Field(False,alias='HEYSOW_SETUP_DIAGNOSTICS_ENABLED')
     heysow_company_ai_daily_limit:int=Field(10,ge=1,le=100,alias='HEYSOW_COMPANY_AI_DAILY_LIMIT')
     heysow_company_ai_global_daily_limit:int=Field(100,ge=1,le=1000,alias='HEYSOW_COMPANY_AI_GLOBAL_DAILY_LIMIT')
     heysow_company_discovery_hourly_limit:int=Field(5,ge=1,le=100,alias='HEYSOW_COMPANY_DISCOVERY_HOURLY_LIMIT')
@@ -141,6 +146,32 @@ class Settings(BaseSettings):
     heysow_icp_ai_daily_limit:int=Field(10,ge=1,le=1000,alias='HEYSOW_ICP_AI_DAILY_LIMIT')
     heysow_icp_ai_global_daily_limit:int=Field(100,ge=1,le=10000,alias='HEYSOW_ICP_AI_GLOBAL_DAILY_LIMIT')
     heysow_workspace_management_enabled: bool = Field(False,alias='HEYSOW_WORKSPACE_MANAGEMENT_ENABLED')
+    heysow_accounts_enabled:bool=Field(False,alias='HEYSOW_ACCOUNTS_ENABLED')
+    heysow_work_email_only_enabled:bool=Field(True,alias='HEYSOW_WORK_EMAIL_ONLY_ENABLED')
+    heysow_registration_acceptance_emails:str=Field('',max_length=2000,alias='HEYSOW_REGISTRATION_ACCEPTANCE_EMAILS',repr=False,exclude=True)
+    heysow_access_periods_enabled:bool=Field(False,alias='HEYSOW_ACCESS_PERIODS_ENABLED')
+    transactional_mail_enabled:bool=Field(False,alias='TRANSACTIONAL_MAIL_ENABLED')
+    transactional_mail_daily_limit:int=Field(100,ge=1,le=10000,alias='TRANSACTIONAL_MAIL_DAILY_LIMIT')
+    resend_api_key:SecretStr=Field(SecretStr(''),alias='RESEND_API_KEY',repr=False,exclude=True)
+    resend_from_email:str=Field('',max_length=254,alias='RESEND_FROM_EMAIL')
+    resend_webhook_secret:SecretStr=Field(SecretStr(''),alias='RESEND_WEBHOOK_SECRET',repr=False,exclude=True)
+    fixed_term_billing_enabled:bool=Field(False,alias='FIXED_TERM_BILLING_ENABLED')
+    creem_api_key:SecretStr=Field(SecretStr(''),alias='CREEM_API_KEY',repr=False,exclude=True)
+    creem_test_api_key:SecretStr=Field(SecretStr(''),alias='CREEM_TEST_API_KEY',repr=False,exclude=True)
+    creem_webhook_secret:SecretStr=Field(SecretStr(''),alias='CREEM_WEBHOOK_SECRET',repr=False,exclude=True)
+    creem_test_webhook_secret:SecretStr=Field(SecretStr(''),alias='CREEM_TEST_WEBHOOK_SECRET',repr=False,exclude=True)
+    creem_environment:Literal['production','test']=Field('production',alias='CREEM_ENVIRONMENT')
+    subscription_onboarding_required:bool=Field(False,alias='SUBSCRIPTION_ONBOARDING_REQUIRED')
+    subscription_terms_version:str=Field('',alias='SUBSCRIPTION_TERMS_VERSION')
+    subscription_checkout_enabled:bool=Field(False,alias='SUBSCRIPTION_CHECKOUT_ENABLED')
+    payu_one_time_checkout_enabled:bool=Field(False,alias='PAYU_ONE_TIME_CHECKOUT_ENABLED')
+    payu_charge_currency:str=Field('',pattern=r'^(|USD|INR)$',alias='PAYU_CHARGE_CURRENCY')
+    payu_merchant_capabilities_json:str=Field('{}',alias='PAYU_MERCHANT_CAPABILITIES_JSON')
+    payu_currency_approved:bool=Field(False,alias='PAYU_CURRENCY_APPROVED')
+    payu_tax_policy_json:str=Field('{}',alias='PAYU_TAX_POLICY_JSON')
+    payu_inr_prices_json:str=Field('{}',alias='PAYU_INR_PRICES_JSON')
+    payu_yearly_prices_json:str=Field('{}',alias='PAYU_YEARLY_PRICES_JSON')
+    billing_terms_version:str=Field('',max_length=100,alias='BILLING_TERMS_VERSION')
     heysow_public_registration_enabled:bool=Field(False,alias='HEYSOW_PUBLIC_REGISTRATION_ENABLED')
     heysow_invited_registration_enabled:bool=Field(False,alias='HEYSOW_INVITED_REGISTRATION_ENABLED')
     heysow_customer_access_enabled:bool=Field(False,alias='HEYSOW_CUSTOMER_ACCESS_ENABLED')
@@ -193,6 +224,8 @@ class Settings(BaseSettings):
         if (os.environ.get("K_SERVICE") or os.environ.get("CLOUD_RUN_EXECUTION")) and self.app_env != "production":
             raise ValueError("Cloud runtimes require APP_ENV=production")
         if self.app_env == "production":
+            if self.database_schema_profile=='intent-radar-v1' and self.lead_engine_available:
+                raise ValueError('The Intent Radar schema cannot enable Lead Engine')
             if not self.database_url or not self.database_url.startswith(("postgres://", "postgresql://")):
                 raise ValueError("Production requires a PostgreSQL DATABASE_URL")
             if os.environ.get("LEADENGINE_ROLE") != "worker" and (len(self.api_signing_secret) < 32 or not self.allowed_emails or len(self.allowed_emails) > 2):

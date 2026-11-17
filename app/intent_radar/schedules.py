@@ -27,6 +27,8 @@ def eligible_sql(alias,actor=None):
     if get_settings().intent_radar_stage=='Internal Preview':
         approved=[value for value in get_settings().intent_radar_internal_workspaces.split(',') if value]
         clauses.append(org+' IN ('+','.join('?' for _ in approved)+')' if approved else '1=0');args.extend(approved)
+    from app.billing.access_periods import scheduled_sql
+    native,values=scheduled_sql(org);clauses.append(native);args.extend(values)
     if actor:
         clauses.append("EXISTS(SELECT 1 FROM organization_memberships member_row WHERE member_row.organization_id="+org+" AND member_row.user_id="+alias+'.'+actor+" AND member_row.status='ACTIVE' AND member_row.role IN ('OWNER','ADMIN','MEMBER'))")
     return ' AND '.join(clauses),args
@@ -74,7 +76,7 @@ def enqueue_due(c):
                 if HOURS[schedule['frequency']]<get_settings().intent_radar_min_schedule_hours:c.rollback();continue
                 if c.execute("SELECT 1 FROM intelligence_jobs WHERE organization_id=? AND id=? AND status IN ('QUEUED','RUNNING')",(candidate['organization_id'],old['last_job_id'])).fetchone():c.rollback();continue
                 body=models.Discovery(configuration=old['configuration'],monitor_id=old['id'],request_id=uuid.uuid5(uuid.NAMESPACE_URL,old['id']+':scheduled:'+old['next_run_at']))
-                job=discovery.create(c,body)
+                job=discovery.create(c,body,scheduled=True)
                 due=next_run(old['id'],schedule['frequency'],schedule.get('timezone','UTC'))
                 c.execute('UPDATE intent_monitors SET next_run_at=? WHERE id=? AND organization_id=? AND next_run_at=?',(due,old['id'],candidate['organization_id'],old['next_run_at']))
                 c.commit();result.append({'id':job['id'],'actor':candidate['created_by'],'organization_id':candidate['organization_id']})
