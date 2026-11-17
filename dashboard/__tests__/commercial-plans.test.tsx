@@ -7,7 +7,7 @@ it('shows approved USD prices and inert preserved selection without inventing qu
  render(<CommercialPlans selectedPlan="growth" data={{catalog,provider:'creem',checkout_enabled:false,blockers:['Recurring capability unverified'],historical_payments:[]}}/>);
  expect(screen.getByText('$59',{selector:'.commercial-price'})).toBeVisible();
  expect(screen.getByText(/Your selection is saved/)).toBeVisible();
- expect(screen.getByRole('link',{name:'Request Growth access'})).toHaveAttribute('href',expect.stringContaining('mailto:'));
+ expect(screen.getByRole('link',{name:'Choose Growth'})).toHaveAttribute('href','/billing/subscription');
  expect(screen.queryByRole('button',{name:/pay|checkout|subscribe/i})).not.toBeInTheDocument();
  expect(screen.getByText('600,000')).toBeVisible();
  expect(screen.getByText('Monthly monitoring checks')).toBeVisible();
