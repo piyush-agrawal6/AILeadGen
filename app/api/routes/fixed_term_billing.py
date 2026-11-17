@@ -1,6 +1,5 @@
 """Workspace-scoped fixed-term payment endpoints and one exact PayU callback."""
-import asyncio,json
-from urllib.parse import parse_qsl
+import json
 from uuid import UUID
 from fastapi import APIRouter,Depends,HTTPException,Request
 from fastapi.responses import Response
@@ -13,7 +12,7 @@ def history(c=Depends(get_db,scope='function')):return payment.history(c)
 def quote(plan:str,interval:str='monthly',c=Depends(get_db,scope='function')):
     payment.manager(c);return payment.quote(plan,interval)
 @router.post('/organization/billing/access/orders',status_code=201)
-def create(body:payment.Purchase):return payment.create(body)
+def create(body:payment.Purchase):raise HTTPException(410,'New purchases use Creem. Historical records remain available.')
 @router.post('/organization/billing/access/orders/{key}/reconcile')
 def reconcile(key:UUID):return payment.reconcile(str(key))
 @router.get('/organization/billing/access/orders/{key}/receipt')
@@ -26,15 +25,4 @@ def receipt(key:UUID,c=Depends(get_db,scope='function')):
 def refund(key:UUID,body:payment.RefundRequest,c=Depends(get_db,scope='function')):return payment.refund_request(c,str(key),body)
 @router.post('/billing/payments/payu/callback')
 async def callback(request:Request):
-    if request.headers.get('content-type','').split(';')[0].strip()!='application/x-www-form-urlencoded':raise HTTPException(415,'Unsupported payment callback format.')
-    raw=bytearray()
-    async for chunk in request.stream():
-        raw.extend(chunk)
-        if len(raw)>16384:raise HTTPException(413,'Payment callback exceeds its bound.')
-    try:
-        pairs=parse_qsl(raw.decode('utf-8'),keep_blank_values=True,max_num_fields=60,strict_parsing=True)
-        fields=dict(pairs)
-        if len(fields)!=len(pairs) or any(len(k)>100 or len(v)>2048 for k,v in pairs):raise ValueError()
-    except (ValueError,UnicodeError):raise HTTPException(400,'Invalid payment callback.') from None
-    try:return await asyncio.to_thread(payment.callback,fields)
-    except payment.payu.PayURejected:raise HTTPException(400,'Invalid payment callback.') from None
+    raise HTTPException(410,'This payment provider is retired. No new payment was accepted.')

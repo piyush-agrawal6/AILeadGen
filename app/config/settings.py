@@ -56,7 +56,7 @@ class ExportConfig(BaseModel):
 class Settings(BaseSettings):
     # Billing is additive and sandbox-only. Public checkout is fail-closed.
     billing_enabled:bool=False
-    billing_provider:Literal['razorpay','payu']='razorpay'
+    billing_provider:Literal['creem','razorpay','payu']='creem'
     billing_test_mode:bool=True
     billing_public_checkout_enabled:bool=False
     billing_test_workspaces:str=''

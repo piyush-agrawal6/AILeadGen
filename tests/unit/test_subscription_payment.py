@@ -64,7 +64,7 @@ def test_card_trial_provider_verified_once_and_exact_quota(subscribed):
 def test_mismatched_card_country_price_checkout_or_environment_never_grants(subscribed):
  c,s,org,actor,state,product,checkout,customer_data=subscribed
  with workspace_scope(c,actor,org):
-  for target,key,bad in [(state,'collection_method','charge_manually'),(state,'mode','test'),(product,'price',590),(checkout,'status','pending'),(checkout,'request_id','foreign'),(customer_data,'country','IN'),(customer_data,'external_id','foreign')]:
+  for target,key,bad in [(state,'collection_method','charge_manually'),(state,'mode','test'),(product,'price',590),(checkout,'status','pending'),(checkout,'request_id','foreign'),(customer_data,'external_id','foreign')]:
    before=target[key];target[key]=bad
    with pytest.raises(creem.Rejected):sync.reconcile_subscription(state['id'],'production')
    target[key]=before
@@ -99,15 +99,16 @@ def test_paid_initial_and_renewal_require_independent_transaction_and_do_not_dup
   sync.reconcile_subscription(state['id'],'production');assert access.active(c,org) is None
   assert c.execute('SELECT COUNT(*) FROM subscription_payments').fetchone()[0]==1
 
-def test_billing_country_cannot_be_selected_to_bypass_routing(subscribed):
- c,s,org,actor,*_=subscribed
+def test_one_global_provider_including_india_has_no_country_admission_gate(subscribed):
+ c,s,org,actor,state,product,checkout,customer_data=subscribed
  with workspace_scope(c,actor,org):
+  c.execute('DELETE FROM subscription_billing_profiles WHERE organization_id=?',(org,));c.commit()
   assert service.route(c,org)==('creem',None)
-  c.execute("UPDATE subscription_billing_profiles SET country='IN' WHERE organization_id=?",(org,));c.commit()
-  assert service.route(c,org)==('payu',None)
-  assert any('INR' in text for text in service.blockers(c,org,'trial'))
-  c.execute("UPDATE subscription_billing_profiles SET status='PENDING',country='US' WHERE organization_id=?",(org,));c.commit()
-  assert service.route(c,org)[0] is None
+  customer_data['country']='IN'
+  sync.reconcile_subscription(state['id'],'production')
+  assert access.require_product(c,org)
+  assert service.profile(c,org)['country']=='IN'
+  assert not any('PayU' in v or 'country must' in v for v in service.blockers(c,org,'paid'))
 
 def test_setup_budget_is_job_bound_and_never_unlocks_dashboard(subscribed):
  c,s,org,actor,*_=subscribed
@@ -173,14 +174,8 @@ def test_real_signed_http_keeps_billing_accessible_but_denies_full_product(subsc
   assert response.status_code==402,response.text
   assert response.json()['code']=='PAYMENT_REQUIRED'
 
-def test_declared_country_never_becomes_verified_or_switches_existing_route(subscribed):
- c,s,org,actor,*_=subscribed
- with workspace_scope(c,actor,org):
-  with pytest.raises(HTTPException):service.request_country(c,service.BillingCountry(country='IN'))
-  assert service.route(c,org)==('creem',None)
-  c.execute('DELETE FROM subscription_billing_profiles WHERE organization_id=?',(org,));c.commit()
-  assert service.request_country(c,service.BillingCountry(country='IN'))['verified'] is False
-  assert service.route(c,org)[0] is None
+def test_country_writer_is_absent_from_subscription_contract():
+ assert not hasattr(service,'request_country') and not hasattr(service,'BillingCountry')
 
 def test_expired_checkout_allows_retry_without_granting_access(subscribed,monkeypatch):
  c,s,org,actor,_,_,checkout,_=subscribed
@@ -190,10 +185,8 @@ def test_expired_checkout_allows_retry_without_granting_access(subscribed,monkey
   assert c.execute('SELECT status FROM subscription_checkouts WHERE organization_id=?',(org,)).fetchone()[0]=='EXPIRED'
   assert access.active(c,org) is None
 
-def test_pending_country_can_be_corrected_without_verification(subscribed):
- c,s,org,actor,*_=subscribed
- c.execute("UPDATE subscription_billing_profiles SET status='PENDING',verified_at=NULL,verification_reference=NULL,verification_source=NULL WHERE organization_id=?",(org,));c.commit()
- with workspace_scope(c,actor,org):
-  result=service.request_country(c,service.BillingCountry(country='IN'))
-  assert result['country']=='IN' and not result['verified']
-  assert service.profile(c,org)['country']=='IN' and service.route(c,org)[0] is None
+def test_retired_payu_creation_is_denied_before_provider_work():
+ from app.platform.modules import guard_route
+ for path in ('/api/organization/billing/access/orders','/api/billing/payments/payu/callback'):
+  with pytest.raises(HTTPException) as e:guard_route(path,organization_id='synthetic',role='OWNER',method='POST')
+  assert e.value.status_code==410

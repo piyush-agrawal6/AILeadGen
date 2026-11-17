@@ -16,7 +16,8 @@ def catalog():
         raise RuntimeError('Approved commercial catalog contract is invalid.')
     # Opening checkout requires separate verified payment activation, not a
     # marketing file edit. Existing subscriptions retain their own plan snapshot.
-    data['checkout_enabled']=False
+    from app.config.settings import get_settings
+    data['checkout_enabled']=get_settings().subscription_checkout_enabled
     data['catalog_sha256']=hashlib.sha256(PATH.read_bytes()).hexdigest()
     return data
 
@@ -26,7 +27,5 @@ def plan(code):
     return selected
 
 def checkout_blockers():
-    from app.billing.fixed_term import blockers
-    result=blockers()
-    if not catalog()['allowances_approved']:result.append('Commercial numeric allowances are awaiting owner approval.')
-    return result
+    # Provider-specific availability is served by the subscription service.
+    return []

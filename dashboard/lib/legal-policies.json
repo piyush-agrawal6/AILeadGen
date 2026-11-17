@@ -76,7 +76,7 @@
             "text": "Monthly subscription prices are USD59 for Starter, USD149 for Growth and USD379 for Scale. Enterprise is quoted individually. Yearly checkout is disabled until exact prices and allowance timing are approved. Published allowances are subject to their versioned catalog and the verified contract snapshot."
           },
           {
-            "text": "Eligible international checkout uses Creem, the merchant of record, with tax-inclusive USD product prices. Creem calculates and discloses applicable taxes, payment totals and invoices under its terms. PlaneByte does not store card numbers or CVVs. India uses PayU only when account-specific capabilities and approved INR prices or explicitly verified supported conversion are available. Changing a country field does not verify billing location or switch an existing provider. PlaneByte has no GSTIN and does not independently add unverified GST."
+            "text": "Eligible international checkout uses Creem, the merchant of record, with tax-inclusive USD product prices. Creem calculates and discloses applicable taxes, payment totals and invoices under its terms. PlaneByte does not store card numbers or CVVs. Creem handles checkout for all supported countries. Changing a country field does not verify billing location or switch an existing provider. PlaneByte has no GSTIN and does not independently add unverified GST."
           },
           {
             "text": "Each provider path opens only after merchant permissions, payment acceptance and applicable disclosures are verified. A browser success page is not payment evidence. We activate access only after authenticated provider confirmation and independent reconciliation. Product creation or a webhook test does not establish payment or payout readiness."
@@ -93,7 +93,7 @@
             "text": "You may cancel future automatic billing through Settings \u2192 Billing & Subscription or the secure provider portal without contacting support. Cancellation is complete only when confirmed by the provider. During a trial, cancel before the first-charge date to prevent conversion. Confirmed cancellation preserves access until the agreed current period ends unless mandatory rights, a verified refund or a security restriction require otherwise. We show and email confirmed cancellation; if a request is unverified, we say so and allow status refresh or recovery."
           },
           {
-            "text": "Existing PayU one-time purchases remain manual prepaid access: monthly access lasts30days, early renewal starts after existing expiry, and the original snapshot governs future terms. An ordinary one-time payment does not authorize recurring charges. PayU recurring mandates are offered only when merchant-approved, with required consent, mandate verification and pre-debit notices. No silent provider transfer, early upgrade, proration or unused-time credit is promised. Plan changes with new monetary consequences require the provider checkout disclosures and explicit authorization."
+            "text": "All new purchases use Creem subscriptions in every supported country, including India where Creem permits transactions. Creem determines available payment methods, local-currency presentation, taxes and invoicing at secure checkout. PlaneByte does not convert USD list prices itself. Existing prepaid purchases preserve their original access dates and consent; they do not silently become recurring subscriptions. No silent provider transfer, early upgrade, proration or unused-time credit is promised. Plan changes with monetary consequences require disclosed amounts, effective dates and explicit authorization."
           }
         ]
       },
@@ -197,7 +197,7 @@
             "text": "Where an organization controls information uploaded to its workspace, it may determine the purposes and permitted users of that information. PlaneByte operates the service on its behalf and also processes account administration, service security and transaction records for the purposes described here. A separate applicable data-processing agreement or mandatory law may specify additional responsibilities. A workspace member's personal rights and a workspace owner's authority are not interchangeable."
           },
           {
-            "text": "This Policy does not authorize an unconnected third-party integration, unpublished product, outreach campaign or provider access. Third-party websites, Google and PayU also provide their own applicable privacy notices. Marketing-site analytics or nonessential tracking, if introduced, require an accurate inventory and separate notice/consent where required; this draft does not assert that every marketing-site script has been audited."
+            "text": "This Policy does not authorize an unconnected third-party integration, unpublished product, outreach campaign or provider access. Third-party websites, Google and Creem also provide their own applicable privacy notices. Marketing-site analytics or nonessential tracking, if introduced, require an accurate inventory and separate notice/consent where required; this draft does not assert that every marketing-site script has been audited."
           }
         ]
       },
@@ -232,7 +232,7 @@
               ],
               [
                 "Billing",
-                "Plan and price snapshots, billing contact/address supplied for checkout, currency and total, order and provider references, test/live classification, payment verification, access dates, receipts and refund-review/reconciliation records. Card details are entered on PayU's hosted pages."
+                "Plan and price snapshots, billing contact/address supplied for checkout, currency and total, order and provider references, test/live classification, payment verification, access dates, receipts and refund-review/reconciliation records. Card details are entered only on Creem's hosted checkout pages."
               ],
               [
                 "Messages and support",
@@ -288,7 +288,7 @@
         "title": "6. Service providers, disclosures and processing locations",
         "blocks": [
           {
-            "text": "The current architecture uses Vercel for the application frontend, Google Cloud for the API/workers and Vertex AI, Neon PostgreSQL for stored application data, PayU for hosted payments, and Netlify for the separate marketing website. Resend delivers transactional account messages. Payment processing is unavailable until the specific merchant permissions and checkout acceptance have been verified; including PayU in this disclosure does not mean checkout is open."
+            "text": "The current architecture uses Vercel for the application frontend, Google Cloud for the API/workers and Vertex AI, Neon PostgreSQL for stored application data, Creem for hosted checkout and billing, and Netlify for the separate marketing website. Resend delivers transactional account messages. Creem is merchant of record for new payments; historical financial records retain their original attribution."
           },
           {
             "text": "Providers receive information relevant to the function they perform. The application API/workers are deployed in India and the current database region is in the United States; other provider processing depends on the applicable service configuration and agreements. Do not infer that all information remains in one country. Applicable cross-border processing requirements and provider disclosures must be verified before publication."
@@ -297,7 +297,7 @@
             "text": "We may disclose information to authorized workspace users, necessary service providers, professional advisers handling a relevant matter, or public authorities where disclosure is lawfully required. We may also preserve or disclose appropriate records to investigate security incidents, fraud, disputes or legal claims. Such disclosures must be limited to the relevant purpose and authority. This Policy does not authorize sale of workspace content or unrestricted disclosure to data partners."
           },
           {
-            "text": "Creem handles eligible international checkout as merchant of record, including payment processing, applicable tax and its hosted billing portal. PayU handles eligible Indian payments under merchant-specific capabilities. Provider privacy and payment terms apply to information submitted directly to them. Billing country evidence is used for lawful routing; IP location or an editable country choice alone is not verification. Subscription-related messages include trial, payment, failure, cancellation and refund notices. We do not treat a successful checkout as evidence that merchant payouts have settled."
+            "text": "Creem is the sole merchant of record for new checkout in all supported countries, including India where it permits transactions. It handles payment processing, supported currency presentation, applicable taxes, invoices and its hosted billing portal. Creem applies geographic and payment-method restrictions. Provider privacy and payment terms apply to information submitted directly to it. Subscription messages include trial, payment, failure, cancellation and refund notices. A successful checkout is not evidence that merchant payouts have settled."
           }
         ]
       },
@@ -402,7 +402,7 @@
             "text": "Contact us about an incorrect or duplicate charge even if you are unsure whether the initial-purchase window applies. We reconcile the specific transactions before deciding what action is appropriate. A pending payment is not assumed successful. Check your payment history and contact support before paying again when a prior result is uncertain."
           },
           {
-            "text": "A recorded request is an acknowledgement of review, not proof that money was refunded. PayU processes the financial transaction. A refund is treated as completed only after independent provider verification; actual banking credit timing can vary. We do not promise a settlement deadline that the provider has not confirmed."
+            "text": "A recorded request is an acknowledgement of review, not proof that money was refunded. Creem processes new financial transactions as merchant of record; historical payments retain their original provider records. A refund is treated as completed only after independent provider verification; actual banking credit timing can vary. We do not promise a settlement deadline that the provider has not confirmed."
           }
         ]
       },
@@ -413,7 +413,7 @@
             "text": "Canceling a subscription prevents provider-confirmed future renewal; it does not automatically refund a prior charge. Renewal refund requests remain subject to the actual agreement, service circumstances and mandatory rights. Initial paid purchase requests remain eligible for review within seven days. No blanket exclusion of mandatory rights applies."
           },
           {
-            "text": "Legacy PayU fixed-term purchases retain their original manual-renewal terms. New recurring trials require hosted card authorization and a selected conversion plan; no subscription charge is due during the advertised72hours. Yearly checkout remains disabled. Refunds are processed only through approved provider workflows and are not assumed successful from a browser return."
+            "text": "Legacy fixed-term purchases retain their original manual-renewal terms. New recurring trials require hosted card authorization and a selected conversion plan; no subscription charge is due during the advertised72hours. Yearly checkout remains disabled. Refunds are processed only through approved provider workflows and are not assumed successful from a browser return."
           }
         ]
       },
@@ -443,7 +443,7 @@
             "text": "For a72-hour card trial, cancel before the displayed first-charge date/time to prevent the selected monthly paid plan from starting. Once cancellation is provider-confirmed, no later automatic charge is authorized by that subscription. Trial or current paid access continues to its agreed end unless mandatory rights, a verified refund or a security restriction require otherwise. A confirmation is shown and sent by transactional email."
           },
           {
-            "text": "Legacy one-time PayU purchases do not automatically renew and never authorize a recurring card mandate. Their saved start/end dates and original manual-renewal terms remain unchanged."
+            "text": "Legacy one-time purchases do not automatically renew and never authorize a recurring card mandate. Their saved start/end dates and original manual-renewal terms remain unchanged."
           }
         ]
       },
@@ -459,7 +459,7 @@
         "title": "Provider, plan changes and payment failures",
         "blocks": [
           {
-            "text": "Subscription billing country and provider are verified server-side. You cannot silently switch an existing subscription between Creem and PayU by editing a country field. Plan changes must disclose the provider amount, effective date, recurring terms and any approved proration before authorization. We do not invent INR prices or activate unapproved PayU mandates."
+            "text": "Creem is the sole provider for all new customer payments. Its hosted checkout applies supported-country, payment-method and compliance restrictions. Those restrictions are not bypassed. Plan changes must disclose the provider amount, effective date, recurring terms and any approved proration before authorization."
           },
           {
             "text": "For failed renewal, use Billing & Subscription or the secure provider portal to review payment recovery. Product operations may be restricted while the provider reports unpaid, past-due or expired access; authentication, billing and cancellation remain available. Yearly checkout is unavailable until approved."

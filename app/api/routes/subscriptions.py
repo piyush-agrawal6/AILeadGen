@@ -10,9 +10,6 @@ from app.billing import subscriptions as service
 @router.get('/subscription')
 def status(c=Depends(get_db,scope='function')):return service.summary(c)
 
-@router.post('/subscription/billing-country')
-def country(body:service.BillingCountry,c=Depends(get_db,scope='function')):return service.request_country(c,body)
-
 @router.post('/subscription/checkout',status_code=202)
 def checkout(body:service.Checkout):return service.start(body)
 

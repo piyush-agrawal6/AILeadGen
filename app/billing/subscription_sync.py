@@ -36,7 +36,10 @@ def reconcile_subscription(provider_id,mode,*,checkout_hint=None):
   if not checkout or checkout['environment']!=mode or checkout['customer_id']!=customer_id or checkout['product_id']!=product_id or not checkout['provider_checkout_id']:raise creem.Rejected('No matching server-created checkout exists.')
   checkout=dict(checkout);plan=json.loads(prior['plan_json']) if prior else {**commercial.plan(checkout['plan_code']),'version':commercial.catalog()['version']}
   billing=c.execute('SELECT * FROM subscription_billing_profiles WHERE organization_id=?',(org,)).fetchone()
-  if not billing or billing['status']!='VERIFIED' or billing['country']!=checkout['country'] or customer.get('country')!=checkout['country'] or checkout['country']=='IN':raise creem.Rejected('Provider billing country does not match the verified international route.')
+  from app.config.locations import country
+  try:verified_country=country(customer.get('country')).alpha_2
+  except Exception:raise creem.Rejected('Provider billing country has not been confirmed.') from None
+  if verified_country!=customer.get('country'):raise creem.Rejected('Provider billing country is invalid.')
   if customer.get('id')!=customer_id or customer.get('email','').lower()!=checkout['created_by'] or customer.get('external_id')!=org:raise creem.Rejected('Provider customer ownership differs from the verified workspace.')
   if membership_role(c,checkout['created_by'],org)!='OWNER':raise creem.Rejected('Purchasing workspace owner requires review.')
  remote_checkout=creem.object_mode(creem.get_checkout(checkout['provider_checkout_id'],mode=mode),mode)
@@ -67,7 +70,9 @@ def reconcile_subscription(provider_id,mode,*,checkout_hint=None):
   if slot and slot['contract_id']!=key:
    other=c.execute('SELECT status,period_end FROM subscription_contracts WHERE organization_id=? AND id=?',(org,slot['contract_id'])).fetchone()
    if other and other['period_end'] and other['period_end']>int(time.time()) and other['status'] not in ('expired','refunded','disputed','unpaid'):raise creem.Rejected('A different subscription already owns this workspace period.')
-  stamp=now();cancel=state in ('scheduled_cancel','canceled');evidence={'subscription_id':provider_id,'checkout_id':remote_checkout['id'],'customer_id':customer_id,'product_id':product_id,'provider_status':state,'collection_method':sub['collection_method'],'verified_country':checkout['country'],'provider_updated_at':updated,'card_verification_basis':'Creem hosted recurring checkout with provider-confirmed trialing state' if trial else 'Independent paid transaction'}
+  stamp=now()
+  c.execute("INSERT INTO subscription_billing_profiles(organization_id,country,status,verification_source,verification_reference,verified_at,updated_at) VALUES(?,?,'VERIFIED','CREEM_API',?,?,?) ON CONFLICT(organization_id) DO UPDATE SET country=excluded.country,status=excluded.status,verification_source=excluded.verification_source,verification_reference=excluded.verification_reference,verified_at=excluded.verified_at,updated_at=excluded.updated_at",(org,verified_country,customer_id,stamp,stamp))
+  cancel=state in ('scheduled_cancel','canceled');evidence={'subscription_id':provider_id,'checkout_id':remote_checkout['id'],'customer_id':customer_id,'product_id':product_id,'provider_status':state,'collection_method':sub['collection_method'],'verified_country':verified_country,'provider_updated_at':updated,'card_verification_basis':'Creem hosted recurring checkout with provider-confirmed trialing state' if trial else 'Independent paid transaction'}
   if not prior:
    c.execute('INSERT INTO subscription_contracts(id,organization_id,created_by,provider,environment,provider_id,customer_id,checkout_id,plan_code,plan_json,status,recurring_authorized,period_start,period_end,trial_start,trial_end,next_charge_at,cancel_at,cancel_confirmed_at,provider_updated_at,verified_at,evidence_json,created_at,updated_at) VALUES(?,?,?,\'creem\',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(key,org,checkout['created_by'],mode,provider_id,customer_id,checkout['id'],checkout['plan_code'],json.dumps(plan,sort_keys=True),state,1,start,end,start if trial else None,end if trial else None,epoch(sub['next_transaction_date']) if sub.get('next_transaction_date') and not cancel else None,end if cancel else None,stamp if cancel else None,updated,stamp,json.dumps(evidence,sort_keys=True),stamp,stamp))
   else:

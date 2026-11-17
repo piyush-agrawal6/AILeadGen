@@ -96,7 +96,7 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
         </div>
       </div>
 
-      {data.commercial.fixed_term&&<FixedTermPayments data={data.commercial.fixed_term} plans={data.commercial.catalog.plans}/>}
+      {!!data.commercial.fixed_term?.items.length&&<FixedTermPayments data={data.commercial.fixed_term} plans={data.commercial.catalog.plans}/>}
 
       {/* Usage Allowances */}
       <div className="space-y-3">
