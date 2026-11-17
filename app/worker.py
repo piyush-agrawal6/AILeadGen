@@ -80,9 +80,9 @@ def validate_schema_mode():
     """Excluded legacy workers fail before touching the clean database."""
     if get_settings().database_schema_profile!='intent-radar-v1':return
     excluded=('LEADENGINE_CUSTOMER_MAILBOX_ID','LEADENGINE_SHEET_EXPORT_ID',
-              'LEADENGINE_EMAIL_SYNC','LEADENGINE_RUN_ID','LEADENGINE_REPORT_ID')
+              'LEADENGINE_RUN_ID','LEADENGINE_REPORT_ID')
     mode=os.environ.get('LEADENGINE_AUTOMATION_MODE','')
-    if any(os.environ.get(k) for k in excluded) or (mode and mode not in ('intent-radar-dispatch','webhooks-dispatch')):
+    if any(os.environ.get(k) for k in excluded) or os.environ.get('LEADENGINE_EMAIL_SYNC')=='1' or (mode and mode not in ('intent-radar-dispatch','webhooks-dispatch')):
         raise SystemExit('This worker mode is unavailable on the Intent Radar database profile.')
 
 

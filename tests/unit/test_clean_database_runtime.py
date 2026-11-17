@@ -23,6 +23,16 @@ def test_clean_worker_rejects_excluded_modes_before_dispatch(monkeypatch,key,val
     with pytest.raises(SystemExit,match='unavailable'):validate_schema_mode()
 
 
+@pytest.mark.parametrize('key',['PLANEBYTE_NOTIFICATION_ID','PLANEBYTE_ACCOUNT_RECOVERY_ID','LEADENGINE_PROFILE_DISCOVERY_ID','LEADENGINE_INTELLIGENCE_JOB_ID'])
+def test_clean_worker_accepts_actual_radar_and_mail_dispatch_overrides(monkeypatch,key):
+    from app.worker import validate_schema_mode
+    monkeypatch.setattr(get_settings(),'database_schema_profile','intent-radar-v1')
+    monkeypatch.setenv('LEADENGINE_EMAIL_SYNC','0')
+    monkeypatch.setenv('LEADENGINE_RUN_ID','')
+    monkeypatch.setenv(key,'synthetic-job')
+    validate_schema_mode()
+
+
 @pytest.mark.asyncio
 async def test_no_periodic_database_loops_when_polling_disabled(monkeypatch):
     from app.api import server
