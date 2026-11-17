@@ -67,6 +67,7 @@ def test_assistant_uses_private_followup_draft_and_saved_icps_without_saving_dra
     payload=provider.structured.call_args.args[1]
     assert payload['saved_company']['description']=='Custom software for software teams.'
     assert payload['in_progress_draft']['description']==draft['description'] and payload['conversation']==[]
+    assert 'contact_email' not in payload['saved_company'] and 'contact_email' not in payload['in_progress_draft']
     second=http.post(BASE+'/assistant',headers=OWNER,json={'prompt':'Which of those needs is strongest and what is unknown?','parent_review_id':key,'draft':draft,'request_id':str(uuid.uuid4())})
     assert second.status_code==202,second.text
     payload=provider.structured.call_args.args[1];assert payload['conversation'][0]['question']=='Who could benefit from my company and why?'
