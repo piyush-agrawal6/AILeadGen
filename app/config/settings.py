@@ -120,6 +120,9 @@ class Settings(BaseSettings):
     )
     database_path: str = Field(default="data/lead_engine.db", alias="DATABASE_PATH")
     database_url: Optional[str] = Field(default=None, alias="DATABASE_URL", repr=False)
+    database_schema: str = Field(default='public',alias='DATABASE_SCHEMA',pattern=r'^[a-z][a-z0-9_]{0,62}$')
+    database_schema_profile: Literal['legacy','intent-radar-v1'] = Field(default='legacy',alias='DATABASE_SCHEMA_PROFILE')
+    database_background_polling_enabled: bool = Field(default=True,alias='DATABASE_BACKGROUND_POLLING_ENABLED')
     upstash_redis_rest_url: str = Field(default='',alias='UPSTASH_REDIS_REST_URL',repr=False)
     upstash_redis_rest_token: str = Field(default='',alias='UPSTASH_REDIS_REST_TOKEN',repr=False)
     api_signing_secret: str = Field(default="", alias="LEADENGINE_API_SIGNING_SECRET", repr=False)
@@ -213,6 +216,8 @@ class Settings(BaseSettings):
         if (os.environ.get("K_SERVICE") or os.environ.get("CLOUD_RUN_EXECUTION")) and self.app_env != "production":
             raise ValueError("Cloud runtimes require APP_ENV=production")
         if self.app_env == "production":
+            if self.database_schema_profile=='intent-radar-v1' and self.lead_engine_available:
+                raise ValueError('The Intent Radar schema cannot enable Lead Engine')
             if not self.database_url or not self.database_url.startswith(("postgres://", "postgresql://")):
                 raise ValueError("Production requires a PostgreSQL DATABASE_URL")
             if os.environ.get("LEADENGINE_ROLE") != "worker" and (len(self.api_signing_secret) < 32 or not self.allowed_emails or len(self.allowed_emails) > 2):

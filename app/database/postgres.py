@@ -12,8 +12,8 @@ def connection_pool(url):
     with _pool_lock:
         if url not in _pools:
             pool=ConnectionPool(url,min_size=0,max_size=4,max_waiting=32,timeout=8,
-                                max_idle=120,max_lifetime=600,open=False,
-                                kwargs={'row_factory':record_factory,'connect_timeout':10,'prepare_threshold':None})
+                                max_idle=30,max_lifetime=600,open=False,
+                                kwargs={'row_factory':record_factory,'connect_timeout':10,'prepare_threshold':None,'application_name':'planebyte-api'})
             pool.open();_pools[url]=pool
         return _pools[url]
 
@@ -77,7 +77,7 @@ class PostgresConnection:
         if not session_bound and schema is None and os.environ.get('LEADENGINE_ROLE')!='worker' and os.environ.get('APP_ENV')=='production':
             self.pool=connection_pool(url);self.raw=self.pool.getconn()
         else:
-            self.raw = psycopg.connect(session_url(url) if session_bound else url, row_factory=record_factory, connect_timeout=15)
+            self.raw = psycopg.connect(session_url(url) if session_bound else url, row_factory=record_factory, connect_timeout=15,application_name='planebyte-worker' if os.environ.get('LEADENGINE_ROLE')=='worker' else 'planebyte-isolated')
         self.closed=False
 
     def _prepare_transaction(self):

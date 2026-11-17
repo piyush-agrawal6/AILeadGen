@@ -96,6 +96,10 @@ def job_scope(conn, kind, identifier):
     grants access, and an existing scope cannot be switched to a different tenant.
     """
     import json
+    if kind in ('acquisition','workflow','scan','report'):
+        from app.config.settings import get_settings
+        if not get_settings().lead_engine_available:
+            raise HTTPException(404,'Lead Engine is unavailable for this workspace job.')
     tables = {"acquisition": ("acquisition_jobs", "owner"),
               "workflow": ("workflow_runs", "created_by"),
               "scan": ("pipeline_runs", None),

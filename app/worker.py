@@ -76,7 +76,36 @@ def _execute_owned(run_id):
         dispatch_queued()
 
 
+def validate_schema_mode():
+    """Excluded legacy workers fail before touching the clean database."""
+    if get_settings().database_schema_profile!='intent-radar-v1':return
+    excluded=('LEADENGINE_CUSTOMER_MAILBOX_ID','LEADENGINE_SHEET_EXPORT_ID',
+              'LEADENGINE_EMAIL_SYNC','LEADENGINE_RUN_ID','LEADENGINE_REPORT_ID')
+    mode=os.environ.get('LEADENGINE_AUTOMATION_MODE','')
+    if any(os.environ.get(k) for k in excluded) or (mode and mode not in ('intent-radar-dispatch','webhooks-dispatch')):
+        raise SystemExit('This worker mode is unavailable on the Intent Radar database profile.')
+
+
 if __name__ == "__main__":
+    if os.environ.get('PLANEBYTE_DATABASE_PREFLIGHT')=='1':
+        # Operator-only Cloud Run validation before cutover. No customer is
+        # seeded and even the system write/read probe is rolled back.
+        import json
+        from app.database.intent_profile import assert_fresh
+        if get_settings().database_schema_profile!='intent-radar-v1':
+            raise SystemExit('Database preflight requires the explicit clean schema profile')
+        with db_session() as c:
+            proof=assert_fresh(c)
+            key='preflight-'+str(uuid.uuid4())
+            c.execute('INSERT INTO intent_worker_health(worker_id,last_tick_at,state,detail_json) VALUES(?,?,?,?)',(key,datetime.now(timezone.utc).isoformat(),'READY','{}'))
+            if not c.execute('SELECT 1 FROM intent_worker_health WHERE worker_id=?',(key,)).fetchone():
+                raise SystemExit('Database preflight write/read failed')
+            c.rollback()
+            if c.execute('SELECT 1 FROM intent_worker_health WHERE worker_id=?',(key,)).fetchone():
+                raise SystemExit('Database preflight rollback failed')
+        print(json.dumps({'status':'PASS',**proof,'write_read_rollback':True}))
+        raise SystemExit(0)
+    validate_schema_mode()
     customer_mailbox_id=os.environ.get('LEADENGINE_CUSTOMER_MAILBOX_ID','')
     if customer_mailbox_id:
         from app.mail.customer import sync_owned_account

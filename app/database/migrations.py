@@ -358,6 +358,10 @@ def run_migrations(conn: sqlite3.Connection = None) -> int:
         close_when_done = True
 
     try:
+        from app.config.settings import get_settings
+        if get_settings().database_schema_profile=='intent-radar-v1':
+            from app.database.intent_profile import migrate
+            return migrate(conn)
         postgres = getattr(conn, "backend", None) == "postgres"
         if postgres:
             conn.execute("SELECT pg_advisory_xact_lock(691944301)")
@@ -372,6 +376,8 @@ def run_migrations(conn: sqlite3.Connection = None) -> int:
         )
         cur = conn.execute("SELECT MAX(version) FROM schema_migrations;")
         current_version = cur.fetchone()[0] or 0
+        if current_version>=1000:
+            raise RuntimeError('This database requires its explicit Intent Radar schema profile')
 
         applied_count = 0
         for i, migration_sql in enumerate(MIGRATIONS, start=1):
@@ -422,6 +428,10 @@ def verify_schema(conn=None,minimum_version=None):
     close = conn is None
     conn = conn or get_connection()
     try:
+        from app.config.settings import get_settings
+        if get_settings().database_schema_profile=='intent-radar-v1':
+            from app.database.intent_profile import verify
+            return verify(conn,minimum_version=minimum_version)
         version = conn.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
         # The additive billing bridge runs on 45 only while billing is disabled.
         # This permits a compatible API/worker rollout before migration 46, and

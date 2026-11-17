@@ -20,7 +20,7 @@ def get_connection(db_path: Path = None, *, session_bound=False) -> sqlite3.Conn
         if not settings.database_url:
             raise ValueError("PostgreSQL requires DATABASE_URL")
         from app.database.postgres import PostgresConnection
-        return PostgresConnection(settings.database_url,session_bound=session_bound)
+        return PostgresConnection(settings.database_url,schema=settings.database_schema if settings.database_schema!='public' else None,session_bound=session_bound)
     if db_path is None:
         db_path = get_db_path()
 

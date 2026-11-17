@@ -43,10 +43,10 @@ async def lifespan(app: FastAPI):
     task=None
     radar_task=None
     mail_task=None
-    if get_settings().transactional_mail_enabled and get_settings().app_env!='test':
+    if get_settings().database_background_polling_enabled and get_settings().transactional_mail_enabled and get_settings().app_env!='test':
         from app.notifications.dispatch import loop as mail_loop
         mail_task=asyncio.create_task(mail_loop())
-    if get_settings().intent_radar_schedules_enabled and get_settings().app_env!='test':
+    if get_settings().database_background_polling_enabled and get_settings().intent_radar_schedules_enabled and get_settings().app_env!='test':
         from app.intent_radar.schedules import loop
         radar_task=asyncio.create_task(loop())
     if get_settings().heysow_webhooks_enabled and get_settings().app_env=='development' and os.environ.get('HEYSOW_LOCAL_PREVIEW')=='true':
