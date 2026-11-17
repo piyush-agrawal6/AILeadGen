@@ -40,15 +40,15 @@ class InternalJob(Strict):
     use_ai:Literal[True]=True
     request_id:uuid.UUID
 class Choice(Strict):
-    candidate_index:int=Field(ge=0,le=2)
+    candidate_index:int=Field(ge=0,le=4)
     name:str=Field(min_length=2,max_length=120)
     description:str=Field('',max_length=1000)
     criteria:dict
 class Accept(Strict):
     revision:int=Field(ge=0)
     proposal_id:uuid.UUID
-    candidates:list[Choice]=Field(min_length=1,max_length=3)
-    primary_index:int=Field(ge=0,le=2)
+    candidates:list[Choice]=Field(min_length=1,max_length=5)
+    primary_index:int=Field(ge=0,le=4)
     request_id:uuid.UUID
     research_keywords:list[str]=Field(default_factory=list,max_length=12)
     excluded_keywords:list[str]=Field(default_factory=list,max_length=12)
@@ -90,7 +90,7 @@ def capabilities(c):
     company_state=company(c);icp_state=status(c);settings=get_settings()
     return {'company_analysis':bool(settings.heysow_company_discovery_enabled and company_state['can_analyze']),
             'icp_recommendations':bool(settings.heysow_company_discovery_enabled and icp_state['enabled'] and icp_state['configured'] and icp_state['can_generate']),
-            'review_required':True,'max_pages':5,'max_icps':3,'manual_setup':True,'automatic_searches':False}
+            'review_required':True,'max_pages':5,'max_icps':5,'manual_setup':True,'automatic_searches':False}
 
 def state(c):
     saved=setup.read(c);company=read_profile(c);result={'progress':saved,'company':company,'reviews':{},'capabilities':capabilities(c)}
@@ -197,7 +197,7 @@ async def generate_job(c,row,active):
     await asyncio.to_thread(active,'ANALYZING')
     if row['source_kind']=='ICP_RECOMMENDATIONS':
         from app.icp import builder
-        result=await builder.generate(c,builder.Generate(mode='BUSINESS_PROFILE',prompt=inputs.get('prompt',''),candidate_count=3),operation_id='setup-icp:'+row['id'])
+        result=await builder.generate(c,builder.Generate(mode='BUSINESS_PROFILE',prompt=inputs.get('prompt',''),candidate_count=5),operation_id='setup-icp:'+row['id'])
     else:
         from app.acquisition import ai
         from app.platform import ai_usage

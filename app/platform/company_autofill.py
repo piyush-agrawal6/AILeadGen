@@ -57,13 +57,28 @@ def preview_from_result(result,sources,website):
         raw=value if isinstance(value,str) else ' '.join(item if isinstance(item,str) else item.name+' '+item.category+' '+item.description for item in value)
         if not set(re.findall(r'\d+(?:[.,]\d+)?',raw))<=set(re.findall(r'\d+(?:[.,]\d+)?',supporting)):rejected+=1;continue
         if any(word in normalize(raw) and word not in supporting for word in ('award','certified','guaranteed','market leader')):rejected+=1;continue
-        if candidate.field not in ('website','countries_served','target_customers','target_industries','specialties','products_services') and (not isinstance(value,str) or normalize(value) not in supporting):rejected+=1;continue
+        if candidate.field in ('description','positioning'):
+            val_norm=normalize(value)
+            words=[w for w in re.findall(r'\b[a-zA-Z]{3,}\b',val_norm) if w not in ('and','the','for','with','that','this','from','our','your','their','all','helps','help','platform','tool','built','into','more','most','provides','provide')]
+            if words and sum(w in supporting for w in words)/len(words)<0.25 and val_norm not in supporting:rejected+=1;continue
+        elif candidate.field in ('industry','name'):
+            val_norm=normalize(value)
+            words=[w for w in re.findall(r'\b[a-zA-Z]{2,}\b',val_norm)]
+            if words and not any(w in supporting for w in words) and val_norm not in supporting:rejected+=1;continue
+        elif candidate.field not in ('website','countries_served','target_customers','target_industries','specialties','products_services') and (not isinstance(value,str) or normalize(value) not in supporting):rejected+=1;continue
         if candidate.field=='website' and value!=website:rejected+=1;continue
-        if isinstance(value,list):
-            terms=[item if isinstance(item,str) else item.name for item in value]
+        if candidate.field=='products_services' and isinstance(value,list):
+            valid_services=[]
             for item in value:
-                if isinstance(item,CompanyService):terms.extend(term for term in (item.category,item.description) if term)
-            if not all(normalize(term) in supporting for term in terms):rejected+=1;continue
+                if isinstance(item,CompanyService):
+                    name_words=[w for w in re.findall(r'\b[a-zA-Z]{3,}\b',normalize(item.name))]
+                    if not name_words or any(w in supporting for w in name_words) or normalize(item.name) in supporting:
+                        valid_services.append(item)
+            if not valid_services:rejected+=1;continue
+            value=valid_services
+        elif isinstance(value,list):
+            terms=[item if isinstance(item,str) else item.name for item in value]
+            if not any(normalize(term) in supporting for term in terms):rejected+=1;continue
         raw_value=[item.model_dump() if isinstance(item,CompanyService) else item for item in value] if isinstance(value,list) else value
         try:
             # Reuse the persisted form's validation; unknown values are never filled.

@@ -28,7 +28,7 @@ from app.platform.context import current, organization
 class Generate(Strict):
     mode: Literal['BUSINESS_PROFILE', 'DESCRIPTION']
     prompt: str = Field('', max_length=2000)
-    candidate_count: int = Field(3, ge=1, le=3)
+    candidate_count: int = Field(5, ge=1, le=5)
 
     @model_validator(mode='after')
     def has_description(self):
@@ -45,8 +45,8 @@ class Candidate(Strict):
 
 
 class Suggestions(Strict):
-    candidates: list[Candidate] = Field(min_length=1, max_length=3)
-    questions: list[str] = Field(default_factory=list, max_length=3)
+    candidates: list[Candidate] = Field(min_length=1, max_length=5)
+    questions: list[str] = Field(default_factory=list, max_length=5)
 
 
 class Refine(Strict):
@@ -114,8 +114,22 @@ def _allowed(c):
 def _validated(draft):
     from app.config.locations import country
     try:
-        for value in draft.criteria.company.countries + draft.criteria.contact.countries:
+        valid_company_countries = []
+        for value in draft.criteria.company.countries:
+            if value.strip().casefold() in ('global', 'worldwide', 'any', 'all', 'international'):
+                continue
             country(value)
+            valid_company_countries.append(value)
+        draft.criteria.company.countries = valid_company_countries
+
+        valid_contact_countries = []
+        for value in draft.criteria.contact.countries:
+            if value.strip().casefold() in ('global', 'worldwide', 'any', 'all', 'international'):
+                continue
+            country(value)
+            valid_contact_countries.append(value)
+        draft.criteria.contact.countries = valid_contact_countries
+
         if any(value not in SIZES for value in draft.criteria.company.company_sizes):
             raise ValueError('Unsupported company size.')
         texts = [draft.name, draft.description]
@@ -217,8 +231,15 @@ async def generate(c, body: Generate, *, operation_id=None):
         except ValueError: pass
     for candidate in result.candidates:
         for value in candidate.draft.criteria.company.countries + candidate.draft.criteria.contact.countries:
-            if country(value).alpha_2 not in approved_countries and not _explicit_term(value, body.prompt, True):
-                raise HTTPException(503, 'AI suggested an unsupported market. Refine your target countries or use the manual builder.')
+            if value.strip().casefold() in ('global', 'worldwide', 'any', 'all', 'international'):
+                continue
+            try:
+                c_alpha = country(value).alpha_2
+                if approved_countries and c_alpha not in approved_countries and not _explicit_term(value, body.prompt, True):
+                    raise HTTPException(503, 'AI suggested an unsupported market. Refine your target countries or use the manual builder.')
+            except ValueError:
+                if approved_countries:
+                    raise HTTPException(503, 'AI suggested an unsupported market. Refine your target countries or use the manual builder.')
         if body.mode == 'BUSINESS_PROFILE' and not candidate.assumptions:
             raise HTTPException(503, 'AI did not explain its targeting assumptions. Retry or use the manual builder.')
     if read_profile(c)['version'] != profile['version']:
