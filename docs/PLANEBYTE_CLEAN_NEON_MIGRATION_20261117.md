@@ -1,6 +1,8 @@
 # Clean Neon migration — 17 November 2026
 
-Status: destination created and independently checked; production cutover pending.
+Status: production migration complete; controlled owner signup ready for testing.
+Verified 17 November 2026 at 04:57 UTC (10:27 IST). The fresh customer journey on
+this new production database is deliberately left to the owner, as requested.
 The owner explicitly authorized a new empty Intent Radar + Growth Intelligence
 database. No customer rows are copied. The existing Neon database and its existing
 Secret Manager secret remain the archive/rollback source, with no destructive SQL.
@@ -85,6 +87,80 @@ owner signup, the archive may be deliberately rebound using its preserved secret
 and the legacy schema profile. After new customer writes, stop and reconcile
 divergence explicitly; do not silently switch between independent histories.
 
-Pending: full regression completion, Cloud Run staging/preflight, consumer cutover,
-production health and empty-customer checks, then owner signup acceptance. Payment
-permissions remain a separate external dependency and do not block this migration.
+## Verified production release
+
+| Item | Evidence-backed result |
+|---|---|
+| Backend source | `b2e27ac709760a4eaa06edf9dc9c7d48e7d72850` |
+| Build | `35054183-eb8d-4593-a182-687bbb99b42b`, SUCCESS |
+| API | `leadengine-api-00168-his`, 100% traffic; desired template matches active revision |
+| API image digest | `sha256:8e2784f4d1dbb086ff13b7842922b7785acfda38ec100fa2000ec30aece4843d` |
+| Worker image digest | `sha256:3c58c7f1d656e669ef40eba8fe45383e36f8047cf15dd4f1da1426efd08e0ee4` |
+| Database | New supplied Neon, profile `intent-radar-v1`, migration version1004 |
+| Actual consumers | API, main worker and acquisition worker all use `leadengine-intent-database-url:1` |
+| Diagnostic job | Original provider-only quota diagnostic restored; no database binding |
+| Fresh customer directory | 0 users, 0 customer accounts, 0 organizations, 0 sessions, 0 trial claims |
+| All application rows | Every application table empty except3 actual short-lived HMAC replay-protection nonces after denial probes |
+| Archive | Old schema51 /201tables retained; all10 recorded customer, financial and security table digests unchanged |
+| Old endpoints | All old revision tags removed; no archive revision receives customer traffic |
+| Signup | Controlled `contact@planebyte.com` admission enabled; global public registration remainsfalse |
+| Payments | Public checkout, yearly checkout and unrelated outreach remain disabled |
+
+Actual Cloud Run checks: diagnostic execution `leadengine-quota-canary-rt6tf`
+and rebound production worker execution `leadengine-worker-rnvkw` both completed
+successfully. Their structured Cloud logs confirm version1004, all110 application
+tables empty, full structure verification and successful write/read/rollback.
+No dummy accounts or lasting preflight rows were created in Neon.
+
+The structure-only backup is250,816bytes, SHA256
+`9bcac89eba4d799b08babded6f5d29baa0035e191f224301b161771482ac9e8b`.
+Restoration into a separate local database passed the same structure and empty-data
+checks. Metadata was reconstructed from migration files; no customer rows were
+exported. Local schema failure and legacy-schema refusal checks also pass.
+
+Final backend suite: **1,197 passed, one intentional real-outreach skip**, eight
+existing warnings. The first run lacked the explicit local PostgreSQL tool path;
+its restoration test passed when configured, and the final full run includes both
+PostgreSQL restoration and the isolated real Chromium security test. No failure
+was suppressed. Actual Vertex research of `https://planebyte.com` plus five-ICP
+worker generation passed in a disposable local clean PostgreSQL workspace using
+three bounded real provider requests; durable worker dispatch claims passed too.
+This is explicitly separate from the owner's future production signup.
+
+Production API health200; personal-email password and Google admission403;
+unsigned dashboard and old identity without new admission401. Signup, login,
+password-recovery and all four legal pages return200. Native forms are visible.
+Live signup was visually checked in light/dark mode and at390px. The frontend,
+dashboard, settings, navigation, Graph and Discover source was unchanged. Vercel
+has no production database environment variable; its API origin is unchanged.
+
+The five existing schedulers are all paused, both database polling loops are off,
+and the idle API pool can release every connection after30seconds. Request-driven
+transactional mail and bounded AI workers remain configured. No automatic paid
+infrastructure change or recurring payment was introduced.
+
+Operational correction: one Cloud Run update response returned stale revision
+readiness. Signup was held on the verified closed-admission revision while actual
+revision generation, readiness, environment, immutable image digest and worker
+logs were re-read. A pristine-destination check still found zero application
+records before final promotion. Do not rerun partial private rollout scripts:
+read `production-verification.json`, actual cloud state and this release first.
+
+## Remaining acceptance and operational notes
+
+- Owner: sign out of any previous session, open `https://app.planebyte.com/signup`,
+  and create the fresh `contact@planebyte.com` account. Enter password/OTP directly
+  in the app. Complete the trial, website research, five-ICP approval, assistant
+  and dashboard journey. New-database production OTP delivery, password recovery,
+  Google callback and the authenticated full journey are not falsely marked as
+  tested from fixture or schema checks. No mailbox email was sent during migration.
+- The old operator root `.env` `DATABASE_URL` still references the archive; it was
+  not edited. Runtime production consumers use the new dedicated secret. Future
+  operators must explicitly select `DATABASE_URL_NEW` and the new schema profile
+  for current product operations; never run mutating default scripts on the archive.
+- Do not restore the archive into the fresh database, re-seed historic users or
+  repeat the previous customer reset. Preserve all Lead Engine source and old data.
+- Measure normal Neon usage after real activity. Idle controls are verified;
+  allowance longevity and load capacity are not guaranteed by this acceptance.
+- PayU USD permissions and genuine sandbox checkout remain separate external
+  launch dependencies. Checkout stays closed; this migration does not reopen them.
