@@ -78,8 +78,9 @@
  <main class="subpage-main">
  <section class="container subpage-hero payment-hero"><span class="kicker">BILLING / SECURE PAYMENT HANDOFF</span><h1>Your plan.<br/>Your next move.</h1><p>Review the published PlaneByte Intent Radar plan details. Secure payments are processed through authorized payment gateway partners when checkout is enabled.</p></section>
 -<section class="container payment-layout"><div class="payment-main"><div class="search-card payment-panel"><div class="kicker">PLAN SELECTION</div><h2>Review your subscription</h2><p class="payment-help">Select an Intent Radar plan to review its monthly search, monitor, and AI operation allowances.</p><label for="paymentPlan">Intent Radar plan</label><select id="paymentPlan" name="plan"><option value="starter">Starter — $59 / month</option><option value="growth">Growth — $149 / month</option><option value="scale">Scale — $379 / month</option></select><div class="payment-info"><span class="payment-check">✓</span><div><b>Hosted payment provider</b><p>Card, UPI, or banking details are entered only on the approved provider's secure checkout—never on this marketing website.</p></div></div><div class="payment-info"><span class="payment-check">✓</span><div><b>7-Day money-back guarantee</b><p>All initial purchases include a 7-day money-back guarantee under our Cancellation &amp; Refund Policy.</p></div></div><div class="payment-info"><span class="payment-check">✓</span><div><b>Terms of Service &amp; AI compliance</b><p>Subscriptions and AI synthesis features are subject to our <a href="/terms#ai-content" style="color:var(--pink);text-decoration:underline;">Terms of Service</a>, strictly prohibiting NSFW, sexually explicit, and unlawful outputs.</p></div></div><div id="paymentStatus" class="payment-alert" role="status" aria-live="polite">This project has not yet enabled live direct charges. You can explore Intent Radar immediately by signing in at app.planebyte.com.</div><p class="payment-help" style="margin:12px 0 16px;font-size:12px;">By continuing, you agree to PlaneByte's <a href="/terms" style="color:inherit;text-decoration:underline;">Terms of Service</a> and <a href="/privacy" style="color:inherit;text-decoration:underline;">Privacy Policy</a>.</p><button class="action-btn payment-action" type="button" id="paymentStart">Check payment availability ↗</button><a class="link" href="https://app.planebyte.com/">Get started in app ↗</a><a class="link" href="/contact?topic=sales">Talk to sales about this plan ↗</a></div></div>
-+<section class="container payment-layout"><div class="payment-main"><div class="search-card payment-panel"><div class="kicker">PLAN SELECTION</div><h2>Review your subscription</h2><p class="payment-help">Select an Intent Radar plan to review its monthly search, monitor, and AI operation allowances.</p><label for="paymentPlan">Intent Radar plan</label><select id="paymentPlan" name="plan"><option value="starter">Starter — $59 / month</option><option value="growth">Growth — $149 / month</option><option value="scale">Scale — $379 / month</option></select><div class="payment-info"><span class="payment-check">✓</span><div><b>Hosted payment provider</b><p>Card, UPI, or banking details are entered only on the approved provider's secure checkout—never on this marketing website.</p></div></div><div class="payment-info"><span class="payment-check">✓</span><div><b>Seven-day initial-purchase refund review</b><p>Initial-purchase refund requests can be submitted within seven days and are reviewed under our published policy and applicable rights.</p></div></div><div class="payment-info"><span class="payment-check">✓</span><div><b>Terms of Service &amp; AI compliance</b><p>Subscriptions and AI synthesis features are subject to our <a href="/terms#ai-content" style="color:var(--pink);text-decoration:underline;">Terms of Service</a>, strictly prohibiting NSFW, sexually explicit, and unlawful outputs.</p></div></div><div id="paymentStatus" class="payment-alert" role="status" aria-live="polite">Choose your plan in the authenticated app. A provider-confirmed card trial or paid purchase is mandatory for new dashboard access; unavailable payment paths remain clearly identified.</div><p class="payment-help" style="margin:12px 0 16px;font-size:12px;">By continuing, you agree to PlaneByte's <a href="/terms" style="color:inherit;text-decoration:underline;">Terms of Service</a> and <a href="/privacy" style="color:inherit;text-decoration:underline;">Privacy Policy</a>.</p><button class="action-btn payment-action" type="button" id="paymentStart">Check payment availability ↗</button><a class="link" href="https://app.planebyte.com/">Get started in app ↗</a><a class="link" href="/contact?topic=sales">Talk to sales about this plan ↗</a></div></div>
- <aside class="payment-side"><div class="payment-summary"><span class="kicker">YOUR ORDER / INTENT RADAR</span><h3>Plan summary</h3><div class="payment-summary-row"><span>Product</span><b>Intent Radar</b></div><div class="payment-summary-row"><span>Plan</span><b id="paymentSelectedPlan">Starter</b></div><div class="payment-summary-row"><span>Billing</span><b>Monthly · USD</b></div><div class="payment-summary-row"><span>Monthly allowance</span><b id="paymentAllowance">100 searches · 2 monitors · 20 AI ops</b></div><div class="payment-summary-total"><span>Published monthly rate</span><b id="paymentTotal">$59 <small>/mo</small></b></div><p>Growth Intelligence is included in all plans. Limits reset each billing month.</p><div class="payment-secure">↗ &nbsp; Secure checkout when activated</div></div><div class="payment-context"><span class="kicker">NEED CUSTOM VOLUME?</span><h3>Enterprise and team requirements</h3><p>Discuss custom monthly searches, continuous monitors, dedicated AI bandwidth, and team seats with our team.</p><a class="mini-cta" href="/contact?topic=sales">Contact sales ↗</a></div></aside></section>
+-<aside class="payment-side"><div class="payment-summary"><span class="kicker">YOUR ORDER / INTENT RADAR</span><h3>Plan summary</h3><div class="payment-summary-row"><span>Product</span><b>Intent Radar</b></div><div class="payment-summary-row"><span>Plan</span><b id="paymentSelectedPlan">Starter</b></div><div class="payment-summary-row"><span>Billing</span><b>Monthly · USD</b></div><div class="payment-summary-row"><span>Monthly allowance</span><b id="paymentAllowance">100 searches · 2 monitors · 20 AI ops</b></div><div class="payment-summary-total"><span>Published monthly rate</span><b id="paymentTotal">$59 <small>/mo</small></b></div><p>Growth Intelligence is included in all plans. Limits reset each billing month.</p><div class="payment-secure">↗ &nbsp; Secure checkout when activated</div></div><div class="payment-context"><span class="kicker">NEED CUSTOM VOLUME?</span><h3>Enterprise and team requirements</h3><p>Discuss custom monthly searches, continuous monitors, dedicated AI bandwidth, and team seats with our team.</p><a class="mini-cta" href="/contact?topic=sales">Contact sales ↗</a></div></aside></section>
++<section class="container payment-layout"><div class="payment-main"><div class="search-card payment-panel"><div class="kicker">PLAN SELECTION</div><h2>Review your subscription</h2><p class="payment-help">Select an Intent Radar plan to review its monthly search, monitor, and AI operation allowances.</p><label for="paymentPlan">Intent Radar plan</label><select id="paymentPlan" name="plan"><option value="starter">Starter — $59 / month</option><option value="growth">Growth — $149 / month</option><option value="scale">Scale — $379 / month</option></select><div class="payment-info"><span class="payment-check">✓</span><div><b>Hosted payment provider</b><p>Card, UPI, or banking details are entered only on the approved provider's secure checkout—never on this marketing website.</p></div></div><div class="payment-info"><span class="payment-check">✓</span><div><b>Seven-day initial-purchase refund review</b><p>Initial-purchase refund requests can be submitted within seven days and are reviewed under our published policy and applicable rights.</p></div></div><div class="payment-info"><span class="payment-check">✓</span><div><b>Terms of Service &amp; AI compliance</b><p>Subscriptions and AI synthesis features are subject to our <a href="/terms#ai-content" style="color:var(--pink);text-decoration:underline;">Terms of Service</a>, strictly prohibiting NSFW, sexually explicit, and unlawful outputs.</p></div></div><div id="paymentStatus" class="payment-alert" role="status" aria-live="polite">Choose your plan in the authenticated app. A provider-confirmed card trial or paid purchase is mandatory for new dashboard access; unavailable payment paths remain clearly identified.</div><p class="payment-help" style="margin:12px 0 16px;font-size:12px;">By continuing, you agree to PlaneByte's <a href="/terms" style="color:inherit;text-decoration:underline;">Terms of Service</a> and <a href="/privacy" style="color:inherit;text-decoration:underline;">Privacy Policy</a>.</p><button class="action-btn payment-action" type="button" id="paymentStart">Choose plan in PlaneByte ↗</button><a class="link" href="https://app.planebyte.com/">Get started in app ↗</a><a class="link" href="/contact?topic=sales">Talk to sales about this plan ↗</a></div></div>
++<aside class="payment-side"><div class="payment-summary"><span class="kicker">YOUR ORDER / INTENT RADAR</span><h3>Plan summary</h3><div class="payment-summary-row"><span>Product</span><b>Intent Radar</b></div><div class="payment-summary-row"><span>Plan</span><b id="paymentSelectedPlan">Starter</b></div><div class="payment-summary-row"><span>Billing</span><b>Monthly · USD</b></div><div class="payment-summary-row"><span>Monthly allowance</span><b id="paymentAllowance">100 searches · 2 monitors · 20 AI ops</b></div><div class="payment-summary-total"><span>Published monthly rate</span><b id="paymentTotal">$59 <small>/mo</small></b></div><p>Growth Intelligence is included in all plans. Limits reset each billing month.</p><div class="payment-secure">↗ &nbsp; Secure Creem checkout in the app</div></div><div class="payment-context"><span class="kicker">NEED CUSTOM VOLUME?</span><h3>Enterprise and team requirements</h3><p>Discuss custom monthly searches, continuous monitors, dedicated AI bandwidth, and team seats with our team.</p><a class="mini-cta" href="/contact?topic=sales">Contact sales ↗</a></div></aside></section>
  <section class="container payment-footer"><div class="sub-note"><span class="kicker">HAVE QUESTIONS?</span><h2>Let’s make the terms clear.</h2><p>For custom allowances, billing inquiries, or an introduction walkthrough, connect with PlaneByte.</p><a class="mini-cta" href="https://cal.com/planebyte/introduction?overlayCalendar=true&amp;user=planebyte" target="_blank" rel="noopener noreferrer">Book a call ↗</a></div></section>
  </main>
 --- a/src/partials/footer.html
@@ -93,6 +94,70 @@
    <span>Intent Radar and Growth Intelligence are products of PlaneByte · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></span>
  </div></div></footer>
  <div aria-live="polite" class="toast" id="toast" role="status"></div>
+--- a/src/app/api/checkout/route.ts
++++ b/src/app/api/checkout/route.ts
+@@ -1,40 +1,11 @@
+-import { NextRequest, NextResponse } from "next/server";
+-
+-export const dynamic = "force-dynamic";
+-const plans = ["starter", "growth", "scale"] as const;
+-type Plan = (typeof plans)[number];
+-const links: Record<Plan, string | undefined> = {
+-  starter: process.env.CHECKOUT_LINK_STARTER,
+-  growth: process.env.CHECKOUT_LINK_GROWTH,
+-  scale: process.env.CHECKOUT_LINK_SCALE,
+-};
+-const enabled = () => process.env.PAYMENTS_ENABLED === "true" && process.env.PRICING_APPROVED === "true" && process.env.BILLING_FULFILLMENT_VERIFIED === "true";
+-function safeProviderLink(raw: string | undefined) {
+-  if (!raw) return null;
+-  try {
+-    const url = new URL(raw);
+-    // Dedicated trusted hosted checkout domains only. No open redirects or embedded card collection.
+-    if (url.protocol !== "https:" || url.username || url.password || !["buy.stripe.com", "checkout.stripe.com", "rzp.io", "pages.razorpay.com", "pay.razorpay.com"].includes(url.hostname)) return null;
+-    return url.toString();
+-  } catch { return null; }
++import {NextRequest,NextResponse} from "next/server";
++const plans=['starter','growth','scale'];
++/** Marketing only hands off to authenticated billing; it never creates payments. */
++export async function GET(){return NextResponse.json({provider:'creem',handoff:'https://app.planebyte.com/billing/subscription',plans},{headers:{'Cache-Control':'no-store'}})}
++export async function POST(request:NextRequest){
++ if(request.headers.get('origin')!==request.nextUrl.origin)return NextResponse.json({error:'Invalid request origin.'},{status:403});
++ if(Number(request.headers.get('content-length')||0)>2048)return NextResponse.json({error:'Request too large.'},{status:413});
++ let body;try{body=await request.json()}catch{return NextResponse.json({error:'Choose a supported plan.'},{status:400})}
++ if(!plans.includes(body?.plan))return NextResponse.json({error:'Choose a supported plan.'},{status:422});
++ return NextResponse.json({checkoutUrl:'https://app.planebyte.com/billing/subscription?plan='+body.plan,provider:'creem',paymentCreated:false},{headers:{'Cache-Control':'no-store'}});
+ }
+-function isPlan(plan: unknown): plan is Plan { return typeof plan === "string" && plans.some(p => p === plan); }
+-export async function GET() {
+-  return NextResponse.json({
+-    checkoutEnabled: enabled(),
+-    plans: Object.fromEntries(plans.map(plan => [plan, Boolean(enabled() && safeProviderLink(links[plan]))])),
+-  }, { headers: { "Cache-Control": "no-store" } });
+-}
+-export async function POST(request: NextRequest) {
+-  // Checkout links are static provider-created payment links. Entitlement provisioning and webhook
+-  // activation MUST be separately verified before the three operational gates are enabled.
+-  const origin = request.headers.get("origin");
+-  if (!origin || origin !== request.nextUrl.origin) return NextResponse.json({error:"Invalid request origin."}, {status:403});
+-  let body: unknown;
+-  try { body = await request.json(); } catch { return NextResponse.json({error:"Invalid request."}, {status:400}); }
+-  const plan = typeof body === "object" && body !== null && "plan" in body ? (body as {plan?:unknown}).plan : undefined;
+-  if (!isPlan(plan)) return NextResponse.json({error:"Unknown plan."}, {status:400});
+-  const link = safeProviderLink(links[plan]);
+-  if (!enabled() || !link) return NextResponse.json({error:"Checkout is not enabled for this plan. Contact PlaneByte to confirm terms."},{status:503,headers:{"Cache-Control":"no-store"}});
+-  return NextResponse.json({checkoutUrl:link},{headers:{"Cache-Control":"no-store"}});
+-}
+--- a/public/site-interactions.js
++++ b/public/site-interactions.js
+@@ -54,7 +54,7 @@
+    if(isStatic){if(status){status.classList.add('is-error');status.textContent='This static browser preview cannot collect payments. The Next.js app uses a gated server-side payment handoff once billing is approved.';}paymentStart.disabled=false;return;}
+    try{const res=await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan:select.value}),credentials:'same-origin',cache:'no-store'});const data=await res.json();
+    if(!res.ok||!data.checkoutUrl){status?.classList.add('is-error');if(status)status.textContent=data.error||'Checkout is not available. Please contact PlaneByte.';return;}
+-   if(status)status.textContent='Opening the payment provider’s secure checkout…';location.assign(data.checkoutUrl);
++   if(status)status.textContent='Opening authenticated PlaneByte billing…';location.assign(data.checkoutUrl);
+    }catch{status?.classList.add('is-error');if(status)status.textContent='Unable to connect to checkout. Please contact PlaneByte.'}
+    finally{paymentStart.disabled=false}
+  });
 --- a/tests/site.test.mjs
 +++ b/tests/site.test.mjs
 @@ -76,7 +76,7 @@
@@ -104,3 +169,23 @@
    for (const [name, markup] of Object.entries(pages)) {
      assert.doesNotMatch(markup, /<footer|<header class="nav/, 'duplicate shell ' + name);
    }
+@@ -156,13 +156,12 @@
+   }
+ });
+ 
+-test('server checkout is securely gated and returns no link without approval', () => {
+-  const s = read('src/app/api/checkout/route.ts');
+-  for (const x of ['PAYMENTS_ENABLED', 'PRICING_APPROVED', 'BILLING_FULFILLMENT_VERIFIED', 'checkoutEnabled', 'safeProviderLink', 'https:', 'buy.stripe.com', 'rzp.io']) {
+-    assert.ok(s.includes(x), x);
+-  }
+-  assert.match(s, /origin !== request.nextUrl.origin/);
+-  assert.match(s, /status:503/);
++test('marketing hands off only to authenticated Creem billing and never creates a payment', () => {
++ const s=read('src/app/api/checkout/route.ts');
++ assert.match(s,/request.headers.get\('origin'\)!==request.nextUrl.origin/);
++ assert.match(s,/https:\/\/app.planebyte.com\/billing\/subscription/);
++ assert.match(s,/paymentCreated:false/);
++ assert.doesNotMatch(s,/buy.stripe.com|razorpay|PAYU|api.creem.io/);
+ });
+ 
+ test('contact form has proper fields, optional company, honeypot and consent', () => {
