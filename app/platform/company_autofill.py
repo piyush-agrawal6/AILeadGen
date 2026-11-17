@@ -78,6 +78,7 @@ def preview_from_result(result,sources,website,*,supported_interpretations=()):
         raw=value if isinstance(value,str) else ' '.join(item if isinstance(item,str) else item.name+' '+item.category+' '+item.description for item in value)
         if not set(re.findall(r'\d+(?:[.,]\d+)?',raw))<=set(re.findall(r'\d+(?:[.,]\d+)?',supporting)):rejected+=1;continue
         if any(word in normalize(raw) and word not in supporting for word in ('award','certified','guaranteed','market leader')):rejected+=1;continue
+        interpretation=candidate.field in ('description','positioning') and isinstance(value,str) and normalize(value) not in supporting
         if candidate.field in ('description','positioning'):
             val_norm=normalize(value)
             words=[w for w in re.findall(r'\b[a-zA-Z]{3,}\b',val_norm) if w not in ('and','the','for','with','that','this','from','our','your','their','all','helps','help','platform','tool','built','into','more','most','provides','provide')]
