@@ -1203,7 +1203,7 @@ def test_billing_pending_history_catchup_and_provider_transaction_release(postgr
     c=postgres;run_migrations(c);org=PLANEBYTE_ORGANIZATION_ID
     owner=c.execute('SELECT created_by_user_id FROM organizations WHERE id=?',(org,)).fetchone()[0]
     settings=get_settings()
-    for name,value in {'billing_enabled':True,'billing_test_workspaces':org,'billing_test_mode':True,'razorpay_mode':'test','razorpay_key_id':'rzp_test_fixture','razorpay_key_secret':SecretStr('synthetic-api-secret'),'razorpay_test_plan_id_starter':'plan_fixture1'}.items():monkeypatch.setattr(settings,name,value)
+    for name,value in {'billing_provider':'razorpay','billing_enabled':True,'billing_test_workspaces':org,'billing_test_mode':True,'razorpay_mode':'test','razorpay_key_id':'rzp_test_fixture','razorpay_key_secret':SecretStr('synthetic-api-secret'),'razorpay_test_plan_id_starter':'plan_fixture1'}.items():monkeypatch.setattr(settings,name,value)
     state,invoice,payment,api,start,end=mock_provider(monkeypatch)
     with workspace_scope(c,owner,org):
         row=service.create(c,service.Create(plan_code='starter',request_id=uuid.uuid4(),confirm_test_mode=True))

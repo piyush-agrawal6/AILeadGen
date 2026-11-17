@@ -37,7 +37,7 @@ class AIProviderRouter(GeminiInstructionProvider):
             # The clean product schema intentionally excludes Lead Engine's
             # acquisition_preferences. Provider health/cooldowns are platform
             # state and already have shared tables in both schema lineages.
-            cooldowns={r['provider']:r['next_request_at'] for r in self.c.execute("SELECT provider,next_request_at FROM provider_rate_limits WHERE provider IN ('structured-ai:VERTEX_AI','structured-ai:GEMINI_API')").fetchall()}
+            cooldowns={r['provider']:r['next_request_at'] for r in self.c.execute("SELECT provider,CAST(next_request_at AS DOUBLE PRECISION) AS next_request_at FROM provider_rate_limits WHERE provider IN ('structured-ai:VERTEX_AI','structured-ai:GEMINI_API')").fetchall()}
             result={}
             for row in self.c.execute("SELECT provider,status,error_code,checked_at FROM acquisition_provider_health WHERE provider IN ('vertex','gemini')").fetchall():
                 name='VERTEX_AI' if row['provider']=='vertex' else 'GEMINI_API'
