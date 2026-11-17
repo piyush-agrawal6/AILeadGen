@@ -9,6 +9,7 @@ from app.database.prospects import now
 from app.platform.context import organization
 
 CODES=frozenset(('INSUFFICIENT_COMPANY_EVIDENCE','INVALID_GROUNDING_REVIEW','ICP_UNSUPPORTED_CRITERIA','ICP_UNKNOWN_SERVICE','ICP_DUPLICATE_SEGMENTS','ICP_TOO_MANY_SEGMENTS','ICP_TOO_FEW_SEGMENTS','ICP_VERBOSE_RESPONSE','AI_TIMEOUT','AI_NETWORK_ERROR','AI_RATE_LIMITED','AI_QUOTA_EXCEEDED','AI_AUTH_ERROR','AI_MODEL_UNAVAILABLE','AI_OUTPUT_INVALID','AI_CONTENT_REJECTED','AI_INTERNAL_REQUEST_INVALID','SETUP_CONTEXT_CHANGED','SETUP_ACCESS_REVOKED','SETUP_LIMIT_EXHAUSTED','WEBSITE_REVIEW_FAILED','SETUP_REVIEW_FAILED'))
+CODES=CODES|{'SETUP_STORAGE_UNAVAILABLE','AI_OUTPUT_TRUNCATED'}
 _trace=ContextVar('setup_attempt_trace',default=None)
 
 class SetupAIError(HTTPException):
@@ -32,7 +33,8 @@ def error_code(error):
     from app.acquisition.ai_router import normalized_error
     from pydantic import ValidationError
     if getattr(error,'diagnostic_code',None) in CODES:return error.diagnostic_code
-    if isinstance(error,ai.AiOutputError):return str(error) if str(error) in CODES else 'AI_OUTPUT_INVALID'
+    if getattr(error,'sqlstate',None) in ('42P01','42703'):return 'SETUP_STORAGE_UNAVAILABLE'
+    if isinstance(error,ai.AiOutputError):return 'AI_OUTPUT_TRUNCATED' if error.output_reason=='MAX_TOKENS' else str(error) if str(error) in CODES else 'AI_OUTPUT_INVALID'
     if isinstance(error,ai.AiProvidersUnavailable):
         values=set(error.errors.values())
         # Preserve actual provider failure class; never an arbitrary response body.
@@ -46,6 +48,16 @@ def error_code(error):
     if isinstance(error,TimeoutError):return 'AI_TIMEOUT'
     if isinstance(error,ValidationError):return 'AI_OUTPUT_INVALID'
     return {403:'SETUP_ACCESS_REVOKED',409:'SETUP_CONTEXT_CHANGED',429:'SETUP_LIMIT_EXHAUSTED'}.get(getattr(error,'status_code',None),'SETUP_REVIEW_FAILED')
+
+def failure_details(error):
+    """Useful operational failure identity without prompts, SQL values or tokens."""
+    result={'error_type':type(error).__name__}
+    state=getattr(error,'sqlstate',None)
+    if isinstance(state,str) and len(state)==5:result['sqlstate']=state
+    from traceback import extract_tb
+    frames=extract_tb(error.__traceback__)
+    if frames:result['failure_location']=[{'file':__import__('os').path.basename(f.filename),'function':f.name,'line':f.lineno} for f in frames[-4:]]
+    return result
 
 def event(c,row,attempt_number,stage,outcome,trace,code=None):
     if not get_settings().heysow_setup_diagnostics_enabled:return

@@ -13,7 +13,10 @@ class AiApplicationError(RuntimeError):pass
 class AiAuthError(AiUnavailable):pass
 class AiProvidersUnavailable(AiUnavailable):
     def __init__(self,errors):self.errors=errors;super().__init__('All configured AI providers are unavailable; safe deterministic fallback is available.')
-class AiOutputError(AiUnavailable):pass
+class AiOutputError(AiUnavailable):
+    def __init__(self,message='Invalid structured provider output.',*,reason=None):
+        self.output_reason=reason if reason in ('MAX_TOKENS',) else None
+        super().__init__(message)
 class AiContentRejected(AiUnavailable):pass
 class AiTransportError(AiUnavailable):pass
 class AiProviderError(AiUnavailable):
@@ -126,7 +129,9 @@ class GeminiInstructionProvider(AiInstructionProvider):
                         else:break
             data=json.loads(raw);usage=provider_usage.reported(data);candidates=data.get('candidates') or []
             if data.get('promptFeedback',{}).get('blockReason') or any(v.get('finishReason') in ('SAFETY','BLOCKLIST','PROHIBITED_CONTENT') for v in candidates):raise AiContentRejected('Provider rejected generated content.')
-            if len(candidates)!=1 or candidates[0].get('finishReason')!='STOP':raise AiOutputError('AI interpretation was incomplete. Retry or use manual filters/mapping.')
+            if len(candidates)!=1 or candidates[0].get('finishReason')!='STOP':
+                logging.getLogger(__name__).warning('structured_output_incomplete %s',json.dumps({'provider':self.provider_name,'model':self.model,'schema':model.__name__,'finish_reasons':[v.get('finishReason') for v in candidates[:2]],'max_output_tokens':max_output_tokens,'usage':usage}))
+                raise AiOutputError('AI interpretation was incomplete. Retry or use manual filters/mapping.',reason=candidates[0].get('finishReason') if len(candidates)==1 else None)
             text=''.join(p.get('text','') for p in candidates[0].get('content',{}).get('parts',[]) if not p.get('thought'))
             output=json.loads(text) if raw_json else model.model_validate_json(text)
             usage_status='SUCCEEDED'

@@ -252,7 +252,7 @@ def execute(key,db_path=None):
                 # Fixed codes and identifiers only: logging extras were not
                 # retained by the old text logger, losing first-attempt causes.
                 import logging
-                logging.getLogger(__name__).warning('setup_attempt %s',json.dumps({'job_id':key,'organization_id':organization(),'attempt':attempt_number,'stage':trace['stage'],'error_code':code,'error_type':type(error).__name__}))
+                logging.getLogger(__name__).warning('setup_attempt %s',json.dumps({'job_id':key,'organization_id':organization(),'request_id':row['request_id'],'attempt':attempt_number,'stage':trace['stage'],'error_code':code,**diagnostic.failure_details(error)}))
                 with db_session(db_path) as c:
                     present=owned(c,key)
                     if present['status']=='CANCELLED':

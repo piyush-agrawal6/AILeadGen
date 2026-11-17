@@ -78,6 +78,20 @@ def test_unsupported_fields_wrong_quotes_and_invented_service_claims_stay_unknow
  broken=autofill.Extraction(fields=[proposal('products_services',[{'name':'cloud engineering','description':'Guaranteed 100 clients'}],SOURCE['text'][:100])])
  assert 'products_services' not in autofill.preview_from_result(broken,[SOURCE],'https://example.com')['suggestions']
 
+
+def test_malformed_optional_field_does_not_discard_independent_grounded_fields():
+ payload=result().model_dump()
+ payload['fields'].append({'field':'company_size','value':{'fabricated':'not a supported value'},'evidence':[]})
+ extraction=autofill.Extraction.model_validate(payload)
+ preview=autofill.meaningful_preview(autofill.preview_from_result(extraction,[SOURCE],'https://example.com'))
+ assert preview['suggestions']['name']=='Evidence Engineering'
+ assert preview['suggestions']['products_services']
+ assert 'company_size' in preview['missing_fields'] and preview['warnings']
+ # Parsing recovery never turns a bad quote into a trusted fact.
+ payload['fields']=[{'field':'country','value':'Invented country','evidence':[{'source_id':'S1','quote':'not present in the source'}]}]
+ with pytest.raises(gateway.AiOutputError):
+  autofill.meaningful_preview(autofill.preview_from_result(autofill.Extraction.model_validate(payload),[SOURCE],'https://example.com'))
+
 def test_review_permissions_flag_and_failed_ai_budget_do_not_change_profile(client):
  http,provider,crawl,s,org,_=client
  viewer={'x-le-user':'viewer@example.test'}

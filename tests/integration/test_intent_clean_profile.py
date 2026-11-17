@@ -48,6 +48,29 @@ def test_clean_profile_has_no_customer_seeds_preserves_structure_and_rejects_dri
     assert intent_profile.assert_fresh(c)['structure_verified']
 
 
+def test_clean_real_router_uses_shared_health_without_legacy_preferences(clean):
+    from datetime import datetime,timedelta,timezone
+    from app.acquisition.ai_router import AIProviderRouter
+    from app.acquisition.config import AcquisitionSettings
+    from test_ai_router import Stub,Result
+    c,s=clean
+    config=AcquisitionSettings(_env_file=None,AI_PRIMARY_PROVIDER='vertex',VERTEX_AI_ENABLED=True,VERTEX_AI_MODEL='configured-model')
+    vertex=Stub('VERTEX_AI');router=AIProviderRouter(config,c=c,providers=[vertex])
+    assert not c.execute("SELECT 1 FROM pg_tables WHERE schemaname=? AND tablename='acquisition_preferences'",(c.schema,)).fetchone()
+    assert asyncio.run(router.structured('rules',{},Result)).answer=='valid'
+    expiry=(datetime.now(timezone.utc)+timedelta(minutes=4)).isoformat()
+    router.record(vertex,'DEGRADED','RATE_LIMITED',expiry)
+    # A different worker must honor at least the provider's minimum backoff.
+    # Existing PostgreSQL REAL storage conservatively rounds up (<=128s here).
+    fresh=AIProviderRouter(config,c=c,providers=[vertex])
+    saved=datetime.fromisoformat(fresh.states()['VERTEX_AI']['retry_after'])
+    assert 0<=(saved-datetime.fromisoformat(expiry)).total_seconds()<128
+    c.execute('INSERT INTO provider_rate_limits(provider,next_request_at) VALUES(?,?)',('nominatim',123.0));c.commit()
+    fresh.record(vertex,'READY')
+    assert fresh.states()['VERTEX_AI']['retry_after'] is None
+    assert c.execute('SELECT next_request_at FROM provider_rate_limits WHERE provider=?',('nominatim',)).fetchone()[0]==123.0
+
+
 def test_clean_profile_migration_failure_rolls_back_every_object(postgres,monkeypatch):
     monkeypatch.setattr(get_settings(),'lead_engine_available',False)
     original=intent_profile.migrations()

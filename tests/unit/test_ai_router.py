@@ -42,6 +42,14 @@ def test_application_bug_or_internal_schema_does_not_trigger_provider_fallback(d
  assert g.calls==0
 
 
+def test_router_preserves_provider_output_exhaustion_for_onboarding_diagnostics(db):
+ from app.platform.setup_diagnostics import error_code
+ v=Stub('VERTEX_AI',ai.AiOutputError('Incomplete response',reason='MAX_TOKENS'))
+ router=AIProviderRouter(config(),c=db,providers=[v])
+ with pytest.raises(ai.AiOutputError) as failure:asyncio.run(router.structured('rules',{},Result,attempts_per_provider=1))
+ assert error_code(failure.value)=='AI_OUTPUT_TRUNCATED' and v.calls==1
+
+
 def test_both_providers_unavailable_use_deterministic_without_split_or_hammer(db,brief_data):
  service.setup(db,'owner');v=Stub('VERTEX_AI',ai.AiRateLimited('QUOTA_EXHAUSTED',3600));g=Stub('GEMINI_API',ai.AiProviderError(402));router=AIProviderRouter(config(),c=db,providers=[v,g]);items=leads(brief_data)
  result=asyncio.run(generate_personalized_copy_batch(db,items,'owner',client=router))
