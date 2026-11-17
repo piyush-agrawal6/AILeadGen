@@ -143,6 +143,8 @@ def create_app() -> FastAPI:
     app.include_router(billing.router,prefix='/api')
     from app.api.routes import fixed_term_billing
     app.include_router(fixed_term_billing.router,prefix='/api')
+    from app.api.routes import subscriptions
+    app.include_router(subscriptions.router,prefix='/api')
     app.include_router(automation.router, prefix="/api")
     app.include_router(dashboard.router, prefix="/api")
     app.include_router(markets.router, prefix="/api")

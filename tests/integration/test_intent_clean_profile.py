@@ -27,7 +27,7 @@ def clean(postgres,monkeypatch):
     for name,value in {'database_schema_profile':'intent-radar-v1','database_schema':postgres.schema,
                        'lead_engine_available':False,'database_background_polling_enabled':False}.items():
         monkeypatch.setattr(s,name,value)
-    assert run_migrations(postgres)==4
+    assert run_migrations(postgres)==len(intent_profile.migrations())
     assert intent_profile.assert_fresh(postgres)['customer_and_application_records']==0
     postgres.commit()
     return postgres,s
@@ -36,7 +36,7 @@ def clean(postgres,monkeypatch):
 def test_clean_profile_has_no_customer_seeds_preserves_structure_and_rejects_drift(clean):
     c,s=clean
     assert run_migrations(c)==0
-    assert verify_schema(c)==1004
+    assert verify_schema(c)==intent_profile.migrations()[-1][0]
     assert not c.execute("SELECT 1 FROM pg_tables WHERE schemaname=? AND tablename IN ('email_messages','contacts','experiments','scan_markets')",(c.schema,)).fetchone()
     c.execute('ALTER TABLE customer_accounts ADD COLUMN unreviewed TEXT')
     with pytest.raises(RuntimeError,match='columns, indexes or constraints'):
@@ -63,6 +63,24 @@ def test_clean_profile_refuses_existing_legacy_schema_without_changes(postgres,m
     with pytest.raises(RuntimeError,match='legacy or unrelated'):intent_profile.migrate(postgres)
     assert postgres.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0]==51
     assert postgres.execute('SELECT COUNT(*) FROM users').fetchone()[0]==before
+
+
+def test_clean_additive_webhook_upgrade_preserves_existing_customer_rows(postgres,monkeypatch):
+    from app.api.organization import create_organization
+    monkeypatch.setattr(get_settings(),'lead_engine_available',False)
+    monkeypatch.setattr(get_settings(),'database_schema_profile','intent-radar-v1')
+    c=postgres
+    c.execute('CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,checksum TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)')
+    for n,name,sql,digest in intent_profile.migrations()[:4]:
+        with c.raw.cursor() as cursor:cursor.execute(sql.replace('__PLANEBYTE_SCHEMA__','"'+c.schema+'"'),prepare=False)
+        c.execute('INSERT INTO schema_migrations(version,name,checksum) VALUES(?,?,?)',(n,name,digest))
+    assert verify_schema(c)==1004
+    org=create_organization(c,'a@example.com','Retained isolated customer')['organization_id'];c.commit()
+    before=[dict(r) for r in c.execute('SELECT * FROM organization_memberships').fetchall()]
+    assert run_migrations(c)==1 and verify_schema(c)==1005 and run_migrations(c)==0
+    assert [dict(r) for r in c.execute('SELECT * FROM organization_memberships').fetchall()]==before
+    assert c.execute('SELECT id FROM organizations WHERE id=?',(org,)).fetchone()
+    assert c.execute('SELECT COUNT(*) FROM subscription_provider_events').fetchone()[0]==0
 
 
 def _native_settings(s,monkeypatch):

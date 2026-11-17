@@ -36,9 +36,13 @@ def verify(c,minimum_version=None):
     _postgres(c)
     expected=migrations();description=manifest()
     rows=c.execute('SELECT version,name,checksum FROM schema_migrations ORDER BY version').fetchall()
-    if [(r['version'],r['name'],r['checksum']) for r in rows] != [(n,name,digest) for n,name,_,digest in expected]:
+    if not rows or [(r['version'],r['name'],r['checksum']) for r in rows] != [(n,name,digest) for n,name,_,digest in expected[:len(rows)]]:
         raise RuntimeError('Intent Radar migration history or checksum does not match this release')
-    if minimum_version and minimum_version>expected[-1][0]:
+    actual=rows[-1]['version']
+    if actual!=expected[-1][0]:
+        description=description.get('previous_versions',{}).get(str(actual))
+        if description is None:raise RuntimeError('Intent Radar schema version is not supported by this bridge release')
+    if minimum_version and minimum_version>actual:
         raise RuntimeError('Intent Radar schema is older than the required version')
     row=c.execute('SELECT profile,source_baseline,structure_manifest_sha256 FROM intent_schema_metadata WHERE singleton=1').fetchone()
     if not row or row['profile']!=PROFILE or row['source_baseline']!=description['source_baseline'] or row['structure_manifest_sha256']!=description['structure_manifest_sha256']:
@@ -46,7 +50,7 @@ def verify(c,minimum_version=None):
     required=set(description['application_tables'])|{'schema_migrations','intent_schema_metadata'}
     if _tables(c)!=required:
         raise RuntimeError('Intent Radar schema table inventory does not match')
-    return expected[-1][0]
+    return actual
 
 
 def migrate(c):
@@ -56,28 +60,33 @@ def migrate(c):
     if tables:
         if 'intent_schema_metadata' not in tables:
             raise RuntimeError('Refusing to migrate an existing legacy or unrelated schema')
-        verify(c)
-        c.commit()
-        return 0
+        if verify(c)==migrations()[-1][0]:
+            c.commit()
+            return 0
     try:
         c.execute('SELECT pg_advisory_xact_lock(691944317)')
         # Recheck after serialization: concurrent first-time operators must not
         # race table creation or seed a second migration history.
+        applied=0
         if _tables(c):
-            verify(c);c.commit();return 0
-        c.execute('''CREATE TABLE schema_migrations (
+            current=verify(c)
+        else:
+            current=0
+            c.execute('''CREATE TABLE schema_migrations (
             version INTEGER PRIMARY KEY,name TEXT NOT NULL,checksum TEXT NOT NULL,
             applied_at TEXT NOT NULL DEFAULT (CURRENT_TIMESTAMP::text))''')
         for number,name,sql,digest in migrations():
+            if number<=current:continue
             # Static DDL is sent as one simple-protocol batch. Splitting on
             # semicolons would corrupt quoted SQL or comments and add hundreds
             # of remote round trips. The surrounding transaction stays atomic.
             with c.raw.cursor() as cursor:
                 cursor.execute(sql.replace('__PLANEBYTE_SCHEMA__','"'+c.schema+'"'),prepare=False)
             c.execute('INSERT INTO schema_migrations(version,name,checksum) VALUES(?,?,?)',(number,name,digest))
-        verify(c)
+            applied+=1
+        verify(c,minimum_version=migrations()[-1][0])
         c.commit()
-        return len(migrations())
+        return applied
     except BaseException:
         c.rollback()
         raise
