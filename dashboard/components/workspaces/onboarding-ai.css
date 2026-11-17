@@ -1,10 +1,79 @@
 /* PlaneByte AI Onboarding Workspace Styles */
 
 .ai-onboarding-shell {
-  max-width: 1400px;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 1.5rem 1.5rem 3.5rem;
+  padding: 0;
   color: hsl(var(--foreground));
+  position: relative;
+}
+
+/* Ambient Pastel Gradient Mesh & Dot Matrix Background Layer */
+.ai-onboarding-ambient {
+  position: absolute;
+  inset: -2rem -1rem -4rem;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ai-onboarding-glow-1 {
+  position: absolute;
+  top: -80px;
+  left: 6%;
+  width: clamp(340px, 40vw, 580px);
+  height: clamp(340px, 40vw, 580px);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 192, 26, 0.08) 0%, rgba(255, 192, 26, 0) 70%);
+  filter: blur(50px);
+}
+
+.ai-onboarding-glow-2 {
+  position: absolute;
+  top: 12%;
+  right: 4%;
+  width: clamp(380px, 45vw, 640px);
+  height: clamp(380px, 45vw, 640px);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(242, 35, 213, 0.07) 0%, rgba(242, 35, 213, 0) 70%);
+  filter: blur(60px);
+}
+
+.ai-onboarding-glow-3 {
+  position: absolute;
+  top: 48%;
+  left: 20%;
+  width: clamp(360px, 42vw, 600px);
+  height: clamp(360px, 42vw, 600px);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(138, 114, 200, 0.07) 0%, rgba(138, 114, 200, 0) 70%);
+  filter: blur(55px);
+}
+
+.ai-onboarding-dot-mesh {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(hsl(var(--muted-foreground) / 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 45%, transparent 85%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 45%, transparent 85%);
+}
+
+.dark .ai-onboarding-glow-1 {
+  background: radial-gradient(circle, rgba(255, 192, 26, 0.05) 0%, transparent 70%);
+}
+
+.dark .ai-onboarding-glow-2 {
+  background: radial-gradient(circle, rgba(242, 35, 213, 0.05) 0%, transparent 70%);
+}
+
+.dark .ai-onboarding-glow-3 {
+  background: radial-gradient(circle, rgba(138, 114, 200, 0.06) 0%, transparent 70%);
+}
+
+.dark .ai-onboarding-dot-mesh {
+  background-image: radial-gradient(hsl(var(--muted-foreground) / 0.16) 1px, transparent 1px);
 }
 
 /* Header & Brand Area */
@@ -13,7 +82,9 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 1.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
+  position: relative;
+  z-index: 1;
 }
 
 .ai-brand-badge {
@@ -44,21 +115,23 @@
 .ai-onboarding-rail-container {
   margin-bottom: 2.25rem;
   width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 .ai-onboarding-rail {
   display: flex;
   align-items: center;
   list-style: none;
-  padding: 0;
+  padding: 0.65rem 1rem;
   margin: 0;
   width: 100%;
   gap: 0.5rem;
-  background: hsl(var(--card) / 0.6);
-  border: 1px solid hsl(var(--border) / 0.8);
+  background: hsl(var(--card) / 0.85);
+  border: 1px solid hsl(var(--border) / 0.85);
   border-radius: 16px;
-  padding: 0.75rem 1rem;
-  box-shadow: 0 2px 12px -2px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 2px 14px -2px rgba(0, 0, 0, 0.03);
+  backdrop-filter: blur(12px);
 }
 
 .ai-rail-step {
@@ -71,7 +144,7 @@
 .ai-rail-btn {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
   width: 100%;
   background: none;
   border: none;
@@ -119,7 +192,7 @@
 }
 
 .ai-rail-num {
-  font-size: 0.65rem;
+  font-size: 0.625rem;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -155,21 +228,80 @@
   background: hsl(var(--primary) / 0.4);
 }
 
-/* 2-Column Responsive Application Workspace Grid */
+/* Step 2 Structured Profile Cards */
+.ai-profile-card {
+  border: 1px solid hsl(var(--border) / 0.85);
+  border-radius: 16px;
+  background: hsl(var(--card));
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.02);
+}
+
+.ai-profile-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.6);
+}
+
+.ai-profile-card-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ai-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.ai-improve-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 6px;
+  padding: 0.18rem 0.55rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ai-improve-btn:hover {
+  background: hsl(var(--primary) / 0.16);
+  border-color: hsl(var(--primary) / 0.4);
+}
+
+/* 2-Column Responsive Application Workspace Grid (60-65% Left, 35-40% Right) */
 .ai-onboarding-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(360px, 1.15fr);
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1.62fr) minmax(360px, 1fr);
+  gap: clamp(1.5rem, 2.5vw, 2.25rem);
   align-items: start;
+  width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 /* Main Cards */
 .ai-card {
   background: hsl(var(--card) / 0.95);
   border: 1px solid hsl(var(--border) / 0.85);
-  border-radius: 22px;
+  border-radius: 20px;
   box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.04);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
 }
 
 .ai-card-badge {
@@ -359,12 +491,13 @@
 .ai-copilot-container {
   position: sticky;
   top: 1.5rem;
-  height: calc(100vh - 3rem);
-  max-height: 820px;
+  height: calc(100vh - 6.5rem);
+  max-height: 860px;
+  min-height: 520px;
   background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 22px;
-  box-shadow: 0 4px 28px -2px rgba(0, 0, 0, 0.05);
+  border: 1px solid hsl(var(--border) / 0.9);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.05);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -381,6 +514,21 @@
   background: #10b981;
 }
 
+.ai-status-dot.is-failed {
+  background: hsl(var(--destructive));
+  box-shadow: 0 0 8px hsl(var(--destructive) / 0.6);
+}
+
+.ai-status-dot.is-busy {
+  background: hsl(var(--primary));
+  box-shadow: 0 0 8px hsl(var(--primary));
+  animation: pulse-dot 1.5s infinite;
+}
+
+.ai-status-dot.is-ready {
+  background: #10b981;
+}
+
 .ai-status-dot-pulse {
   width: 8px;
   height: 8px;
@@ -394,6 +542,28 @@
   0% { transform: scale(0.95); opacity: 0.8; }
   50% { transform: scale(1.3); opacity: 1; }
   100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+/* Copilot In-Chat Apply Action Buttons */
+.ai-chat-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.725rem;
+  font-weight: 600;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
+  border: 1px solid hsl(var(--primary) / 0.25);
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  margin-top: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ai-chat-action-btn:hover {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground, 0 0% 100%));
 }
 
 /* Copilot Messages */

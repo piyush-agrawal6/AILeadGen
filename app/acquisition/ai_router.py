@@ -32,17 +32,40 @@ class AIProviderRouter(GeminiInstructionProvider):
         for provider in self.providers:provider.usage_connection=self.c
     def states(self):
         if self.c is None:return self.memory
-        row=self.c.execute('SELECT configuration_json FROM acquisition_preferences WHERE id=1').fetchone()
-        return json.loads(row[0]).get('ai_providers',{}) if row else {}
+        from app.config.settings import get_settings
+        if get_settings().database_schema_profile!='intent-radar-v1':
+            try:
+                row=self.c.execute('SELECT configuration_json FROM acquisition_preferences WHERE id=1').fetchone()
+                if row:return json.loads(row[0]).get('ai_providers',{})
+            except Exception:
+                pass
+        try:
+            rows=self.c.execute('SELECT provider,status,error_code,checked_at FROM acquisition_provider_health').fetchall()
+            health={}
+            for r in rows:
+                pname='VERTEX_AI' if r['provider']=='vertex' else 'GEMINI_API'
+                health[pname]={'provider':pname,'status':r['status'],'error_code':r['error_code'],'checked_at':r['checked_at']}
+            return {**self.memory,**health}
+        except Exception:
+            return self.memory
     def record(self,p,status,error=None,retry_after=None):
         state={'provider':p.provider_name,'model':p.model,'status':status,'error_code':error,'retry_after':retry_after,'checked_at':now()}
         if p.provider_name=='VERTEX_AI':state.update(project=self.config.vertex_project,location=self.config.vertex_location,authentication='SERVICE_IDENTITY' if __import__('os').getenv('K_SERVICE') or __import__('os').getenv('CLOUD_RUN_JOB') else 'ADC')
-        if self.c is None:self.memory[p.provider_name]=state;return
+        self.memory[p.provider_name]=state
+        if self.c is None:return
         c=self.c
-        if getattr(c,'backend',None)=='postgres':c.execute('SELECT pg_advisory_xact_lock(691945612)')
-        row=c.execute('SELECT configuration_json FROM acquisition_preferences WHERE id=1').fetchone();config=json.loads(row[0]) if row else {};config.setdefault('ai_providers',{})[p.provider_name]=state
-        c.execute('INSERT INTO acquisition_preferences(id,configuration_json,updated_by,updated_at) VALUES(1,?,?,?) ON CONFLICT(id) DO UPDATE SET configuration_json=excluded.configuration_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at',(json.dumps(config),'ai-router',now()))
-        c.execute('INSERT INTO acquisition_provider_health(provider,status,checked_at,error_code) VALUES(?,?,?,?) ON CONFLICT(provider) DO UPDATE SET status=excluded.status,checked_at=excluded.checked_at,error_code=excluded.error_code',('vertex' if p.provider_name=='VERTEX_AI' else 'gemini',status,now(),error));c.commit()
+        from app.config.settings import get_settings
+        if get_settings().database_schema_profile!='intent-radar-v1':
+            try:
+                if getattr(c,'backend',None)=='postgres':c.execute('SELECT pg_advisory_xact_lock(691945612)')
+                row=c.execute('SELECT configuration_json FROM acquisition_preferences WHERE id=1').fetchone();config=json.loads(row[0]) if row else {};config.setdefault('ai_providers',{})[p.provider_name]=state
+                c.execute('INSERT INTO acquisition_preferences(id,configuration_json,updated_by,updated_at) VALUES(1,?,?,?) ON CONFLICT(id) DO UPDATE SET configuration_json=excluded.configuration_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at',(json.dumps(config),'ai-router',now()))
+            except Exception:
+                pass
+        try:
+            c.execute('INSERT INTO acquisition_provider_health(provider,status,checked_at,error_code) VALUES(?,?,?,?) ON CONFLICT(provider) DO UPDATE SET status=excluded.status,checked_at=excluded.checked_at,error_code=excluded.error_code',('vertex' if p.provider_name=='VERTEX_AI' else 'gemini',status,now(),error));c.commit()
+        except Exception:
+            pass
     async def structured(self,instruction,value,model,*,bypass_cooldown=False,attempts_per_provider=3,**options):
         # Application/schema construction runs outside provider-failure handling.
         if not isinstance(model.model_json_schema(),dict):raise AiApplicationError('Invalid internal AI schema.')

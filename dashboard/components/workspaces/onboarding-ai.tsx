@@ -69,12 +69,53 @@ type State = {
 type StepKey = 'welcome' | 'company' | 'icp' | 'research' | 'plan' | 'ready';
 
 const ONBOARDING_STEPS = [
-  { key: 'welcome' as const, stepNum: 1, title: 'Understand Your Business', short: 'Business' },
-  { key: 'company' as const, stepNum: 2, title: 'Review AI Business Profile', short: 'Profile' },
-  { key: 'icp' as const, stepNum: 3, title: 'Discover Ideal Customers', short: 'Audience' },
-  { key: 'research' as const, stepNum: 4, title: 'Prepare Your Research', short: 'Research' },
-  { key: 'plan' as const, stepNum: 5, title: 'Choose Your Plan & Payment', short: 'Plan' },
+  { key: 'welcome' as const, stepNum: 1, title: 'Your Business', short: 'Business' },
+  { key: 'company' as const, stepNum: 2, title: 'Business Profile', short: 'Profile' },
+  { key: 'icp' as const, stepNum: 3, title: 'Ideal Customers', short: 'Customers' },
+  { key: 'research' as const, stepNum: 4, title: 'Research Setup', short: 'Research' },
+  { key: 'plan' as const, stepNum: 5, title: 'Plan & Payment', short: 'Plan' },
 ];
+
+type UnifiedJobStatus = 'idle' | 'queued' | 'reading_website' | 'analyzing' | 'validating' | 'ready' | 'failed' | 'cancelled';
+
+interface DerivedStatus {
+  code: UnifiedJobStatus;
+  label: string;
+  stageName: string;
+  isBusy: boolean;
+  isFailed: boolean;
+  isSuccess: boolean;
+}
+
+function deriveJobStatus(job?: Review | null): DerivedStatus {
+  if (!job) return { code: 'idle', label: 'Ready', stageName: 'Ready', isBusy: false, isFailed: false, isSuccess: false };
+  if (job.status === 'FAILED') {
+    return { code: 'failed', label: 'Analysis failed', stageName: 'Analysis did not complete', isBusy: false, isFailed: true, isSuccess: false };
+  }
+  if (job.status === 'CANCELLED') {
+    return { code: 'cancelled', label: 'Cancelled', stageName: 'Analysis cancelled', isBusy: false, isFailed: true, isSuccess: false };
+  }
+  if (job.status === 'READY') {
+    return { code: 'ready', label: 'Analysis ready', stageName: 'Analysis ready for review', isBusy: false, isFailed: false, isSuccess: true };
+  }
+  if (job.status === 'QUEUED') {
+    return { code: 'queued', label: 'Queued in worker', stageName: 'Connecting to public website...', isBusy: true, isFailed: false, isSuccess: false };
+  }
+  if (job.status === 'RUNNING') {
+    const stage = (job.progress_stage || '').toUpperCase();
+    if (stage === 'READING_WEBSITE' || stage === 'RENDERING_WEBSITE') {
+      return { code: 'reading_website', label: 'Reading website', stageName: 'Reading accessible public pages...', isBusy: true, isFailed: false, isSuccess: false };
+    }
+    if (stage === 'ANALYZING' || stage === 'CHECKING_EVIDENCE') {
+      return { code: 'analyzing', label: 'Extracting profile', stageName: 'Extracting offerings & positioning...', isBusy: true, isFailed: false, isSuccess: false };
+    }
+    if (stage === 'VALIDATING') {
+      return { code: 'validating', label: 'Validating results', stageName: 'Validating evidence against source...', isBusy: true, isFailed: false, isSuccess: false };
+    }
+    return { code: 'analyzing', label: 'Analyzing', stageName: 'Analyzing with AI gateway...', isBusy: true, isFailed: false, isSuccess: false };
+  }
+  return { code: 'idle', label: 'Ready', stageName: 'Ready', isBusy: false, isFailed: false, isSuccess: false };
+}
 
 const OBJECTIVES = [
   ['UNDERSTAND_CUSTOMER_NEEDS', 'Discover customer problems', 'Find recurring pain points and unresolved needs in public discussions.'],
@@ -224,6 +265,37 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
+  // Auto-populate draft & notify Copilot when website analysis completes
+  useEffect(() => {
+    if (companyReview.data?.status === 'READY' && companyReview.data?.preview?.suggestions) {
+      const s = companyReview.data.preview.suggestions;
+      setDraft(v => ({
+        ...v,
+        name: (v.name && v.name !== 'Acme Corp') ? v.name : (s.name || v.name),
+        website: v.website || s.website || (website.trim().startsWith('http') ? website.trim() : 'https://' + website.trim()),
+        description: v.description ? v.description : (s.description || ''),
+        industry: v.industry ? v.industry : (s.industry || ''),
+        positioning: v.positioning ? v.positioning : (s.positioning || ''),
+        specialties: v.specialties?.length ? v.specialties : (s.specialties || []),
+        target_customers: v.target_customers?.length ? v.target_customers : (s.target_customers || []),
+        target_industries: v.target_industries?.length ? v.target_industries : (s.target_industries || []),
+        products_services: v.products_services?.length ? v.products_services : (s.products_services || [])
+      }));
+      setSelectedFields(Object.keys(s));
+      setNotice('Website analyzed successfully. AI extracted your company profile and offerings for review.');
+      setMessages(prev => {
+        if (prev.some(m => m.text.includes('Website analysis complete!'))) return prev;
+        return [
+          ...prev,
+          {
+            role: 'assistant',
+            text: `Website analysis complete! I've extracted "${s.name || 'your company'}" and its core offerings into your profile. Review the cards on the left, make any edits, and click "Approve profile" to discover your 5 ideal customer profiles.`
+          }
+        ];
+      });
+    }
+  }, [companyReview.data?.status, companyReview.data?.id]);
+
   // Load ICP candidates when review is ready
   useEffect(() => {
     if (icpReview.data?.preview?.candidates && icpReview.data.preview.candidates.length > 0) {
@@ -243,6 +315,17 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
         ].slice(0, 8);
         if (extractedTerms.length) setKeywords(extractedTerms.join('\n'));
       }
+
+      setMessages(prev => {
+        if (prev.some(m => m.text.includes('5 Ideal Customer Profiles generated!'))) return prev;
+        return [
+          ...prev,
+          {
+            role: 'assistant',
+            text: '5 Ideal Customer Profiles generated! I\'ve structured 5 distinct buyer segments with target roles, company tiers, and buying triggers. Select which ones to target and mark your primary ICP.'
+          }
+        ];
+      });
     }
   }, [icpReview.data?.id, icpReview.data?.preview]);
 
@@ -271,12 +354,14 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
       setError('Please enter a public HTTPS company website.');
       return;
     }
+    const normWebsite = website.trim().startsWith('http') ? website.trim() : 'https://' + website.trim();
+    setDraft(v => ({ ...v, website: normWebsite }));
     await perform(async () => {
       const result = await api<{ review: Review; progress: Progress }>('/analyze', {
         revision: progress.revision,
-        website: website.trim().startsWith('http') ? website.trim() : 'https://' + website.trim(),
+        website: normWebsite,
         objective,
-        request_id: id('website:' + website)
+        request_id: id('website:' + normWebsite)
       });
       progressSaved(result.progress);
       client.setQueryData(['onboarding-review', result.review.id], result.review);
@@ -284,10 +369,10 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
       setView('company');
       setMessages(prev => [
         ...prev,
-        { role: 'user', text: `Analyze my website: ${website}` },
+        { role: 'user', text: `Analyze my website: ${normWebsite}` },
         {
           role: 'assistant',
-          text: `Analyzing ${website}... I'm reading public pages and extracting your value proposition, offerings, and target segments. Review the cards on the left as they populate.`
+          text: `Analyzing ${normWebsite}... I'm reading public pages and extracting your value proposition, offerings, and target segments. Review the cards on the left as they populate.`
         }
       ]);
     });
@@ -515,10 +600,22 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
     }
   }
 
-  // Ask AI Copilot Question
+  // Ask AI Copilot Question (Bidirectional)
   async function askAssistant(promptText?: string) {
     const q = (promptText || chatQuestion).trim();
     if (!q || chatPending) return;
+
+    if (q.toLowerCase().includes('generate') && (q.toLowerCase().includes('icp') || q.toLowerCase().includes('customer'))) {
+      setChatQuestion('');
+      setMessages(prev => [
+        ...prev,
+        { role: 'user', text: q },
+        { role: 'assistant', text: 'Generating 5 Ideal Customer Profiles for your approved company offerings...' }
+      ]);
+      await prepareICP(progress.revision);
+      return;
+    }
+
     setChatPending(true);
     setChatQuestion('');
     setMessages(prev => [...prev, { role: 'user', text: q }]);
@@ -527,7 +624,8 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
       const reqId = crypto.randomUUID();
       const res = await api<{ answer?: string; mode: string; job: Review | null }>('/assistant', {
         prompt: q,
-        request_id: reqId
+        request_id: reqId,
+        draft
       });
       if (res.answer) {
         setMessages(prev => [...prev, { role: 'assistant', text: res.answer || '', mode: res.mode }]);
@@ -563,6 +661,14 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
 
   return (
     <div className="ai-onboarding-shell">
+      {/* Ambient Pastel Gradient Mesh & Dot Matrix Background Layer */}
+      <div className="ai-onboarding-ambient" aria-hidden="true">
+        <div className="ai-onboarding-glow-1" />
+        <div className="ai-onboarding-glow-2" />
+        <div className="ai-onboarding-glow-3" />
+        <div className="ai-onboarding-dot-mesh" />
+      </div>
+
       {/* Top Header & Horizontal Progress Rail */}
       <header className="ai-onboarding-topbar">
         <div className="ai-onboarding-topbar-brand">
@@ -813,71 +919,159 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
                   </div>
                 )}
 
-                {/* Inline Profile Editor */}
-                <details className="ai-setup-editor-wrap mt-6 pt-4 border-t border-border" open>
-                  <summary className="font-semibold text-sm text-foreground cursor-pointer flex items-center justify-between mb-4">
-                    <span>Edit company details and offerings</span>
-                    <span className="text-xs text-primary">Toggle fields</span>
-                  </summary>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(['name', 'website', 'industry', 'description', 'positioning'] as const).map(key => {
-                      const isWide = key === 'description' || key === 'positioning';
-                      const isInvalid = isLowQualityValue(draft[key]);
-                      return (
-                        <div key={key} className={isWide ? 'md:col-span-2' : ''}>
-                          <label className="block text-xs font-semibold text-foreground mb-1.5">
-                            {companyFieldLabels[key]}
-                          </label>
-                          {key === 'description' || key === 'positioning' ? (
-                            <textarea
-                              aria-label={companyFieldLabels[key]}
-                              rows={3}
-                              value={draft[key]}
-                              maxLength={1000}
-                              onChange={e => setDraft(v => ({ ...v, [key]: e.target.value }))}
-                              className={`ai-textarea ${isInvalid ? 'border-destructive' : ''}`}
-                              placeholder={key === 'description' ? 'Summarize your business and value proposition...' : 'e.g. Buyer-intent intelligence for high-growth B2B teams.'}
-                            />
-                          ) : (
-                            <input
-                              aria-label={companyFieldLabels[key]}
-                              value={draft[key]}
-                              maxLength={key === 'website' ? 600 : 120}
-                              onChange={e => setDraft(v => ({ ...v, [key]: e.target.value }))}
-                              className={`ai-input ${isInvalid ? 'border-destructive' : ''}`}
-                            />
-                          )}
-                          {isInvalid && (
-                            <p className="text-[11px] text-destructive mt-1 flex items-center gap-1">
-                              <AlertCircle size={12} /> Please enter a meaningful description (avoid placeholders like 'idk').
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-
-                    {(['target_customers', 'target_industries', 'countries_served'] as const).map(key => (
-                      <div key={key}>
-                        <label className="block text-xs font-semibold text-foreground mb-1.5">
-                          {companyFieldLabels[key]}
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={draft[key].join('\n')}
-                          onChange={e => setDraft(v => ({ ...v, [key]: e.target.value.split('\n') }))}
-                          className="ai-textarea"
-                          placeholder="One per line..."
-                        />
-                        <span className="text-[10px] text-muted-foreground block mt-1">One per line. Leave empty for global/unrestricted.</span>
+                {/* 4 Structured Profile Cards */}
+                <div className="space-y-4 my-6">
+                  {/* Card 1: Company Overview */}
+                  <div className="ai-profile-card">
+                    <div className="ai-profile-card-header">
+                      <div className="ai-profile-card-title">
+                        <Building2 size={16} className="text-primary" />
+                        <span>Company Overview</span>
                       </div>
-                    ))}
+                      <span className="text-[11px] text-muted-foreground">Basic business identity</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-foreground mb-1.5">
+                          {companyFieldLabels['name']}
+                        </label>
+                        <input
+                          aria-label={companyFieldLabels['name']}
+                          value={draft.name}
+                          maxLength={120}
+                          onChange={e => setDraft(v => ({ ...v, name: e.target.value }))}
+                          className={`ai-input ${isLowQualityValue(draft.name) ? 'border-destructive' : ''}`}
+                          placeholder="e.g. PlaneByte"
+                        />
+                        {isLowQualityValue(draft.name) && (
+                          <p className="text-[11px] text-destructive mt-1 flex items-center gap-1">
+                            <AlertCircle size={12} /> Enter a valid company name.
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-foreground mb-1.5">
+                          {companyFieldLabels['website']}
+                        </label>
+                        <input
+                          aria-label={companyFieldLabels['website']}
+                          value={draft.website}
+                          maxLength={600}
+                          onChange={e => setDraft(v => ({ ...v, website: e.target.value }))}
+                          className="ai-input"
+                          placeholder="https://example.com"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-foreground mb-1.5">
+                          {companyFieldLabels['industry']}
+                        </label>
+                        <input
+                          aria-label={companyFieldLabels['industry']}
+                          value={draft.industry}
+                          maxLength={120}
+                          onChange={e => setDraft(v => ({ ...v, industry: e.target.value }))}
+                          className="ai-input"
+                          placeholder="e.g. B2B SaaS / Sales Intelligence"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Products & Services Sub-Section */}
-                  <div className="mt-6 pt-4 border-t border-border">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold text-sm text-foreground">Products & Services</h4>
+                  {/* Card 2: Business Description & Positioning */}
+                  <div className="ai-profile-card">
+                    <div className="ai-profile-card-header">
+                      <div className="ai-profile-card-title">
+                        <Sparkles size={16} className="text-primary" />
+                        <span>Business Description & Value Proposition</span>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">Powers intent matching</span>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <div className="ai-field-header">
+                          <label className="text-xs font-semibold text-foreground">
+                            {companyFieldLabels['description']}
+                          </label>
+                          <button
+                            type="button"
+                            className="ai-improve-btn"
+                            disabled={!draft.description.trim() || chatPending}
+                            onClick={() => void askAssistant(`Help polish and improve this business description for buyer-intent matching:\n"${draft.description}"`)}
+                          >
+                            <Sparkles size={11} /> Improve with AI
+                          </button>
+                        </div>
+                        <textarea
+                          aria-label={companyFieldLabels['description']}
+                          rows={3}
+                          value={draft.description}
+                          maxLength={1000}
+                          onChange={e => setDraft(v => ({ ...v, description: e.target.value }))}
+                          className={`ai-textarea ${isLowQualityValue(draft.description) ? 'border-destructive' : ''}`}
+                          placeholder="Summarize your business, core value proposition, and customer transformation..."
+                        />
+                        {isLowQualityValue(draft.description) && (
+                          <p className="text-[11px] text-destructive mt-1 flex items-center gap-1">
+                            <AlertCircle size={12} /> Please enter a meaningful description (avoid placeholders like 'idk').
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <div className="ai-field-header">
+                            <label className="text-xs font-semibold text-foreground">
+                              {companyFieldLabels['positioning']}
+                            </label>
+                            <button
+                              type="button"
+                              className="ai-improve-btn"
+                              disabled={!draft.positioning.trim() || chatPending}
+                              onClick={() => void askAssistant(`Make this positioning statement punchier and more compelling for B2B buyers:\n"${draft.positioning}"`)}
+                            >
+                              <Sparkles size={11} /> Polish with AI
+                            </button>
+                          </div>
+                          <textarea
+                            aria-label={companyFieldLabels['positioning']}
+                            rows={3}
+                            value={draft.positioning}
+                            maxLength={1000}
+                            onChange={e => setDraft(v => ({ ...v, positioning: e.target.value }))}
+                            className="ai-textarea"
+                            placeholder="e.g. Real-time buyer-intent intelligence and market demand discovery for high-growth B2B teams."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-foreground mb-1.5">
+                            {companyFieldLabels['specialties']}
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={draft.specialties.join('\n')}
+                            onChange={e => setDraft(v => ({ ...v, specialties: e.target.value.split('\n') }))}
+                            className="ai-textarea"
+                            placeholder="One specialty per line (e.g. Intent Data, Competitor Tracking, Lead Discovery)..."
+                          />
+                          <span className="text-[10px] text-muted-foreground block mt-1">One per line. Used to refine discussion search scopes.</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Products & Services */}
+                  <div className="ai-profile-card">
+                    <div className="ai-profile-card-header">
+                      <div className="ai-profile-card-title">
+                        <Layers size={16} className="text-primary" />
+                        <span>Products & Services ({draft.products_services.length})</span>
+                      </div>
                       <Button
                         type="button"
                         variant="outline"
@@ -940,7 +1134,62 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
                       ))}
                     </div>
                   </div>
-                </details>
+
+                  {/* Card 4: Target Customers & Markets */}
+                  <div className="ai-profile-card">
+                    <div className="ai-profile-card-header">
+                      <div className="ai-profile-card-title">
+                        <Users2 size={16} className="text-primary" />
+                        <span>Target Customers & Markets</span>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">Informs Step 3 ICP generation</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-foreground mb-1.5">
+                          {companyFieldLabels['target_customers']}
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={draft.target_customers.join('\n')}
+                          onChange={e => setDraft(v => ({ ...v, target_customers: e.target.value.split('\n') }))}
+                          className="ai-textarea"
+                          placeholder="e.g. B2B Founders&#10;Growth Leads&#10;Agency Owners"
+                        />
+                        <span className="text-[10px] text-muted-foreground block mt-1">One per line. Roles or buyer personas.</span>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-foreground mb-1.5">
+                          {companyFieldLabels['target_industries']}
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={draft.target_industries.join('\n')}
+                          onChange={e => setDraft(v => ({ ...v, target_industries: e.target.value.split('\n') }))}
+                          className="ai-textarea"
+                          placeholder="e.g. Software & Technology&#10;Marketing Agencies&#10;Fintech"
+                        />
+                        <span className="text-[10px] text-muted-foreground block mt-1">One per line. Target verticals.</span>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-foreground mb-1.5">
+                          {companyFieldLabels['countries_served']}
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={draft.countries_served.join('\n')}
+                          onChange={e => setDraft(v => ({ ...v, countries_served: e.target.value.split('\n') }))}
+                          className="ai-textarea"
+                          placeholder="Leave empty for global/unrestricted..."
+                        />
+                        <span className="text-[10px] text-muted-foreground block mt-1">One per line. Leave empty for global reach.</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 <div className="ai-actions mt-8">
                   <Button
@@ -1582,6 +1831,9 @@ function CopilotPanel({
     messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [messages.length]);
 
+  const activeJob = currentStep === 'icp' ? icpReview : companyReview;
+  const jobStatus = deriveJobStatus(activeJob);
+
   const stepPromptChips: Record<StepKey, string[]> = {
     welcome: [
       'What details will you research from my site?',
@@ -1630,27 +1882,45 @@ function CopilotPanel({
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="ai-status-dot" />
+          <span className={`ai-status-dot ${jobStatus.isBusy ? 'is-busy' : jobStatus.isFailed ? 'is-failed' : jobStatus.isSuccess ? 'is-ready' : ''}`} />
           <span className="text-[11px] font-medium text-muted-foreground">
-            {companyReview?.status === 'RUNNING' || icpReview?.status === 'RUNNING' ? 'Analyzing' : 'Ready'}
+            {jobStatus.label}
           </span>
         </div>
       </div>
 
       {/* Active Job Tracker Card */}
-      {(companyReview?.status === 'RUNNING' || icpReview?.status === 'RUNNING') && (
+      {jobStatus.isBusy && (
         <div className="m-3 p-3 rounded-xl border border-primary/30 bg-primary/5 animate-pulse">
           <div className="flex items-center gap-2 text-xs font-semibold text-primary">
             <Sparkles size={14} className="animate-spin" />
-            <span>
-              {companyReview?.status === 'RUNNING'
-                ? 'Reading public company pages...'
-                : 'Generating 5 ideal customer segments...'}
-            </span>
+            <span>{jobStatus.stageName}</span>
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">
             Running through live AI gateway. You can ask questions while this processes.
           </p>
+        </div>
+      )}
+
+      {/* Failure Recovery Card */}
+      {jobStatus.isFailed && (
+        <div className="m-3 p-3 rounded-xl border border-destructive/30 bg-destructive/5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-destructive">
+            <AlertCircle size={14} />
+            <span>{jobStatus.stageName}</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Retry analysis or continue editing manually. Your draft remains safe.
+          </p>
+          <div className="flex gap-2 mt-2">
+            <button
+              type="button"
+              className="ai-chat-action-btn"
+              onClick={() => currentStep === 'icp' ? onPrepareICP() : onAnalyze()}
+            >
+              Retry analysis
+            </button>
+          </div>
         </div>
       )}
 
@@ -1757,9 +2027,10 @@ function ReviewStatusCard({
 
   if (!review && !query.error) return null;
 
-  const isFailed = review?.status === 'FAILED';
-  const isRunning = review?.status === 'RUNNING' || review?.status === 'QUEUED';
-  const isReady = review?.status === 'READY';
+  const derived = deriveJobStatus(review);
+  const isFailed = derived.isFailed || review?.status === 'FAILED';
+  const isRunning = derived.isBusy || ['QUEUED', 'RUNNING'].includes(review?.status || '');
+  const isReady = derived.isSuccess || review?.status === 'READY';
 
   return (
     <div className={`ai-job-status-card p-4 rounded-xl border mb-6 ${isFailed ? 'border-destructive/40 bg-destructive/5' : isReady ? 'border-primary/40 bg-primary/5' : 'border-border bg-muted/40'}`}>
@@ -1770,17 +2041,7 @@ function ReviewStatusCard({
             <strong className="text-xs font-semibold text-foreground block">
               {query.error
                 ? 'Could not refresh analysis'
-                : review?.status === 'QUEUED'
-                  ? 'Analysis queued...'
-                  : isRunning
-                    ? review?.progress_stage === 'READING_WEBSITE'
-                      ? 'Reading permitted public pages...'
-                      : 'Preparing reviewable recommendations...'
-                    : isReady
-                      ? 'Analysis ready for review'
-                      : review?.status === 'CANCELLED'
-                        ? 'Analysis cancelled'
-                        : 'Analysis did not complete'}
+                : derived.stageName}
             </strong>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {isFailed
@@ -1793,7 +2054,7 @@ function ReviewStatusCard({
         </div>
 
         <div className="flex items-center gap-2">
-          {review?.can_retry && (
+          {(review?.can_retry || isFailed) && (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => handleControl('RETRY')}>
               Retry
             </Button>

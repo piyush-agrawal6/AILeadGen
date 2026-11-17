@@ -1616,20 +1616,22 @@ html:not(.dark) .text-primary {
 }
 
 .onboarding-content {
-  width: min(1080px, 100%);
+  width: 100%;
+  max-width: 1560px;
   margin: 0 auto;
-  padding: 46px 28px 24px
+  padding: 2rem clamp(1.5rem, 3vw, 2.75rem) 3.5rem;
 }
 
 .onboarding-bottom {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  width: min(1080px, 100%);
+  width: 100%;
+  max-width: 1560px;
   margin: auto;
-  padding: 25px 28px;
-  font-size: 11px;
-  color: hsl(var(--muted-foreground))
+  padding: 1.5rem clamp(1.5rem, 3vw, 2.75rem);
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
 }
 
 .onboarding-bottom a:hover {
