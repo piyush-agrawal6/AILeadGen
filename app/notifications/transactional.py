@@ -9,7 +9,7 @@ from app.database.connection import db_session
 from app.database.prospects import now
 from app.accounts import security
 
-PURPOSES=frozenset(('SIGNUP_OTP','SIGNUP_NOTICE','SET_PASSWORD_OTP','PASSWORD_RESET','PASSWORD_CHANGED','TEAM_INVITATION','PAYMENT_CONFIRMED','RENEWAL_REMINDER','ACCESS_EXPIRED','WORKSPACE_NOTICE'))
+PURPOSES=frozenset(('SIGNUP_OTP','SIGNUP_NOTICE','SET_PASSWORD_OTP','PASSWORD_RESET','PASSWORD_CHANGED','TEAM_INVITATION','PAYMENT_CONFIRMED','RENEWAL_REMINDER','ACCESS_EXPIRED','WORKSPACE_NOTICE','SUBSCRIPTION_STATUS'))
 
 def configured():
     s=get_settings();sender=s.resend_from_email
@@ -53,6 +53,9 @@ def render(purpose,payload):
     elif purpose=='WORKSPACE_NOTICE':
         subject='A PlaneByte workspace update'
         text=payload['summary']+'\nReview your authorized workspace at https://app.planebyte.com/intent-radar.'
+    elif purpose=='SUBSCRIPTION_STATUS':
+        subject='Your PlaneByte subscription update'
+        text=payload['summary']+'\nReview confirmed dates, invoices and cancellation at https://app.planebyte.com/billing. Never send card details, passwords or OTPs to support.'
     else:raise ValueError('Unsupported transactional purpose.')
     if len(text)>5000:raise ValueError('Notification exceeds its bound.')
     return subject,text,'<div style="font-family:system-ui;line-height:1.6;max-width:600px">'+''.join('<p>'+html.escape(line)+'</p>' for line in text.split('\n'))+'</div>'
@@ -94,6 +97,9 @@ def authorized(c,row):
         return True
     # Billing and optional workspace notifications are authorized by their own
     # immutable payment/access records; no arbitrary message endpoint exists.
+    if row['purpose']=='SUBSCRIPTION_STATUS':
+        from app.api.organization import membership_role
+        return bool(get_settings().subscription_onboarding_required and membership_role(c,row['account_email'],row['organization_id'])=='OWNER' and c.execute('SELECT 1 FROM subscription_contracts WHERE id=? AND organization_id=? AND created_by=? AND verified_at IS NOT NULL',(row['authority_id'],row['organization_id'],row['account_email'])).fetchone())
     from app.billing.access_periods import notification_authorized
     return notification_authorized(c,row)
 

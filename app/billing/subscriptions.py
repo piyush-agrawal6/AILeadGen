@@ -1,0 +1,215 @@
+"""Workspace-owned subscription orchestration; provider redirects grant nothing."""
+import hashlib,json,time,uuid
+from datetime import datetime,timezone
+from typing import Literal
+from fastapi import HTTPException
+from pydantic import BaseModel,ConfigDict,Field
+from app.billing import commercial,creem,subscription_access as access
+from app.config.settings import get_settings
+from app.platform.context import current
+from app.api.organization import membership_role
+from app.database.connection import db_session
+from app.database.prospects import now
+from app.developer.keys import lock
+
+class Checkout(BaseModel):
+ model_config=ConfigDict(extra='forbid')
+ plan_code:Literal['starter','growth','scale']
+ variant:Literal['paid','trial']
+ request_id:uuid.UUID
+ terms_version:str=Field(min_length=1,max_length=100)
+ accepted_terms:Literal[True]
+ accepted_recurring:Literal[True]
+
+class Action(BaseModel):
+ model_config=ConfigDict(extra='forbid')
+ request_id:uuid.UUID
+
+class BillingCountry(BaseModel):
+ model_config=ConfigDict(extra='forbid')
+ country:str=Field(pattern=r'^[A-Z]{2}$')
+
+def request_country(c,body):
+ ctx=owner(c);lock(c,ctx.organization_id)
+ from app.config.locations import country
+ try:iso=country(body.country).alpha_2
+ except Exception:raise HTTPException(422,'Choose a supported billing country.') from None
+ old=profile(c,ctx.organization_id)
+ if old and old['country']!=iso and (old['status']=='VERIFIED' or c.execute('SELECT 1 FROM subscription_workspace_slots WHERE organization_id=?',(ctx.organization_id,)).fetchone()):raise HTTPException(409,'An existing verified country or subscription requires billing review; providers cannot be switched by editing this field.')
+ c.execute("INSERT INTO subscription_billing_profiles(organization_id,country,status,updated_at) VALUES(?,?,'PENDING',?) ON CONFLICT(organization_id) DO UPDATE SET country=excluded.country,updated_at=excluded.updated_at",(ctx.organization_id,iso,now()))
+ return {'country':iso,'verified':bool(old and old['status']=='VERIFIED'),'message':'Billing country is saved for verification. It does not authorize payment or change an existing provider.'}
+
+def owner(c):
+ ctx=current()
+ if membership_role(c,ctx.actor,ctx.organization_id)!='OWNER':raise HTTPException(403,'Only the active workspace owner can manage subscriptions.')
+ return ctx
+
+def trial_available(c,actor):
+ from app.accounts.policy import company_domain
+ domain=company_domain(actor)
+ return not c.execute('SELECT 1 FROM launch_trial_claims WHERE user_id=? OR company_domain=?',(actor,domain)).fetchone() and not c.execute('SELECT 1 FROM subscription_trials WHERE user_id=? OR company_domain=?',(actor,domain)).fetchone()
+
+def profile(c,org):
+ row=c.execute('SELECT * FROM subscription_billing_profiles WHERE organization_id=?',(org,)).fetchone()
+ return dict(row) if row else None
+
+def route(c,org):
+ billing=profile(c,org)
+ if not billing or billing['status']!='VERIFIED' or not billing['verified_at'] or not billing['verification_reference'] or not billing['verification_source']:
+  return None,'Your billing country must be verified before a payment provider can be selected. Editing a country field does not verify it.'
+ from app.config.locations import country
+ try:iso=country(billing['country']).alpha_2
+ except Exception:return None,'The verified billing country requires review.'
+ if iso!=billing['country']:return None,'The verified billing country requires review.'
+ return 'payu' if iso=='IN' else 'creem',None
+
+def blockers(c,org,variant):
+ s=get_settings();provider,reason=route(c,org);result=[reason] if reason else []
+ if provider=='payu':
+  result.append('PayU India checkout requires approved INR plan prices and verified merchant capabilities. No automatic card trial is available without an approved recurring mandate.')
+ if provider in ('creem',None):
+  try:creem.key_for(s.creem_environment)
+  except creem.Unavailable:result.append('Creem '+s.creem_environment+' connectivity is not configured.')
+  if not s.subscription_terms_version:result.append('The updated card-trial and automatic-renewal terms await final owner approval.')
+  if s.creem_environment=='production':
+   proof=c.execute("SELECT * FROM subscription_provider_readiness WHERE provider='creem' AND environment='production'").fetchone()
+   if not proof or not proof['checkout_verified'] or not proof['merchant_verified'] or not proof['recurring_verified'] or not proof['verification_reference'] or not proof['verified_at'] or variant=='trial' and not proof['trial_verified']:
+    result.append('Live Creem checkout is awaiting genuine sandbox acceptance and merchant verification.')
+   if not s.subscription_checkout_enabled:result.append('Live checkout is not activated. No card or payment will be requested.')
+  elif org not in {v.strip() for v in s.billing_test_workspaces.split(',') if v.strip()}:result.append('Sandbox checkout is restricted to explicitly approved test workspaces.')
+ if variant=='trial' and not trial_available(c,current().actor):result.append('A trial has already been used by this verified account or company domain. Choose a paid plan.')
+ return list(dict.fromkeys(result))
+
+def public_contract(row):
+ if not row:return None
+ return {k:row[k] for k in ('id','provider','environment','plan_code','status','period_start','period_end','trial_start','trial_end','next_charge_at','cancel_at','cancel_confirmed_at','recurring_authorized','verified_at')}
+
+def summary(c):
+ ctx=current()
+ if not membership_role(c,ctx.actor,ctx.organization_id):raise HTTPException(403,'Active workspace membership required.')
+ if not access.enabled():return {'enabled':False,'required':False,'active':False,'plans':commercial.catalog()['plans'],'blockers':['Subscription onboarding is not enabled.']}
+ org=ctx.organization_id;s=get_settings();active=access.product_grant(c,org)
+ row=c.execute('SELECT p.* FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id WHERE p.organization_id=? AND p.environment=?',(org,s.creem_environment)).fetchone()
+ provider,reason=route(c,org);billing=profile(c,org)
+ history=[dict(r) for r in c.execute('SELECT provider,environment,payment_id,amount_minor,currency,status,period_start,period_end,receipt_url,recorded_at FROM subscription_payments WHERE organization_id=? ORDER BY recorded_at DESC,payment_id DESC LIMIT 50',(org,)).fetchall()]
+ return {'enabled':True,'required':access.required(c,org),'active':bool(active),'provider':provider,'country':billing['country'] if billing else None,'country_verified':bool(provider),
+  'terms_version':s.subscription_terms_version,'policy_version':access.POLICY,'trial_seconds':access.TRIAL_SECONDS,'trial_limits':access.TRIAL_LIMITS,
+  'trial_eligible':trial_available(c,ctx.actor),'plans':commercial.catalog()['plans'],'can_manage':membership_role(c,ctx.actor,org)=='OWNER',
+  'contract':public_contract(row),'history':history,
+  'checkouts':[dict(r) for r in c.execute('SELECT id,provider,environment,plan_code,variant,status,created_at FROM subscription_checkouts WHERE organization_id=? ORDER BY created_at DESC,id DESC LIMIT 10',(org,)).fetchall()],
+  'paid_blockers':blockers(c,org,'paid'),'trial_blockers':blockers(c,org,'trial'),
+  'renewal_disclosure':'The selected monthly plan renews automatically until canceled. The secure hosted checkout shows the final amount, currency and renewal date before authorization. Cancel in Settings → Billing & Subscription or the provider billing portal.',
+  'tax_disclosure':'Creem is the merchant of record for its checkout. Its configured USD prices include applicable taxes; the provider calculates and discloses the tax breakdown. PlaneByte does not invent a GSTIN or add unverified GST.'}
+
+def start(body):
+ s=get_settings()
+ with db_session() as c:
+  ctx=owner(c);org=ctx.organization_id
+  if not access.enabled():raise HTTPException(503,'Subscription onboarding is unavailable.')
+  errors=blockers(c,org,body.variant)
+  if errors:raise HTTPException(409,{'code':'CHECKOUT_NOT_READY','message':errors[0],'blockers':errors})
+  if body.terms_version!=s.subscription_terms_version:raise HTTPException(409,'Review the current automatic-renewal terms.')
+  selected=commercial.plan(body.plan_code);provider,_=route(c,org)
+  if provider!='creem':raise HTTPException(409,'This provider payment path is not ready.')
+  billing=profile(c,org);mode=s.creem_environment;lock(c,org);lock(c,'subscription-actor:'+ctx.actor)
+  if c.execute("SELECT 1 FROM subscription_checkouts WHERE created_by=? AND organization_id<>? AND status IN ('CREATING','PENDING','COMPLETED','REVIEW') LIMIT 1",(ctx.actor,org)).fetchone():raise HTTPException(409,'An existing checkout belongs to another workspace. Complete or review that billing request before creating another subscription.')
+  digest=hashlib.sha256(json.dumps({**body.model_dump(mode='json'),'country':billing['country'],'mode':mode},sort_keys=True).encode()).hexdigest()
+  previous=c.execute('SELECT * FROM subscription_checkouts WHERE organization_id=? AND request_id=?',(org,str(body.request_id))).fetchone()
+  if previous:
+   if previous['request_hash']!=digest:raise HTTPException(409,'Checkout request was reused with different terms.')
+   return {'checkout_id':previous['id'],'status':previous['status'],'checkout_url':previous['checkout_url'] if previous['status']=='PENDING' else None}
+  if c.execute("SELECT 1 FROM subscription_checkouts WHERE organization_id=? AND status IN ('CREATING','PENDING','REVIEW')",(org,)).fetchone():raise HTTPException(409,'Review the existing checkout before starting another subscription.')
+  slot=c.execute('SELECT p.status FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id WHERE p.organization_id=? AND p.environment=?',(org,mode)).fetchone()
+  if slot and slot['status'] not in ('expired','canceled'):raise HTTPException(409,'Manage the existing subscription instead of creating a duplicate.')
+  from app.billing.access_periods import active as legacy
+  old=legacy(c,org)
+  if old and old['source_kind']=='PAYMENT':raise HTTPException(409,'Existing paid access requires a reviewed provider transition; no overlapping subscription is created.')
+  product=c.execute("SELECT * FROM subscription_products WHERE provider='creem' AND environment=? AND plan_code=? AND variant=?",(mode,body.plan_code,body.variant)).fetchone()
+  if not product or product['catalog_hash']!=commercial.catalog()['catalog_sha256']:raise HTTPException(503,'Provider product mapping is awaiting verification.')
+  key=str(uuid.uuid4());stamp=now();customer=c.execute("SELECT customer_id FROM subscription_customers WHERE provider='creem' AND environment=? AND organization_id=?",(mode,org)).fetchone()
+  if not customer and c.execute("SELECT 1 FROM subscription_customers p JOIN subscription_checkouts h ON h.customer_id=p.customer_id AND h.provider=p.provider AND h.environment=p.environment AND h.organization_id=p.organization_id WHERE p.provider='creem' AND p.environment=? AND h.created_by=? AND p.organization_id<>? LIMIT 1",(mode,ctx.actor,org)).fetchone():raise HTTPException(409,'An existing provider customer belongs to another workspace. A reviewed billing transition is required; no duplicate subscription is created.')
+  disclosure={'plan':body.plan_code,'amount_minor':selected['monthly_minor'],'currency':'USD','billing_interval':'every-month','trial_seconds':access.TRIAL_SECONDS if body.variant=='trial' else 0,'automatic_renewal':True,'accepted_recurring':True,'hosted_final_disclosure_required':True,'policy_version':access.POLICY}
+  c.execute("INSERT INTO subscription_checkouts(id,organization_id,created_by,provider,environment,plan_code,variant,request_id,request_hash,customer_id,product_id,status,country,currency,amount_minor,trial_days,terms_version,accepted_at,disclosure_json,created_at,updated_at) VALUES(?,?,?,'creem',?,?,?,?,?,?,?,'CREATING',?,'USD',?,?,?,?,?,?,?)",(key,org,ctx.actor,mode,body.plan_code,body.variant,str(body.request_id),digest,customer['customer_id'] if customer else None,product['product_id'],billing['country'],selected['monthly_minor'],3 if body.variant=='trial' else 0,body.terms_version,stamp,json.dumps(disclosure,sort_keys=True),stamp,stamp))
+ # CREATING is committed before any remote POST; uncertain creates never retry.
+ try:
+  creem.validate_product(creem.get_product(product['product_id'],mode=mode),selected,body.variant,mode)
+  if not customer:
+   created=creem.object_mode(creem.request('POST','/customers',mode=mode,body={'email':ctx.actor,'name':ctx.actor.split('@')[0],'external_id':org,'metadata':{'planebyte_workspace':org}}),mode)
+   customer_id=creem.identifier(created.get('id'),'cust_')
+   if created.get('external_id')!=org or created.get('email','').lower()!=ctx.actor:raise creem.Rejected('Provider customer mapping does not match.')
+   with db_session() as c:
+    lock(c,org)
+    existing=c.execute("SELECT organization_id FROM subscription_customers WHERE provider='creem' AND environment=? AND customer_id=?",(mode,customer_id)).fetchone()
+    if existing and existing['organization_id']!=org:raise creem.Rejected('Provider customer is already assigned to another workspace; billing review is required.')
+    c.execute("INSERT INTO subscription_customers(provider,environment,organization_id,customer_id,created_at) VALUES('creem',?,?,?,?)",(mode,org,customer_id,now()))
+    c.execute('UPDATE subscription_checkouts SET customer_id=? WHERE id=? AND organization_id=?',(customer_id,key,org))
+  else:customer_id=customer['customer_id']
+  checkout=creem.object_mode(creem.request('POST','/checkouts',mode=mode,body={'product_id':product['product_id'],'request_id':key,'units':1,'customer':{'id':customer_id},'success_url':'https://app.planebyte.com/onboarding?payment=returned','metadata':{'planebyte_checkout':key,'planebyte_workspace':org,'planebyte_policy':access.POLICY}}),mode)
+  checkout_id=creem.identifier(checkout.get('id'),'ch_');url=creem.hosted_url(checkout.get('checkout_url'))
+  # Persist a known provider ID before further reads. Ambiguous creates can be
+  # reconciled without repeating the non-idempotent POST.
+  with db_session() as c:
+   c.execute("UPDATE subscription_checkouts SET provider_checkout_id=?,updated_at=? WHERE id=? AND organization_id=? AND status='CREATING'",(checkout_id,now(),key,org))
+  verified=creem.object_mode(creem.get_checkout(checkout_id,mode=mode),mode)
+  expected={'planebyte_checkout':key,'planebyte_workspace':org,'planebyte_policy':access.POLICY}
+  if verified.get('id')!=checkout_id or verified.get('request_id')!=key or verified.get('product')!=product['product_id'] or any((verified.get('metadata') or {}).get(k)!=v for k,v in expected.items()):raise creem.Rejected('Provider checkout mapping does not match.')
+  if checkout.get('request_id') not in (None,key):raise creem.Rejected('Provider checkout mapping does not match.')
+ except (creem.Unavailable,creem.Rejected) as error:
+  import logging
+  logging.getLogger(__name__).warning('Subscription checkout unconfirmed (%s): %s',type(error).__name__,str(error))
+  with db_session() as c:c.execute("UPDATE subscription_checkouts SET status='REVIEW',updated_at=? WHERE id=? AND organization_id=? AND status='CREATING'",(now(),key,org))
+  raise HTTPException(502,'Checkout could not be confirmed. The saved request requires reconciliation; no access was granted.') from None
+ with db_session() as c:
+  c.execute("UPDATE subscription_checkouts SET provider_checkout_id=?,checkout_url=?,status='PENDING',updated_at=? WHERE id=? AND organization_id=? AND status='CREATING'",(checkout_id,url,now(),key,org))
+ return {'checkout_id':key,'status':'PENDING','checkout_url':url}
+
+def portal():
+ with db_session() as c:
+  ctx=owner(c);row=c.execute("SELECT customer_id FROM subscription_customers WHERE provider='creem' AND environment=? AND organization_id=?",(get_settings().creem_environment,ctx.organization_id)).fetchone()
+  if not row:raise HTTPException(409,'A verified provider customer is required before the billing portal is available.')
+ try:response=creem.request('POST','/customers/billing',body={'customer_id':row['customer_id']});url=creem.hosted_url(response.get('customer_portal_link'))
+ except (creem.Unavailable,creem.Rejected):raise HTTPException(502,'The provider billing portal is unavailable. Cancellation remains available here.') from None
+ return {'url':url}
+
+def cancel(body):
+ with db_session() as c:
+  ctx=owner(c);org=ctx.organization_id;lock(c,org)
+  row=c.execute('SELECT p.* FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id WHERE p.organization_id=? AND p.environment=?',(org,get_settings().creem_environment)).fetchone()
+  if not row:raise HTTPException(404,'No subscription exists for this workspace.')
+  previous=c.execute('SELECT * FROM subscription_cancellations WHERE organization_id=? AND request_id=?',(org,str(body.request_id))).fetchone()
+  if previous:return {'status':previous['status'],'effective_at':previous['effective_at']}
+  pending=c.execute("SELECT status,effective_at FROM subscription_cancellations WHERE organization_id=? AND contract_id=? AND status IN ('REQUESTED','REVIEW') ORDER BY created_at DESC LIMIT 1",(org,row['id'])).fetchone()
+  if pending:return {'status':pending['status'],'effective_at':pending['effective_at']}
+  key=str(uuid.uuid4());stamp=now()
+  c.execute("INSERT INTO subscription_cancellations(id,organization_id,contract_id,request_id,status,created_at,updated_at) VALUES(?,?,?,?,'REQUESTED',?,?)",(key,org,row['id'],str(body.request_id),stamp,stamp))
+ try:
+  creem.request('POST','/subscriptions/'+creem.identifier(row['provider_id'],'sub_')+'/cancel',body={'mode':'scheduled','onExecute':'cancel'})
+  from app.billing.subscription_sync import reconcile_subscription
+  result=reconcile_subscription(row['provider_id'],row['environment'])
+  if result['status'] not in ('scheduled_cancel','canceled'):raise creem.Unavailable('Provider cancellation is not yet confirmed.')
+ except (creem.Unavailable,creem.Rejected):
+  with db_session() as c:c.execute("UPDATE subscription_cancellations SET status='REVIEW',updated_at=? WHERE id=? AND organization_id=?",(now(),key,org))
+  raise HTTPException(502,'Cancellation has not been confirmed by the provider. Refresh subscription status before retrying; no cancellation success is assumed.') from None
+ with db_session() as c:
+  c.execute("UPDATE subscription_cancellations SET status='CONFIRMED',effective_at=?,updated_at=? WHERE id=? AND organization_id=?",(result['period_end'],now(),key,org))
+ return {'status':'CONFIRMED','effective_at':result['period_end']}
+
+
+def refresh_checkout(c,org):
+ """Resolve a known hosted checkout without replaying its creation POST."""
+ mode=get_settings().creem_environment
+ row=c.execute("SELECT * FROM subscription_checkouts WHERE organization_id=? AND environment=? AND status IN ('PENDING','CREATING','REVIEW') ORDER BY created_at DESC LIMIT 1",(org,mode)).fetchone()
+ if not row:return
+ row=dict(row)
+ if not row['provider_checkout_id']:return  # uncertain create: operator/provider review
+ c.commit()
+ value=creem.object_mode(creem.get_checkout(row['provider_checkout_id'],mode=mode),mode)
+ from app.billing.subscription_sync import ref,reconcile_subscription
+ metadata=value.get('metadata') or {}
+ if value.get('id')!=row['provider_checkout_id'] or value.get('request_id')!=row['id'] or ref(value.get('product'))!=row['product_id'] or metadata.get('planebyte_checkout')!=row['id'] or metadata.get('planebyte_workspace')!=org:raise creem.Rejected('Provider checkout ownership does not match.')
+ state=value.get('status')
+ if state=='completed':
+  reconcile_subscription(creem.identifier(ref(value.get('subscription')),'sub_'),mode,checkout_hint=row['provider_checkout_id'])
+ elif state=='expired':
+  c.execute("UPDATE subscription_checkouts SET status='EXPIRED',updated_at=? WHERE id=? AND organization_id=? AND status IN ('PENDING','CREATING','REVIEW')",(now(),row['id'],org));c.commit()
+ # pending/processing remain saved, without entitlement or duplicate checkout.

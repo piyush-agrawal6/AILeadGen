@@ -10,6 +10,9 @@ POLICY=json.loads(Path(__file__).with_name('launch_trial_policy.json').read_text
 
 def allocate(c,actor,org):
     if membership_role(c,actor,org)!='OWNER':raise HTTPException(403,'Only the verified new workspace owner can initialize its trial.')
+    from app.billing.subscription_access import enroll
+    if enroll(c,actor,org):
+        return {'trial_started':False,'payment_required':True,'reason':'Complete Step 5. A 72-hour trial starts only after hosted card and recurring authorization are provider-confirmed.'}
     domain=policy.company_domain(actor)
     if getattr(c,'backend',None)=='postgres':c.execute('SELECT pg_advisory_xact_lock(691948020)')
     elif not c.in_transaction:c.execute('BEGIN IMMEDIATE')

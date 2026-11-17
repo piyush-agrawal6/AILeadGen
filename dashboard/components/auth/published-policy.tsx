@@ -12,8 +12,8 @@ function PolicyText({ text }: { text: string }) {
 
 export function PublishedPolicy({ policy }: { policy: keyof typeof policies }) {
   const document = policies[policy];
-  return <LegalDocument title={document.title} activeTab={policy} publishedVersion="planebyte-2026-11-16-v1"
-    summary="Effective 16 November 2026. Planebyte is an individually operated business owned by Piyush Agrawal. Legal notices: House No. 1005, Attabira, Bargarh, Odisha 768027, India. Support and privacy: contact@planebyte.com.">
+  return <LegalDocument title={document.title} activeTab={policy} publishedVersion="planebyte-subscriptions-2026-11-17-v2"
+    summary="Effective 17 November 2026. Planebyte is an individually operated business owned by Piyush Agrawal. Legal notices: House No. 1005, Attabira, Bargarh, Odisha 768027, India. Support and privacy: contact@planebyte.com.">
     <nav aria-label="Policies" className="flex flex-wrap gap-x-4 gap-y-2 text-sm mb-8">
       {Object.entries(policies).map(([key, value]) => <Link key={key} href={`/${key}`} className="underline" aria-current={policy === key ? 'page' : undefined}>{value.title}</Link>)}
     </nav>

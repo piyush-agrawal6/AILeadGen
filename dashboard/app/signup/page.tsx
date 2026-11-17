@@ -122,7 +122,7 @@ export default async function Signup({
           <p className="pb-auth-fineprint text-[11px] text-muted-foreground text-center">
             Only your verified Google account is admitted. No workspace or mailbox access is inherited.
           </p>
-        </form>{env.accounts&&<><div className="pb-auth-divider"><span>or use company email</span></div><AccountForm action={createAccount} kind="signup" requestId={randomUUID()} initialInvitation={initialInvitation} invitationRequired={!env.publicRegistration&&!env.controlledRegistration}/><p className="text-xs text-muted-foreground">Seven-day trial. No card or automatic renewal. Includes five searches, three AI operations and one manual monitor.</p></>}</>
+        </form>{env.accounts&&<><div className="pb-auth-divider"><span>or use company email</span></div><AccountForm action={createAccount} kind="signup" requestId={randomUUID()} initialInvitation={initialInvitation} invitationRequired={!env.publicRegistration&&!env.controlledRegistration}/><p className="text-xs text-muted-foreground">New eligible trials last 72 hours and require a card plus authorization for the selected monthly plan. Payment and provider confirmation are mandatory before dashboard access. No subscription charge is due during the free trial.</p></>}</>
       ) : (
         <div className="space-y-4">
           <a

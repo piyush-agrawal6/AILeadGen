@@ -21,6 +21,9 @@ def snapshot(row):
     return value
 
 def active(c,org):
+    from app.billing.subscription_access import active as recurring
+    value=recurring(c,org)
+    if value:return value
     from app.billing import access_periods
     if access_periods.managed(c,org):return access_periods.active(c,org)
     if not get_settings().payu_billing_enabled:return None

@@ -96,6 +96,8 @@ def capabilities(c):
 
 def state(c):
     saved=setup.read(c);company=read_profile(c);result={'progress':saved,'company':company,'reviews':{},'capabilities':capabilities(c)}
+    from app.billing.subscription_access import required,product_grant
+    result['payment']={'required':required(c,organization()),'active':bool(product_grant(c,organization()))} if __import__('app.config.settings',fromlist=['get_settings']).get_settings().subscription_onboarding_required else {'required':False,'active':False}
     for kind in ('company','icp'):
         key=saved['preferences'].get(kind+'_review_id')
         if key:

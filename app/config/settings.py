@@ -162,6 +162,8 @@ class Settings(BaseSettings):
     creem_test_webhook_secret:SecretStr=Field(SecretStr(''),alias='CREEM_TEST_WEBHOOK_SECRET',repr=False,exclude=True)
     creem_environment:Literal['production','test']=Field('production',alias='CREEM_ENVIRONMENT')
     subscription_onboarding_required:bool=Field(False,alias='SUBSCRIPTION_ONBOARDING_REQUIRED')
+    subscription_terms_version:str=Field('',alias='SUBSCRIPTION_TERMS_VERSION')
+    subscription_checkout_enabled:bool=Field(False,alias='SUBSCRIPTION_CHECKOUT_ENABLED')
     payu_one_time_checkout_enabled:bool=Field(False,alias='PAYU_ONE_TIME_CHECKOUT_ENABLED')
     payu_charge_currency:str=Field('',pattern=r'^(|USD|INR)$',alias='PAYU_CHARGE_CURRENCY')
     payu_merchant_capabilities_json:str=Field('{}',alias='PAYU_MERCHANT_CAPABILITIES_JSON')

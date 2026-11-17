@@ -17,7 +17,11 @@ def reserve(c,amounts,operation_id):
     if not isinstance(operation_id,str) or not 1<=len(operation_id)<=200 or not amounts or any(type(v) is not int or v<=0 for v in amounts.values()):
         raise ValueError('A stable bounded operation reservation is required.')
     if set(amounts)-set((*contracts.METERED,'opportunities')):raise ValueError('Unknown usage dimension.')
-    lock(c,org);access_periods.require_current(c,org);row=contracts.active(c,org)
+    lock(c,org)
+    from app.billing.subscription_access import setup_contract
+    row=setup_contract(c,org,amounts,operation_id)
+    if row is None:
+        access_periods.require_current(c,org);row=contracts.active(c,org)
     if not row:return False
     # No approved monthly opportunity quota: preserve ordinary saved-record work.
     values={k:v for k,v in amounts.items() if k in contracts.METERED}

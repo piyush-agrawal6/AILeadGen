@@ -6,10 +6,10 @@
         "title": "1. Who provides the service",
         "blocks": [
           {
-            "text": "PlaneByte is the trading/product name used for the service provided by **Planebyte, an individually operated business owned by Piyush Agrawal**, with its legal-notice/business address at **House No. 1005, Attabira, Bargarh, Odisha 768027, India**, referred to as “PlaneByte,” “we,” “us” or “our.” General service enquiries may be sent to contact@planebyte.com. Formal notices may be sent to that address or contact@planebyte.com. Our business website is https://planebyte.com and the service application is https://app.planebyte.com."
+            "text": "PlaneByte is the trading/product name used for the service provided by **Planebyte, an individually operated business owned by Piyush Agrawal**, with its legal-notice/business address at **House No. 1005, Attabira, Bargarh, Odisha 768027, India**, referred to as \u201cPlaneByte,\u201d \u201cwe,\u201d \u201cus\u201d or \u201cour.\u201d General service enquiries may be sent to contact@planebyte.com. Formal notices may be sent to that address or contact@planebyte.com. Our business website is https://planebyte.com and the service application is https://app.planebyte.com."
           },
           {
-            "text": "These Terms govern the PlaneByte application and the Intent Radar and Growth Intelligence features made available to your workspace. “You” means the person accepting these Terms and, where that person acts with authority for an organization, that organization. You must be legally able and authorized to enter this agreement. If you act for an organization, you confirm your authority to bind it."
+            "text": "These Terms govern the PlaneByte application and the Intent Radar and Growth Intelligence features made available to your workspace. \u201cYou\u201d means the person accepting these Terms and, where that person acts with authority for an organization, that organization. You must be legally able and authorized to enter this agreement. If you act for an organization, you confirm your authority to bind it."
           }
         ]
       },
@@ -56,44 +56,44 @@
         ]
       },
       {
-        "title": "5. Trial",
+        "title": "5. New customer setup and three-day card trial",
         "blocks": [
           {
-            "text": "An eligible newly verified company account receives one seven-day trial without a card or automatic renewal. The approved trial includes five discovery searches, three shared AI operations, 150,000 reserved AI tokens, one manual monitor and one team member. Scheduled checks, reports, developer API and MCP access require paid access."
+            "text": "New customers must save their company and ideal customer profiles and complete Choose Your Plan & Payment before entering the full Intent Radar dashboard. Setup-only AI capacity is bounded and is not a free product trial. Authentication, saved setup, billing and cancellation remain accessible while product access is restricted."
           },
           {
-            "text": "One trial is available per verified account and company domain. A second account, workspace or invitation does not create an additional trial entitlement. When the trial expires, paid operations require verified paid access. A paid purchase replaces any remaining trial immediately. Trial allocation does not create a paid subscription, purchase or recurring mandate."
+            "text": "A new eligible trial lasts exactly 72 hours from provider-confirmed activation. You must select Starter, Growth or Scale, provide a supported card through secure provider-hosted checkout and explicitly accept recurring authorization. No subscription payment is due during a free trial. The selected plan then renews automatically each month unless canceled. Hosted checkout shows the exact charge amount, currency, first-charge date/time and cancellation terms before authorization. If an unavoidable card-verification charge is required, it must be disclosed and authorized separately; otherwise the advertised free path is unavailable."
+          },
+          {
+            "text": "Trial limits are five searches, three AI operations, 150,000 reserved AI tokens, one manual monitor and one user. Scheduled checks, reports, developer API and MCP require paid allowances. One trial is allowed per verified person and business domain; earlier trials count toward eligibility. Failed, canceled or unverified checkout grants no trial or paid access. Existing customer trials and purchased entitlements retain their recorded terms."
           }
         ]
       },
       {
-        "title": "6. Prices, checkout and taxes",
+        "title": "6. Prices, providers and tax",
         "blocks": [
           {
-            "text": "Approved monthly list prices are Starter USD 59, Growth USD 149 and Scale USD 379. Enterprise access requires a separate agreement. Review the selected plan, allowances, charge currency and final total before paying. Prices for yearly access and any annual discount are not yet approved; yearly checkout is unavailable until they are approved and published."
+            "text": "Monthly subscription prices are USD59 for Starter, USD149 for Growth and USD379 for Scale. Enterprise is quoted individually. Yearly checkout is disabled until exact prices and allowance timing are approved. Published allowances are subject to their versioned catalog and the verified contract snapshot."
           },
           {
-            "text": "Payments use a one-time PayU-hosted checkout. USD checkout is available only after the specific merchant account's USD charging capability is verified and checkout is enabled. An advertised USD list price does not authorize an undisclosed currency conversion. We do not silently convert the price to INR."
+            "text": "Eligible international checkout uses Creem, the merchant of record, with tax-inclusive USD product prices. Creem calculates and discloses applicable taxes, payment totals and invoices under its terms. PlaneByte does not store card numbers or CVVs. India uses PayU only when account-specific capabilities and approved INR prices or explicitly verified supported conversion are available. Changing a country field does not verify billing location or switch an existing provider. PlaneByte has no GSTIN and does not independently add unverified GST."
           },
           {
-            "text": "PlaneByte is not currently GST-registered and does not collect GST under the current approved treatment. A purchaser is not required to provide a GSTIN. Any later change to tax registration or applicable tax treatment must be reflected in the applicable order summary before acceptance. We do not describe a payment receipt as a GST tax invoice."
-          },
-          {
-            "text": "PayU processes payment information on its hosted pages. PlaneByte does not collect card details. A browser success page, callback or payment authorization alone does not activate paid access. Access activates only after independent server-side verification of the matching captured payment. Pending or uncertain payments may require reconciliation. Check payment history before retrying an uncertain payment to avoid another purchase."
+            "text": "Each provider path opens only after merchant permissions, payment acceptance and applicable disclosures are verified. A browser success page is not payment evidence. We activate access only after authenticated provider confirmation and independent reconciliation. Product creation or a webhook test does not establish payment or payout readiness."
           }
         ]
       },
       {
-        "title": "7. Fixed terms, renewal and plan changes",
+        "title": "7. Subscription renewal, cancellation and legacy purchases",
         "blocks": [
           {
-            "text": "A monthly one-time purchase provides exactly 30 days of access. The yearly access model is one calendar year, subject to future approval of yearly prices and allowance timing. The order history shows the applicable start and expiry dates."
+            "text": "A Creem monthly subscription renews using the provider-confirmed billing period and schedule, rather than an internal timer that charges stored cards. Your selected plan, amount, currency and renewal date are displayed before authorization and in Billing & Subscription. Provider-confirmed failed, unpaid, paused, disputed or expired states can restrict product access while preserving billing and cancellation controls."
           },
           {
-            "text": "Purchases do not auto-renew and do not authorize recurring charges or a recurring mandate. You must make a separate purchase to renew. An early manual renewal starts after the existing paid term expires. A purchase of a different plan also starts after existing paid access expires; it does not upgrade or downgrade the current term early. Early upgrades, proration and unused-time credits are not offered under the current approved policy."
+            "text": "You may cancel future automatic billing through Settings \u2192 Billing & Subscription or the secure provider portal without contacting support. Cancellation is complete only when confirmed by the provider. During a trial, cancel before the first-charge date to prevent conversion. Confirmed cancellation preserves access until the agreed current period ends unless mandatory rights, a verified refund or a security restriction require otherwise. We show and email confirmed cancellation; if a request is unverified, we say so and allow status refresh or recovery."
           },
           {
-            "text": "Expiry stops operations requiring current paid access without deleting historical research merely because access ended. A renewal reminder is a convenience and does not extend access. The retention and export provisions below apply separately."
+            "text": "Existing PayU one-time purchases remain manual prepaid access: monthly access lasts30days, early renewal starts after existing expiry, and the original snapshot governs future terms. An ordinary one-time payment does not authorize recurring charges. PayU recurring mandates are offered only when merchant-approved, with required consent, mandate verification and pre-debit notices. No silent provider transfer, early upgrade, proration or unused-time credit is promised. Plan changes with new monetary consequences require the provider checkout disclosures and explicit authorization."
           }
         ]
       },
@@ -109,16 +109,13 @@
         ]
       },
       {
-        "title": "9. Cancellation, billing errors and refunds",
+        "title": "9. Refunds, billing errors and cancellation",
         "blocks": [
           {
-            "text": "Cancelling a hosted checkout before payment confirmation does not cancel a previously captured payment. Letting fixed-term access expire does not create an automatic renewal charge. Account closure, access expiry, cancellation of an in-progress checkout and refund of a completed purchase are separate actions."
+            "text": "For an initial paid purchase, request refund review within seven days of verified payment through Billing or contact@planebyte.com. Include the payment reference and reason without card information. We review duplicate charges, billing errors, service circumstances and applicable rights. No undisclosed usage-percentage exclusion or universal no-refund rule applies. Renewals and other requests are reviewed under their agreement and mandatory rights."
           },
           {
-            "text": "For an initial paid purchase, you may request a refund within seven days of verified payment by contacting contact@planebyte.com or using Request refund review in Billing & Usage. Include the order reference and the reason without card details. We review the purchase, billing errors, duplicate charges and applicable rights before deciding the request. The initial-purchase window does not remove any additional right required by applicable law. No automatic renewal refund, undisclosed usage-percentage exception, universal no-refund rule or guaranteed bank-settlement deadline is imposed. Renewals and other requests remain subject to the applicable agreement and mandatory rights; a request is not rejected merely because the application cannot automate its review."
-          },
-          {
-            "text": "A recorded refund review request does not mean a refund has been approved or paid. Refund status must be independently established with the payment provider. A full refund verified in the original payment currency revokes access attributable to that purchase while preserving its accounting record and saved research. Partial refunds and missing currency evidence require review; they do not silently create a credit or a new access period. Mandatory rights under applicable law are not excluded."
+            "text": "Canceling a future renewal, leaving checkout, account closure and refunding an already captured payment are separate actions. A free trial has no subscription payment to refund. Refund success and timing are confirmed through the provider; submitting a request does not move money or prove bank settlement. Existing payment and audit records may be retained where legally required."
           }
         ]
       },
@@ -162,7 +159,7 @@
             "text": "You may download personal account details and use the available workspace research exports, or request a full export through Sign-in & Security or contact@planebyte.com. Once account closure is verified through the review process, ordinary account data is scheduled for deletion or anonymization within 30 days, subject to the exceptions below. Backups are removed through their normal retention cycle, targeted at no more than 90 days after verified closure. Access expiry alone is not a closure request, and a submitted request does not immediately erase a workspace."
           },
           {
-            "text": "Submit an authenticated data request in Settings → Account → Sign-in & Security, or contact contact@planebyte.com. The application records a case reference. Support verifies identity, organizational authority, the requested scope and applicable retention exceptions before confirming closure or deletion. Additional information is requested only as needed for a proportionate review. Verified closure starts the tracked retention deadlines; no deletion is claimed until the case has been fulfilled and verified. Contact the same channel with the case reference for status or escalation. Deletion may be limited by applicable legal obligations, payment/refund records, disputes, fraud/security needs, legal holds, and the need to preserve contact history and suppression records. A member's deletion request must not automatically remove records controlled by another authorized workspace or erase evidence required to honor an opt-out. We will explain applicable limitations through the approved process."
+            "text": "Submit an authenticated data request in Settings \u2192 Account \u2192 Sign-in & Security, or contact contact@planebyte.com. The application records a case reference. Support verifies identity, organizational authority, the requested scope and applicable retention exceptions before confirming closure or deletion. Additional information is requested only as needed for a proportionate review. Verified closure starts the tracked retention deadlines; no deletion is claimed until the case has been fulfilled and verified. Contact the same channel with the case reference for status or escalation. Deletion may be limited by applicable legal obligations, payment/refund records, disputes, fraud/security needs, legal holds, and the need to preserve contact history and suppression records. A member's deletion request must not automatically remove records controlled by another authorized workspace or erase evidence required to honor an opt-out. We will explain applicable limitations through the approved process."
           }
         ]
       },
@@ -245,6 +242,9 @@
           },
           {
             "text": "Verification and recovery credentials are short-lived. Verification values used for comparison are protected with one-way cryptographic checks; message content can temporarily exist in encrypted transactional delivery storage so the requested email can be delivered. Plaintext local passwords are not stored. Do not include payment-card details, passwords, private keys or verification codes in support enquiries or research prompts."
+          },
+          {
+            "text": "Subscription records may include provider customer, checkout, subscription, payment, mandate-status and invoice references; verified billing country; plan and trial-conversion choice; consent version/time; renewal/cancellation dates; and authenticated lifecycle events. Raw webhook payloads are encrypted at rest and access is restricted. Payment methods are collected by hosted providers; PlaneByte does not store raw card numbers or CVVs."
           }
         ]
       },
@@ -295,6 +295,9 @@
           },
           {
             "text": "We may disclose information to authorized workspace users, necessary service providers, professional advisers handling a relevant matter, or public authorities where disclosure is lawfully required. We may also preserve or disclose appropriate records to investigate security incidents, fraud, disputes or legal claims. Such disclosures must be limited to the relevant purpose and authority. This Policy does not authorize sale of workspace content or unrestricted disclosure to data partners."
+          },
+          {
+            "text": "Creem handles eligible international checkout as merchant of record, including payment processing, applicable tax and its hosted billing portal. PayU handles eligible Indian payments under merchant-specific capabilities. Provider privacy and payment terms apply to information submitted directly to them. Billing country evidence is used for lawful routing; IP location or an editable country choice alone is not verification. Subscription-related messages include trial, payment, failure, cancellation and refund notices. We do not treat a successful checkout as evidence that merchant payouts have settled."
           }
         ]
       },
@@ -327,7 +330,7 @@
             "text": "Fixed-term access expires at its recorded time without automatically deleting saved research, payment history or other retained records. Workspace closure, personal account closure, expiry, membership removal and a verified deletion request have different effects."
           },
           {
-            "text": "After verified account closure, ordinary account data is scheduled for deletion or anonymization within 30 days, subject to justified exceptions below. Backup removal follows the normal retention cycle, targeted at no more than 90 days after verified closure. These targets come from the owner’s launch policy. The operator records closure and its deadlines; submitting a request alone does not execute a purge. Existing workspace exports and a personal account-detail download are available, and a fuller export can be requested for review."
+            "text": "After verified account closure, ordinary account data is scheduled for deletion or anonymization within 30 days, subject to justified exceptions below. Backup removal follows the normal retention cycle, targeted at no more than 90 days after verified closure. These targets come from the owner\u2019s launch policy. The operator records closure and its deadlines; submitting a request alone does not execute a purge. Existing workspace exports and a personal account-detail download are available, and a fuller export can be requested for review."
           },
           {
             "text": "Retention must account for the purpose and applicable obligations for each record category. Accounting/refund records, consent and security records, legal holds/disputes, contact/message history and suppression information can require different treatment from an unused research draft. Backups are recovery copies; any eventual deletion process must define how deletions remain effective after recovery and how retained backup copies age out, without promising immediate removal from every copy."
@@ -341,7 +344,7 @@
             "text": "Depending on applicable law and your relationship with the workspace, you may have rights to obtain information about processing, access or correct your personal information, request erasure, withdraw consent, raise a grievance, or use other rights available to you. A workspace administrator can help with organizational records within that administrator's authority. Applicable rights are not limited to the application controls currently available."
           },
           {
-            "text": "Use Settings → Account → Sign-in & Security to submit an authenticated full-export, account-closure/deletion or erasure-review request, or contact contact@planebyte.com. The application acknowledges the request with a reference. Support reviews identity, workspace authority and retention exceptions, requests proportionate clarification where needed, and records verified closure and the applicable 30/90-day targets. Use the case reference with the same contact for status, correction or escalation. Request handling also observes any additional applicable legal requirements. No named privacy officer or legally required designation is invented."
+            "text": "Use Settings \u2192 Account \u2192 Sign-in & Security to submit an authenticated full-export, account-closure/deletion or erasure-review request, or contact contact@planebyte.com. The application acknowledges the request with a reference. Support reviews identity, workspace authority and retention exceptions, requests proportionate clarification where needed, and records verified closure and the applicable 30/90-day targets. Use the case reference with the same contact for status, correction or escalation. Request handling also observes any additional applicable legal requirements. No named privacy officer or legally required designation is invented."
           },
           {
             "text": "Use the approved channel and provide enough context to locate the relevant account/workspace without sending a password, OTP or unnecessary identity document. Verification should be proportionate and prevent one person from deleting another person's or organization's records. We will explain any valid reason a request cannot be completed in full and any available escalation or review route under the approved process and applicable law."
@@ -385,7 +388,7 @@
         "title": "Initial purchases",
         "blocks": [
           {
-            "text": "You may request a refund for an initial prepaid purchase within seven days of verified payment. Submit Request refund review in Settings → Billing & Usage, or email contact@planebyte.com with your order reference and the reason. Do not send passwords, OTPs or card details. The policy applies to the initial purchase; additional rights required by applicable law remain available for every purchase."
+            "text": "You may request a refund for an initial prepaid purchase within seven days of verified payment. Submit Request refund review in Settings \u2192 Billing & Usage, or email contact@planebyte.com with your order reference and the reason. Do not send passwords, OTPs or card details. The policy applies to the initial purchase; additional rights required by applicable law remain available for every purchase."
           },
           {
             "text": "The request is reviewed against the actual purchase, payment evidence, service circumstances and applicable rights. The seven-day window is not an unreviewed promise that every request has already been approved. No undisclosed usage-percentage condition is imposed. If a request cannot be approved in full, we explain the reason and the available support/escalation route. No blanket exclusion of mandatory rights is intended."
@@ -404,13 +407,13 @@
         ]
       },
       {
-        "title": "Renewal, future terms and yearly access",
+        "title": "Renewals, subscriptions and legacy fixed terms",
         "blocks": [
           {
-            "text": "Access is prepaid for a fixed term and does not automatically renew. A separately purchased renewal or future term is a separate transaction, subject to its agreement and applicable rights. No automatic unused-time credit, early-upgrade proration or automatic refund of an unused future term is promised. You may still request review, and mandatory rights remain preserved."
+            "text": "Canceling a subscription prevents provider-confirmed future renewal; it does not automatically refund a prior charge. Renewal refund requests remain subject to the actual agreement, service circumstances and mandatory rights. Initial paid purchase requests remain eligible for review within seven days. No blanket exclusion of mandatory rights applies."
           },
           {
-            "text": "Yearly checkout is unavailable until exact yearly prices and allowance timing are approved and published. This policy does not invent a yearly amount or discount. Once yearly purchases are enabled, the published initial-purchase request window and any additional applicable rights must be presented with those terms before purchase."
+            "text": "Legacy PayU fixed-term purchases retain their original manual-renewal terms. New recurring trials require hosted card authorization and a selected conversion plan; no subscription charge is due during the advertised72hours. Yearly checkout remains disabled. Refunds are processed only through approved provider workflows and are not assumed successful from a browser return."
           }
         ]
       },
@@ -431,29 +434,35 @@
     "title": "PlaneByte Cancellation Policy",
     "sections": [
       {
-        "title": "One-time prepaid access",
+        "title": "Cancel automatic renewal",
         "blocks": [
           {
-            "text": "The current service uses one-time purchases for fixed-term access. A monthly purchase provides exactly 30 days. The yearly model is one calendar year, but yearly checkout is unavailable until exact prices and allowance timing are approved. Neither option creates an automatically renewing subscription or a recurring auto-debit mandate."
+            "text": "For a provider-confirmed recurring subscription, open Settings \u2192 Billing & Subscription and choose Cancel automatic renewal, or use the secure provider billing portal. No support contact is required. Review the confirmed effective date. Cancellation must be confirmed by the provider; a pending or failed request is not shown as successful. Billing and cancellation remain accessible even if product access is restricted."
           },
           {
-            "text": "You may choose not to renew at any time. No cancellation action is needed to stop an automatic charge because the current offering does not make automatic renewal charges. Access continues until the end of the term already purchased, unless a verified refund, security restriction or other lawful agreement condition applies. A renewal reminder does not authorize a payment or extend the term."
+            "text": "For a72-hour card trial, cancel before the displayed first-charge date/time to prevent the selected monthly paid plan from starting. Once cancellation is provider-confirmed, no later automatic charge is authorized by that subscription. Trial or current paid access continues to its agreed end unless mandatory rights, a verified refund or a security restriction require otherwise. A confirmation is shown and sent by transactional email."
+          },
+          {
+            "text": "Legacy one-time PayU purchases do not automatically renew and never authorize a recurring card mandate. Their saved start/end dates and original manual-renewal terms remain unchanged."
           }
         ]
       },
       {
-        "title": "Hosted checkout cancellation",
+        "title": "Canceled or failed checkout",
         "blocks": [
           {
-            "text": "Leaving or cancelling an in-progress PayU checkout does not establish whether a bank captured funds. Review the payment history and allow server-side reconciliation. A cancellation screen does not refund an already captured payment, and an uncertain result should be checked before creating another purchase."
+            "text": "If hosted checkout is canceled, fails or remains unverified, your onboarding stays saved at Choose Your Plan & Payment. No trial or paid access is granted. You may reconcile or safely retry the saved checkout. Reaching a success URL does not activate a subscription. Canceling checkout does not refund an independently captured payment; use the refund-review workflow where applicable."
           }
         ]
       },
       {
-        "title": "Renewals and plan changes",
+        "title": "Provider, plan changes and payment failures",
         "blocks": [
           {
-            "text": "An early manual renewal starts after existing paid access ends. A separately purchased different plan also begins after existing paid access ends. There is no current early-upgrade, proration or unused-time credit policy. Choosing not to make another renewal does not cancel a separately purchased future term; request review under the Refund Policy if needed."
+            "text": "Subscription billing country and provider are verified server-side. You cannot silently switch an existing subscription between Creem and PayU by editing a country field. Plan changes must disclose the provider amount, effective date, recurring terms and any approved proration before authorization. We do not invent INR prices or activate unapproved PayU mandates."
+          },
+          {
+            "text": "For failed renewal, use Billing & Subscription or the secure provider portal to review payment recovery. Product operations may be restricted while the provider reports unpaid, past-due or expired access; authentication, billing and cancellation remain available. Yearly checkout is unavailable until approved."
           }
         ]
       },
@@ -461,7 +470,7 @@
         "title": "Account closure and data",
         "blocks": [
           {
-            "text": "You may request account closure, a full export or erasure review through Settings → Account → Sign-in & Security or contact@planebyte.com. The request is recorded and reviewed for identity, workspace authority and retained-record obligations. It does not immediately delete data, remove another user's records or issue a refund. Ordinary account data is scheduled for deletion/anonymization within 30 days after verified closure, with backup aging targeted within 90 days, subject to justified exceptions in the Privacy Policy."
+            "text": "You may request account closure, a full export or erasure review through Settings \u2192 Account \u2192 Sign-in & Security or contact@planebyte.com. The request is recorded and reviewed for identity, workspace authority and retained-record obligations. It does not immediately delete data, remove another user's records or issue a refund. Ordinary account data is scheduled for deletion/anonymization within 30 days after verified closure, with backup aging targeted within 90 days, subject to justified exceptions in the Privacy Policy."
           },
           {
             "text": "Expiry of access alone preserves saved research under the applicable retention policy. Closure of a personal account and the handling of an organization's workspace are separate matters; organizational authority must be verified. Contact support before closure if you need help exporting records or transferring authorized workspace ownership."

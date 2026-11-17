@@ -145,6 +145,8 @@ def create_organization(c, email, name, *, setup_method='MANUAL'):
         # Every workspace created by a new commercial account stays managed;
         # creating a second workspace cannot recover unrestricted Beta access.
         c.execute('INSERT INTO customer_workspace_access(organization_id,registered_by,created_at) VALUES(?,?,?)',(organization_id,email,stamp))
+        from app.billing.subscription_access import enroll
+        enroll(c,email,organization_id)
     # Return the newly created workspace rather than an older active preference.
     # This helper does not silently change an existing session's selection.
     member=next(row for row in memberships(c,email) if row['organization_id']==organization_id)

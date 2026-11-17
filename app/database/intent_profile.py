@@ -34,6 +34,8 @@ def _tables(c):
 
 def verify(c,minimum_version=None):
     _postgres(c)
+    from app.config.settings import get_settings
+    if get_settings().subscription_onboarding_required:minimum_version=max(minimum_version or 0,1006)
     expected=migrations();description=manifest()
     rows=c.execute('SELECT version,name,checksum FROM schema_migrations ORDER BY version').fetchall()
     if not rows or [(r['version'],r['name'],r['checksum']) for r in rows] != [(n,name,digest) for n,name,_,digest in expected[:len(rows)]]:

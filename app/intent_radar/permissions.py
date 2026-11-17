@@ -6,6 +6,8 @@ from app.api.permissions import authorize
 
 def _enabled(c, organization_id, row):
     settings=get_settings();stage=settings.intent_radar_stage
+    from app.billing.subscription_access import required,product_grant
+    if required(c,organization_id) and not product_grant(c,organization_id):return False
     enabled=bool(row and row['organization_status']=='ACTIVE' and row['onboarding_status']=='COMPLETED' and stage!='Disabled')
     if enabled and not row['manual_grant']:
         from app.billing.service import granted
@@ -22,6 +24,8 @@ def availability(c, organization_id):
 
 def context(c, write=False, manager=False):
     ctx=current()
+    from app.billing.subscription_access import require_product
+    require_product(c,ctx.organization_id)
     row=c.execute("""SELECT m.role,o.status organization_status,b.status onboarding_status,COALESCE(p.enabled,0) manual_grant
         FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id
         LEFT JOIN organization_onboarding b ON b.organization_id=o.id

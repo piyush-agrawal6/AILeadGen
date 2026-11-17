@@ -120,7 +120,11 @@ def _guard(org):
 def create(body):
     s=get_settings()
     with db_session() as c:
-        ctx=manager(c);_guard(ctx.organization_id)
+        ctx=manager(c)
+        from app.billing.subscription_access import required
+        if required(c,ctx.organization_id):
+            raise HTTPException(409,'Use Step 5 with verified provider routing. New India purchases require approved INR pricing and PayU merchant acceptance; the historical USD purchase path cannot bypass those checks.')
+        _guard(ctx.organization_id)
         if body.terms_version!=s.billing_terms_version:raise HTTPException(409,'Review the current purchase terms before continuing.')
         selected=quote(body.plan_code,body.interval);digest=hashlib.sha256(json.dumps(body.model_dump(mode='json'),sort_keys=True).encode()).hexdigest()
         lock(c,ctx.organization_id)

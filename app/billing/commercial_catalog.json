@@ -1,5 +1,5 @@
 {
-  "version": "2026-11-15.1",
+  "version": "2026-11-17.2",
   "product": "intent-radar",
   "name": "Intent Radar + Growth Intelligence",
   "list_currency": "USD",
@@ -104,8 +104,8 @@
     "Scheduled monitoring checks consume the monthly search allowance once. Manual searches and scheduled checks are shown separately.",
     "Reports consume both the report allowance and shared AI operations and reserved-token capacity. Provider and daily safety caps also apply.",
     "Only configured, authorized data sources are available. AI capacity is reserved before requests; actual provider tokens are reported separately.",
-    "The actual PayU charge currency, one-time-payment availability and tax treatment must be confirmed before checkout opens.",
-    "Yearly prices await approval. A seven-day limited trial is available when work-email registration is open, with no card or automatic renewal.",
+    "Creem international monthly subscriptions and PayU India paths open independently after their actual merchant, pricing and acceptance gates pass.",
+    "Yearly checkout is disabled. New eligible 72-hour trials require a hosted card and provider-confirmed recurring authorization for the selected monthly plan; historical trials retain their recorded terms.",
     "Lead Engine is a separate future launch and is not included."
   ],
   "allowance_policy": "pilot-v1",

@@ -49,7 +49,7 @@ def overview(c):
     else:search_breakdown=None
     from app.billing import access_periods,fixed_term
     native=access_periods.managed(c,org)
-    native_access={'managed':True,'active':bool(paid),'kind':paid['source_kind'] if paid else None,'starts_at':paid['paid_start'] if paid else None,'expires_at':paid['paid_end'] if paid else None} if native else None
+    native_access={'managed':True,'active':bool(paid),'kind':paid['source_kind'] if paid else None,'recurring':bool(paid and paid.get('source_kind')=='SUBSCRIPTION'),'starts_at':paid['paid_start'] if paid else None,'expires_at':paid['paid_end'] if paid else None} if native else None
     fixed=fixed_term.history(c) if role=='OWNER' and (s.fixed_term_billing_enabled or s.heysow_access_periods_enabled) else None
     payments=[{'provider':'razorpay',**dict(r)} for r in c.execute('SELECT provider_id,mode,amount,currency,status,recorded_at FROM billing_payments WHERE organization_id=? ORDER BY recorded_at DESC,provider_id DESC LIMIT 50',(org,)).fetchall()] if role in ('OWNER','ADMIN') else []
     commercial_data={'catalog':commercial.catalog(),'provider':'payu','checkout_enabled':False,'blockers':commercial.checkout_blockers(),'historical_payments':payments,**({'fixed_term':fixed} if fixed is not None else {})}

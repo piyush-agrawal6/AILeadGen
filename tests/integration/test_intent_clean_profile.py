@@ -77,7 +77,7 @@ def test_clean_additive_webhook_upgrade_preserves_existing_customer_rows(postgre
     assert verify_schema(c)==1004
     org=create_organization(c,'a@example.com','Retained isolated customer')['organization_id'];c.commit()
     before=[dict(r) for r in c.execute('SELECT * FROM organization_memberships').fetchall()]
-    assert run_migrations(c)==1 and verify_schema(c)==1005 and run_migrations(c)==0
+    assert run_migrations(c)==len(intent_profile.migrations())-4 and verify_schema(c)==intent_profile.migrations()[-1][0] and run_migrations(c)==0
     assert [dict(r) for r in c.execute('SELECT * FROM organization_memberships').fetchall()]==before
     assert c.execute('SELECT id FROM organizations WHERE id=?',(org,)).fetchone()
     assert c.execute('SELECT COUNT(*) FROM subscription_provider_events').fetchone()[0]==0

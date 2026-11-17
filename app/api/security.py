@@ -40,7 +40,7 @@ def claim_nonce(nonce):
 class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
     # Paths that must work before an organization exists (onboarding, personal
     # profile, identity). Everything else requires completed company onboarding.
-    ORG_OPTIONAL_PREFIXES = ('/api/organization', '/api/profile', '/api/foundation/me')
+    ORG_OPTIONAL_PREFIXES = ('/api/organization', '/api/profile', '/api/foundation/me','/api/billing')
     # Setup administration is available to verified active members before product
     # activation. Existing RBAC still controls every write; execution is excluded.
     SETUP_CONFIGURATION_PATHS = frozenset(('/api/settings','/api/workflow/defaults','/api/workflow/safety',

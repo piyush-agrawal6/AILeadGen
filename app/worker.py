@@ -106,6 +106,18 @@ if __name__ == "__main__":
         print(json.dumps({'status':'PASS',**proof,'write_read_rollback':True}))
         raise SystemExit(0)
     validate_schema_mode()
+    if os.environ.get('PLANEBYTE_SUBSCRIPTION_EVENT_ID'):
+        import re
+        key=os.environ['PLANEBYTE_SUBSCRIPTION_EVENT_ID'];environment=os.environ.get('PLANEBYTE_SUBSCRIPTION_EVENT_ENVIRONMENT')
+        if not re.fullmatch(r'[A-Za-z0-9_-]{1,160}',key) or environment not in ('production','test'):raise SystemExit('Valid subscription event required')
+        if not get_settings().subscription_onboarding_required:raise SystemExit('Subscription reconciliation is unavailable')
+        with db_session() as c:verify_schema(c,minimum_version=1006)
+        from app.billing.subscription_sync import process_event
+        process_event(key,environment)
+        if get_settings().transactional_mail_enabled:
+            from app.notifications.dispatch import tick
+            asyncio.run(tick())
+        raise SystemExit(0)
     customer_mailbox_id=os.environ.get('LEADENGINE_CUSTOMER_MAILBOX_ID','')
     if customer_mailbox_id:
         from app.mail.customer import sync_owned_account

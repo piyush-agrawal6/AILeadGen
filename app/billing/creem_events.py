@@ -43,3 +43,15 @@ def receive(raw,signature,*,environment=None):
   prior=c.execute("SELECT body_hash,status FROM subscription_provider_events WHERE provider='creem' AND environment=? AND event_id=?",(environment,event_id)).fetchone()
   if not prior or not hmac.compare_digest(prior['body_hash'],body_hash):raise HTTPException(409,'Webhook event identity conflicts with its recorded payload.')
  return {'received':True,'duplicate':inserted==0,'event_id':event_id}
+
+def dispatch_event(event_id,environment):
+ if not get_settings().subscription_onboarding_required:return
+ with db_session() as c:
+  row=c.execute("SELECT status,attempts FROM subscription_provider_events WHERE provider='creem' AND environment=? AND event_id=?",(environment,event_id)).fetchone()
+  if not row or row['status'] in ('PROCESSED','IGNORED') or row['attempts']>=5:return
+ if get_settings().app_env=='production':
+  from app.api.services.cloud_executor import run_job
+  run_job(None,subscription_event_id=event_id,subscription_event_environment=environment)
+ elif get_settings().app_env!='test':
+  from app.billing.subscription_sync import process_event
+  process_event(event_id,environment)

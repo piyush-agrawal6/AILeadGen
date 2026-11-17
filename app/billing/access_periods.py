@@ -19,6 +19,9 @@ def managed(c, org):
 
 
 def ledgers(c, org):
+    from app.billing.subscription_access import in_setup,has_contract
+    if in_setup(org):return ('subscription_setup_usage','subscription_setup_reservations')
+    if has_contract(c,org):return ('subscription_usage','subscription_reservations')
     # Identifiers are fixed internally; caller input never selects a table.
     return ('access_period_usage', 'access_period_reservations') if managed(c, org) else ('commercial_usage', 'commercial_reservations')
 
@@ -57,6 +60,10 @@ def active(c, org):
 
 
 def require_current(c, org):
+    from app.billing.subscription_access import required,require_product,active as recurring
+    if required(c,org):return require_product(c,org)
+    value=recurring(c,org)
+    if value:return value
     if not managed(c, org):
         return None
     row = active(c, org)
@@ -101,7 +108,12 @@ def scheduled_sql(org):
     approved = [x.strip() for x in s.billing_test_workspaces.split(',') if x.strip()][:100]
     restriction = '' if s.payu_mode == 'live' else ' AND p.organization_id IN (' + ','.join('?' for _ in approved) + ')' if approved else ' AND 0=1'
     sql = "(NOT EXISTS(SELECT 1 FROM customer_workspace_access w WHERE w.organization_id=" + org + ") OR EXISTS(SELECT 1 FROM access_periods p JOIN payu_access_orders o ON o.id=p.source_id AND o.organization_id=p.organization_id AND o.mode=p.mode WHERE p.organization_id=" + org + " AND p.source_kind='PAYMENT' AND p.status='ACTIVE' AND o.status='PAID' AND o.verified_at IS NOT NULL AND o.provider_payment_id IS NOT NULL AND p.mode=? AND p.paid_start<=? AND p.paid_end>?" + restriction + '))'
-    return sql, [s.payu_mode, stamp, stamp, *(approved if s.payu_mode == 'test' else [])]
+    args=[s.payu_mode, stamp, stamp, *(approved if s.payu_mode == 'test' else [])]
+    if s.subscription_onboarding_required:
+        from app.billing.subscription_access import scheduled_sql as recurring
+        extra,values=recurring(org)
+        return '('+sql+' OR '+extra+')',args+values
+    return sql,args
 
 
 def notification_authorized(c, row):

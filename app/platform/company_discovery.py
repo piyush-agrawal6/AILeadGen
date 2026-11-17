@@ -208,7 +208,8 @@ def execute(key,db_path=None):
     lease=str(uuid.uuid4())
     with db_session(db_path) as scope:
         verify_schema(scope)
-        with job_scope(scope,'company_profile',key),diagnostic.attempt() as trace:
+        from app.billing.subscription_access import setup_scope
+        with job_scope(scope,'company_profile',key),setup_scope(scope,key),diagnostic.attempt() as trace:
             require_enabled()
             require_role(scope,current().actor,organization(),('OWNER','ADMIN'))
             with db_session(db_path) as c:

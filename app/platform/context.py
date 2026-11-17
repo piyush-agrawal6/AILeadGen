@@ -116,6 +116,9 @@ def job_scope(conn, kind, identifier):
         raise HTTPException(409, "Job has no verified workspace owner.")
     owner = row[owner_field] if owner_field else json.loads(row["run_configuration_json"] or "{}").get("created_by")
     with workspace_scope(conn, owner, row["organization_id"]) as context:
+        if kind=='intelligence':
+            from app.billing.subscription_access import require_product
+            require_product(conn,context.organization_id)
         if kind in ('acquisition','workflow','scan','report'):
             from app.api.organization import products
             if not products(conn,context.organization_id).get('LEADGEN'):

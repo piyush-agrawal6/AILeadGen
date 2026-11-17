@@ -1,5 +1,6 @@
 "use client";
 
+import {SubscriptionPayment} from '@/components/workspaces/subscription-payment';
 import {FixedTermPayments} from "@/components/workspaces/fixed-term-payments";
 import { useUsage } from "@/components/workspaces/usage";
 import { CommercialPlans } from "@/components/workspaces/commercial-plans";
@@ -10,17 +11,17 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
   const usageQuery = useUsage();
 
   if (usageQuery.isPending) {
-    return <p role="status" className="text-sm text-muted-foreground">Loading workspace billing and usage…</p>;
+    return <div className="space-y-6"><SubscriptionPayment/><p role="status" className="text-sm text-muted-foreground">Loading workspace billing and usage…</p></div>;
   }
 
   if (usageQuery.isError || !usageQuery.data) {
     return (
-      <div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+      <div className="space-y-6"><SubscriptionPayment/><div role="alert" className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
         <p>Billing and usage could not be loaded: {usageQuery.error?.message || "Unknown error"}</p>
         <Button variant="outline" size="sm" className="mt-3" onClick={() => void usageQuery.refetch()}>
           Retry
         </Button>
-      </div>
+      </div></div>
     );
   }
 
@@ -42,6 +43,7 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
 
   return (
     <div className="space-y-7">
+      <SubscriptionPayment/>
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div>
           <h2 className="text-xl font-semibold tracking-tight">Current Plan & Usage</h2>
@@ -79,7 +81,7 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
 
         <div className="text-left sm:text-right space-y-1">
           <p className="text-xs text-muted-foreground">
-            {data.native_access?.managed&&data.native_access.expires_at ? <>Access expires {new Date(data.native_access.expires_at*1000).toLocaleDateString()} · renew manually</> : data.search_usage?.reset_at ? (
+            {data.native_access?.managed&&data.native_access.expires_at ? <>Current period ends {new Date(data.native_access.expires_at*1000).toLocaleDateString()}{data.native_access.recurring?" · see renewal or cancellation above":" · renew manually"}</> : data.search_usage?.reset_at ? (
               <>Allowance resets {new Date(data.search_usage.reset_at).toLocaleDateString()}</>
             ) : (
               <>Review each allowance’s reset date below</>

@@ -45,6 +45,9 @@ def lead_engine_route(path):
     return not shared_job and (foundation_lead or any(path==prefix or path.startswith(prefix+'/') for prefix in LEAD_ROUTES))
 
 def guard_route(path,*,organization_id,role,method='GET',connection=None):
+    if connection is not None and organization_id and (path=='/api/intent-radar' or path.startswith('/api/intent-radar/') or path.startswith('/api/intelligence/jobs')):
+        from app.billing.subscription_access import require_product
+        require_product(connection,organization_id)
     if not get_settings().lead_engine_available and lead_engine_route(path):
         raise HTTPException(404,'This product is unavailable.')
     if path.startswith('/api/intent-radar/growth'):
