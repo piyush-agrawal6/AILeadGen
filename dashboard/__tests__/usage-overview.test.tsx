@@ -23,5 +23,5 @@ it('does not represent Beta operator budgets as a purchased monthly subscription
  expect(screen.getByRole('heading',{name:'Current Beta operator limits'})).toBeVisible();
  expect(screen.queryByRole('heading',{name:'Your subscription allowances'})).not.toBeInTheDocument();
  expect(screen.getByText('$149',{selector:'.commercial-price'})).toBeVisible();
- expect(screen.getByRole('link',{name:'Request Growth access'})).toHaveAttribute('href',expect.stringContaining('mailto:'));
+ expect(screen.getByRole('link',{name:'Choose Growth'})).toHaveAttribute('href','/billing/subscription');
 });
