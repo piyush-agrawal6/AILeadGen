@@ -69,7 +69,7 @@ export function AuthBackgroundScene({
     if (!el) return;
 
     // Check prefers-reduced-motion
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       return;
     }
 

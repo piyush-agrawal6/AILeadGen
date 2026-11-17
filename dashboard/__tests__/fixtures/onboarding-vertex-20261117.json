@@ -1,0 +1,815 @@
+{
+  "provenance": {
+    "execution": "leadengine-worker-6pskk",
+    "source_commit": "cf0e43662fa0e447f609c35a94f10ee1deb6ce11",
+    "provider": "VERTEX_AI",
+    "website": "https://planebyte.com",
+    "purpose": "Recorded real-provider responses for isolated frontend API-contract replay; not a replacement for provider acceptance."
+  },
+  "websiteReview": {
+    "id": "dae7c2e6-5676-47d9-a096-86e342433f13",
+    "status": "READY",
+    "error_code": null,
+    "progress_stage": "READY",
+    "preview": {
+      "suggestions": {
+        "name": "PlaneByte",
+        "website": "https://planebyte.com",
+        "description": "PlaneByte develops Intent Radar and Growth Intelligence software for founders, growth teams, and B2B enterprises.",
+        "contact_email": "contact@planebyte.com",
+        "positioning": "PlaneByte builds Intent Radar and Growth Intelligence software to help teams discover buying signals in public conversations, understand customer demand, and uncover opportunities worth pursuing.",
+        "target_customers": [
+          "Founders",
+          "Growth Teams",
+          "Agencies",
+          "RevOps",
+          "Sales Teams",
+          "Startups",
+          "B2B enterprises"
+        ],
+        "products_services": [
+          {
+            "name": "Intent Radar",
+            "category": "",
+            "description": "A buyer-intent and growth intelligence platform for discovering and evaluating public market demand."
+          },
+          {
+            "name": "Growth Intelligence",
+            "category": "",
+            "description": "Investigate recurring customer needs, emerging topics, and opportunity patterns to inform strategic positioning."
+          }
+        ]
+      },
+      "sources": {
+        "name": {
+          "url": "https://planebyte.com",
+          "kind": "AI_SUPPORTED_BY_PUBLIC_TEXT",
+          "basis": "SOURCE_ASSERTION",
+          "verified_company_fact": false
+        },
+        "website": {
+          "url": "https://planebyte.com",
+          "kind": "REVIEWED_URL"
+        },
+        "description": {
+          "url": "https://planebyte.com",
+          "kind": "AI_SUPPORTED_BY_PUBLIC_TEXT",
+          "basis": "SOURCE_ASSERTION",
+          "verified_company_fact": false
+        },
+        "contact_email": {
+          "url": "https://planebyte.com",
+          "kind": "AI_SUPPORTED_BY_PUBLIC_TEXT",
+          "basis": "SOURCE_ASSERTION",
+          "verified_company_fact": false
+        },
+        "positioning": {
+          "url": "https://planebyte.com",
+          "kind": "AI_SUPPORTED_BY_PUBLIC_TEXT",
+          "basis": "AI_INTERPRETATION",
+          "verified_company_fact": false
+        },
+        "target_customers": {
+          "url": "https://planebyte.com",
+          "kind": "AI_SUPPORTED_BY_PUBLIC_TEXT",
+          "basis": "SOURCE_ASSERTION",
+          "verified_company_fact": false
+        },
+        "products_services": {
+          "url": "https://planebyte.com",
+          "kind": "AI_SUPPORTED_BY_PUBLIC_TEXT",
+          "basis": "SOURCE_ASSERTION",
+          "verified_company_fact": false
+        }
+      },
+      "evidence": {
+        "name": [
+          {
+            "source_id": "S1",
+            "url": "https://planebyte.com",
+            "quote": "\"name\": \"PlaneByte\""
+          }
+        ],
+        "website": [
+          {
+            "source_id": "S1",
+            "url": "https://planebyte.com",
+            "quote": "\"url\": \"https://planebyte.com\""
+          }
+        ],
+        "description": [
+          {
+            "source_id": "S1",
+            "url": "https://planebyte.com",
+            "quote": "\"description\": \"PlaneByte develops Intent Radar and Growth Intelligence software for founders, growth teams, and B2B enterprises.\""
+          }
+        ],
+        "contact_email": [
+          {
+            "source_id": "S1",
+            "url": "https://planebyte.com",
+            "quote": "\"email\": \"contact@planebyte.com\""
+          }
+        ],
+        "positioning": [
+          {
+            "source_id": "S1",
+            "url": "https://planebyte.com",
+            "quote": "Discover buying signals in public conversations, understand customer demand, and uncover opportunities worth pursuing with Intent Radar by PlaneByte."
+          },
+          {
+            "source_id": "S1",
+            "url": "https://planebyte.com",
+            "quote": "\"description\": \"PlaneByte develops Intent Radar and Growth Intelligence software for founders, growth teams, and B2B enterprises.\""
+          }
+        ],
+        "target_customers": [
+          {
+            "source_id": "S1",
+            "url": "https://planebyte.com",
+            "quote": "Intelligence for teams that build growth: Founders Growth Teams Agencies RevOps Sales Teams Startups"
+          },
+          {
+            "source_id": "S1",
+            "url": "https://planebyte.com",
+            "quote": "\"description\": \"PlaneByte develops Intent Radar and Growth Intelligence software for founders, growth teams, and B2B enterprises.\""
+          }
+        ],
+        "products_services": [
+          {
+            "source_id": "S1",
+            "url": "https://planebyte.com",
+            "quote": "\"name\": \"Intent Radar\""
+          },
+          {
+            "source_id": "S1",
+            "url": "https://planebyte.com",
+            "quote": "\"description\": \"A buyer-intent and growth intelligence platform for discovering and evaluating public market demand.\""
+          },
+          {
+            "source_id": "S1",
+            "url": "https://planebyte.com",
+            "quote": "Growth Intelligence Investigate recurring customer needs, emerging topics, and opportunity patterns to inform strategic positioning."
+          }
+        ]
+      },
+      "source_url": "https://planebyte.com",
+      "retrieved_at": "2026-11-17T16:18:59.457288+00:00",
+      "ownership_verified": false,
+      "ai_assisted": true,
+      "pages_reviewed": 3,
+      "missing_fields": [
+        "industry",
+        "company_size",
+        "country",
+        "city",
+        "timezone",
+        "countries_served",
+        "target_industries",
+        "specialties"
+      ],
+      "unknowns": [
+        "industry",
+        "company_size",
+        "country",
+        "city",
+        "timezone",
+        "countries_served",
+        "target_industries",
+        "specialties"
+      ],
+      "interpretations": {
+        "positioning": "PlaneByte builds Intent Radar and Growth Intelligence software to help teams discover buying signals in public conversations, understand customer demand, and uncover opportunities worth pursuing."
+      },
+      "warnings": [],
+      "cached": false
+    },
+    "attempt_history": [
+      {
+        "attempt": 1,
+        "stage": "STARTING",
+        "outcome": "STARTED",
+        "error_code": null,
+        "provider": null,
+        "model": null,
+        "duration_ms": 660,
+        "created_at": "2026-11-17T16:18:36.654348+00:00"
+      },
+      {
+        "attempt": 1,
+        "stage": "READING_WEBSITE",
+        "outcome": "PROGRESS",
+        "error_code": null,
+        "provider": null,
+        "model": null,
+        "duration_ms": 1389,
+        "created_at": "2026-11-17T16:18:37.382793+00:00"
+      },
+      {
+        "attempt": 1,
+        "stage": "ANALYZING",
+        "outcome": "PROGRESS",
+        "error_code": null,
+        "provider": null,
+        "model": null,
+        "duration_ms": 9998,
+        "created_at": "2026-11-17T16:18:45.991688+00:00"
+      },
+      {
+        "attempt": 1,
+        "stage": "CHECKING_EVIDENCE",
+        "outcome": "PROGRESS",
+        "error_code": null,
+        "provider": "VERTEX_AI",
+        "model": "gemini-3.6-flash",
+        "duration_ms": 19352,
+        "created_at": "2026-11-17T16:18:55.345789+00:00"
+      },
+      {
+        "attempt": 1,
+        "stage": "VALIDATING",
+        "outcome": "PROGRESS",
+        "error_code": null,
+        "provider": "VERTEX_AI",
+        "model": "gemini-3.6-flash",
+        "duration_ms": 24050,
+        "created_at": "2026-11-17T16:19:00.043675+00:00"
+      },
+      {
+        "attempt": 1,
+        "stage": "READY",
+        "outcome": "READY",
+        "error_code": null,
+        "provider": "VERTEX_AI",
+        "model": "gemini-3.6-flash",
+        "duration_ms": 24825,
+        "created_at": "2026-11-17T16:19:00.819126+00:00"
+      }
+    ],
+    "can_retry": false
+  },
+  "icpReview": {
+    "id": "e52c4f11-b3c5-4e85-9891-9b9d5a7e92e2",
+    "status": "READY",
+    "error_code": null,
+    "progress_stage": "READY",
+    "preview": {
+      "proposal_id": "343779ed-f61c-4b77-9b47-36b9610937fb",
+      "candidates": [
+        {
+          "draft": {
+            "name": "B2B SaaS Founders - Demand & Market Research",
+            "description": "Founders at early-to-mid stage B2B software companies seeking market intelligence to refine positioning and spot emerging buyer demand.",
+            "criteria": {
+              "weights": {},
+              "company": {
+                "industries": [
+                  "Software",
+                  "B2B SaaS"
+                ],
+                "sub_industries": [],
+                "business_categories": [],
+                "company_sizes": [
+                  "1-10",
+                  "11-50"
+                ],
+                "employee_min": 1,
+                "employee_max": 50,
+                "revenue_min": null,
+                "revenue_max": null,
+                "revenue_currency": "USD",
+                "business_models": [],
+                "technologies": [],
+                "maturity": [],
+                "countries": [],
+                "regions": [],
+                "cities": [],
+                "languages": [],
+                "website_characteristics": []
+              },
+              "contact": {
+                "job_titles": [
+                  "Founder",
+                  "Co-Founder",
+                  "CEO"
+                ],
+                "job_functions": [],
+                "seniority": [
+                  "Executive",
+                  "C-Level"
+                ],
+                "departments": [],
+                "responsibilities": [],
+                "countries": [],
+                "professional_requirements": []
+              },
+              "intent": {
+                "business_needs": [
+                  "Investigate emerging market demand and recurring customer needs",
+                  "Refine strategic product positioning"
+                ],
+                "pain_points": [
+                  "Lack of visibility into public buyer intent signals",
+                  "Unclear customer demand trends"
+                ],
+                "buying_signals": [],
+                "growth_signals": [],
+                "relevant_services": [
+                  "Growth Intelligence"
+                ],
+                "technology_requirements": [],
+                "qualification_conditions": [],
+                "exclusions": []
+              }
+            },
+            "status": "INACTIVE"
+          },
+          "reason": "Relates directly to Growth Intelligence, helping founders evaluate customer demand patterns and inform strategic positioning.",
+          "assumptions": [
+            "Assumes early-to-mid stage B2B SaaS founders are actively seeking public conversation market data.",
+            "Target geography and country focus must be reviewed as none were specified in the profile."
+          ],
+          "based_on_services": [
+            "Growth Intelligence"
+          ]
+        },
+        {
+          "draft": {
+            "name": "Growth & Demand Generation Teams - Public Intent Signal Tracking",
+            "description": "Growth leaders at high-growth tech companies tracking real-time public market demand and buying signals.",
+            "criteria": {
+              "weights": {},
+              "company": {
+                "industries": [
+                  "Technology",
+                  "Information Technology & Services"
+                ],
+                "sub_industries": [],
+                "business_categories": [],
+                "company_sizes": [
+                  "51-200",
+                  "201-500"
+                ],
+                "employee_min": 51,
+                "employee_max": 500,
+                "revenue_min": null,
+                "revenue_max": null,
+                "revenue_currency": "USD",
+                "business_models": [],
+                "technologies": [],
+                "maturity": [],
+                "countries": [],
+                "regions": [],
+                "cities": [],
+                "languages": [],
+                "website_characteristics": []
+              },
+              "contact": {
+                "job_titles": [
+                  "Head of Growth",
+                  "VP of Growth",
+                  "Demand Generation Director"
+                ],
+                "job_functions": [],
+                "seniority": [],
+                "departments": [
+                  "Marketing",
+                  "Growth"
+                ],
+                "responsibilities": [],
+                "countries": [],
+                "professional_requirements": []
+              },
+              "intent": {
+                "business_needs": [
+                  "Discover active buying signals in public conversations",
+                  "Uncover new customer acquisition opportunities"
+                ],
+                "pain_points": [
+                  "High customer acquisition costs without high-intent targeting",
+                  "Missing early buying signals from prospects"
+                ],
+                "buying_signals": [],
+                "growth_signals": [],
+                "relevant_services": [
+                  "Intent Radar"
+                ],
+                "technology_requirements": [],
+                "qualification_conditions": [],
+                "exclusions": []
+              }
+            },
+            "status": "INACTIVE"
+          },
+          "reason": "Relates directly to Intent Radar, enabling growth teams to monitor and capture buyer intent across public channels.",
+          "assumptions": [
+            "Assumes growth teams at mid-sized tech firms need continuous public signal monitoring.",
+            "Geographical scope is assumed global and needs confirmation."
+          ],
+          "based_on_services": [
+            "Intent Radar"
+          ]
+        },
+        {
+          "draft": {
+            "name": "B2B Lead Gen & Marketing Agencies",
+            "description": "Agencies looking to deliver actionable buyer intent data and growth opportunities to their clients.",
+            "criteria": {
+              "weights": {},
+              "company": {
+                "industries": [
+                  "Marketing & Advertising",
+                  "Lead Generation"
+                ],
+                "sub_industries": [],
+                "business_categories": [],
+                "company_sizes": [
+                  "11-50",
+                  "51-200"
+                ],
+                "employee_min": 11,
+                "employee_max": 200,
+                "revenue_min": null,
+                "revenue_max": null,
+                "revenue_currency": "USD",
+                "business_models": [],
+                "technologies": [],
+                "maturity": [],
+                "countries": [],
+                "regions": [],
+                "cities": [],
+                "languages": [],
+                "website_characteristics": []
+              },
+              "contact": {
+                "job_titles": [
+                  "Agency Owner",
+                  "VP of Client Services",
+                  "Head of Digital Strategy"
+                ],
+                "job_functions": [],
+                "seniority": [
+                  "Executive",
+                  "Director"
+                ],
+                "departments": [],
+                "responsibilities": [],
+                "countries": [],
+                "professional_requirements": []
+              },
+              "intent": {
+                "business_needs": [
+                  "Provide intent-driven outbound opportunities for clients",
+                  "Identify market demand shifts for campaign planning"
+                ],
+                "pain_points": [
+                  "Client fatigue with standard cold outreach databases",
+                  "Difficulty proving high intent before outreach"
+                ],
+                "buying_signals": [],
+                "growth_signals": [],
+                "relevant_services": [
+                  "Intent Radar",
+                  "Growth Intelligence"
+                ],
+                "technology_requirements": [],
+                "qualification_conditions": [],
+                "exclusions": []
+              }
+            },
+            "status": "INACTIVE"
+          },
+          "reason": "Relates to both Intent Radar and Growth Intelligence by serving agency clients with market demand signals and strategic trends.",
+          "assumptions": [
+            "Assumes marketing and lead generation agencies seek external intent platforms to enhance client deliverables.",
+            "Geographic scope is unconfirmed."
+          ],
+          "based_on_services": [
+            "Intent Radar",
+            "Growth Intelligence"
+          ]
+        },
+        {
+          "draft": {
+            "name": "RevOps Leaders in Mid-Market B2B Enterprises",
+            "description": "Revenue Operations teams optimizing pipeline conversion by feeding buyer-intent signals directly into go-to-market workflows.",
+            "criteria": {
+              "weights": {},
+              "company": {
+                "industries": [
+                  "Enterprise Software",
+                  "B2B Services"
+                ],
+                "sub_industries": [],
+                "business_categories": [],
+                "company_sizes": [
+                  "201-500",
+                  "501-1000"
+                ],
+                "employee_min": 201,
+                "employee_max": 1000,
+                "revenue_min": null,
+                "revenue_max": null,
+                "revenue_currency": "USD",
+                "business_models": [],
+                "technologies": [],
+                "maturity": [],
+                "countries": [],
+                "regions": [],
+                "cities": [],
+                "languages": [],
+                "website_characteristics": []
+              },
+              "contact": {
+                "job_titles": [
+                  "VP of Revenue Operations",
+                  "Director of RevOps",
+                  "Head of Sales Operations"
+                ],
+                "job_functions": [],
+                "seniority": [],
+                "departments": [
+                  "RevOps",
+                  "Sales Operations"
+                ],
+                "responsibilities": [],
+                "countries": [],
+                "professional_requirements": []
+              },
+              "intent": {
+                "business_needs": [
+                  "Identify in-market accounts based on public intent signals",
+                  "Increase sales development efficiency"
+                ],
+                "pain_points": [
+                  "Low conversion rates on cold outbound accounts",
+                  "Inability to prioritize accounts displaying real-time demand"
+                ],
+                "buying_signals": [],
+                "growth_signals": [],
+                "relevant_services": [
+                  "Intent Radar"
+                ],
+                "technology_requirements": [],
+                "qualification_conditions": [],
+                "exclusions": []
+              }
+            },
+            "status": "INACTIVE"
+          },
+          "reason": "Relates to Intent Radar by assisting RevOps leadership in capturing public market demand and prioritizing high-intent accounts.",
+          "assumptions": [
+            "Assumes mid-market RevOps teams rely on third-party intent radar solutions.",
+            "Geographical target markets need to be verified."
+          ],
+          "based_on_services": [
+            "Intent Radar"
+          ]
+        },
+        {
+          "draft": {
+            "name": "Enterprise Sales & Strategy Executives",
+            "description": "Sales and strategic leaders at large B2B enterprises exploring emerging topics and opportunity patterns to drive revenue.",
+            "criteria": {
+              "weights": {},
+              "company": {
+                "industries": [
+                  "Computer Software",
+                  "Financial Technology"
+                ],
+                "sub_industries": [],
+                "business_categories": [],
+                "company_sizes": [
+                  "1001-5000",
+                  "5001-10000"
+                ],
+                "employee_min": 1001,
+                "employee_max": 10000,
+                "revenue_min": null,
+                "revenue_max": null,
+                "revenue_currency": "USD",
+                "business_models": [],
+                "technologies": [],
+                "maturity": [],
+                "countries": [],
+                "regions": [],
+                "cities": [],
+                "languages": [],
+                "website_characteristics": []
+              },
+              "contact": {
+                "job_titles": [
+                  "VP of Enterprise Sales",
+                  "Chief Strategy Officer",
+                  "Head of Market Intelligence"
+                ],
+                "job_functions": [],
+                "seniority": [
+                  "VP",
+                  "C-Level"
+                ],
+                "departments": [],
+                "responsibilities": [],
+                "countries": [],
+                "professional_requirements": []
+              },
+              "intent": {
+                "business_needs": [
+                  "Understand broad customer demand trends and competitive white space",
+                  "Evaluate strategic opportunities worth pursuing"
+                ],
+                "pain_points": [
+                  "Slow adaptation to emerging market shifts and competitor gaps",
+                  "Siloed market intelligence data"
+                ],
+                "buying_signals": [],
+                "growth_signals": [],
+                "relevant_services": [
+                  "Growth Intelligence"
+                ],
+                "technology_requirements": [],
+                "qualification_conditions": [],
+                "exclusions": []
+              }
+            },
+            "status": "INACTIVE"
+          },
+          "reason": "Relates directly to Growth Intelligence, supporting enterprise leaders with research into recurring needs and strategic market patterns.",
+          "assumptions": [
+            "Assumes enterprise strategy executives look for public signal intelligence to shape market entry.",
+            "Target geographic regions are unspecified and subject to review."
+          ],
+          "based_on_services": [
+            "Growth Intelligence"
+          ]
+        }
+      ],
+      "questions": [
+        "Which specific countries or regions should be targeted, as none were specified in the business profile?"
+      ],
+      "cached": false,
+      "source": "BUSINESS_PROFILE",
+      "profile_version": "63f0dc4e8081f4ec03bffd3709fa45235f12d4b6cfc8f4efac9a1489cb595a41",
+      "changed_fields": [],
+      "review_required": true,
+      "profile_created": false,
+      "discovery_started": false
+    },
+    "attempt_history": [
+      {
+        "attempt": 1,
+        "stage": "STARTING",
+        "outcome": "STARTED",
+        "error_code": null,
+        "provider": null,
+        "model": null,
+        "duration_ms": 657,
+        "created_at": "2026-11-17T16:19:13.368450+00:00"
+      },
+      {
+        "attempt": 1,
+        "stage": "ANALYZING",
+        "outcome": "PROGRESS",
+        "error_code": null,
+        "provider": null,
+        "model": null,
+        "duration_ms": 2095,
+        "created_at": "2026-11-17T16:19:14.806329+00:00"
+      },
+      {
+        "attempt": 1,
+        "stage": "VALIDATING",
+        "outcome": "PROGRESS",
+        "error_code": null,
+        "provider": "VERTEX_AI",
+        "model": "gemini-3.6-flash",
+        "duration_ms": 21008,
+        "created_at": "2026-11-17T16:19:33.718775+00:00"
+      },
+      {
+        "attempt": 1,
+        "stage": "READY",
+        "outcome": "READY",
+        "error_code": null,
+        "provider": "VERTEX_AI",
+        "model": "gemini-3.6-flash",
+        "duration_ms": 21784,
+        "created_at": "2026-11-17T16:19:34.495433+00:00"
+      }
+    ],
+    "can_retry": false
+  },
+  "copilotReview": {
+    "id": "fe755cc9-446d-4bfc-b7ff-263b3759825f",
+    "status": "READY",
+    "error_code": null,
+    "progress_stage": "READY",
+    "preview": {
+      "answer": "PlaneByte's saved offerings include 'Intent Radar' (buyer-intent and demand discovery) and 'Growth Intelligence' (investigating recurring customer needs, emerging topics, and opportunity patterns). \n\nYour saved ICPs target Founders, RevOps Leaders, Enterprise Strategy Execs, Growth Teams, and Marketing Agencies. The 'B2B SaaS Founders - Demand & Market Research' ICP is a strong fit for 'Growth Intelligence', addressing buyer needs to investigate emerging market demand, refine strategic product positioning, and solve a lack of visibility into public intent signals.\n\nNote: ICP needs and pain points represent owner-approved targeting hypotheses rather than verified customer proof. Your UNSAVED draft proposes narrowing positioning to 'founder-led product teams'. This is currently an unsaved user edit, whereas the saved company positioning broadly targets founders, growth teams, and B2B enterprises. No changes have been saved to your workspace context.",
+      "suggestions": [
+        "Review and test the proposed positioning edit ('founder-led product teams') against active ICP hypotheses before saving.",
+        "Validate 'Growth Intelligence' feature capabilities with actual customer evidence to confirm product-market fit for founders.",
+        "Update saved company industry, size, and country fields to improve context completeness.",
+        "Map specific public conversation sources to the 'Intent Radar' offering to support RevOps and Growth ICP workflows."
+      ],
+      "limitations": [
+        "Workspace context lacks verified customer proof, case studies, or metrics confirming product capabilities.",
+        "Saved ICP pain points and business needs are unverified targeting hypotheses.",
+        "Company location/geography cannot be inferred as headquarters details are unlisted.",
+        "Unsaved draft positioning cannot be treated as an official saved company record."
+      ],
+      "source_fields": [
+        "name",
+        "website",
+        "description",
+        "positioning",
+        "target_customers",
+        "products_services"
+      ],
+      "mode": "AI guidance \u2014 review required"
+    },
+    "attempt_history": [
+      {
+        "attempt": 1,
+        "stage": "STARTING",
+        "outcome": "STARTED",
+        "error_code": null,
+        "provider": null,
+        "model": null,
+        "duration_ms": 649,
+        "created_at": "2026-11-17T16:19:49.668873+00:00"
+      },
+      {
+        "attempt": 1,
+        "stage": "ANALYZING",
+        "outcome": "PROGRESS",
+        "error_code": null,
+        "provider": null,
+        "model": null,
+        "duration_ms": 1356,
+        "created_at": "2026-11-17T16:19:50.375146+00:00"
+      },
+      {
+        "attempt": 1,
+        "stage": "VALIDATING",
+        "outcome": "PROGRESS",
+        "error_code": null,
+        "provider": "VERTEX_AI",
+        "model": "gemini-3.6-flash",
+        "duration_ms": 11412,
+        "created_at": "2026-11-17T16:20:00.431548+00:00"
+      },
+      {
+        "attempt": 1,
+        "stage": "READY",
+        "outcome": "READY",
+        "error_code": null,
+        "provider": "VERTEX_AI",
+        "model": "gemini-3.6-flash",
+        "duration_ms": 12185,
+        "created_at": "2026-11-17T16:20:01.204427+00:00"
+      }
+    ],
+    "can_retry": false
+  },
+  "savedCompany": {
+    "name": "PlaneByte",
+    "website": "https://planebyte.com",
+    "description": "PlaneByte develops Intent Radar and Growth Intelligence software for founders, growth teams, and B2B enterprises. Review note: targeting suggestions require validation.",
+    "industry": "",
+    "company_size": "",
+    "country": "",
+    "city": "",
+    "timezone": "UTC",
+    "contact_email": "contact@planebyte.com",
+    "countries_served": [],
+    "target_customers": [
+      "Founders",
+      "Growth Teams",
+      "Agencies",
+      "RevOps",
+      "Sales Teams",
+      "Startups",
+      "B2B enterprises"
+    ],
+    "target_industries": [],
+    "positioning": "PlaneByte builds Intent Radar and Growth Intelligence software to help teams discover buying signals in public conversations, understand customer demand, and uncover opportunities worth pursuing.",
+    "specialties": [],
+    "products_services": [
+      {
+        "name": "Growth Intelligence",
+        "category": "",
+        "description": "Investigate recurring customer needs, emerging topics, and opportunity patterns to inform strategic positioning."
+      },
+      {
+        "name": "Intent Radar",
+        "category": "",
+        "description": "A buyer-intent and growth intelligence platform for discovering and evaluating public market demand."
+      }
+    ],
+    "organization_id": "d76322da-e277-4218-bb8f-4dfc371f015c",
+    "version": "3a47b943206b2805369c5eb4387d0e3802e5b4db7bc5e0eb03193493b0b791cd",
+    "can_edit": true,
+    "onboarding_status": "IN_PROGRESS"
+  }
+}

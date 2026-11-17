@@ -1,0 +1,32 @@
+# PlaneByte production integration
+
+The authoritative manual release branch is `codex/production-integration-20261117` in the existing public-launch worktree. Feature work remains in separate worktrees/branches. Do not deploy `main`, the Antigravity feature branch or an older launch snapshot independently.
+
+## Source reconciliation
+
+- Antigravity: `1a1b0b6` introduced the structured two-column onboarding; `c54a670` expanded the shell to1560px, added the ambient mesh, horizontal steps and bidirectional Copilot. These commits were on `main` and `codex/intent-radar-phase4-20261113`.
+- Astra: `e02af6c`, `9496aad`, `aa774db`, `cf0e436` repaired clean-schema routing, provider/structured-output behavior, product evidence, real jobs, five ICPs, diagnostics and Copilot context.
+- The two histories diverged at `b368971`. Production frontend `dpl_Dz2kkrNx9rAXwA75M7BvLv6difeV` was explicitly packaged from `e02af6c` on the launch branch; that source lacked Antigravity's later UI commits. Vercel used the correct `dashboard` project root and built the selected snapshot; this was a missing branch integration, not evidence of a stale build cache.
+- The real merge had conflicts in `app/acquisition/ai_router.py` and `dashboard/components/workspaces/onboarding-ai.tsx`. The router and all other backend files retain the verified Astra version. The UI retains Antigravity's layout with working job diagnostics, bounded Copilot polling/follow-up/retry and the existing SubscriptionPayment component. The old proposed plan buttons were replaced because they did not call actual checkout. No policy wording, prices, provider settings or customer data were changed.
+- UI dependencies: onboarding CSS, the two scoped onboarding shell width/spacing rules in globals.css, and Antigravity's guarded matchMedia call in the existing auth background component. Unrelated Terms/Privacy changes and relaxed AI validation/defaults from the feature history were deliberately excluded.
+- Both other worktrees had no tracked changes. Their145/57 untracked files were archived privately with file digests; unrelated marketing and preview files remain untouched. Recovery refs: `codex/recovery-launch-before-ui-20261117` and `codex/recovery-antigravity-ui-20261117`.
+
+## Required release process
+
+1. Inspect current Git/worktrees and the actual Vercel alias metadata, API traffic and worker image. Preserve uncommitted work. Fetch/read remote feature heads before integration; never hard-reset, force-push or copy whole directories over another agent's work.
+2. Merge feature work into the integration branch. Resolve UI/API overlaps explicitly. Keep verified backend ancestry and approved billing/auth contracts. `dashboard/release-policy.json` names the required UI/AI baselines and feature refs.
+3. Run affected UI/API/security tests, lint/types and production build. For onboarding changes, verify actual provider-backed results separately from frontend transport replays. Auth, tenant isolation, real AI, checkout/consent, cancellation, dashboard and themes belong on the release checklist; do not claim that unchanged credentials have been exercised merely because unit tests pass.
+4. Read the current production source from Vercel. Run `scripts/prepare_frontend_release.py --destination data/artifacts/staging/<unique-release> --deployed-source <actual-production-source>`. It requires a clean committed frontend, the integration branch, ancestry from production and both agents' baselines, integrated local feature refs, and no sibling worktree frontend edits. The archive contains committed frontend/shared email-policy files only; credentials and private artifacts are excluded.
+5. Stage the resulting folder with the existing Vercel production environment and `--skip-domain`. Do not change auth/billing secrets or flags. Record `source_commit` metadata matching the prepared manifest. Verify the READY candidate before promotion.
+6. The Vercel build command runs `node scripts/verify-production-source.mjs && npm run build`. A missing guard or mismatching source manifest blocks old snapshots before they can become a replacement release. Keep automatic Git deployments disabled; this was already the project's configured behavior. Do not enable automatic promotion from feature branches.
+7. Verify candidate `/release.json`, compiled onboarding/Copilot/payment components and responsive light/dark CSS, auth routes, API compatibility, real-provider evidence and payment restrictions. Promote once. Independently re-read the actual production alias and `/release.json`; confirm the API/worker images and billing/auth settings were preserved. Record exact source/runtime references.
+
+## Identify a release
+
+The prepared public `/release.json` contains only source commit, frontend Git tree, integration branch, UI/backend baseline commits, prior frontend source and preparation timestamp. It contains no credentials or customer information. Compare it with Vercel deployment metadata and the recorded Cloud Run source. A later documentation-only commit does not change the deployed frontend tree.
+
+## Verification boundaries
+
+The integration preserves the existing Cloud Run API183/worker sourcecf0e436 byte-for-byte. A fresh execution `leadengine-worker-6pskk` passed real Vertex website analysis, profile review/save, exactly five saved ICPs, contextual Copilot and explicit edits/context refresh on an isolated new-database schema. Frontend contract tests replay those actual public-business/isolated-tenant responses; they do not replace provider acceptance or initiate payment. The owner performs the final signed-in visual/payment check. No repetitive browser automation or real charge is authorized by this process.
+
+Current release/deployment results are recorded separately in the master handover and restricted `data/artifacts/verification/onboarding-ui-integration-20261117/` evidence. Never rerun historical customer resets as part of integration or rollback. Roll back application images/aliases only after reviewing the current schema/access contract; never restore old customer snapshots to undo a UI change.
