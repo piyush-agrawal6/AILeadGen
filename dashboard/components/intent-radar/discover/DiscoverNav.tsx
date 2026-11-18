@@ -1,5 +1,6 @@
 "use client";
 
+import type { RefObject } from "react";
 import Link from "next/link";
 import { Bookmark, Compass, History, Sparkles } from "lucide-react";
 
@@ -7,11 +8,15 @@ export type DiscoverTab = "new" | "history" | "saved";
 
 export function DiscoverNav({
   activeTab,
-  onOpenMobileCopilot,
+  copilotOpen = false,
+  onToggleCopilot,
+  copilotButtonRef,
   showCopilotButton = false,
 }: {
   activeTab: DiscoverTab;
-  onOpenMobileCopilot?: () => void;
+  copilotOpen?: boolean;
+  onToggleCopilot?: () => void;
+  copilotButtonRef?: RefObject<HTMLButtonElement | null>;
   showCopilotButton?: boolean;
 }) {
   const tabs: { id: DiscoverTab; label: string; href: string; icon: typeof Compass }[] = [
@@ -45,14 +50,23 @@ export function DiscoverNav({
         })}
       </nav>
 
-      {showCopilotButton && onOpenMobileCopilot && (
+      {showCopilotButton && onToggleCopilot && (
         <button
+          ref={copilotButtonRef}
           type="button"
-          onClick={onOpenMobileCopilot}
-          className="lg:hidden inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/15 transition-colors cursor-pointer"
+          onClick={onToggleCopilot}
+          aria-expanded={copilotOpen}
+          aria-controls="discovery-copilot-panel"
+          aria-label={copilotOpen ? "Hide Discovery Copilot" : "Open Discovery Copilot"}
+          className={
+            "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary " +
+            (copilotOpen
+              ? "border-primary/45 bg-primary/10 text-primary hover:bg-primary/15"
+              : "border-border bg-card text-foreground hover:border-primary/50 hover:text-primary")
+          }
         >
           <Sparkles size={14} aria-hidden="true" />
-          Discovery Copilot
+          <span>Discovery Copilot</span>
         </button>
       )}
     </div>

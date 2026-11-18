@@ -408,7 +408,7 @@ export function SourceSelection({
       <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
        {group.label}
       </h4>
-      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={compactOptions ? 'grid gap-2.5 sm:grid-cols-2' : 'grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3'}>
        {group.items.map(source => {
         const id = (source.id || 'hacker_news') as SourceId;
         const usable = source.state === 'Available' || source.state === 'Connected';
@@ -459,7 +459,10 @@ export function SourceSelection({
              {source.state}
             </span>
            </div>
-           <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
+           <p
+            title={source.coverage}
+            className="text-[11px] text-muted-foreground leading-snug line-clamp-2"
+           >
             {source.coverage}
            </p>
            {compactOptions && isChecked && usable && onConfigureSource && (

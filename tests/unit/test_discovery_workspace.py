@@ -172,3 +172,71 @@ def test_saved_searches_crud_separate_from_monitors_and_isolated(radar):
         with pytest.raises(HTTPException) as exc_dup:
             discovery_workspace.duplicate_saved_search(c, created['id'])
         assert exc_dup.value.status_code == 404
+
+
+def test_discovery_history_sorting_pagination_rename_and_clean_titles(radar, monkeypatch):
+    c, path, org, other = radar
+    c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id=? AND product='INTENT_RADAR'", (other,))
+    c.commit()
+    monkeypatch.setattr(providers.HackerNews, 'fetch', AsyncMock(return_value=source_result()))
+
+    # Verify clean deterministic title derivation without filler words
+    assert discovery_workspace._derive_title({'keywords': ['next.js']}) == 'Next.js Research'
+    assert discovery_workspace._derive_title({'keywords': ['recent', 'discussions', 'webhook']}) == 'Webhook Research'
+    assert discovery_workspace._derive_title({'keywords': ['crm']}, '', 'Find recent discussions about CRM replacement options') == 'CRM replacement options'
+
+    with workspace_scope(c, 'controlled@example.test', org):
+        # Insert 3 runs with distinct titles, modes, and result counts
+        _, id_a = _run_discovery(c, path, models.Discovery(
+            configuration=models.Search(keywords=['website']),
+            title='Alpha Website Audit',
+            search_mode='ai',
+        ))
+        # Second run with no matching keyword (0 results)
+        _, id_b = _run_discovery(c, path, models.Discovery(
+            configuration=models.Search(keywords=['unmatchedtokenxyz']),
+            title='Beta Zero Match Run',
+            search_mode='advanced',
+        ))
+        _, id_c = _run_discovery(c, path, models.Discovery(
+            configuration=models.Search(keywords=['website']),
+            title='Charlie Website Followup',
+            search_mode='rerun',
+            parent_discovery_id=uuid.UUID(id_a),
+        ))
+
+        # Sorting: title_asc & title_desc
+        asc = discovery_workspace.list_discoveries(c, sort='title_asc')
+        assert [x['title'] for x in asc['items']] == ['Alpha Website Audit', 'Beta Zero Match Run', 'Charlie Website Followup']
+        desc = discovery_workspace.list_discoveries(c, sort='title_desc')
+        assert [x['title'] for x in desc['items']] == ['Charlie Website Followup', 'Beta Zero Match Run', 'Alpha Website Audit']
+
+        # Sorting: results_desc puts matched runs first, 0-match last
+        by_res = discovery_workspace.list_discoveries(c, sort='results_desc')
+        assert by_res['items'][-1]['id'] == id_b
+        assert by_res['items'][-1]['matched_count'] == 0
+
+        # Filtering: search_mode & has_results
+        assert discovery_workspace.list_discoveries(c, search_mode='ai')['total'] == 1
+        assert discovery_workspace.list_discoveries(c, has_results='with_results')['total'] == 2
+        assert discovery_workspace.list_discoveries(c, has_results='no_results')['total'] == 1
+
+        # Pagination across pages
+        p1 = discovery_workspace.list_discoveries(c, page=1, page_size=2, sort='title_asc')
+        p2 = discovery_workspace.list_discoveries(c, page=2, page_size=2, sort='title_asc')
+        assert len(p1['items']) == 2 and p1['has_more'] is True and p1['total'] == 3
+        assert len(p2['items']) == 1 and p2['has_more'] is False
+
+        # Rename updates display title without mutating immutable configuration_json
+        renamed = discovery_workspace.rename_discovery(c, id_b, 'Renamed Zero-Match Investigation')
+        c.commit()
+        assert renamed['title'] == 'Renamed Zero-Match Investigation'
+        detail_b = discovery_workspace.get_discovery(c, id_b)
+        assert detail_b['title'] == 'Renamed Zero-Match Investigation'
+        assert detail_b['keywords'] == ['unmatchedtokenxyz']
+
+    # Foreign workspace cannot rename
+    with workspace_scope(c, 'foreign@example.test', other):
+        with pytest.raises(HTTPException) as exc_ren:
+            discovery_workspace.rename_discovery(c, id_b, 'Hijack')
+        assert exc_ren.value.status_code == 404

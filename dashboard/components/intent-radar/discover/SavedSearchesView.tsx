@@ -28,6 +28,7 @@ export function SavedSearchesView() {
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [monitorTarget, setMonitorTarget] = useState<SavedSearch | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SavedSearch | null>(null);
   const [notice, setNotice] = useState("");
   const [err, setErr] = useState("");
 
@@ -124,7 +125,8 @@ export function SavedSearchesView() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter saved searches by name or keyword…"
-            className="w-full rounded-lg border border-border bg-background pl-8 pr-3 py-1.5 text-xs text-foreground"
+            style={{ paddingLeft: "2.25rem" }}
+            className="w-full rounded-lg border border-border bg-background pr-3 py-1.5 text-xs text-foreground"
           />
         </div>
         <Button size="sm" onClick={() => router.push("/intent-radar/discover")}>
@@ -248,7 +250,7 @@ export function SavedSearchesView() {
                       </Button>
                       <button
                         type="button"
-                        onClick={() => void deleteItem(item)}
+                        onClick={() => setDeleteTarget(item)}
                         aria-label={`Delete saved search ${item.name}`}
                         className="ml-auto rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer"
                       >
@@ -271,6 +273,45 @@ export function SavedSearchesView() {
             setMonitorTarget(null);
           }}
         />
+      )}
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Delete saved search"
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Delete Saved Search?</h3>
+              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                “{deleteTarget.name}” will be permanently removed from Saved Searches. Past discovery runs and signals are unaffected.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={mutation.isPending}
+                onClick={() => {
+                  const target = deleteTarget;
+                  setDeleteTarget(null);
+                  void deleteItem(target);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

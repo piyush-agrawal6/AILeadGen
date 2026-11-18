@@ -6,7 +6,7 @@ from pydantic import BaseModel,Field
 from starlette.concurrency import run_in_threadpool
 from app.api.dependencies import get_db
 from app.intent_radar import models,service,discovery,providers,ai
-from app.intent_radar.discovery_workspace import SavedSearchInput
+from app.intent_radar.discovery_workspace import DiscoveryRenameInput,SavedSearchInput
 from app.intent_radar.permissions import context,availability
 
 router=APIRouter(prefix='/intent-radar',tags=['Intent Radar'])
@@ -243,9 +243,12 @@ def discoveries(
     search:str=Query('',max_length=120),
     source:str=Query('',max_length=40),
     status:str=Query('',max_length=30),
+    search_mode:str=Query('',max_length=20),
+    has_results:Literal['','with_results','no_results']='',
     from_date:date|None=None,
     to_date:date|None=None,
     created_by:str=Query('',max_length=254),
+    sort:Literal['newest','oldest','title_asc','title_desc','results_desc','results_asc']='newest',
     c=Depends(get_db,scope='function'),
 ):
     from app.intent_radar import discovery_workspace
@@ -256,15 +259,23 @@ def discoveries(
         search=search,
         source=source,
         status=status,
+        search_mode=search_mode,
+        has_results=has_results,
         from_date=from_date.isoformat() if from_date else '',
         to_date=to_date.isoformat() if to_date else '',
         created_by=created_by,
+        sort=sort,
     )
 
 @router.get('/discoveries/{key}')
 def discovery_detail(key:UUID,c=Depends(get_db,scope='function')):
     from app.intent_radar import discovery_workspace
     return discovery_workspace.get_discovery(c,str(key))
+
+@router.patch('/discoveries/{key}')
+def discovery_rename(key:UUID,body:DiscoveryRenameInput,c=Depends(get_db,scope='function')):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.rename_discovery(c,str(key),body.title)
 
 @router.delete('/discoveries/{key}')
 def discovery_delete(key:UUID,c=Depends(get_db,scope='function')):

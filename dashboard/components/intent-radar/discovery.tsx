@@ -210,6 +210,7 @@ export function SearchFilters({
           type="button"
           aria-expanded={showAdvanced}
           onClick={() => setShowAdvanced((v) => !v)}
+          style={{ justifyContent: "space-between" }}
           className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left hover:bg-muted/25 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-2.5">
@@ -467,14 +468,7 @@ const SUGGESTIONS = [
   ],
 ] as const;
 
-export function DiscoverExperience({ route = "discover" }: { route?: string }) {
-  if (route === "discover/history") return <DiscoveryHistoryView />;
-  if (route === "discover/saved") return <SavedSearchesView />;
-  if (route.startsWith("discover/runs/")) {
-    const runId = route.split("/")[2];
-    if (runId) return <DiscoveryRunDetailView id={runId} />;
-  }
-
+function NewDiscoveryLoader() {
   const preferences = useRadarRead<IntentPreferences>("/settings");
   if (preferences.error) {
     return (
@@ -486,6 +480,16 @@ export function DiscoverExperience({ route = "discover" }: { route?: string }) {
   }
   if (!preferences.data) return <LoadingSkeleton />;
   return <DiscoveryWorkspace preferences={preferences.data} />;
+}
+
+export function DiscoverExperience({ route = "discover" }: { route?: string }) {
+  if (route === "discover/history") return <DiscoveryHistoryView />;
+  if (route === "discover/saved") return <SavedSearchesView />;
+  if (route.startsWith("discover/runs/")) {
+    const runId = route.split("/")[2];
+    if (runId) return <DiscoveryRunDetailView id={runId} />;
+  }
+  return <NewDiscoveryLoader />;
 }
 
 function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences }) {
@@ -512,12 +516,20 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
   const [reviewOpen, setReviewOpen] = useState(false);
   const [builderCollapsed, setBuilderCollapsed] = useState(false);
   const [configuringSource, setConfiguringSource] = useState<SourceId | null>(null);
-  const [mobileCopilotOpen, setMobileCopilotOpen] = useState(false);
+  const [copilotOpen, setCopilotOpen] = useState(true);
+  const copilotButtonRef = useRef<HTMLButtonElement | null>(null);
   const [copilotTrigger, setCopilotTrigger] = useState<{
     action: CopilotQuickAction;
     message: string;
     nonce: number;
   } | null>(null);
+
+  // Start closed on narrow viewports (<1024px) so mobile search form is never blocked on load
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth < 1024) {
+      setCopilotOpen(false);
+    }
+  }, []);
 
   const [job, setJob] = useState("");
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
@@ -570,8 +582,8 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
     }
   }, []);
 
-  const planSearches = usageData?.usage.find((u) => u.dimension === "plan_searches");
-  const planAiCalls = usageData?.usage.find((u) => u.dimension === "plan_ai_calls");
+  const planSearches = usageData?.usage?.find((u) => u.dimension === "plan_searches");
+  const planAiCalls = usageData?.usage?.find((u) => u.dimension === "plan_ai_calls");
   const searchesExhausted = Boolean(
     planSearches && planSearches.limit > 0 && planSearches.remaining === 0
   );
@@ -587,10 +599,13 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
   const active = Boolean(job && !finished);
 
   function triggerCopilot(action: CopilotQuickAction, message: string) {
+    setCopilotOpen(true);
     setCopilotTrigger({ action, message, nonce: Date.now() });
-    if (typeof window !== "undefined" && window.innerWidth < 1024) {
-      setMobileCopilotOpen(true);
-    }
+  }
+
+  function handleCloseCopilot() {
+    setCopilotOpen(false);
+    copilotButtonRef.current?.focus({ preventScroll: true });
   }
 
   function openInlineReview() {
@@ -722,11 +737,19 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
       <DiscoverNav
         activeTab="new"
         showCopilotButton
-        onOpenMobileCopilot={() => setMobileCopilotOpen(true)}
+        copilotOpen={copilotOpen}
+        copilotButtonRef={copilotButtonRef}
+        onToggleCopilot={() => setCopilotOpen((v) => !v)}
       />
 
-      {/* Two-column Desktop Split (~70% Main Workspace / ~30% Sticky Right Copilot) */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px] items-start">
+      {/* Responsive Split Layout: expands to full width whenever Copilot is closed */}
+      <div
+        className={
+          copilotOpen
+            ? "grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_410px] items-start"
+            : "grid gap-6 grid-cols-1 items-start"
+        }
+      >
         {/* Main Continuous Workflow Column */}
         <div className="min-w-0 space-y-5">
           {/* Compact Expandable Builder Summary Bar when running/viewing results */}
@@ -1035,11 +1058,14 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
           />
         </div>
 
-        {/* Sticky Right Discovery Copilot (~30%) + Mobile Slide-over Drawer */}
+        {/* Authoritative Discovery Copilot (Desktop Sticky Rail / Mobile Slide-Over Drawer) */}
         <DiscoveryCopilotPanel
+          open={copilotOpen}
+          onClose={handleCloseCopilot}
           draft={config}
           originalPrompt={prompt}
           activeRunId={activeRunId}
+          resultCount={finished ? resultIds.length : null}
           aiExhausted={aiExhausted}
           canWrite={Boolean(access.data?.can_write)}
           externalTrigger={copilotTrigger}
@@ -1049,8 +1075,6 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
             setError("");
           }}
           onUpdateStrategy={(nextStrategy) => setStrategy(nextStrategy)}
-          mobileOpen={mobileCopilotOpen}
-          onCloseMobile={() => setMobileCopilotOpen(false)}
         />
       </div>
 

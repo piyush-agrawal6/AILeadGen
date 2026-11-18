@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DiscoverExperience } from "@/components/intent-radar/discovery";
 import { applyProposalsToDraft } from "@/components/intent-radar/discover/DiscoveryCopilotPanel";
+import { DISCOVERY_HISTORY_RETURN_KEY } from "@/components/intent-radar/discover/DiscoveryHistoryView";
 import { emptyIntentSearch, type DiscoveryRun, type SavedSearch } from "@/lib/intent-radar";
 
 const mocks = vi.hoisted(() => ({
@@ -125,10 +126,10 @@ const SAMPLE_RUN: DiscoveryRun = {
     },
     {
       id: "sig-2",
-      title: "CRM benchmark release notes",
+      title: "Next.js canary release benchmark",
       source: "GitHub",
-      source_url: "https://github.com/org/repo/releases/tag/v1",
-      excerpt: "New release benchmark.",
+      source_url: "https://github.com/vercel/next.js/releases/tag/v16.5.0-canary.1",
+      excerpt: "New release benchmark notes.",
       observed_at: "2026-11-18T06:00:00Z",
       retrieved_at: "2026-11-18T08:00:00Z",
       category: "Market / technology intelligence",
@@ -138,7 +139,7 @@ const SAMPLE_RUN: DiscoveryRun = {
       revision: 1,
       available: 1,
       saved: false,
-      evidence: { matched_keywords: ["CRM alternative"], matched_topics: [], intent_phrase: null, confidence: "medium", explanation: "Release", observed_text: "benchmark", unknown: [], purchasing_event_verified: false },
+      evidence: { matched_keywords: ["next.js"], matched_topics: [], intent_phrase: null, confidence: "medium", explanation: "Release announcement", observed_text: "benchmark", unknown: [], purchasing_event_verified: false, provenance: { content_kind: "release_announcement" } },
       monitors: [],
     },
   ],
@@ -159,6 +160,8 @@ const SAMPLE_SAVED: SavedSearch = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  sessionStorage.clear();
+  window.history.replaceState({}, "", "/intent-radar/discover");
   Element.prototype.scrollIntoView = vi.fn();
   mocks.radarRead.mockImplementation((path: string) => {
     if (path === "/settings") {
@@ -187,7 +190,7 @@ beforeEach(() => {
       };
     }
     if (path.startsWith("/discoveries?")) {
-      return { data: { items: [SAMPLE_RUN], total: 1, page: 1, page_size: 15 }, error: null, isPending: false, refetch: vi.fn() };
+      return { data: { items: [SAMPLE_RUN], total: 1, page: 1, page_size: 20 }, error: null, isPending: false, refetch: vi.fn() };
     }
     if (path === `/discoveries/${SAMPLE_RUN.id}`) {
       return { data: SAMPLE_RUN, error: null, isPending: false, refetch: vi.fn() };
@@ -204,37 +207,8 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-describe("Discovery 2.0 Workspace", () => {
-  it("renders 3-tab navigation, compact source cards with Configure drawer, and inline review on the same page", async () => {
-    render(wrap(<DiscoverExperience route="discover" />));
-
-    // 3-tab nav links
-    expect(screen.getByRole("link", { name: /New Discovery/i })).toHaveAttribute("href", "/intent-radar/discover");
-    expect(screen.getByRole("link", { name: /Discovery History/i })).toHaveAttribute("href", "/intent-radar/discover/history");
-    expect(screen.getByRole("link", { name: /Saved Searches/i })).toHaveAttribute("href", "/intent-radar/discover/saved");
-
-    // Compact source options: no stacked inline provider wall by default
-    expect(screen.queryByText("Selected source options")).not.toBeInTheDocument();
-    expect(screen.queryByText("Hacker News feeds")).not.toBeInTheDocument();
-
-    // Clicking Configure on Hacker News opens the per-source drawer
-    fireEvent.click(screen.getByRole("button", { name: /Configure/i }));
-    expect(await screen.findByRole("dialog", { name: /Configure Hacker News/i })).toBeVisible();
-    expect(screen.getByText("Hacker News feeds")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Done" }));
-    expect(screen.queryByRole("dialog", { name: /Configure Hacker News/i })).not.toBeInTheDocument();
-
-    // Add keyword and click Review Search -> expands inline below builder
-    fireEvent.change(screen.getByLabelText("Add Keywords"), { target: { value: "CRM alternative" } });
-    fireEvent.keyDown(screen.getByLabelText("Add Keywords"), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: /Review Search/i }));
-
-    expect(await screen.findByRole("heading", { name: "Review Search Criteria" })).toBeVisible();
-    // Builder remains on the same page (inline review, never navigated away!)
-    expect(screen.getByText("1 · Search Terms")).toBeVisible();
-  });
-
-  it("Discovery Copilot shows workspace context, proposes selectable changes, applies selected, and supports Undo", async () => {
+describe("Discovery 2.0 Refinement", () => {
+  it("Discovery Copilot X close button and top toggle button work reliably and preserve conversation history", async () => {
     mocks.mutateAsync.mockResolvedValue({
       reply: "I suggested sharper CRM comparison terms and B2B exclusions.",
       strategy: null,
@@ -252,65 +226,109 @@ describe("Discovery 2.0 Workspace", () => {
 
     render(wrap(<DiscoverExperience route="discover" />));
 
-    // Workspace context badges visible in sticky Copilot panel
-    expect(screen.getByText("PlaneByte")).toBeVisible();
-    expect(screen.getByText("ICP: Seed SaaS Founders")).toBeVisible();
-    expect(screen.getByText("3 sources ready")).toBeVisible();
+    // Compact context indicator visible
+    expect(screen.getByText(/PlaneByte · 3 sources available · ICP: Seed SaaS Founders/)).toBeVisible();
 
-    // Click quick action Improve keywords
-    fireEvent.click(screen.getByRole("button", { name: "Improve keywords" }));
-
+    // Context-aware quick action says "Generate keywords" when keywords list is empty
+    fireEvent.click(screen.getByRole("button", { name: "Generate keywords" }));
     expect(await screen.findByText("I suggested sharper CRM comparison terms and B2B exclusions.")).toBeVisible();
-    expect(screen.getByText("Add CRM comparison phrases")).toBeVisible();
-    expect(screen.getByText("Exclude hiring noise")).toBeVisible();
 
-    // Uncheck second proposal, apply only selected
-    const checkboxes = screen.getAllByRole("checkbox");
-    const exclCheckbox = checkboxes.find((cb) => cb.closest("label")?.textContent?.includes("Exclude hiring noise"));
-    expect(exclCheckbox).toBeTruthy();
-    fireEvent.click(exclCheckbox!);
+    // Close Copilot using X button
+    fireEvent.click(screen.getByRole("button", { name: "Close Discovery Copilot" }));
+    expect(screen.getByRole("button", { name: "Open Discovery Copilot" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("I suggested sharper CRM comparison terms and B2B exclusions.")).not.toBeInTheDocument();
+
+    // Reopen Copilot using top Discovery Copilot button -> conversation history is preserved!
+    fireEvent.click(screen.getByRole("button", { name: "Open Discovery Copilot" }));
+    expect(screen.getByRole("button", { name: "Hide Discovery Copilot" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("I suggested sharper CRM comparison terms and B2B exclusions.")).toBeVisible();
+
+    // Expand technical diff with View changes, then apply selected and verify compact applied status + Undo
+    fireEvent.click(screen.getByRole("button", { name: "View changes" }));
+    expect(screen.getByText(/Add keywords: CRM alternative, Salesforce vs HubSpot/)).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "Apply Selected" }));
+    expect(await screen.findByText("Changes applied to search.")).toBeVisible();
 
-    // Keyword applied to shared draft
-    await waitFor(() => {
-      expect(screen.getByText("CRM alternative")).toBeVisible();
-      expect(screen.getByText("Salesforce vs HubSpot")).toBeVisible();
-    });
-
-    // Undo button restores previous empty keywords
-    fireEvent.click(screen.getByRole("button", { name: /Undo/i }));
+    // Undo restores previous empty keywords
+    fireEvent.click(screen.getAllByRole("button", { name: /Undo/i })[0]);
     await waitFor(() => {
       expect(screen.getByText("0 / 12 keywords")).toBeVisible();
     });
   });
 
-  it("renders Discovery History, Run Detail with Buyer-Intent vs Market/Tech filter, and Saved Searches", async () => {
-    const { rerender } = render(wrap(<DiscoverExperience route="discover/history" />));
-    expect(screen.getByRole("heading", { name: "Discovery History" })).toBeVisible();
-    expect(screen.getByText("CRM Alternative Evaluations")).toBeVisible();
-    expect(screen.getByRole("link", { name: /Open Results/i })).toHaveAttribute(
-      "href",
-      `/intent-radar/discover/runs/${SAMPLE_RUN.id}`
-    );
+  it("renders compact source drawer and inline review without navigating away", async () => {
+    render(wrap(<DiscoverExperience route="discover" />));
 
-    // Run Detail route
+    expect(screen.queryByText("Selected source options")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Configure/i }));
+    expect(await screen.findByRole("dialog", { name: /Configure Hacker News/i })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("dialog", { name: /Configure Hacker News/i })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Add Keywords"), { target: { value: "CRM alternative" } });
+    fireEvent.keyDown(screen.getByLabelText("Add Keywords"), { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: /Review Search/i }));
+    expect(await screen.findByRole("heading", { name: "Review Search Criteria" })).toBeVisible();
+    expect(screen.getByText("1 · Search Terms")).toBeVisible();
+  });
+
+  it("renders scalable table-based Discovery History with compact filter popover, row navigation, and Back-to-History state restoration", async () => {
+    window.history.replaceState({}, "", "/intent-radar/discover/history");
+    const { rerender } = render(wrap(<DiscoverExperience route="discover/history" />));
+
+    // Proper table structure (not giant cards)
+    expect(screen.getByRole("table")).toBeVisible();
+    expect(screen.getByText("CRM Alternative Evaluations")).toBeVisible();
+    expect(screen.getByText("2 matches")).toBeVisible();
+    expect(screen.getByText("40 scanned")).toBeVisible();
+
+    // Open compact Filters popover, select GitHub, apply -> removable chip appears
+    fireEvent.click(screen.getByRole("button", { name: /Filters/i }));
+    fireEvent.change(screen.getByLabelText("Filter by source"), { target: { value: "github" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(screen.getByRole("button", { name: "Remove GitHub filter" })).toBeVisible();
+
+    // Click row -> navigates internally to Run Detail and saves filtered History URL
+    fireEvent.click(screen.getByText("CRM Alternative Evaluations"));
+    expect(mocks.push).toHaveBeenCalledWith(`/intent-radar/discover/runs/${SAMPLE_RUN.id}`);
+    const savedReturn = JSON.parse(sessionStorage.getItem(DISCOVERY_HISTORY_RETURN_KEY) || "{}");
+    expect(savedReturn.url).toContain("source=github");
+
+    // Render Run Detail: prominent Back button restores exact filtered History URL!
+    mocks.push.mockClear();
     rerender(wrap(<DiscoverExperience route={`discover/runs/${SAMPLE_RUN.id}`} />));
     expect(screen.getByRole("heading", { name: "CRM Alternative Evaluations" })).toBeVisible();
+    expect(screen.getByRole("table")).toBeVisible();
     expect(screen.getByText("Buyer-Intent Signal")).toBeVisible();
-    expect(screen.getAllByText("Market / Tech Intelligence").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Market / Tech Intelligence")).toBeVisible();
 
-    // Filter inline results to Buyer Intent only
+    // Clicking Details opens the focused Signal Detail Drawer
+    fireEvent.click(screen.getByRole("button", { name: /View details for Ask HN: Lightweight CRM alternative/i }));
+    expect(await screen.findByRole("dialog", { name: /Signal details: Ask HN/i })).toBeVisible();
+    expect(screen.getByText("Observed Excerpt")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Close signal details" }));
+
+    // Filter results table to Buyer Intent only (Next.js canary release hidden!)
     fireEvent.click(screen.getByRole("button", { name: "Buyer Intent" }));
     expect(screen.getByText("Ask HN: Lightweight CRM alternative to Salesforce?")).toBeVisible();
-    expect(screen.queryByText("CRM benchmark release notes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Next.js canary release benchmark")).not.toBeInTheDocument();
 
-    // Saved Searches route
+    // Expandable Search Configuration & Source Execution Details
+    fireEvent.click(screen.getByRole("button", { name: /Search Configuration/i }));
+    expect(screen.getByText("Original Objective")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /Source Execution Details/i }));
+    expect(screen.getByText("Ask HN")).toBeVisible();
+
+    // Back to Discovery History restores saved filtered URL
+    fireEvent.click(screen.getByRole("button", { name: /Back to Discovery History/i }));
+    expect(mocks.push).toHaveBeenCalledWith(expect.stringContaining("/intent-radar/discover/history?source=github"));
+
+    // Saved Searches view renders with confirmation on Delete
     rerender(wrap(<DiscoverExperience route="discover/saved" />));
-    expect(screen.getByRole("heading", { name: "Saved Searches" })).toBeVisible();
     expect(screen.getByText("Weekly CRM Replacement Watch")).toBeVisible();
-    expect(screen.getByRole("button", { name: /Open in Builder/i })).toBeVisible();
-    expect(screen.getByRole("button", { name: /Convert to Monitor/i })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /Delete saved search Weekly CRM Replacement Watch/i }));
+    expect(await screen.findByRole("dialog", { name: "Delete saved search" })).toBeVisible();
   });
 
   it("applyProposalsToDraft merges cleanly without enabling semantic silently", () => {
