@@ -21,8 +21,8 @@ from app.utils.http import SafeAsyncClient
 class SourceLogRedaction(logging.Filter):
     def filter(self,record):
         value=record.getMessage()
-        if 'api.stackexchange.com' in value:
-            record.msg=re.sub(r'([?&]key=)[^&\s]+',r'\1[REDACTED]',value)
+        if any(host in value for host in ('api.stackexchange.com','googleapis.com','github.com','bsky.app','bsky.social')):
+            record.msg=re.sub(r'([?&](?:key|api_key|access_token|client_secret|token)=)[^&\s]+',r'\1[REDACTED]',value)
             record.args=()
         return True
 
@@ -124,7 +124,8 @@ def normalized(source,key,url,title,excerpt,published,**metadata):
         date=datetime.fromtimestamp(published,timezone.utc) if type(published) is int else datetime.fromisoformat(published.replace('Z','+00:00'))
         if date.tzinfo is None:return None
         stamp=date.astimezone(timezone.utc).isoformat()
-        url=canonical(url)
+        from app.intent_radar.feeds import reference
+        url=reference(url)
         metadata=models.Provenance.model_validate(metadata).model_dump(exclude_none=True)
     except (ValueError,OverflowError,TypeError):return None
     title=providers.text(title,300);excerpt=providers.text(excerpt,3000)
@@ -184,25 +185,8 @@ class StackExchange:
         return {'items':items,'requests':requests,'scanned':len(items),'next_offset':None,'quota_remaining':quota,'cursor':cursor,'coverage':'Official bounded question search with resumable page/date cursors for '+', '.join(q.sites)}
 
 def parse_feed(content,config):
-    if len(content)>500000 or b'<!DOCTYPE' in content.upper() or b'<!ENTITY' in content.upper():raise ValueError('Unsafe or oversized feed.')
-    try:root=ET.fromstring(content)
-    except ET.ParseError:raise ValueError('Malformed feed.') from None
-    items=[]
-    def value(node,name):
-        child=next((x for x in node if x.tag.rsplit('}',1)[-1]==name),None)
-        return ''.join(child.itertext()) if child is not None else ''
-    for native in [x for x in root.iter() if x.tag.rsplit('}',1)[-1] in ('item','entry')][:40]:
-        link=value(native,'link')
-        if not link:
-            link=next((x.attrib.get('href','') for x in native if x.tag.rsplit('}',1)[-1]=='link' and x.attrib.get('rel','alternate')=='alternate'),'')
-        published=value(native,'published') or value(native,'pubDate') or value(native,'updated')
-        try:published=parsedate_to_datetime(published).isoformat() if ',' in published else published
-        except (ValueError,TypeError):continue
-        native_id=value(native,'guid') or value(native,'id') or link
-        item=normalized('Approved Discourse' if config['family']=='discourse' else 'RSS / Atom',config['id']+':'+hashlib.sha256(native_id.encode()).hexdigest(),link,value(native,'title'),value(native,'summary') or value(native,'description') or value(native,'content'),published,
-            feed_id=config['id'],feed_name=config['name'],attribution=config['attribution'],policy_reference=config['policy_reference'],retention_days=config['retention_days'],fetch_method='public_feed',categories=[value(native,'category')][:10],declared_feed_language=next((''.join(x.itertext())[:30] for x in root.iter() if x.tag.rsplit('}',1)[-1]=='language'),None))
-        if item:items.append(item)
-    return items
+    from app.intent_radar.feeds import parse
+    return parse(content,config,normalized)
 
 class Feed:
     async def one(self,c,config,permit,meter):

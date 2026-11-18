@@ -115,7 +115,7 @@ class Attribution(Strict):
 class Provenance(Strict):
     site: str | None = Field(None,max_length=100)
     tags: list[Term] = Field(default_factory=list,max_length=10)
-    updated_at: int | None = None
+    updated_at: int | str | None = None
     attribution: Attribution | str | None = None
     fetch_method: Literal['official_api','public_feed','official_hn'] | None = None
     feed_id: str | None = Field(None,max_length=100)
@@ -124,6 +124,13 @@ class Provenance(Strict):
     retention_days: int | None = Field(None,ge=1,le=30)
     categories: list[str] = Field(default_factory=list,max_length=10)
     declared_feed_language: str | None = Field(None,max_length=30)
+    feed_format: Literal['rss','atom'] | None = None
+    feed_authors: list[str] = Field(default_factory=list,max_length=10)
+    feed_self_url: str | None = Field(None,max_length=1000)
+    published_at: str | None = Field(None,max_length=60)
+    observed_time_basis: Literal['published','updated'] | None = None
+    content_kind: Literal['question','answer','comment','story','job','release','repository','issue','discussion','pull_request','article','paper','video','channel','playlist','post'] | None = None
+
 
 class Discovery(Strict):
     configuration: Search

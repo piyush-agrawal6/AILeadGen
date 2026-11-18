@@ -2,6 +2,7 @@ from app.database.account_security_schema import ACCOUNT_SECURITY_SQL
 from app.database.access_period_schema import ACCESS_PERIOD_SQL
 from app.database.privacy_request_schema import PRIVACY_REQUEST_SQL
 from app.database.setup_diagnostics_schema import SETUP_DIAGNOSTICS_SQL
+from app.database.source_integration_schema import SOURCE_INTEGRATION_SQL
 from app.database.commercial_schema import COMMERCIAL_SQL
 from app.database.intent_radar_schema import INTENT_RADAR_SQL
 from app.database.growth_intelligence_schema import GROWTH_SQL
@@ -347,6 +348,7 @@ MIGRATIONS: List[str] = [
     , ACCESS_PERIOD_SQL
     , PRIVACY_REQUEST_SQL
     , SETUP_DIAGNOSTICS_SQL
+    , SOURCE_INTEGRATION_SQL
 ]
 
 

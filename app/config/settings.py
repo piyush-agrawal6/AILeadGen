@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import yaml
-from pydantic import BaseModel, Field, model_validator, AliasChoices, SecretStr
+from pydantic import BaseModel, Field, model_validator, AliasChoices, SecretStr, field_validator
 from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -89,6 +89,42 @@ class Settings(BaseSettings):
     intent_radar_stackexchange_key:SecretStr=SecretStr('')
     intent_radar_stackexchange_sites:str='stackoverflow;softwareengineering;webmasters'
     intent_radar_approved_feed_hosts:str=''
+
+    @field_validator('intent_radar_stackexchange_sites','intent_radar_approved_feed_hosts',mode='before')
+    @classmethod
+    def source_configuration_lists(cls,value):
+        # The owner-provided site list uses commas; prior deployments use
+        # semicolons. Normalize both without losing an existing approved entry.
+        import re
+        return ';'.join(dict.fromkeys(part.strip().casefold() for part in re.split(r'[;,]',str(value or '')) if part.strip()))
+
+    intent_radar_sources_v2_enabled:bool=False
+    github_app_id:str=''
+    github_app_slug:str='planebyte-intent-radar'
+    github_app_private_key:SecretStr=SecretStr('')
+    github_app_private_key_secret:str=''
+    github_app_installation_id:str=''
+    github_app_client_id:str=''
+    github_app_client_secret:SecretStr=SecretStr('')
+    github_app_webhook_secret:SecretStr=SecretStr('')
+    github_api_version:str='2026-03-10'
+    intent_radar_github_enabled:bool=False
+    intent_radar_github_public_search_enabled:bool=False
+    intent_radar_github_monitoring_enabled:bool=False
+    intent_radar_github_webhooks_enabled:bool=False
+    youtube_api_key:SecretStr=SecretStr('')
+    intent_radar_youtube_enabled:bool=False
+    intent_radar_youtube_search_enabled:bool=False
+    intent_radar_youtube_comments_enabled:bool=False
+    intent_radar_youtube_monitoring_enabled:bool=False
+    intent_radar_youtube_ai_analytics_enabled:bool=False
+    intent_radar_youtube_cross_source_analytics_enabled:bool=False
+    bluesky_api_base_url:str='https://public.api.bsky.app'
+    bluesky_jetstream_url:str='wss://jetstream.us-east.bsky.network/xrpc/network.bsky.jetstream.subscribeEvents'
+    bluesky_identifier:str=''
+    bluesky_app_password:SecretStr=SecretStr('')
+    intent_radar_bluesky_enabled:bool=False
+    intent_radar_bluesky_jetstream_enabled:bool=False
     intent_radar_schedules_enabled:bool=False
     intent_radar_min_schedule_hours:int=Field(12,ge=6,le=24)
     intent_radar_ai_daily_calls:int=Field(10,ge=1,le=50)
