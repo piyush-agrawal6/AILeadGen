@@ -14,6 +14,9 @@ from app.platform.context import current
 POLICY='planebyte-card-trial-2026-11-17-v2'
 TRIAL_SECONDS=259200
 TRIAL_LIMITS={'searches':5,'ai_calls':3,'ai_tokens':150000,'monitors':1,'monitor_executions':0,'reports':0,'team_members':1,'api_requests':0,'monitor_interval_hours':24}
+# Dedicated bounded allowance for guided 5-step company/ICP/Copilot onboarding
+# so setup never exhausts a workspace's product trial AI quota.
+SETUP_LIMITS={'searches':0,'ai_calls':25,'ai_tokens':500000,'monitors':0,'monitor_executions':0,'reports':0,'team_members':1,'api_requests':0,'monitor_interval_hours':24}
 _setup=ContextVar('verified_subscription_setup_job',default=None)
 
 def enabled():return get_settings().subscription_onboarding_required
@@ -72,9 +75,9 @@ def scheduled_sql(org):
 
 @contextmanager
 def setup_scope(c,key):
- """Only an owned persisted setup job can use the prepayment AI ledger."""
+ """Only an owned persisted setup job can use the isolated onboarding AI ledger."""
  ctx=current();value=None
- if required(c,ctx.organization_id) and not product_grant(c,ctx.organization_id):
+ if required(c,ctx.organization_id):
   row=c.execute('SELECT id,organization_id,created_by,source_kind FROM organization_profile_jobs WHERE id=? AND organization_id=?',(key,ctx.organization_id)).fetchone()
   if not row or row['created_by']!=ctx.actor or row['source_kind'] not in ('WEBSITE','DESCRIPTION','ICP_RECOMMENDATIONS','ONBOARDING_ADVICE'):raise HTTPException(403,'A verified setup job is required.')
   value={'organization_id':ctx.organization_id,'job_id':key,'kind':row['source_kind']}
@@ -92,5 +95,4 @@ def setup_contract(c,org,amounts,operation_id):
  parent=prefix+value['job_id']
  if operation_id!=parent and not operation_id.startswith('ai-attempt:'+hashlib.sha256(parent.encode()).hexdigest()[:32]+':'):raise HTTPException(403,'Setup capacity is bound to the owned setup job.')
  if not required(c,org):raise HTTPException(403,'Setup enrollment changed.')
- limits={**TRIAL_LIMITS,'searches':0,'monitors':0}
- return {'id':'setup:'+org,'paid_start':0,'paid_end':2147483647,'plan_json':json.dumps({'code':'setup-only','name':'Setup AI budget, not product or trial access','limits':limits})}
+ return {'id':'setup:'+org,'paid_start':0,'paid_end':2147483647,'plan_json':json.dumps({'code':'setup-only','name':'Setup AI budget, not product or trial access','limits':SETUP_LIMITS})}

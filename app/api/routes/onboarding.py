@@ -32,6 +32,14 @@ def save(body:setup.Setup,c=Depends(get_db,scope='function')):
 def complete(body:setup.Completion,c=Depends(get_db,scope='function')):
     return setup.complete(c,body)
 
+@router.post('/skip',response_model=Progress)
+def skip_onboarding(c=Depends(get_db,scope='function')):
+    return setup.set_deferred(c,True)
+
+@router.post('/resume',response_model=Progress)
+def resume_onboarding(c=Depends(get_db,scope='function')):
+    return setup.set_deferred(c,False)
+
 # AI setup reuses the existing company worker and canonical profile/ICP stores.
 from uuid import UUID
 from fastapi import BackgroundTasks

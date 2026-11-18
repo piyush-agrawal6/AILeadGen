@@ -4,11 +4,19 @@ from app.platform.context import current
 from app.api.organization import products, membership_role
 from app.api.permissions import authorize
 
+def _deferred(c, organization_id):
+    import json
+    row=c.execute('SELECT preferences_json FROM organization_setup WHERE organization_id=?',(organization_id,)).fetchone()
+    if not row or not row[0]:return False
+    try:return bool(json.loads(row[0]).get('setup_deferred',False))
+    except (ValueError,TypeError,AttributeError):return False
+
 def _enabled(c, organization_id, row):
     settings=get_settings();stage=settings.intent_radar_stage
     from app.billing.subscription_access import required,product_grant
     if required(c,organization_id) and not product_grant(c,organization_id):return False
-    enabled=bool(row and row['organization_status']=='ACTIVE' and row['onboarding_status']=='COMPLETED' and stage!='Disabled')
+    ready=bool(row and (row['onboarding_status']=='COMPLETED' or _deferred(c,organization_id)))
+    enabled=bool(row and row['organization_status']=='ACTIVE' and ready and stage!='Disabled')
     if enabled and not row['manual_grant']:
         from app.billing.service import granted
         enabled='INTENT_RADAR' in granted(c,organization_id) if settings.billing_enabled or settings.payu_billing_enabled else False
@@ -49,6 +57,6 @@ def persistence_context(c,manager=False):
     if not c.execute("UPDATE organization_products SET enabled=enabled WHERE organization_id=? AND product='INTENT_RADAR' AND enabled=1",(ctx.organization_id,)).rowcount:
         from app.billing.service import fence_grant
         if not fence_grant(c,ctx.organization_id):raise HTTPException(404,'Intent Radar access was revoked before persistence.')
-    if not c.execute("UPDATE organization_onboarding SET status=status WHERE organization_id=? AND status='COMPLETED'",(ctx.organization_id,)).rowcount:
+    if not c.execute("UPDATE organization_onboarding SET status=status WHERE organization_id=? AND status='COMPLETED'",(ctx.organization_id,)).rowcount and not _deferred(c,ctx.organization_id):
         raise HTTPException(404,'Workspace access changed before persistence.')
     return ctx

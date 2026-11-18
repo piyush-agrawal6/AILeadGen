@@ -159,6 +159,10 @@ function reviewFailure(code?: string | null) {
     ICP_DUPLICATE_SEGMENTS: 'The AI returned overlapping customer segments. Regenerate to get five distinct segments.',
     ICP_MISSING_BUYING_SIGNALS: 'Some generated customer profiles were missing buying triggers. Click retry to regenerate complete signals.',
     ICP_UNSUPPORTED_CRITERIA: 'The AI returned unsupported targeting criteria. Review your saved markets and regenerate.',
+    SETUP_LIMIT_EXHAUSTED: 'Your setup AI allowance was reached for this request. Click Retry to run cleanly, or continue manually — your saved profile is unchanged.',
+    ICP_TOO_FEW_SEGMENTS: 'The AI returned fewer than 5 distinct segments. Click Retry to generate a full set of 5 profiles.',
+    ICP_TOO_MANY_SEGMENTS: 'The AI returned too many segments. Click Retry to generate exactly 5 profiles.',
+    ICP_VERBOSE_RESPONSE: 'The AI response exceeded length limits. Click Retry for a concise 5-profile set.',
     SETUP_CONTEXT_CHANGED: 'Your saved company profile changed while analysis was running. Refresh and generate a fresh recommendation.',
     SETUP_ACCESS_REVOKED: 'Workspace permissions changed. An authorized owner or administrator must continue.'
   };
@@ -606,15 +610,31 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
     setNotice('Section suggestions reverted to your saved values.');
   }
 
-  async function prepareICP(revision: number, version = state.company.version) {
+  // Never show stale "Generating..." notice once an authoritative job reaches a terminal state
+  useEffect(() => {
+    const active = view === 'icp' ? icpReview.data : view === 'company' ? companyReview.data : null;
+    if (!active) return;
+    if (active.status === 'FAILED' || active.status === 'CANCELLED') {
+      setNotice('');
+    } else if (active.status === 'READY' && /generating|researching/i.test(notice)) {
+      setNotice('');
+    }
+  }, [view, icpReview.data?.status, companyReview.data?.status, notice]);
+
+  async function prepareICP(revision: number, version = state.company.version, fresh = false) {
+    setError('');
     const result = await api<{ review: Review; progress: Progress }>('/recommendations', {
       revision,
-      request_id: id('icps:' + version)
+      request_id: fresh ? crypto.randomUUID() : id('icps:' + version)
     });
     progressSaved(result.progress);
     client.setQueryData(['onboarding-review', result.review.id], result.review);
     deadline.current = Date.now() + 120000;
-    setNotice('Business profile saved. Generating 5 tailored ideal customer profiles…');
+    if (result.review.status === 'QUEUED' || result.review.status === 'RUNNING') {
+      setNotice('Business profile saved. Generating 5 tailored ideal customer profiles…');
+    } else {
+      setNotice('');
+    }
     setView('icp');
   }
 
@@ -783,6 +803,19 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
       progressSaved(result);
       setNotice('Progress saved safely. You can return anytime.');
       await onRefresh();
+    });
+  }
+
+  async function skipOnboarding() {
+    await perform(async () => {
+      const result = await api<Progress>('/skip', {}, 'POST');
+      progressSaved(result);
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ['account-workspaces'] }),
+        client.invalidateQueries({ queryKey: ['plane-products'] }),
+        client.invalidateQueries({ queryKey: ['intent-radar'] })
+      ]);
+      window.location.assign('/intent-radar');
     });
   }
 
@@ -996,6 +1029,9 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
 
               {progress.can_edit && (
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button variant="ghost" size="sm" disabled={pending} onClick={() => void skipOnboarding()}>
+                    Skip for now
+                  </Button>
                   <Button variant="outline" size="sm" disabled={pending} onClick={() => void saveExit()}>
                     Save &amp; Exit
                   </Button>
@@ -1718,6 +1754,7 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
                     kind="icp"
                     query={icpReview}
                     onControl={async action => controlReview('icp', action)}
+                    onFreshRun={async () => perform(() => prepareICP(progress.revision, state.company.version, true))}
                   />
                 )}
 
@@ -2477,11 +2514,13 @@ function CopilotPanel({
 function ReviewStatusCard({
   kind,
   query,
-  onControl
+  onControl,
+  onFreshRun
 }: {
   kind: 'company' | 'icp';
   query: { data?: Review; error: Error | null; refetch: () => Promise<unknown> };
   onControl: (action: 'CANCEL' | 'RETRY') => Promise<void>;
+  onFreshRun?: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const [ctrlErr, setCtrlErr] = useState('');
@@ -2540,6 +2579,26 @@ function ReviewStatusCard({
           {review?.can_retry && (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => void handleControl('RETRY')}>
               Retry
+            </Button>
+          )}
+          {isFailed && !review?.can_retry && onFreshRun && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                setCtrlErr('');
+                try {
+                  await onFreshRun();
+                } catch (e) {
+                  setCtrlErr((e as Error).message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Retry with fresh run
             </Button>
           )}
           {isRunning && (

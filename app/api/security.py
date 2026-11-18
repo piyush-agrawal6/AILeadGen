@@ -83,7 +83,7 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
                 setup=request.url.path in self.SETUP_CONFIGURATION_PATHS or request.method=='GET' and request.url.path in self.SETUP_REFERENCE_PATHS
                 if not request.url.path.startswith(self.ORG_OPTIONAL_PREFIXES):
                     if state is None:raise HTTPException(403,{'detail':'Create your company to continue.','code':'ORGANIZATION_REQUIRED'})
-                    if state['onboarding_status']!='COMPLETED' and not setup:raise HTTPException(403,{'detail':'Finish company onboarding to continue.','code':'ONBOARDING_INCOMPLETE'})
+                    if state['onboarding_status']!='COMPLETED' and not state.get('onboarding_deferred') and not setup:raise HTTPException(403,{'detail':'Finish company onboarding to continue.','code':'ONBOARDING_INCOMPLETE'})
                 if state is None:return copy_context()
                 if request.url.path not in self.SETUP_CONFIGURATION_PATHS and request.url.path not in self.SETUP_REFERENCE_PATHS:
                     guard_product_route(c,request.url.path,state['organization_id'])

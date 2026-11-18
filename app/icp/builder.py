@@ -236,8 +236,8 @@ async def _call(c, task, payload, schema, instruction, validator,operation_id=No
         from app.platform.provider_usage import operation
         with operation('ICP_RECOMMENDATIONS',operation_id=operation_id_value):
             return await asyncio.wait_for(gateway.provider(c).structured(
-                instruction, payload, schema, max_output_tokens=8192, timeout_seconds=35,
-                max_response_bytes=80000, retry_transient=False,attempts_per_provider=1), timeout=40)
+                instruction, payload, schema, max_output_tokens=8192, timeout_seconds=45,
+                max_response_bytes=80000, retry_transient=True,attempts_per_provider=2), timeout=55)
     try:
         return await gateway.cached(c, current().actor, task, payload, produce, schema, validator)
     except (gateway.AiUnavailable, gateway.AiApplicationError, asyncio.TimeoutError, ValueError) as error:

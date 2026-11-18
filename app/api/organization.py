@@ -60,10 +60,12 @@ def resolve(c, email):
     from app.config.settings import get_settings
     records=[dict(r) for r in c.execute("""SELECT m.id,m.organization_id,m.role,m.status,m.created_at,
         o.name,o.slug,o.status AS organization_status,p.active_organization_id preferred_id,
-        b.status onboarding_status,b.current_step onboarding_current_step
+        b.status onboarding_status,b.current_step onboarding_current_step,
+        s.preferences_json setup_preferences_json
         FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id
         LEFT JOIN user_profiles p ON p.user_id=m.user_id
         LEFT JOIN organization_onboarding b ON b.organization_id=m.organization_id
+        LEFT JOIN organization_setup s ON s.organization_id=m.organization_id
         WHERE m.user_id=? AND m.status='ACTIVE' AND o.status='ACTIVE'
         ORDER BY m.created_at,m.id""",(email,)).fetchall()]
     if not records:return None
@@ -74,13 +76,20 @@ def resolve(c, email):
             active=next((r for r in records if r['organization_id']==preferred),None)
             if active is None:return None
         elif len(records)>1:return None
-    private={'preferred_id','onboarding_status','onboarding_current_step'}
+    deferred=False
+    try:
+        if active.get('setup_preferences_json'):
+            deferred=bool(json.loads(active['setup_preferences_json']).get('setup_deferred',False))
+    except (ValueError,TypeError,AttributeError):
+        deferred=False
+    private={'preferred_id','onboarding_status','onboarding_current_step','setup_preferences_json'}
     rows=[{key:value for key,value in r.items() if key not in private} for r in records]
     return {
         'organization_id':active['organization_id'],'organization_name':active['name'],
         'organization_slug':active['slug'],'role':active['role'],'memberships':rows,
         'onboarding_status':active['onboarding_status'] or 'NOT_STARTED',
         'onboarding_current_step':active['onboarding_current_step'],
+        'onboarding_deferred':deferred,
     }
 
 

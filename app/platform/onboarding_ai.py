@@ -222,7 +222,7 @@ def finish(c,body):
     if icp['status']!='ACTIVE':raise HTTPException(422,'Choose an active primary customer profile.')
     profile=read_profile(c)
     # One authoritative services store. Finishing never repeats service entry.
-    prefs={**saved['preferences'],'geography_mode':'SELECTED' if icp['criteria']['company']['countries'] else 'GLOBAL','countries':icp['criteria']['company']['countries'],'geography_confirmed':True,'integrations_skipped':True,'research_keywords':body.research_keywords,'excluded_keywords':body.excluded_keywords}
+    prefs={**saved['preferences'],'geography_mode':'SELECTED' if icp['criteria']['company']['countries'] else 'GLOBAL','countries':icp['criteria']['company']['countries'],'geography_confirmed':True,'integrations_skipped':True,'setup_deferred':False,'research_keywords':body.research_keywords,'excluded_keywords':body.excluded_keywords}
     saved=update(c,saved,services=profile['products_services'],default_icp_id=icp['id'],preferences=prefs,current_step='REVIEW')
     # Preferences may be prepared during setup, without activating the module.
     # Existing monitor criteria, history and enrollment are untouched.

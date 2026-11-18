@@ -30,6 +30,7 @@ class Preferences(BaseModel):
     accepted_icp_ids:list[UUID]=Field(default_factory=list,max_length=5)
     research_keywords:list[str]=Field(default_factory=list,max_length=12)
     excluded_keywords:list[str]=Field(default_factory=list,max_length=12)
+    setup_deferred:bool=False
 
     @field_validator('research_keywords','excluded_keywords')
     @classmethod
@@ -152,3 +153,20 @@ def complete(c,body:Completion):
     c.execute('UPDATE organization_setup SET completed_revision=? WHERE organization_id=?',(body.revision,org))
     _audit(c,'ONBOARDING_COMPLETED',body.revision)
     return {'status':'COMPLETED','discovery_started':False,'outreach_started':False}
+
+
+def set_deferred(c, deferred: bool):
+    """Skip/defer or resume guided onboarding without faking completion or bypassing billing."""
+    org=organization();require_role(c,current().actor,org,('OWNER','ADMIN'));_lock(c,org)
+    saved=read(c)
+    if saved['status']=='COMPLETED':
+        return saved
+    prefs={**saved['preferences'],'setup_deferred':bool(deferred)}
+    stamp=now();revision=saved['revision']+1
+    c.execute('''INSERT INTO organization_setup(organization_id,default_icp_id,objectives_json,preferences_json,current_step,revision,updated_by,updated_at)
+        VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(organization_id) DO UPDATE SET preferences_json=excluded.preferences_json,
+        revision=excluded.revision,updated_by=excluded.updated_by,updated_at=excluded.updated_at''',
+        (org,saved['default_icp_id'],json.dumps(saved['objectives']),Preferences.model_validate(prefs).model_dump_json(),saved['current_step'],revision,current().actor,stamp))
+    c.execute("UPDATE organization_onboarding SET status=CASE WHEN status='NOT_STARTED' THEN 'IN_PROGRESS' ELSE status END,updated_at=? WHERE organization_id=? AND status<>'COMPLETED'",(stamp,org))
+    _audit(c,'ONBOARDING_DEFERRED' if deferred else 'ONBOARDING_RESUMED',revision)
+    return read(c)

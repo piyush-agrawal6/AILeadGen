@@ -30,6 +30,7 @@ class WorkspaceList(BaseModel):
     items:list[WorkspaceMembership]
     active_organization_id:UUID|None
     active_onboarding_status:Literal['NOT_STARTED','IN_PROGRESS','COMPLETED','FAILED']|None
+    active_onboarding_deferred:bool=False
     active_is_internal:bool=False
 
 @router.get('/workspaces',response_model=WorkspaceList)
@@ -41,7 +42,7 @@ def workspaces(request:Request,c=Depends(get_db,scope='function')):
         from app.billing.subscription_access import required,product_grant
         if required(c,state['organization_id']) and not product_grant(c,state['organization_id']):
             state={**state,'onboarding_status':'IN_PROGRESS'}
-    return {'items':memberships(c,request.state.user_email),'active_organization_id':state['organization_id'] if state else None,'active_onboarding_status':state['onboarding_status'] if state else None,'active_is_internal':bool(state and state['organization_id']==PLANEBYTE_ORGANIZATION_ID)}
+    return {'items':memberships(c,request.state.user_email),'active_organization_id':state['organization_id'] if state else None,'active_onboarding_status':state['onboarding_status'] if state else None,'active_onboarding_deferred':bool(state and state.get('onboarding_deferred')),'active_is_internal':bool(state and state['organization_id']==PLANEBYTE_ORGANIZATION_ID)}
 
 @router.get('/products')
 def product_access(request:Request,c=Depends(get_db,scope='function')):
