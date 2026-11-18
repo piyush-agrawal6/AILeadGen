@@ -1,6 +1,6 @@
 export const authPages=["/login","/signup","/forgot-password","/reset-password","/verify-email","/accept-invitation"] as const;
 export function isAuthPage(path:string){return (authPages as readonly string[]).includes(path);}
-export function isPublicPage(path:string){return isAuthPage(path)||["/terms","/privacy","/refund","/cancellation","/start"].includes(path);}
+export function isPublicPage(path:string){return isAuthPage(path)||["/terms","/privacy","/refund","/cancellation","/cookies","/acceptable-use","/sources-policy","/data-deletion","/subprocessors","/dpa","/delivery-policy","/start"].includes(path);}
 /** Only fixed messages are displayed; never echo provider text or query tokens. */
 export function authenticationError(code:string|undefined):string|null{
  if(!code)return null;

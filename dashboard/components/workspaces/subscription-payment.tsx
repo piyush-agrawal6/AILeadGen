@@ -440,8 +440,10 @@ export function SubscriptionPayment({ onActivated, embedded = false }: { onActiv
                 {trial ? 'A card is required; the first charge occurs after the 72-hour trial unless canceled. ' : ''}
                 I accept the{' '}
                 <Link href="/terms" className="text-primary underline">subscription terms</Link>,{' '}
-                <Link href="/refund" className="text-primary underline">refund policy</Link>, and{' '}
-                <Link href="/cancellation" className="text-primary underline">cancellation terms</Link>.
+                <Link href="/refund" className="text-primary underline">refund policy</Link>,{' '}
+                <Link href="/cancellation" className="text-primary underline">cancellation terms</Link>,{' '}
+                <Link href="/delivery-policy" className="text-primary underline">digital delivery policy</Link>, and{' '}
+                <Link href="/privacy" className="text-primary underline">privacy policy</Link>.
               </span>
             </label>
 

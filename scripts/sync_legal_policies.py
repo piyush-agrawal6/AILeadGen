@@ -1,0 +1,1342 @@
+"""Single-source-of-truth generator for PlaneByte legal & compliance policies.
+
+Synchronizes:
+  1. dashboard/lib/legal-policies.json (used by https://app.planebyte.com)
+  2. planebyte-website-new/src/markup/*.html (used by https://planebyte.com)
+
+Zero drift across domains. Run after any reviewed compliance update and verify with
+scripts/verify_compliance_invariants.py.
+"""
+from __future__ import annotations
+
+import html
+import json
+import re
+from pathlib import Path
+
+VERSION = "planebyte-compliance-2026-11-18-v4"
+EFFECTIVE_DATE = "18 November 2026"
+SUMMARY_BAR = (
+    f"Effective {EFFECTIVE_DATE} · Version {VERSION}. "
+    "Planebyte is an individually operated business owned by Piyush Agrawal (not yet formally incorporated). "
+    "Legal notices: House No. 1005, Attabira, Bargarh, Odisha 768027, India. "
+    "Support, privacy, and compliance enquiries: contact@planebyte.com."
+)
+
+# Blocks support:
+#   {"text": "... with **bold** and [label](url) ..."}
+#   {"list": ["item 1", "item 2"]}
+#   {"table": [["Header 1", "Header 2"], ["Row 1 Col 1", "Row 1 Col 2"]]}
+#   {"callout": {"title": "...", "text": "..."}}
+
+POLICIES: dict[str, dict] = {
+    "privacy": {
+        "title": "PlaneByte Privacy Policy",
+        "kicker": "PLANEBYTE / PRIVACY & DATA PROTECTION",
+        "subtitle": (
+            "How PlaneByte collects, uses, stores, discloses, and protects personal information across "
+            "planebyte.com, app.planebyte.com, Intent Radar, and Growth Intelligence."
+        ),
+        "canonical_path": "/privacy",
+        "sections": [
+            {
+                "id": "identity-and-scope",
+                "title": "1. Identity, scope, and roles",
+                "blocks": [
+                    {
+                        "text": (
+                            "PlaneByte is the product and trading name for **Planebyte, an individually operated business owned by Piyush Agrawal** "
+                            "(early-stage; not yet formally incorporated), with its legal-notice address at **House No. 1005, Attabira, Bargarh, Odisha 768027, India** "
+                            "(“PlaneByte,” “we,” “us,” or “our”). Privacy, data-protection, and support enquiries may be sent to "
+                            "[contact@planebyte.com](mailto:contact@planebyte.com). We do not claim a formal Data Protection Officer (DPO) or EU/UK statutory "
+                            "representative designation where none has been appointed."
+                        )
+                    },
+                    {
+                        "text": (
+                            "This Privacy Policy covers visitors to [https://planebyte.com](https://planebyte.com), account holders and workspace users of "
+                            "[https://app.planebyte.com](https://app.planebyte.com) (Intent Radar and Growth Intelligence), people who contact us or request a demonstration, "
+                            "and individuals whose publicly available posts or profiles appear in authorized public-source research results."
+                        )
+                    },
+                    {
+                        "text": (
+                            "**Controller vs. processor roles:** PlaneByte acts as an independent data controller (or data fiduciary under Indian law) for website visits, "
+                            "account registration, authentication, workspace administration, billing, security logging, and support communications. When a B2B customer uploads "
+                            "or organizes business context and workspace research inside its tenant workspace, the customer generally determines the business purposes and "
+                            "permitted users of that workspace content while PlaneByte processes it to provide the requested SaaS functionality (see our [Data Processing Addendum (Draft)](/dpa))."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "information-collected",
+                "title": "2. Information we collect and where it comes from",
+                "blocks": [
+                    {
+                        "text": (
+                            "We distinguish clearly between **customer-supplied information** (entered directly by you or your workspace team) and "
+                            "**publicly available third-party information** retrieved when a workspace runs an authorized discovery search or monitor."
+                        )
+                    },
+                    {
+                        "table": [
+                            ["Category", "Examples", "Source"],
+                            [
+                                "Account & identity",
+                                "Work email address, full name, company name, email verification status, Google Sign-In subject ID (if used), and recorded Terms acceptance version/timestamp.",
+                                "Directly from you or verified Google Sign-In identity claims.",
+                            ],
+                            [
+                                "Authentication & security",
+                                "Cryptographically hashed local password (plaintext passwords are never stored), short-lived OTP/recovery verification records, 8-hour session tokens, revocation timestamps, IP/rate-limit telemetry, and audit events.",
+                                "Generated automatically during sign-in and security enforcement.",
+                            ],
+                            [
+                                "Workspace & onboarding data",
+                                "Company profile, website URL, offerings, positioning, target markets, onboarding drafts, ideal customer profiles (ICPs), research keywords/exclusions, roles, and team invitations.",
+                                "Directly from authorized workspace owners/admins and AI-assisted drafts you choose to review and save.",
+                            ],
+                            [
+                                "Billing & subscription metadata",
+                                "Selected plan (Starter, Growth, Scale), 72-hour trial status, Creem customer/checkout/subscription/payment references, billing contact name and email, billing country, renewal/cancellation timestamps, and encrypted webhook records. Card numbers and CVVs are entered only on Creem’s hosted checkout.",
+                                "You and Creem (Merchant of Record).",
+                            ],
+                            [
+                                "Connected accounts",
+                                "Optional customer-authorized GitHub App installation IDs, selected repository metadata, and encrypted OAuth access/refresh tokens.",
+                                "Authorized explicitly by workspace owners via GitHub OAuth/App installation.",
+                            ],
+                            [
+                                "Public-source research data",
+                                "Public post titles, excerpts, public comments, author handles/usernames, publication timestamps, engagement counts, and canonical source URLs from operational public APIs/feeds (YouTube Data API v3, GitHub, Bluesky, Stack Exchange, Hacker News, approved Discourse & RSS/Atom feeds).",
+                                "Public third-party APIs and feeds when explicitly requested by an authorized workspace.",
+                            ],
+                            [
+                                "AI inputs & outputs",
+                                "Submitted company context, setup prompts, Copilot questions, permitted public excerpts, AI-generated business drafts, ICP recommendations, research summaries, and intent/sentiment classifications.",
+                                "Customer prompts and Google Cloud Vertex AI inference outputs.",
+                            ],
+                            [
+                                "Website enquiries & scheduling",
+                                "Name, email, optional company, topic, message, and anti-abuse rate-limit hashes on planebyte.com; demo booking details if you choose to schedule via Cal.com.",
+                                "Directly from visitors submitting contact forms or booking demos.",
+                            ],
+                        ]
+                    },
+                ],
+            },
+            {
+                "id": "purposes-and-lawful-bases",
+                "title": "3. Purposes and lawful bases for processing",
+                "blocks": [
+                    {
+                        "text": (
+                            "We do not apply one blanket legal basis to every activity. Depending on the jurisdiction (including EU/UK GDPR, India’s Digital Personal Data Protection Act, 2023, and applicable U.S. laws), processing relies on the specific basis matched to each purpose:"
+                        )
+                    },
+                    {
+                        "table": [
+                            ["Purpose", "Primary Lawful Basis / Ground"],
+                            [
+                                "Account creation, work-email verification, authentication, workspace provisioning, onboarding persistence, and delivering Intent Radar / Growth Intelligence features",
+                                "Performance of a contract with you or your organization (and explicit consent where required by applicable law).",
+                            ],
+                            [
+                                "Creem trial activation, recurring billing reconciliation, invoicing, cancellation confirmations, and tax/accounting compliance",
+                                "Performance of a contract and compliance with legal/accounting obligations.",
+                            ],
+                            [
+                                "Security controls, tenant isolation, rate limiting, fraud/abuse prevention, webhook signature verification, and incident response",
+                                "Legitimate interests in securing our platform and customers, and legal obligations.",
+                            ],
+                            [
+                                "Authorized public-source market and buyer-intent research for B2B workspaces",
+                                "Customer instructions / legitimate interests in analyzing publicly posted commercial discussions, subject to platform terms, minimization, and individuals’ right to object or request erasure.",
+                            ],
+                            [
+                                "Optional marketing-site third-party embeds (Cal.com) or optional non-essential cookies",
+                                "Affirmative, freely given user consent (withdrawable at any time via Privacy Preferences).",
+                            ],
+                            [
+                                "Handling data-subject rights requests, legal disputes, regulatory enquiries, and honoring opt-out/suppression lists",
+                                "Compliance with legal obligations and legitimate interests in honoring opt-outs.",
+                            ],
+                        ]
+                    },
+                ],
+            },
+            {
+                "id": "ai-and-automated-analysis",
+                "title": "4. AI processing and automated analysis",
+                "blocks": [
+                    {
+                        "text": (
+                            "PlaneByte uses **Google Cloud Vertex AI** (currently `gemini-3.6-flash` on Google Cloud’s global Vertex AI endpoint, project `querryside`) "
+                            "for AI-assisted company profiling, generating 5 editable ICP recommendations, Setup Copilot guidance, Growth Intelligence synthesis, "
+                            "and permitted buyer-intent or topic classification."
+                        )
+                    },
+                    {
+                        "list": [
+                            "**Human review & non-binding estimates:** Buyer-intent scores, ICP suggestions, and AI summaries are probabilistic estimates that may contain errors or omissions. They are designed for human review and **do not** constitute automated decision-making with legal or similarly significant effects on individuals (such as credit, employment, insurance, or eligibility decisions).",
+                            "**No fabricated training claims:** Google Cloud’s standard enterprise Vertex AI service terms govern API inference processing; however, we do not make an unverified contractual guarantee beyond Google Cloud’s applicable published Vertex AI terms until our bilateral cloud DPA status is finalized.",
+                            "**YouTube AI gate:** Derived AI analytics and cross-source AI scoring are **disabled by default** (`false`) for YouTube API Data pending separate YouTube API policy approval.",
+                            "**Manual control:** Onboarding AI drafts require explicit user review and saving; late AI outputs do not silently overwrite manually edited fields.",
+                        ]
+                    },
+                ],
+            },
+            {
+                "id": "youtube-api-services",
+                "title": "5. YouTube API Services & Google data disclosures",
+                "blocks": [
+                    {
+                        "callout": {
+                            "title": "Mandatory YouTube API Services Notice",
+                            "text": (
+                                "PlaneByte uses **YouTube API Services** (YouTube Data API v3) to allow authorized workspaces to discover public YouTube videos, "
+                                "channels, and public comment threads. By using YouTube-related features in PlaneByte, you agree to be bound by the "
+                                "[YouTube Terms of Service](https://www.youtube.com/t/terms). Google’s data practices are described in the "
+                                "[Google Privacy Policy](https://policies.google.com/privacy)."
+                            ),
+                        }
+                    },
+                    {
+                        "list": [
+                            "**Public API key only (no YouTube user OAuth):** PlaneByte’s current YouTube integration uses a server-side YouTube Data API v3 API key to read publicly available video metadata, channel metadata, statistics, and public comments (`safeSearch=strict`). PlaneByte does **not** request YouTube OAuth scopes or access private YouTube accounts, private videos, watch history, or subscriptions.",
+                            "**Google Sign-In is separate:** Optional Google Sign-In on app.planebyte.com requests basic verified identity claims only and grants no access to YouTube, Gmail, or Google Sheets. You can review or revoke Google app sign-in permissions at any time via [Google Security Settings](https://security.google.com/settings/security/permissions).",
+                            "**Caching, 30-day retention, and deletion:** Public YouTube API responses are cached briefly (600–900 seconds) for quota efficiency. Any stored YouTube API Data is subject to a **30-day maximum retention limit** enforced by automated retention sweeps. Users and affected individuals may request earlier deletion via Settings → Account → Sign-in & Security or [contact@planebyte.com](mailto:contact@planebyte.com).",
+                            "**AI analytics gated off:** Derived AI sentiment/intent scoring and cross-source AI analytics on YouTube API Data are disabled unless separate provider approval is recorded.",
+                            "**No resale or unauthorized sharing:** YouTube API Data is displayed with original YouTube attribution and canonical links (`youtube.com/watch?v=...`) strictly inside the requesting workspace and is never sold or shared with advertising brokers.",
+                        ]
+                    },
+                ],
+            },
+            {
+                "id": "third-party-public-data",
+                "title": "6. Public third-party sources and individuals’ rights",
+                "blocks": [
+                    {
+                        "text": (
+                            "Intent Radar retrieves bounded public discussions from operational third-party platforms (YouTube Data API v3, GitHub, Bluesky Public API & Jetstream v2, "
+                            "Stack Exchange, Hacker News, and curated public Discourse and Atom/RSS feeds). Full source-by-source rules, attribution, and disabled/unapproved sources "
+                            "(such as Reddit and LinkedIn) are documented in our [Third-Party Sources & Data Usage Policy](/sources-policy)."
+                        )
+                    },
+                    {
+                        "text": (
+                            "Public availability does not erase an individual’s privacy rights. We store bounded excerpts, canonical links, and metadata—not full unrestricted archives—"
+                            "and honor upstream deletions where supported (for example, Bluesky Jetstream delete propagation, Hacker News dead/deleted markers, and YouTube’s 30-day retention limit). "
+                            "If your publicly posted content or handle appears in PlaneByte research results and you wish to object, request correction, or request erasure, email "
+                            "[contact@planebyte.com](mailto:contact@planebyte.com) with the relevant URL or handle for proportionate review."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "disclosures-and-subprocessors",
+                "title": "7. How information is disclosed (service providers & no data selling)",
+                "blocks": [
+                    {
+                        "text": (
+                            "We do **not** sell personal information for monetary consideration or share personal information for cross-context behavioral advertising. "
+                            "We disclose information only as necessary to operate the service: to authorized members of your workspace, to verified infrastructure and billing "
+                            "service providers listed in our [Subprocessors & Infrastructure Disclosure](/subprocessors) (Vercel, Netlify, Google Cloud / Vertex AI, Neon PostgreSQL, "
+                            "Creem, Resend, Google Sign-In, and consent-gated Cal.com), to professional advisers under confidentiality, or where lawfully required by authorities "
+                            "or to investigate security incidents and fraud."
+                        )
+                    }
+                ],
+            },
+            {
+                "id": "international-transfers",
+                "title": "8. International data transfers",
+                "blocks": [
+                    {
+                        "text": (
+                            "PlaneByte operates internationally. Currently, our backend API and background workers run on **Google Cloud Run in Mumbai, India (`asia-south1`)**, "
+                            "our primary **Neon PostgreSQL** database is hosted in the **United States**, our **Vercel** and **Netlify** edge networks operate globally/in the United States, "
+                            "and **Vertex AI** requests are routed through Google Cloud’s global endpoint. By using the service across borders, information may be transferred between "
+                            "India, the United States, and other locations where our subprocessors operate."
+                        )
+                    },
+                    {
+                        "text": (
+                            "Where EEA, UK, or Swiss data-protection transfer safeguards (such as EU Standard Contractual Clauses or the UK International Data Transfer Addendum) "
+                            "are required for a B2B customer relationship, please review our [Data Processing Addendum (Draft)](/dpa) and contact [contact@planebyte.com](mailto:contact@planebyte.com) "
+                            "to arrange bilateral execution. We do not claim SCCs are executed unless signed."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "security-practices",
+                "title": "9. Security practices",
+                "blocks": [
+                    {
+                        "text": (
+                            "We implement practical, verifiable engineering safeguards: server-side workspace membership and tenant isolation checks, HTTPS/TLS encryption in transit, "
+                            "encrypted database and webhook storage at rest, `HttpOnly`/`Secure`/`SameSite=Lax` production session cookies (8-hour expiry), one-way password hashing, "
+                            "Google Cloud Secret Manager for server-only API keys and signing secrets, HMAC-SHA256 webhook verification, bounded worker quotas, and privacy-safe logging "
+                            "that avoids writing credentials or card details."
+                        )
+                    },
+                    {
+                        "text": (
+                            "**No fabricated certifications:** PlaneByte does **not** currently hold SOC 2, ISO 27001, HIPAA, or PCI-DSS Level 1 certifications (payment card handling "
+                            "is offloaded entirely to Creem’s hosted checkout). If you suspect a security vulnerability or unauthorized access, contact [contact@planebyte.com](mailto:contact@planebyte.com) immediately."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "data-retention",
+                "title": "10. Data retention schedules",
+                "blocks": [
+                    {
+                        "table": [
+                            ["Record Category", "Retention / Lifecycle"],
+                            ["Authentication sessions", "Expire after 8 hours (or immediately upon sign-out, password reset, or revocation)."],
+                            ["OTP / signup / invite cookies & tokens", "Short-lived verification windows (10 minutes for signed browser tickets; bounded expiry server-side)."],
+                            ["YouTube API Data", "Short cache TTL (600–900s); stored YouTube signals subject to 30-day maximum retention sweep."],
+                            ["Connected GitHub OAuth tokens", "Retained until disconnected by workspace owner (`disconnect` clears tokens and selected repos) or revoked on GitHub."],
+                            ["Ordinary account & workspace data after verified closure", "Scheduled for deletion or anonymization within 30 days of verified closure review."],
+                            ["Recovery backups", "Aged out through normal backup retention cycles, targeted at no more than 90 days after verified closure."],
+                            ["Billing, tax, refund & consent records", "Retained as required by applicable accounting, tax, dispute-resolution, and statutory obligations."],
+                            ["Suppression & opt-out records", "Retained as needed to ensure unsubscribe/opt-out choices continue to be honored."],
+                            ["Security & audit logs", "Retained for bounded security investigation, fraud prevention, and legal compliance."],
+                        ]
+                    }
+                ],
+            },
+            {
+                "id": "your-rights",
+                "title": "11. Your privacy rights and how to exercise them",
+                "blocks": [
+                    {
+                        "text": (
+                            "Depending on your jurisdiction (including the **India DPDP Act, 2023 & Rules 2025** as provisions take effect, **EU GDPR**, **UK GDPR / Data (Use and Access) Act**, "
+                            "and applicable **U.S. state privacy laws**), you may have rights to access, correct, update, export/port, restrict, object to processing, withdraw consent, "
+                            "request erasure/deletion, or lodge a complaint with a supervisory authority."
+                        )
+                    },
+                    {
+                        "list": [
+                            "**Self-service export & authenticated requests:** Signed-in users can download personal account JSON details and submit tracked `Full data export`, `Close account & request deletion`, or `Personal-data erasure review` requests directly in **Settings → Account → Sign-in & Security** on app.planebyte.com (see our [Data Deletion & Account Closure Policy](/data-deletion)).",
+                            "**Direct contact & public-person requests:** Anyone—including visitors or individuals appearing in public-source results—may email [contact@planebyte.com](mailto:contact@planebyte.com). Do not send passwords, OTPs, or payment card details.",
+                            "**Verification & timelines:** We perform proportionate identity and workspace-authority verification before disclosing or deleting records, acknowledge requests with a case reference, and respond within applicable statutory timeframes (typically within 30 days under GDPR/UK GDPR or as required by applicable law).",
+                        ]
+                    },
+                ],
+            },
+            {
+                "id": "additional-disclosures",
+                "title": "12. Cookies, minors, breaches, and policy updates",
+                "blocks": [
+                    {
+                        "list": [
+                            "**Cookies & tracking:** See our [Cookie Policy & Privacy Preferences](/cookies) for an exact inventory of essential cookies and consent-gated third-party embeds.",
+                            "**Children / minors:** PlaneByte is a B2B SaaS service not directed at children under 18 (or the applicable age of digital consent). If personal data of a minor was submitted without lawful authority, contact [contact@planebyte.com](mailto:contact@planebyte.com) for removal.",
+                            "**Data breaches:** We investigate confirmed personal-data breaches promptly, take containment measures, and provide notifications to affected customers and regulators where required by applicable law.",
+                            "**Changes & version history:** We publish the effective date and version identifier at the top of this policy. Material changes are communicated in-app or by email where required, and renewed consent is obtained when required by law.",
+                        ]
+                    }
+                ],
+            },
+        ],
+    },
+    "terms": {
+        "title": "PlaneByte Terms of Service",
+        "kicker": "PLANEBYTE / TERMS OF SERVICE",
+        "subtitle": (
+            "Terms governing access to planebyte.com, app.planebyte.com, Intent Radar, and Growth Intelligence."
+        ),
+        "canonical_path": "/terms",
+        "sections": [
+            {
+                "id": "provider-and-scope",
+                "title": "1. Provider identity, scope, and acceptance",
+                "blocks": [
+                    {
+                        "text": (
+                            "These Terms of Service (“Terms”) are a binding agreement between you (and, if acting on behalf of a business, that organization) and "
+                            "**Planebyte, an individually operated business owned by Piyush Agrawal** (early-stage; not yet formally incorporated), legal-notice address "
+                            "**House No. 1005, Attabira, Bargarh, Odisha 768027, India** (“PlaneByte,” “we,” “us”). Contact: [contact@planebyte.com](mailto:contact@planebyte.com)."
+                        )
+                    },
+                    {
+                        "text": (
+                            "These Terms apply distinctly to (a) public visitors browsing [https://planebyte.com](https://planebyte.com) and (b) authenticated customers using "
+                            "[https://app.planebyte.com](https://app.planebyte.com) (Intent Radar and Growth Intelligence). Creating an account, signing in after a material Terms update, "
+                            "or purchasing a subscription requires affirmative acceptance of the current versioned Terms, which we record server-side. If you do not agree, do not create an account or purchase access."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "accounts-and-workspaces",
+                "title": "2. Eligibility, accounts, security, and workspace roles",
+                "blocks": [
+                    {
+                        "list": [
+                            "**Work-email registration:** New commercial workspace registration requires a verified company-managed email address (via email/password OTP verification or verified Google Sign-In). You must be legally capable and authorized to bind your organization.",
+                            "**Account security:** You are responsible for safeguarding passwords, sessions (8-hour expiry), and developer API keys, and promptly reporting suspected compromise to [contact@planebyte.com](mailto:contact@planebyte.com). Matching email domains do not automatically merge accounts or grant membership to another organization’s workspace.",
+                            "**Workspace ownership & team roles:** Workspace Owners control invitations, roles, seat capacity, billing, and connected integrations. Invited members must accept invitations explicitly. Removing a member does not automatically delete the organization’s workspace records.",
+                        ]
+                    }
+                ],
+            },
+            {
+                "id": "service-and-ai-limitations",
+                "title": "3. Service capabilities, public-source research, and AI limitations",
+                "blocks": [
+                    {
+                        "text": (
+                            "The active commercial offering is **Intent Radar** and **Growth Intelligence**. **Lead Engine** is reserved for a future release and is not part of this offering. "
+                            "Available features and monthly allowances are governed by your workspace’s verified subscription plan."
+                        )
+                    },
+                    {
+                        "list": [
+                            "**Signals are estimates, not guarantees:** Buyer-intent scores, ICP recommendations, Copilot suggestions, and research summaries are AI-assisted estimates generated from available public or customer-provided context. They are **not** guaranteed sales opportunities, verified purchasing decisions, or legal/financial/tax advice.",
+                            "**Human review required:** Onboarding AI drafts, ICPs, and research keywords require your review and approval. Saving onboarding settings does not automatically run searches, activate monitors, or authorize outreach.",
+                            "**Third-party source limits:** Source coverage depends on official APIs, rate limits, and publisher terms. We do not guarantee unrestricted crawling, coverage of unapproved platforms (such as LinkedIn or Reddit), or a fixed volume of leads.",
+                        ]
+                    },
+                ],
+            },
+            {
+                "id": "youtube-and-third-party-terms",
+                "title": "4. Third-party API integrations & YouTube Terms of Service",
+                "blocks": [
+                    {
+                        "callout": {
+                            "title": "YouTube API Services Agreement",
+                            "text": (
+                                "PlaneByte uses **YouTube API Services**. By accessing or using YouTube discovery features in PlaneByte, you expressly agree to be bound by the "
+                                "[YouTube Terms of Service](https://www.youtube.com/t/terms) and acknowledge the [Google Privacy Policy](https://policies.google.com/privacy)."
+                            ),
+                        }
+                    },
+                    {
+                        "text": (
+                            "Your use of GitHub (including optional GitHub App / OAuth connections and webhooks), Bluesky, Stack Exchange (CC BY-SA attribution), Hacker News, "
+                            "and approved Discourse or RSS/Atom feeds is also subject to our [Third-Party Sources & Data Usage Policy](/sources-policy) and each provider’s applicable terms. "
+                            "You may only connect GitHub installations or repositories you are authorized to access."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "subscriptions-trial-and-billing",
+                "title": "5. Free trial, subscriptions, Creem billing, renewals, and refunds",
+                "blocks": [
+                    {
+                        "list": [
+                            "**Monthly USD plans (tax-inclusive):** Starter — **$59/month**, Growth — **$149/month**, Scale — **$379/month** (Enterprise quoted individually). Annual checkout is currently disabled until separately approved.",
+                            "**3-Day (72-Hour) Free Trial:** Eligible new customers may start a 72-hour card-required free trial ($0 due today) by choosing a conversion plan (Starter, Growth, or Scale) and explicitly accepting recurring renewal terms at secure hosted checkout. Trial allowances: 5 live searches, 3 AI operations (150,000 reserved tokens), 1 manual monitor, 1 user. One trial per verified person and company domain. Unless canceled before the 72-hour trial ends, the selected monthly plan begins automatically.",
+                            "**Creem Merchant of Record:** All new commercial subscriptions are processed by **Creem** as Merchant of Record across supported countries. Creem handles payment methods, applicable taxes, invoices, and hosted card entry. PlaneByte never stores card numbers or CVVs. Access activates **only** after server-side provider confirmation—never from a browser redirect alone (see our [Digital Delivery Policy](/delivery-policy)).",
+                            "**Self-service cancellation & failed payments:** Cancel future automatic renewals anytime in **Settings → Billing & Subscription** or via Creem’s hosted billing portal without contacting support. Provider-confirmed failed or unpaid renewals may restrict product access while keeping billing and cancellation accessible.",
+                            "**Refunds & preserved commitments:** Initial paid subscription purchases are eligible for refund review within **7 calendar days** of verified payment under our [Cancellation & Refund Policy](/cancellation-refund-policy) (and [Refund Policy](/refund) on app.planebyte.com). Existing legacy prepaid purchases retain their original recorded terms.",
+                        ]
+                    }
+                ],
+            },
+            {
+                "id": "acceptable-use-and-restrictions",
+                "title": "6. Acceptable use, AI restrictions, and prohibited conduct",
+                "blocks": [
+                    {
+                        "text": (
+                            "You must comply with our full [Acceptable Use Policy](/acceptable-use). In particular, you may **not** use PlaneByte, Intent Radar, or AI Copilot for:"
+                        )
+                    },
+                    {
+                        "list": [
+                            "Unauthorized surveillance, harassment, doxxing, stalking, or intimidation of individuals;",
+                            "Unlawful personal-data harvesting, scraping beyond official APIs, or circumventing platform rate limits, paywalls, or access controls;",
+                            "Spam, unsolicited bulk messaging, or outreach violating CAN-SPAM, GDPR/PECR, Indian TRAI/DPDP, or other applicable anti-spam and consent laws;",
+                            "Discriminatory or unlawful profiling, fraud, impersonation, or generating sexually explicit (NSFW), abusive, or unlawful content;",
+                            "Accessing private GitHub repositories or third-party accounts without explicit authorization, or bypassing workspace/tenant isolation and server-side plan limits.",
+                        ]
+                    },
+                ],
+            },
+            {
+                "id": "intellectual-property-and-takedown",
+                "title": "7. Intellectual property, customer content, and copyright takedowns",
+                "blocks": [
+                    {
+                        "text": (
+                            "**Customer content:** You retain ownership of the business context, drafts, ICPs, and configurations you submit. You grant PlaneByte a limited license "
+                            "to host, process, and transmit that content solely to provide, secure, and support the service under these Terms and our [Privacy Policy](/privacy)."
+                        )
+                    },
+                    {
+                        "text": (
+                            "**PlaneByte IP & third-party content:** PlaneByte owns all rights in the Intent Radar software, interfaces, and branding. Public third-party posts "
+                            "remain the property of their respective authors/publishers under their applicable licenses (including CC BY-SA on Stack Exchange)."
+                        )
+                    },
+                    {
+                        "text": (
+                            "**Copyright / takedown complaints:** If you believe content displayed or cached in PlaneByte infringes your copyright or other rights, email "
+                            "[contact@planebyte.com](mailto:contact@planebyte.com) with “Copyright / Takedown Notice,” the exact URL or identifier, proof of authority, and your contact details. "
+                            "We review valid notices promptly and remove or restrict cached excerpts where appropriate."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "availability-suspension-and-deletion",
+                "title": "8. Availability, suspension, termination, and data export/deletion",
+                "blocks": [
+                    {
+                        "text": (
+                            "Service availability depends in part on third-party infrastructure and external source APIs; no guaranteed uptime SLA or credit is offered unless "
+                            "agreed in a separate signed contract. We may suspend or restrict access if needed to stop security compromise, unlawful use, severe abuse, or provider-policy "
+                            "violations, providing notice and a support review channel where lawful and practicable."
+                        )
+                    },
+                    {
+                        "text": (
+                            "You may export personal account data and workspace research or request account/workspace deletion as detailed in our [Data Deletion & Account Closure Policy](/data-deletion)."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "disclaimers-liability-and-law",
+                "title": "9. Disclaimers, statutory rights, amendments, and disputes",
+                "blocks": [
+                    {
+                        "text": (
+                            "Except where prohibited by law, the service is provided “as is” and “as available,” without implied warranties of merchantability, fitness for a particular "
+                            "purpose, or uninterrupted operation. Nothing in these Terms excludes or limits non-waivable statutory consumer or data-protection rights, liability for fraud "
+                            "or willful misconduct, or any liability that cannot lawfully be excluded under applicable law."
+                        )
+                    },
+                    {
+                        "text": (
+                            "We identify the effective date and version of these Terms. Material updates requiring renewed acceptance are presented in-app before taking effect; "
+                            "price changes never silently alter an already-confirmed billing period. For disputes or formal notices, contact [contact@planebyte.com](mailto:contact@planebyte.com) "
+                            "or write to the address in Section 1. Applicable mandatory law and lawful access to courts or regulators remain preserved."
+                        )
+                    },
+                ],
+            },
+        ],
+    },
+    "cookies": {
+        "title": "Cookie Policy & Privacy Preferences",
+        "kicker": "PLANEBYTE / COOKIES & TRACKING",
+        "subtitle": (
+            "An exact, audited inventory of cookies, local storage, and consent-gated third-party scripts across planebyte.com and app.planebyte.com."
+        ),
+        "canonical_path": "/cookies",
+        "sections": [
+            {
+                "id": "overview",
+                "title": "1. How PlaneByte uses cookies and browser storage",
+                "blocks": [
+                    {
+                        "text": (
+                            "PlaneByte follows strict data minimization. **Neither planebyte.com nor app.planebyte.com runs third-party advertising pixels, "
+                            "Google Analytics, Meta Pixel, PostHog, Mixpanel, or cross-site behavioral tracking scripts.**"
+                        )
+                    },
+                    {
+                        "text": (
+                            "We use strictly necessary cookies for secure authentication and CSRF protection on app.planebyte.com, functional preference storage "
+                            "(such as light/dark theme and sidebar state), and a consent-gated scheduling embed (Cal.com) on planebyte.com."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "inventory",
+                "title": "2. Exact cookie & browser-storage inventory",
+                "blocks": [
+                    {
+                        "table": [
+                            ["Name / Storage", "Domain", "Category", "Purpose", "Duration"],
+                            [
+                                "`__Secure-authjs.session-token`, `__Host-authjs.csrf-token`, `__Secure-authjs.callback-url`",
+                                "app.planebyte.com",
+                                "Strictly necessary",
+                                "Authenticated session integrity, Google Sign-In state, and CSRF protection (`HttpOnly`, `Secure`, `SameSite=Lax`).",
+                                "Up to 8 hours (session).",
+                            ],
+                            [
+                                "PlaneByte sealed account session & short-lived auth/signup/invite/plan cookies",
+                                "app.planebyte.com",
+                                "Strictly necessary",
+                                "Work-email login session, OTP verification continuity, Terms acceptance nonce, and workspace invitation handling (`HttpOnly`, `Secure`, `SameSite=Lax`).",
+                                "10 minutes (verification tickets) or 8 hours (session).",
+                            ],
+                            [
+                                "`planebyte-sidebar` cookie",
+                                "app.planebyte.com",
+                                "Functional preference",
+                                "Remembers collapsed or expanded navigation sidebar layout (`SameSite=Lax`, `Secure`).",
+                                "1 year.",
+                            ],
+                            [
+                                "`theme` (`localStorage`) & `planebyte:onboarding-draft:<orgId>` (`sessionStorage`)",
+                                "app.planebyte.com",
+                                "Functional preference",
+                                "Stores light/dark theme preference and preserves unsaved onboarding form drafts during the current browser tab session.",
+                                "Persistent (`theme`) / Tab session (onboarding draft; cleared on save).",
+                            ],
+                            [
+                                "`pb_privacy_prefs` cookie",
+                                "planebyte.com",
+                                "Strictly necessary",
+                                "Records your cookie and embed consent choices (`essential: true`, `schedulingEmbed: true|false`, version, timestamp).",
+                                "180 days.",
+                            ],
+                            [
+                                "Cal.com scheduling embed (`app.cal.com/embed/embed.js`)",
+                                "planebyte.com (third-party)",
+                                "Optional — blocked until consent",
+                                "Powers the interactive demo-booking overlay when you explicitly enable Optional Scheduling Embed in Privacy Preferences. Direct links to cal.com work without loading this script.",
+                                "Controlled by Cal.com only after you opt in.",
+                            ],
+                        ]
+                    }
+                ],
+            },
+            {
+                "id": "managing-choices",
+                "title": "3. Managing or withdrawing your preferences",
+                "blocks": [
+                    {
+                        "list": [
+                            "**On planebyte.com:** Use the Privacy Preferences banner on first visit—or click **Privacy Preferences** in the website footer at any time—to accept optional embeds, reject optional embeds, or withdraw earlier consent. Optional third-party scheduling scripts do not load before you opt in.",
+                            "**Browser controls:** You can also block or clear cookies via your browser settings. Blocking strictly necessary authentication cookies on app.planebyte.com will prevent sign-in and account security checks from functioning.",
+                            "**Third-party checkout & providers:** When you navigate to Creem’s hosted checkout, Google Sign-In, GitHub OAuth, or external Cal.com booking pages, those providers’ own cookie policies apply on their domains.",
+                        ]
+                    }
+                ],
+            },
+        ],
+    },
+    "cancellation": {
+        "title": "Cancellation, Refund & Subscription Policy",
+        "kicker": "PLANEBYTE / BILLING, CANCELLATION & REFUNDS",
+        "subtitle": (
+            "Clear, transparent terms for PlaneByte’s 3-day free trial, monthly Creem subscriptions, self-service cancellation, and initial-purchase refund reviews."
+        ),
+        "canonical_path": "/cancellation-refund-policy",
+        "sections": [
+            {
+                "id": "trial-and-pricing",
+                "title": "1. Three-day free trial and monthly subscription plans",
+                "blocks": [
+                    {
+                        "text": (
+                            "PlaneByte Intent Radar is offered on transparent monthly USD plans (**tax-inclusive** via Creem, Merchant of Record): "
+                            "**Starter ($59/month)**, **Growth ($149/month)**, **Scale ($379/month)**, and custom Enterprise agreements. "
+                            "Eligible new customers may start with a **3-day (72-hour) free trial** ($0 due today; card required on Creem’s hosted checkout)."
+                        )
+                    },
+                    {
+                        "text": (
+                            "Before authorizing checkout, you select the monthly plan that will follow your 72-hour trial (defaulting to Starter, or Growth/Scale), "
+                            "review the exact charge amount, currency, first renewal timing, and automatic-renewal terms, and check an explicit consent box. "
+                            "Unless canceled before the 72-hour trial expires, your selected monthly subscription converts and renews automatically each month."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "self-service-cancellation",
+                "title": "2. How to cancel automatic renewal (self-service)",
+                "blocks": [
+                    {
+                        "text": (
+                            "Workspace owners can cancel future automatic billing at any time **without contacting support** by opening "
+                            "**Settings → Billing & Subscription** on app.planebyte.com and clicking **Cancel automatic renewal**, or by using Creem’s secure hosted billing portal."
+                        )
+                    },
+                    {
+                        "list": [
+                            "**Trial cancellation:** Cancel before the displayed 72-hour trial end time to prevent conversion to the selected paid monthly plan.",
+                            "**Paid-period access:** Once cancellation is confirmed by Creem, no future renewal charge occurs, and your access continues through the end of the current paid or trial period (unless a full refund or security restriction applies).",
+                            "**Confirmation:** We display provider-confirmed cancellation status in-app and send a confirmation email. If provider confirmation is pending, we show pending status and allow status refresh rather than falsely claiming cancellation succeeded.",
+                        ]
+                    },
+                ],
+            },
+            {
+                "id": "refund-eligibility",
+                "title": "3. Seven-day initial-purchase refund review & billing errors",
+                "blocks": [
+                    {
+                        "text": (
+                            "For an **initial paid subscription purchase**, you may request a refund review within **7 calendar days** of verified payment via "
+                            "**Settings → Billing & Usage** or by emailing [contact@planebyte.com](mailto:contact@planebyte.com) with your order/payment reference and reason "
+                            "(never send card numbers or CVVs). No undisclosed usage-percentage trap or blanket exclusion of mandatory consumer rights applies."
+                        )
+                    },
+                    {
+                        "list": [
+                            "**Free trials:** A 3-day free trial charges $0 during the trial period, so there is no subscription charge to refund unless a paid conversion charge occurred.",
+                            "**Duplicate charges & billing errors:** Contact [contact@planebyte.com](mailto:contact@planebyte.com) immediately regarding any duplicate or erroneous charge regardless of window; we reconcile verified provider records before determining resolution.",
+                            "**Renewals & prior legacy purchases:** Subsequent monthly renewals are generally non-refundable once the billing period begins (subject to billing errors, service circumstances, and non-waivable statutory consumer rights). Existing legacy prepaid purchases retain their original recorded terms and prior refund rights.",
+                        ]
+                    },
+                ],
+            },
+            {
+                "id": "creem-mor-and-timing",
+                "title": "4. Creem Merchant of Record, taxes, failed payments & chargebacks",
+                "blocks": [
+                    {
+                        "text": (
+                            "**Creem** acts as Merchant of Record for all new PlaneByte subscriptions across supported countries, handling checkout payment methods, "
+                            "tax-inclusive USD totals, applicable indirect taxes (such as VAT/GST where Creem applies them), tax invoices, and refund settlement. "
+                            "PlaneByte has no GSTIN and does not add separate homemade taxes or currency conversions. PayU is retired for all new purchases; historical records retain their original attribution."
+                        )
+                    },
+                    {
+                        "list": [
+                            "**Refund processing:** Requests are reviewed promptly at [contact@planebyte.com](mailto:contact@planebyte.com). Approved refunds are initiated through Creem to the original payment method; actual bank/card posting times depend on the payment network and issuing bank.",
+                            "**Failed payments:** If a renewal payment fails, Creem’s payment recovery workflow applies and product features may be restricted until payment succeeds, while authentication, billing, and cancellation controls remain accessible.",
+                            "**Plan changes & chargebacks:** Plan upgrades/downgrades with billing impact require disclosed amounts and explicit authorization. Please contact [contact@planebyte.com](mailto:contact@planebyte.com) before initiating a card dispute so we can reconcile billing records quickly; disputed transactions may pause paid entitlements during provider review.",
+                        ]
+                    },
+                ],
+            },
+        ],
+    },
+    "refund": {
+        "title": "PlaneByte Refund Policy",
+        "kicker": "PLANEBYTE / REFUNDS",
+        "subtitle": (
+            "Refund review eligibility, billing error reconciliation, and Creem Merchant of Record settlement rules."
+        ),
+        "canonical_path": "/cancellation-refund-policy",
+        "sections": [
+            {
+                "id": "initial-purchases",
+                "title": "1. Initial paid purchases (7-day review window)",
+                "blocks": [
+                    {
+                        "text": (
+                            "You may request a refund review for an initial paid subscription purchase within **7 calendar days** of verified payment through "
+                            "**Settings → Billing & Usage** or by emailing [contact@planebyte.com](mailto:contact@planebyte.com) with your order reference and reason "
+                            "(do not send passwords, OTPs, or payment card details). No undisclosed usage-percentage condition or blanket waiver of mandatory statutory rights applies."
+                        )
+                    },
+                    {
+                        "text": (
+                            "Each request is reviewed against verified Creem transaction records, service circumstances, and applicable mandatory consumer rights. "
+                            "If a request cannot be approved in full, we provide a clear written explanation and escalation contact."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "errors-and-trials",
+                "title": "2. Free trials, renewals, duplicates, and billing errors",
+                "blocks": [
+                    {
+                        "list": [
+                            "**3-Day Free Trial:** No subscription charge is collected during the 72-hour free trial ($0 due today). Cancel before the trial ends to avoid conversion.",
+                            "**Duplicate or erroneous charges:** Report duplicate or unexpected charges to [contact@planebyte.com](mailto:contact@planebyte.com) at any time for reconciliation against provider records.",
+                            "**Monthly renewals & legacy purchases:** Canceling stops future automatic renewals but does not automatically refund an already-captured period; renewal refund requests are reviewed under applicable mandatory rights and service circumstances. Legacy prepaid purchases retain their original recorded terms.",
+                        ]
+                    }
+                ],
+            },
+            {
+                "id": "settlement-and-access",
+                "title": "3. Creem settlement, access effect, and retained records",
+                "blocks": [
+                    {
+                        "text": (
+                            "Creem is Merchant of Record for all new PlaneByte transactions (PayU is retired for new purchases; historical records keep original attribution). "
+                            "A refund is treated as completed only after provider confirmation; bank credit timing depends on the card network and issuer. "
+                            "A confirmed full refund revokes paid entitlements tied to that transaction without automatically deleting saved research or legally required accounting records."
+                        )
+                    }
+                ],
+            },
+        ],
+    },
+    "delivery-policy": {
+        "title": "Digital Delivery Policy",
+        "kicker": "PLANEBYTE / ELECTRONIC SERVICE FULFILLMENT",
+        "subtitle": (
+            "How PlaneByte provisions online SaaS access to Intent Radar and Growth Intelligence after provider-verified billing confirmation."
+        ),
+        "canonical_path": "/delivery-policy",
+        "sections": [
+            {
+                "id": "electronic-fulfillment",
+                "title": "1. Electronic SaaS delivery only",
+                "blocks": [
+                    {
+                        "text": (
+                            "PlaneByte delivers Intent Radar and Growth Intelligence exclusively as cloud-hosted web software at "
+                            "[https://app.planebyte.com](https://app.planebyte.com). No physical media, hardware, or parcel shipment is involved."
+                        )
+                    }
+                ],
+            },
+            {
+                "id": "verified-activation",
+                "title": "2. Provider-verified activation (no frontend redirect bypass)",
+                "blocks": [
+                    {
+                        "text": (
+                            "Workspace entitlements (monthly searches, active monitors, AI operations, team seats, and reports) are activated **only after "
+                            "server-side verification of Creem’s signed webhook or API confirmation** of your trial or paid subscription. "
+                            "Returning to a browser success URL alone does **not** prove payment or unlock entitlements."
+                        )
+                    },
+                    {
+                        "text": (
+                            "In normal operation, provisioning completes automatically within seconds to a few minutes after Creem confirms checkout. "
+                            "You may also click **Check payment status** in onboarding or **Settings → Billing & Subscription** to trigger immediate server-side reconciliation."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "receipts-and-delays",
+                "title": "3. Receipts, activation delays, and service interruptions",
+                "blocks": [
+                    {
+                        "list": [
+                            "**Confirmations & invoices:** Creem issues transaction receipts and tax invoices to your verified billing email, and invoices remain accessible via the hosted billing portal in **Settings → Billing & Subscription**.",
+                            "**Resolving delays:** If your plan is not active after checkout confirmation, verify you are signed in with the exact workspace owner email used during purchase, click **Refresh provider status**, and if still pending contact [contact@planebyte.com](mailto:contact@planebyte.com) with your checkout reference.",
+                            "**Interruptions:** Temporary provider outages, maintenance windows, or unpaid renewal states can affect real-time availability; authentication, saved data visibility (subject to workspace permissions), and billing/cancellation controls remain accessible.",
+                        ]
+                    }
+                ],
+            },
+        ],
+    },
+    "acceptable-use": {
+        "title": "Acceptable Use Policy",
+        "kicker": "PLANEBYTE / ACCEPTABLE USE",
+        "subtitle": (
+            "Rules governing responsible research, third-party integrations, AI Copilot, data exports, monitoring, and API/MCP use on PlaneByte."
+        ),
+        "canonical_path": "/acceptable-use",
+        "sections": [
+            {
+                "id": "purpose",
+                "title": "1. Responsible B2B research standard",
+                "blocks": [
+                    {
+                        "text": (
+                            "PlaneByte is built for lawful B2B market research, product discovery, and buyer-intent analysis. Every customer, workspace member, "
+                            "and API/MCP client must follow this Acceptable Use Policy (“AUP”) alongside our [Terms of Service](/terms) and "
+                            "[Third-Party Sources & Data Usage Policy](/sources-policy)."
+                        )
+                    }
+                ],
+            },
+            {
+                "id": "prohibited-activities",
+                "title": "2. Strictly prohibited activities",
+                "blocks": [
+                    {
+                        "list": [
+                            "**Surveillance, harassment & stalking:** Tracking private individuals for harassment, doxxing, intimidation, physical surveillance, or non-consensual monitoring.",
+                            "**Unlawful personal-data harvesting:** Using Intent Radar or exports to compile unauthorized personal-data broker lists, sensitive special-category profiles (health, religion, political opinions, biometrics, sexual orientation), or children’s data.",
+                            "**Spam & unlawful outreach:** Sending unsolicited bulk email, deceptive marketing, or automated messages in violation of CAN-SPAM, GDPR/PECR, India DPDP/TRAI, or recipient opt-outs. Discovering a public discussion does not grant permission to spam its author.",
+                            "**Platform circumvention & unauthorized scraping:** Evading API quotas, robots.txt, paywalls, authentication walls, or platform terms on GitHub, YouTube, Bluesky, Stack Exchange, Hacker News, Discourse, or any third-party site.",
+                            "**Private repository / credential misuse:** Connecting GitHub App installations or OAuth accounts without authority, sharing user accounts to bypass seat limits, or probing another tenant’s workspace.",
+                            "**Harmful or unlawful AI usage:** Prompting AI Copilot or analysis workflows to generate sexually explicit (NSFW), abusive, defamatory, fraudulent, or malicious outputs, or misrepresenting probabilistic AI scores as verified personal facts.",
+                            "**Security abuse:** Uploading malware, conducting unauthorized penetration testing, attempting denial-of-service attacks, or accessing disabled/unreleased modules through direct API calls.",
+                        ]
+                    }
+                ],
+            },
+            {
+                "id": "enforcement-and-appeals",
+                "title": "3. Enforcement, reporting, and appeals",
+                "blocks": [
+                    {
+                        "text": (
+                            "We investigate suspected AUP violations proportionately and may warn, throttle, disable an integration or monitor, or suspend/terminate "
+                            "an account where necessary to protect individuals, third-party platforms, or service integrity. Except where prohibited by law or urgent security risk, "
+                            "we notify the workspace owner with the reason and offer an appeal/review route via [contact@planebyte.com](mailto:contact@planebyte.com)."
+                        )
+                    },
+                    {
+                        "text": (
+                            "To report abuse, copyright infringement, or a security vulnerability privately, email [contact@planebyte.com](mailto:contact@planebyte.com)."
+                        )
+                    },
+                ],
+            },
+        ],
+    },
+    "sources-policy": {
+        "title": "Third-Party Sources & Data Usage Policy",
+        "kicker": "PLANEBYTE / SOURCE GOVERNANCE",
+        "subtitle": (
+            "Transparent disclosure of every active, permission-gated, and inactive external data source in PlaneByte Intent Radar."
+        ),
+        "canonical_path": "/sources-policy",
+        "sections": [
+            {
+                "id": "principles",
+                "title": "1. Source-governance principles",
+                "blocks": [
+                    {
+                        "text": (
+                            "PlaneByte connects only to documented, official APIs and curated public feeds. **A privacy policy disclosure does not itself grant "
+                            "permission to scrape or process third-party data.** Every source carries explicit server-side quotas, provenance attribution with direct "
+                            "links to the original content, and documented permission/AI gates in our internal compliance registry."
+                        )
+                    }
+                ],
+            },
+            {
+                "id": "active-sources",
+                "title": "2. Active production sources",
+                "blocks": [
+                    {
+                        "table": [
+                            ["Source", "Data Accessed & Auth", "Caching, Retention & Deletion", "AI Processing & Attribution"],
+                            [
+                                "**YouTube Data API v3**",
+                                "Public videos, channels, statistics & public comments via server API key (`safeSearch=strict`). **No YouTube user OAuth; no private YouTube account access.**",
+                                "Short cache (600–900s); **30-day maximum retention** enforced by automated retention sweep. Earlier deletion available on request.",
+                                "**Derived AI analytics & cross-source AI analytics are DISABLED (`false`)** pending separate YouTube API policy approval. Subject to [YouTube Terms of Service](https://www.youtube.com/t/terms) & [Google Privacy Policy](https://policies.google.com/privacy).",
+                            ],
+                            [
+                                "**GitHub (Public API, GitHub App & OAuth)**",
+                                "Public repos, issues, discussions & releases; optional workspace-owner **GitHub App / OAuth PKCE** + HMAC-SHA256 webhooks restricted strictly to explicitly selected repositories.",
+                                "Tokens encrypted server-side per workspace. Disconnecting in Settings clears stored tokens and repo selections; revoke anytime on GitHub.",
+                                "Permitted research analysis within authorized scope; private repos are never accessed without explicit owner installation and repository selection.",
+                            ],
+                            [
+                                "**Bluesky Public API & Jetstream v2**",
+                                "Public posts and public profiles only via `api.bsky.app` and Jetstream v2 real-time stream (`xrpc.v1.json`) with durable `seq` cursors.",
+                                "Bounded cache; **upstream delete events propagate automatically** to stored signals.",
+                                "Permitted public-discussion analysis with original `bsky.app` links and handle attribution; no private-message access.",
+                            ],
+                            [
+                                "**Stack Exchange API v2.3**",
+                                "Public questions, answers, and comments across 20 configured technical Q&A sites via official API key.",
+                                "Bounded response cache respecting Stack Exchange backoff and quota headers.",
+                                "Permitted analysis with **CC BY-SA** license respect, author attribution, and canonical original links.",
+                            ],
+                            [
+                                "**Hacker News (Firebase v0 API)**",
+                                "Public stories (`ask`, `show`, `new`, `top`, `best`, `jobs`), bounded depth-2 comments, and `/v0/updates.json`.",
+                                "Dead and deleted items are marked/propagated on refresh.",
+                                "Permitted public-discussion analysis with original `news.ycombinator.com` links.",
+                            ],
+                            [
+                                "**Approved Discourse Forums**",
+                                "10 curated public developer/industry community RSS feeds.",
+                                "Bounded fetch respecting publisher rate limits.",
+                                "Publisher links & attribution preserved; publisher restrictions respected.",
+                            ],
+                            [
+                                "**Approved Atom / RSS Feeds**",
+                                "10 curated public technical/research feeds (e.g., arXiv `cs.AI`/`cs.LG` classified as Market/Technology Intelligence); 2MB response cap.",
+                                "Bounded fetch and caching.",
+                                "Publisher attribution & original publication links preserved; feeds do not imply unrestricted commercial redistribution rights.",
+                            ],
+                        ]
+                    }
+                ],
+            },
+            {
+                "id": "inactive-and-gated",
+                "title": "3. Disabled, unapproved, and future sources",
+                "blocks": [
+                    {
+                        "list": [
+                            "**YouTube derived AI analytics & cross-source AI scoring:** Explicitly disabled in production (`false`) until provider compliance approval is recorded.",
+                            "**Reddit & LinkedIn:** Not active in production. PlaneByte does not scrape LinkedIn or run unauthorized Reddit collection; enablement requires documented commercial API authorization.",
+                            "**Lead Engine (outbound email / prospect acquisition):** Disabled in production (`LEAD_ENGINE_AVAILABLE=false`) and excluded from the current SaaS offering.",
+                            "**Customer responsibilities:** Customers must honor source licenses (including CC BY-SA and YouTube Terms), preserve attribution when exporting excerpts, and refrain from unlawful downstream profiling or spam.",
+                        ]
+                    }
+                ],
+            },
+        ],
+    },
+    "data-deletion": {
+        "title": "Data Deletion & Account Closure Policy",
+        "kicker": "PLANEBYTE / DATA DELETION & PORTABILITY",
+        "subtitle": (
+            "Step-by-step instructions to export data, disconnect integrations, delete monitors, or request verified account and workspace deletion."
+        ),
+        "canonical_path": "/data-deletion",
+        "sections": [
+            {
+                "id": "self-service-controls",
+                "title": "1. Self-service export, revocation, and deletion controls",
+                "blocks": [
+                    {
+                        "list": [
+                            "**Download personal account data:** Open **Settings → Account → Sign-in & Security** on app.planebyte.com and click **Download account details** to export your account profile and workspace memberships in JSON format (passwords, tokens, and other users’ data are excluded).",
+                            "**Export workspace research:** Use the built-in Markdown, CSV, and JSON exports inside Growth Intelligence and Intent Radar to retain copies of your workspace research before closure.",
+                            "**Disconnect GitHub OAuth & revoke tokens:** Workspace owners can disconnect GitHub in **Settings → Integrations / Sources** (which immediately clears stored server-side tokens and selected repositories) and may also revoke the GitHub App installation directly at `https://github.com/settings/installations`.",
+                            "**Revoke Google Sign-In permissions:** If you used Google Sign-In, revoke PlaneByte at [Google Security Settings](https://security.google.com/settings/security/permissions). (PlaneByte does not use YouTube user OAuth.)",
+                            "**Delete monitors & cancel billing:** Delete active monitors in Intent Radar and cancel any active Creem subscription in **Settings → Billing & Subscription** before requesting account closure.",
+                        ]
+                    }
+                ],
+            },
+            {
+                "id": "account-and-workspace-deletion",
+                "title": "2. Submitting an authenticated closure, full-export, or erasure request",
+                "blocks": [
+                    {
+                        "text": (
+                            "To request **Full data export**, **Close account & request deletion**, or **Personal-data erasure review**:"
+                        )
+                    },
+                    {
+                        "list": [
+                            "**In-app (recommended):** Sign in to app.planebyte.com, open **Settings → Account → Sign-in & Security**, select your request type under **Your data & account**, confirm, and submit. The system requires a recent sign-in (within 15 minutes), creates a tracked audit record, and displays your case reference and status history.",
+                            "**By email:** Send your request from your registered email (or for public-person erasure requests, from a verifiable email with the relevant source URL/handle) to [contact@planebyte.com](mailto:contact@planebyte.com). Never include passwords, OTPs, or payment card numbers.",
+                        ]
+                    },
+                    {
+                        "text": (
+                            "**Verification & authority:** Submitting a request does not instantaneously wipe a shared organization’s workspace or trigger an automatic billing refund. "
+                            "We verify requester identity and—for workspace-wide deletion—confirm Workspace Owner authority so one member cannot destroy another organization’s records."
+                        )
+                    },
+                ],
+            },
+            {
+                "id": "timelines-and-exceptions",
+                "title": "3. Deletion timelines and lawful retention exceptions",
+                "blocks": [
+                    {
+                        "list": [
+                            "**Ordinary account & workspace data:** Scheduled for deletion or irreversible anonymization within **30 days** of verified closure.",
+                            "**Backups:** Recovery backups age out through normal database backup cycles, targeted at no more than **90 days** after verified closure.",
+                            "**YouTube API Data:** Subject to automated 30-day maximum retention sweeps even without a closure request, and eligible for earlier removal upon request.",
+                            "**Lawful retention exceptions:** We cannot erase billing, payment, tax, and refund accounting records required by law, active dispute/fraud/security investigation logs, legal holds, or email opt-out/suppression records necessary to keep honoring an unsubscribe choice. We explain any applicable exception when fulfilling your request.",
+                        ]
+                    }
+                ],
+            },
+        ],
+    },
+    "subprocessors": {
+        "title": "Subprocessors & Infrastructure Disclosure",
+        "kicker": "PLANEBYTE / INFRASTRUCTURE & PROCESSORS",
+        "subtitle": (
+            "Verified service providers that process personal or workspace data on PlaneByte’s behalf—clearly distinguished from public content sources."
+        ),
+        "canonical_path": "/subprocessors",
+        "sections": [
+            {
+                "id": "distinction",
+                "title": "1. Subprocessors vs. public content sources",
+                "blocks": [
+                    {
+                        "text": (
+                            "Below is the maintained list of actual infrastructure, AI, authentication, email, and billing providers that process personal or customer "
+                            "workspace data to operate PlaneByte. **Public content sources** (such as Hacker News, Stack Exchange, Bluesky, YouTube public APIs, "
+                            "public GitHub repositories, Discourse, and RSS/Atom publishers) are external information sources—not PlaneByte subprocessors—and are "
+                            "documented separately in our [Third-Party Sources & Data Usage Policy](/sources-policy)."
+                        )
+                    }
+                ],
+            },
+            {
+                "id": "provider-table",
+                "title": "2. Verified service providers",
+                "blocks": [
+                    {
+                        "table": [
+                            ["Provider", "Role / Purpose", "Categories of Data Processed", "Processing Region", "Privacy / Legal Link"],
+                            [
+                                "**Vercel Inc.**",
+                                "Hosting and edge delivery for `app.planebyte.com`",
+                                "HTTP request metadata, session cookies, application traffic",
+                                "United States / Global Edge",
+                                "[Vercel Privacy Policy](https://vercel.com/legal/privacy-policy)",
+                            ],
+                            [
+                                "**Netlify, Inc.**",
+                                "Hosting and CDN for marketing site `planebyte.com`",
+                                "HTTP request metadata, contact-form submissions",
+                                "United States / Global CDN",
+                                "[Netlify Privacy Policy](https://www.netlify.com/privacy/)",
+                            ],
+                            [
+                                "**Google Cloud Platform** (Cloud Run, Secret Manager, Cloud Build, Logging)",
+                                "Backend API, worker execution, secrets management, diagnostics",
+                                "Workspace data, auth/session verification, operational logs",
+                                "Mumbai, India (`asia-south1`)",
+                                "[Google Cloud Privacy Notice](https://cloud.google.com/terms/cloud-privacy-notice)",
+                            ],
+                            [
+                                "**Google Cloud Vertex AI**",
+                                "AI inference (`gemini-3.6-flash`) for onboarding, ICPs, Copilot & permitted analysis",
+                                "Submitted business context, prompts, permitted public excerpts",
+                                "Google Cloud Global Vertex AI endpoint",
+                                "[Google Cloud Service Terms](https://cloud.google.com/terms/service-terms)",
+                            ],
+                            [
+                                "**Neon, Inc.** (Neon PostgreSQL)",
+                                "Primary managed PostgreSQL database",
+                                "Accounts, workspaces, ICPs, saved research, billing refs, audit logs",
+                                "United States",
+                                "[Neon Privacy Policy](https://neon.tech/privacy-policy)",
+                            ],
+                            [
+                                "**Creem**",
+                                "Merchant of Record for checkout, subscriptions, tax & billing portal",
+                                "Billing email, name, country, subscription/payment records (card details handled solely by Creem)",
+                                "International (Creem infrastructure)",
+                                "[Creem Privacy Policy](https://www.creem.io/privacy)",
+                            ],
+                            [
+                                "**Resend**",
+                                "Transactional email delivery (OTP, password reset, invites, billing notices, contact forms)",
+                                "Recipient email, transactional message content, delivery telemetry",
+                                "United States / Global",
+                                "[Resend Privacy Policy](https://resend.com/legal/privacy-policy)",
+                            ],
+                            [
+                                "**Google LLC** (Google Sign-In / OAuth 2.0)",
+                                "Optional SSO identity authentication (identity claims only)",
+                                "Verified email, display name, Google subject ID",
+                                "Global",
+                                "[Google Privacy Policy](https://policies.google.com/privacy)",
+                            ],
+                            [
+                                "**Cal.com, Inc.**",
+                                "Optional demo booking on `planebyte.com` (embed gated behind consent)",
+                                "Booking details submitted directly by visitor",
+                                "United States / Global",
+                                "[Cal.com Privacy Policy](https://cal.com/privacy)",
+                            ],
+                        ]
+                    }
+                ],
+            },
+            {
+                "id": "updates",
+                "title": "3. Notice of subprocessor changes",
+                "blocks": [
+                    {
+                        "text": (
+                            "We review every new provider against our internal compliance checklist before adding it to production and update this page with "
+                            "its effective date. B2B customers with an executed [Data Processing Addendum](/dpa) receive advance notice of material subprocessor "
+                            "additions as specified in their agreement."
+                        )
+                    }
+                ],
+            },
+        ],
+    },
+    "dpa": {
+        "title": "Data Processing Addendum (Draft Pending Signature)",
+        "kicker": "PLANEBYTE / B2B DATA PROCESSING ADDENDUM",
+        "subtitle": (
+            "Standard B2B Data Processing Addendum draft for business customers requiring formal processor terms. Requires bilateral execution to take effect."
+        ),
+        "canonical_path": "/dpa",
+        "sections": [
+            {
+                "id": "status",
+                "title": "1. Status & execution notice",
+                "blocks": [
+                    {
+                        "callout": {
+                            "title": "Draft Pending Legal Review & Bilateral Signature",
+                            "text": (
+                                "This Data Processing Addendum (“DPA”) is published as a **standard B2B template pending qualified legal counsel review and bilateral execution**. "
+                                "PlaneByte does **not** represent that EU Standard Contractual Clauses (SCCs) or the UK International Data Transfer Addendum are automatically executed "
+                                "merely by viewing this page. To request a countersigned DPA for your organization, contact [contact@planebyte.com](mailto:contact@planebyte.com)."
+                            ),
+                        }
+                    }
+                ],
+            },
+            {
+                "id": "roles-and-scope",
+                "title": "2. Scope, roles, and documented instructions",
+                "blocks": [
+                    {
+                        "text": (
+                            "Where executed alongside the [Terms of Service](/terms), Customer acts as **Controller** (or Business) and Planebyte (individually operated by Piyush Agrawal) "
+                            "acts as **Processor** (or Service Provider) solely with respect to Customer-controlled personal data uploaded to or processed within Customer’s workspace "
+                            "at Customer’s documented instruction. PlaneByte acts as an independent Controller for account administration, billing, security logging, and statutory compliance."
+                        )
+                    },
+                    {
+                        "list": [
+                            "**Subject matter & duration:** Provision of Intent Radar and Growth Intelligence for the term of Customer’s workspace subscription plus verified post-termination deletion periods.",
+                            "**Nature & purpose:** Hosting, indexing, AI-assisted analysis (where enabled), monitoring, export, and support strictly per Customer’s workspace settings and Terms.",
+                            "**Data subjects & categories:** Authorized workspace users (work email, name, role) and business-context records submitted by Customer.",
+                        ]
+                    },
+                ],
+            },
+            {
+                "id": "obligations",
+                "title": "3. Confidentiality, security, subprocessors & assistance",
+                "blocks": [
+                    {
+                        "list": [
+                            "**Confidentiality & security:** PlaneByte restricts access to authorized personnel under confidentiality obligations and maintains technical and organizational measures described in Section 9 of our [Privacy Policy](/privacy) (workspace isolation, TLS, encryption at rest, server-side secrets, audit logs).",
+                            "**Subprocessors:** Customer authorizes the verified subprocessors listed at [/subprocessors](/subprocessors). PlaneByte will provide notice of new subprocessors and allow reasonable objection prior to onboarding.",
+                            "**Data-subject requests (DSRs):** PlaneByte provides self-service export/request tools and reasonable assistance so Customer can respond to verified data-subject requests.",
+                            "**Personal-data breach notification:** PlaneByte will notify Customer without undue delay after becoming aware of a confirmed personal-data breach affecting Customer’s workspace personal data, providing available details to support Customer’s legal obligations.",
+                            "**Return & deletion:** Upon verified termination/closure, Customer may export workspace data and PlaneByte will delete or anonymize ordinary workspace personal data within 30 days (backups targeted within 90 days), subject to lawful retention exceptions.",
+                            "**Audit & international transfers:** PlaneByte will respond to reasonable written security/compliance questionnaires. Where EEA/UK/Swiss restricted transfers apply, the parties will execute the applicable EU SCCs (2021/914) and/or UK IDTA/Addendum as an annex prior to covered transfers.",
+                        ]
+                    }
+                ],
+            },
+        ],
+    },
+}
+
+
+def md_to_html(text: str) -> str:
+    """Convert minimal trusted markdown (**bold**, `code`, [label](url)) to safe HTML."""
+    # Escape HTML first
+    escaped = html.escape(text, quote=True)
+    # Links: [label](url)
+    def repl_link(match: re.Match[str]) -> str:
+        label = match.group(1)
+        url = match.group(2)
+        if url.startswith("https://") or url.startswith("http://"):
+            return f'<a href="{url}" target="_blank" rel="noopener noreferrer">{label}</a>'
+        return f'<a href="{url}">{label}</a>'
+
+    escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", repl_link, escaped)
+    # Bold: **text**
+    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+    # Inline code: `code`
+    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+    return escaped
+
+
+def render_marketing_html(key: str, doc: dict) -> str:
+    sidebar_links = "".join(
+        f'<a href="#{html.escape(sec["id"])}">{html.escape(sec["title"])}</a>'
+        for sec in doc["sections"]
+    )
+    sections_html = []
+    for sec in doc["sections"]:
+        parts = [f'<section id="{html.escape(sec["id"])}"><h2>{html.escape(sec["title"])}</h2>']
+        for block in sec["blocks"]:
+            if "callout" in block:
+                co = block["callout"]
+                parts.append(
+                    f'<div class="legal-callout"><strong>{html.escape(co["title"])}</strong>'
+                    f'<p>{md_to_html(co["text"])}</p></div>'
+                )
+            elif "text" in block:
+                parts.append(f'<p>{md_to_html(block["text"])}</p>')
+            elif "list" in block:
+                items = "".join(f"<li>{md_to_html(item)}</li>" for item in block["list"])
+                parts.append(f"<ul>{items}</ul>")
+            elif "table" in block:
+                rows = block["table"]
+                head = "".join(f"<th>{md_to_html(cell)}</th>" for cell in rows[0])
+                body = "".join(
+                    "<tr>" + "".join(f"<td>{md_to_html(cell)}</td>" for cell in row) + "</tr>"
+                    for row in rows[1:]
+                )
+                parts.append(
+                    f'<div class="legal-table-wrap"><table class="legal-table"><thead><tr>{head}</tr></thead>'
+                    f"<tbody>{body}</tbody></table></div>"
+                )
+        parts.append("</section>")
+        sections_html.append("\n".join(parts))
+
+    related_links = [
+        ("/privacy", "Privacy Policy"),
+        ("/terms", "Terms of Service"),
+        ("/cookies", "Cookie Policy"),
+        ("/cancellation-refund-policy", "Cancellation & Refund"),
+        ("/delivery-policy", "Digital Delivery"),
+        ("/acceptable-use", "Acceptable Use"),
+        ("/sources-policy", "Third-Party Sources"),
+        ("/data-deletion", "Data Deletion"),
+        ("/subprocessors", "Subprocessors"),
+        ("/dpa", "DPA (Draft)"),
+    ]
+    related_html = " · ".join(f'<a href="{href}">{html.escape(lbl)}</a>' for href, lbl in related_links)
+
+    return (
+        '<main class="subpage-main">\n'
+        f'<section class="subpage-hero container legal-hero"><span class="kicker">{html.escape(doc["kicker"])}</span>\n'
+        f'<h1>{html.escape(doc["title"])}</h1>\n'
+        f'<p>{html.escape(doc["subtitle"])}</p>\n'
+        f'<p class="legal-meta"><strong>Effective:</strong> {EFFECTIVE_DATE} · <strong>Version:</strong> {VERSION} · '
+        '<strong>Operator:</strong> Planebyte (individually operated by Piyush Agrawal, Odisha, India)</p>\n'
+        "</section>\n"
+        '<section class="container legal-layout">\n'
+        f'<aside class="legal-sidebar" aria-label="Policy sections"><span class="kicker">ON THIS PAGE</span>{sidebar_links}'
+        '<span class="kicker" style="margin-top:18px">RELATED POLICIES</span>'
+        + "".join(f'<a href="{href}">{html.escape(lbl)}</a>' for href, lbl in related_links)
+        + "</aside>\n"
+        '<article class="legal-paper">\n'
+        + "\n".join(sections_html)
+        + '\n<div class="legal-contact"><span class="kicker">PRIVACY, LEGAL &amp; SUPPORT</span>'
+        '<h3>Questions, rights requests, or compliance notices?</h3>'
+        '<p>Contact Piyush Agrawal (Planebyte) at <a href="mailto:contact@planebyte.com">contact@planebyte.com</a> '
+        'or write to House No. 1005, Attabira, Bargarh, Odisha 768027, India. '
+        f'<br/>Related policies: {related_html}</p>'
+        '<a class="mini-cta" href="/contact">Contact PlaneByte ↗</a></div>'
+        "</article>\n</section>\n</main>\n"
+    )
+
+
+def main() -> None:
+    root = Path(__file__).resolve().parents[1]
+    dashboard_json = root / "dashboard" / "lib" / "legal-policies.json"
+    dashboard_json.write_text(
+        json.dumps(
+            {
+                "version": VERSION,
+                "effective_date": EFFECTIVE_DATE,
+                "summary": SUMMARY_BAR,
+                "policies": POLICIES,
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    print(f"Wrote {dashboard_json} ({len(POLICIES)} policies)")
+
+    markup_dir = root / "planebyte-website-new" / "src" / "markup"
+    if markup_dir.exists():
+        mapping = {
+            "privacy": "privacy.html",
+            "terms": "terms.html",
+            "cookies": "cookies.html",
+            "cancellation": "cancellation-refund-policy.html",
+            "delivery-policy": "delivery-policy.html",
+            "acceptable-use": "acceptable-use.html",
+            "sources-policy": "sources-policy.html",
+            "data-deletion": "data-deletion.html",
+            "subprocessors": "subprocessors.html",
+            "dpa": "dpa.html",
+        }
+        for key, filename in mapping.items():
+            out_path = markup_dir / filename
+            out_path.write_text(render_marketing_html(key, POLICIES[key]), encoding="utf-8")
+            print(f"Wrote {out_path}")
+
+
+if __name__ == "__main__":
+    main()

@@ -86,6 +86,9 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
           </a>
           <Link href="/terms">Terms of Service</Link>
           <Link href="/privacy">Privacy Policy</Link>
+          <Link href="/cookies">Cookies</Link>
+          <Link href="/sources-policy">Sources Policy</Link>
+          <Link href="/data-deletion">Data Deletion</Link>
           <Link href="/forgot-password">Sign-in Help</Link>
         </nav>
       </footer>

@@ -41,6 +41,12 @@ export async function exportAccountDetails(){
  const result=await accountRequest('privacy-export',user.email,{},await privateSession());
  return result.ok?result.data:null;
 }
+export async function listPrivacyRequests(){
+ const user=await currentUser();if(!user?.email)return [];
+ const result=await accountRequest('privacy-requests',user.email,{},await privateSession());
+ const items=(result.data as {items?:unknown[]}|undefined)?.items;
+ return result.ok&&Array.isArray(items)?items:[];
+}
 export async function submitPrivacyRequest(_previous:AccountState,form:FormData):Promise<AccountState>{
  const user=await currentUser(),kind=form.get('kind');
  if(!user?.email||!['EXPORT','CLOSE_AND_DELETE','ERASURE'].includes(String(kind))||form.get('confirmed')!=='yes')return {error:'Choose and confirm your request.'};

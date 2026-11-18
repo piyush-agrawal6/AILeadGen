@@ -1,0 +1,231 @@
+{
+  "schema_version": "1.0.0",
+  "policy_version": "planebyte-compliance-2026-11-18-v4",
+  "effective_date": "2026-11-18",
+  "last_audited_at": "2026-11-18",
+  "legal_review_status": "engineering_compliance_implementation_awaiting_qualified_counsel_review",
+  "business_identity": {
+    "brand_name": "PlaneByte",
+    "legal_operator": "Planebyte, an individually operated business owned by Piyush Agrawal",
+    "incorporation_status": "early_stage_not_formally_incorporated",
+    "gstin": null,
+    "legal_notice_address": "House No. 1005, Attabira, Bargarh, Odisha 768027, India",
+    "support_and_privacy_email": "contact@planebyte.com",
+    "marketing_domain": "https://planebyte.com",
+    "app_domain": "https://app.planebyte.com",
+    "active_products": ["Intent Radar", "Growth Intelligence"],
+    "inactive_or_future_products": ["Lead Engine"]
+  },
+  "pricing_and_billing": {
+    "merchant_of_record": "Creem",
+    "legacy_providers_retired_for_new_purchases": ["PayU"],
+    "currency": "USD",
+    "tax_presentation": "tax_inclusive_usd_disclosed_by_creem",
+    "trial": {
+      "duration_hours": 72,
+      "duration_days": 3,
+      "card_required": true,
+      "due_today_minor": 0,
+      "limits": {
+        "searches": 5,
+        "ai_calls": 3,
+        "ai_tokens": 150000,
+        "monitors": 1,
+        "team_members": 1
+      }
+    },
+    "plans": [
+      { "code": "starter", "name": "Starter", "monthly_usd": 59, "monthly_minor": 5900 },
+      { "code": "growth", "name": "Growth", "monthly_usd": 149, "monthly_minor": 14900 },
+      { "code": "scale", "name": "Scale", "monthly_usd": 379, "monthly_minor": 37900 }
+    ],
+    "refund_window_days_initial_purchase": 7,
+    "refund_policy_note": "7-day initial-purchase refund review preserved for existing and new initial purchases; owner/legal decision flagged for commercial alignment with 3-day free trial."
+  },
+  "policies": [
+    { "key": "privacy", "title": "Privacy Policy", "marketing_path": "/privacy", "app_path": "/privacy", "status": "published" },
+    { "key": "terms", "title": "Terms of Service", "marketing_path": "/terms", "app_path": "/terms", "status": "published" },
+    { "key": "cookies", "title": "Cookie Policy & Privacy Preferences", "marketing_path": "/cookies", "app_path": "/cookies", "status": "published" },
+    { "key": "cancellation", "title": "Cancellation, Refund & Subscription Policy", "marketing_path": "/cancellation-refund-policy", "app_path": "/cancellation", "status": "published" },
+    { "key": "refund", "title": "Refund Policy", "marketing_path": "/cancellation-refund-policy", "app_path": "/refund", "status": "published" },
+    { "key": "delivery-policy", "title": "Digital Delivery Policy", "marketing_path": "/delivery-policy", "app_path": "/delivery-policy", "status": "published" },
+    { "key": "acceptable-use", "title": "Acceptable Use Policy", "marketing_path": "/acceptable-use", "app_path": "/acceptable-use", "status": "published" },
+    { "key": "sources-policy", "title": "Third-Party Sources & Data Usage Policy", "marketing_path": "/sources-policy", "app_path": "/sources-policy", "status": "published" },
+    { "key": "data-deletion", "title": "Data Deletion & Account Closure Policy", "marketing_path": "/data-deletion", "app_path": "/data-deletion", "status": "published" },
+    { "key": "subprocessors", "title": "Subprocessors & Infrastructure Disclosure", "marketing_path": "/subprocessors", "app_path": "/subprocessors", "status": "published" },
+    { "key": "dpa", "title": "Data Processing Addendum (Draft Pending Signature)", "marketing_path": "/dpa", "app_path": "/dpa", "status": "draft_pending_execution" }
+  ],
+  "subprocessors": [
+    {
+      "name": "Vercel Inc.",
+      "role": "Application frontend hosting and edge delivery",
+      "data_categories": ["HTTP request logs", "Session cookies", "Application traffic for app.planebyte.com"],
+      "region": "United States / Global Edge",
+      "policy_url": "https://vercel.com/legal/privacy-policy"
+    },
+    {
+      "name": "Netlify, Inc.",
+      "role": "Marketing website hosting and CDN",
+      "data_categories": ["HTTP request logs", "Contact form submissions routed through planebyte.com"],
+      "region": "United States / Global CDN",
+      "policy_url": "https://www.netlify.com/privacy/"
+    },
+    {
+      "name": "Google Cloud Platform (Cloud Run, Secret Manager, Cloud Build, Cloud Logging)",
+      "role": "Backend API execution, background workers, secrets management, operational logs",
+      "data_categories": ["Workspace data", "Account authentication metadata", "Operational diagnostics"],
+      "region": "India (asia-south1 / Mumbai)",
+      "policy_url": "https://cloud.google.com/terms/cloud-privacy-notice"
+    },
+    {
+      "name": "Google Cloud Vertex AI",
+      "role": "AI inference for business profile drafting, ICP recommendations, Setup Copilot, and permitted research analysis",
+      "data_categories": ["Submitted company context", "Prompts", "Permitted public source excerpts"],
+      "region": "Google Cloud Global Vertex AI endpoint (project: querryside)",
+      "policy_url": "https://cloud.google.com/terms/service-terms"
+    },
+    {
+      "name": "Neon, Inc. (Neon PostgreSQL)",
+      "role": "Managed primary PostgreSQL relational database",
+      "data_categories": ["Account records", "Workspaces", "ICPs", "Saved research", "Billing references", "Audit logs"],
+      "region": "United States",
+      "policy_url": "https://neon.tech/privacy-policy"
+    },
+    {
+      "name": "Creem",
+      "role": "Merchant of Record for hosted subscription checkout, recurring billing, tax calculation, invoicing, and billing portal",
+      "data_categories": ["Billing email", "Customer name", "Country", "Subscription & payment references (card details handled solely by Creem)"],
+      "region": "International (Creem infrastructure)",
+      "policy_url": "https://www.creem.io/privacy"
+    },
+    {
+      "name": "Resend",
+      "role": "Transactional email delivery (OTP verification, password recovery, invitations, billing notices, contact enquiries)",
+      "data_categories": ["Recipient email", "Transactional message content", "Delivery/bounce telemetry"],
+      "region": "United States / Global",
+      "policy_url": "https://resend.com/legal/privacy-policy"
+    },
+    {
+      "name": "Google LLC (Google Sign-In / OAuth 2.0)",
+      "role": "Optional SSO authentication identity provider (identity claims only; separate from Gmail/Sheets/YouTube)",
+      "data_categories": ["Verified email address", "Display name", "Google account subject ID"],
+      "region": "Global",
+      "policy_url": "https://policies.google.com/privacy"
+    },
+    {
+      "name": "Cal.com, Inc.",
+      "role": "Optional demo scheduling on planebyte.com (embed gated behind user privacy consent)",
+      "data_categories": ["Booking details submitted directly by visitor when scheduling a demo"],
+      "region": "United States / Global",
+      "policy_url": "https://cal.com/privacy"
+    }
+  ],
+  "sources": [
+    {
+      "id": "youtube",
+      "name": "YouTube Data API v3",
+      "status": "active_public_api_key",
+      "access_mode": "Public videos, channels, and public comments via server API key only (no YouTube user OAuth)",
+      "cached": true,
+      "cache_ttl_seconds": "600-900",
+      "max_retention_days": 30,
+      "ai_analytics_enabled_by_default": false,
+      "cross_source_ai_enabled_by_default": false,
+      "required_disclosures": [
+        "https://www.youtube.com/t/terms",
+        "https://policies.google.com/privacy",
+        "https://security.google.com/settings/security/permissions"
+      ],
+      "provider_approval_status": "Google YouTube API compliance review in progress; derived AI analytics gated OFF"
+    },
+    {
+      "id": "github",
+      "name": "GitHub REST/GraphQL API, GitHub App & OAuth",
+      "status": "active",
+      "access_mode": "Public repositories/issues/discussions/releases plus optional customer-authorized GitHub App / OAuth PKCE & HMAC-SHA256 webhooks for explicitly selected repositories",
+      "cached": true,
+      "user_revocation": "POST /api/intent-radar/sources/github/disconnect clears tokens and repo selections; users can also revoke at github.com/settings/installations",
+      "ai_analytics_enabled_by_default": true,
+      "provider_approval_status": "GitHub App configured; customer private repos require explicit installation and selection"
+    },
+    {
+      "id": "bluesky",
+      "name": "Bluesky Public API & Jetstream v2",
+      "status": "active",
+      "access_mode": "Public posts and public profiles only via api.bsky.app and Jetstream v2 firehose with durable seq cursors",
+      "cached": true,
+      "deletion_propagation": true,
+      "ai_analytics_enabled_by_default": true,
+      "provider_approval_status": "Public AT Protocol endpoints; upstream delete events propagate to stored signals"
+    },
+    {
+      "id": "stack_exchange",
+      "name": "Stack Exchange API v2.3",
+      "status": "active",
+      "access_mode": "Public questions, answers, and comments across 20 configured sites with CC BY-SA attribution and original post links",
+      "cached": true,
+      "license_attribution_required": "CC BY-SA (per Stack Exchange terms)",
+      "ai_analytics_enabled_by_default": true,
+      "provider_approval_status": "Official API key configured in GCP Secret Manager"
+    },
+    {
+      "id": "hacker_news",
+      "name": "Hacker News Firebase v0 API",
+      "status": "active",
+      "access_mode": "Public stories and bounded depth-2 comments (ask, show, new, top, best, jobs + updates.json); dead/deleted items propagated",
+      "cached": true,
+      "ai_analytics_enabled_by_default": true,
+      "provider_approval_status": "Official public API; attribution links to news.ycombinator.com"
+    },
+    {
+      "id": "discourse",
+      "name": "Approved Discourse Public Feeds",
+      "status": "active",
+      "access_mode": "10 approved public community RSS feeds with bounded fetch and original topic links",
+      "cached": true,
+      "ai_analytics_enabled_by_default": true,
+      "provider_approval_status": "Curated public community feeds; commercial AI restrictions respected per publisher"
+    },
+    {
+      "id": "rss",
+      "name": "Approved Atom / RSS Publication Feeds",
+      "status": "active",
+      "access_mode": "10 approved public technical and research feeds (e.g., arXiv cs.AI/cs.LG classified as Market/Technology Intelligence); 2MB cap",
+      "cached": true,
+      "ai_analytics_enabled_by_default": true,
+      "provider_approval_status": "Curated public feeds; publisher attribution and original links preserved"
+    },
+    {
+      "id": "reddit",
+      "name": "Reddit",
+      "status": "disabled_unapproved",
+      "access_mode": "Not active in production; requires separate commercial API approval before enablement",
+      "ai_analytics_enabled_by_default": false,
+      "provider_approval_status": "Not approved"
+    },
+    {
+      "id": "linkedin",
+      "name": "LinkedIn",
+      "status": "disabled_unapproved",
+      "access_mode": "Not active in production; scraping prohibited",
+      "ai_analytics_enabled_by_default": false,
+      "provider_approval_status": "Not approved"
+    }
+  ],
+  "retention_rules": {
+    "sessions_hours": 8,
+    "auth_verification_cookies_seconds": 600,
+    "youtube_api_data_max_days": 30,
+    "verified_account_closure_ordinary_data_days": 30,
+    "verified_account_closure_backup_target_days": 90,
+    "billing_and_suppression_records": "Retained as required by applicable tax, accounting, dispute, fraud-prevention, and opt-out suppression obligations"
+  },
+  "owner_and_legal_review_items": [
+    "Formal incorporation vs sole-proprietor/individual operator status (Planebyte owned by Piyush Agrawal) and confirmation of legal-notice address visibility.",
+    "Commercial & legal decision on harmonizing the previously published 7-day initial-purchase refund window with the new 3-day free trial (existing customer promises preserved until owner/counsel finalize).",
+    "Execution of Google Cloud Data Processing Addendum / Vertex AI Enterprise Privacy terms and Neon/Vercel/Netlify/Resend/Creem DPAs.",
+    "Qualified legal counsel review of EU/UK representative applicability (GDPR Art. 27 / UK GDPR), India DPDP Act 2023 & Rules 2025 phased obligations, and governing-law/dispute clauses.",
+    "Google YouTube API Services compliance audit submission and approval before ever enabling derived YouTube AI analytics.",
+    "Execution and counsel sign-off on the B2B Data Processing Addendum (currently published as Draft Pending Execution)."
+  ]
+}
