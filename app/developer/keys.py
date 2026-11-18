@@ -150,11 +150,22 @@ def create(c,body,rotated_from=None):
     if c.execute('SELECT COUNT(*) FROM workspace_api_keys WHERE organization_id=? AND revoked_at IS NULL AND expires_at>?',(context.organization_id,now())).fetchone()[0]>=20:raise HTTPException(429,'Revoke an unused API key before creating more.')
     key=str(uuid.uuid4());token='pbk_'+key+'.'+secrets.token_urlsafe(32);expires=(datetime.now(timezone.utc)+timedelta(days=body.lifetime_days)).isoformat()
     c.execute('INSERT INTO workspace_api_keys(id,organization_id,created_by,name,token_hash,scopes_json,created_at,expires_at,rotated_from) VALUES(?,?,?,?,?,?,?,?,?)',(key,context.organization_id,context.actor,body.name,hashlib.sha256(token.encode()).hexdigest(),json.dumps(sorted(set(body.scopes))),now(),expires,rotated_from));audit(c,key,'API_KEY_CREATED')
+    try:
+        from app.notifications import center
+        center.emit(c,context.organization_id,category='security',event_type='API_KEY_CREATED',title=f"API key created: {body.name}",description=f"Scoped API credential created by {context.actor} with {len(body.scopes)} scope(s).",priority='high',resource_url='/settings?category=integrations&tab=api-keys',dedupe_key=f"api-key-created:{key}",recipient_email=context.actor)
+    except Exception:
+        pass
     return {'key':visible(owned(c,key)),'token':token,'shown_once':True}
 
 
 def revoke(c,key):
-    row=owned(c,key);c.execute('UPDATE workspace_api_keys SET revoked_at=COALESCE(revoked_at,?) WHERE id=? AND organization_id=?',(now(),key,row['organization_id']));audit(c,key,'API_KEY_REVOKED');return {'revoked':True}
+    row=owned(c,key);c.execute('UPDATE workspace_api_keys SET revoked_at=COALESCE(revoked_at,?) WHERE id=? AND organization_id=?',(now(),key,row['organization_id']));audit(c,key,'API_KEY_REVOKED')
+    try:
+        from app.notifications import center
+        center.emit(c,row['organization_id'],category='security',event_type='API_KEY_REVOKED',title=f"API key revoked: {row['name']}",description=f"Credential {row['name']} has been revoked and can no longer access the workspace API.",priority='high',resource_url='/settings?category=integrations&tab=api-keys',dedupe_key=f"api-key-revoked:{key}",recipient_email=row['created_by'])
+    except Exception:
+        pass
+    return {'revoked':True}
 
 
 def rotate(c,key):

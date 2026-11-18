@@ -314,6 +314,12 @@ async def analyze(c,key,body,*,candidate_monitor=False,persistence_fence=None):
         base_score=score(signal,output,{'ranking_adjustment':0,'explanation':''})['overall']
         c.execute('INSERT INTO intent_rankings(organization_id,signal_id,score,input_hash,icp_id,icp_revision,explanation_json,updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(organization_id,signal_id) DO UPDATE SET score=excluded.score,input_hash=excluded.input_hash,icp_id=excluded.icp_id,icp_revision=excluded.icp_revision,explanation_json=excluded.explanation_json,updated_at=excluded.updated_at',
             (ctx.organization_id,key,0 if excluded else base_score,digest,icp_id or None,icp['revision'] if icp else None,json.dumps({'scoring':score(signal,output,{'ranking_adjustment':0,'explanation':''}),'icp':result['icp'],'excluded':excluded,'language':output.detected_language,'version':VERSION}),now()))
+        if not excluded and base_score >= 75:
+            try:
+                from app.notifications import center
+                center.emit(c,ctx.organization_id,category='signals',event_type='SIGNAL_ANALYZED',title=f"High-relevance signal scored {base_score}/100",description=signal['title'][:180],priority='high' if base_score>=85 else 'normal',resource_url=f"/intent-radar/signals/{key}",dedupe_key=f"signal-analyzed:{key}:{digest[:16]}",signal_id=key,recipient_email=ctx.actor)
+            except Exception:
+                pass
     return result
 
 def history(c,key):

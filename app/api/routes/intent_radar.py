@@ -415,12 +415,64 @@ def icps(c=Depends(get_db,scope='function')):
     from app.icp.service import listing
     return listing(c)
 
-# The global assistant reuses the existing asynchronous research/job pipeline.
-from app.intent_radar import assistant
+# The global assistant reuses the existing asynchronous research/job pipeline
+# and provides a streaming full-page workspace chat with typed read/write tools.
+from fastapi.responses import StreamingResponse
+from app.intent_radar import assistant, assistant_chat, agent_tools
+
 @router.get('/assistant/conversations')
-def assistant_conversations(c=Depends(get_db,scope='function')):return assistant.listing(c)
+def assistant_conversations(
+    search:str=Query('',max_length=120),
+    archived:bool=Query(False),
+    c=Depends(get_db,scope='function'),
+):
+    return assistant_chat.list_conversations(c,search=search,archived=archived)
+
 @router.get('/assistant/conversations/{key}')
-def assistant_conversation(key:UUID,c=Depends(get_db,scope='function')):return assistant.history(c,str(key))
+def assistant_conversation(key:UUID,c=Depends(get_db,scope='function')):
+    return assistant_chat.get_conversation_detail(c,str(key))
+
+@router.patch('/assistant/conversations/{key}')
+def assistant_conversation_update(key:UUID,body:assistant_chat.ConversationPatch,c=Depends(get_db,scope='function')):
+    return assistant_chat.update_conversation(c,str(key),body)
+
+@router.delete('/assistant/conversations/{key}')
+def assistant_conversation_delete(key:UUID,c=Depends(get_db,scope='function')):
+    return assistant_chat.delete_conversation(c,str(key))
+
+@router.post('/assistant/chat')
+async def assistant_chat_stream(body:assistant_chat.ChatRequest,c=Depends(get_db,scope='function')):
+    from app.growth_intelligence import analytics
+    ctx=analytics.access(c)
+    if body.thread_id:
+        assistant.owned_thread(c,str(body.thread_id))
+    return StreamingResponse(
+        assistant_chat.stream_chat(ctx.actor,ctx.organization_id,body),
+        media_type='text/event-stream',
+        headers={'Cache-Control':'no-store, no-cache','X-Accel-Buffering':'no'},
+    )
+
+@router.post('/assistant/actions/{action_id}/execute')
+async def assistant_action_execute(action_id:UUID,c=Depends(get_db,scope='function')):
+    def prepare():
+        res=assistant_chat.execute_proposal(c,str(action_id))
+        c.commit()
+        return res
+    res=await run_in_threadpool(prepare)
+    launch_job_id=res.pop('_launch_job_id',None)
+    if launch_job_id:
+        from app.intelligence.dispatch import launch
+        await launch(launch_job_id)
+    return res
+
+@router.post('/assistant/actions/{action_id}/decline')
+def assistant_action_decline(action_id:UUID,c=Depends(get_db,scope='function')):
+    return assistant_chat.decline_proposal(c,str(action_id))
+
+@router.get('/assistant/action-history')
+def assistant_action_history(limit:int=Query(30,ge=1,le=100),c=Depends(get_db,scope='function')):
+    return agent_tools.list_action_history(c,limit=limit)
+
 @router.post('/assistant/turns',status_code=202)
 async def assistant_turn(body:assistant.Turn,c=Depends(get_db,scope='function')):
     def prepare():

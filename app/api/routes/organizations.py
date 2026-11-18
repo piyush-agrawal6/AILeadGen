@@ -104,10 +104,58 @@ def invitation_revoke(invitation_id:UUID,c=Depends(get_db,scope='function')):
     require_enabled()
     return invitations.revoke(c,str(invitation_id))
 
-@router.get('/notifications',response_model=invitations.NotificationPage)
-def notification_list(c=Depends(get_db,scope='function')):
+@router.get('/notifications')
+def notification_list(
+    category:str|None=None,
+    status:str='all',
+    priority:str|None=None,
+    search:str='',
+    page:int=1,
+    page_size:int=20,
+    c=Depends(get_db,scope='function'),
+):
     require_enabled()
-    return invitations.notifications(c)
+    from app.notifications import center
+    return center.list_notifications(
+        c,
+        category=category,
+        status=status,
+        priority=priority,
+        search=search,
+        page=max(1,min(page,500)),
+        page_size=max(1,min(page_size,100)),
+    )
+
+@router.post('/notifications/{notification_id}/read')
+def notification_mark_read(notification_id:UUID,c=Depends(get_db,scope='function')):
+    require_enabled()
+    from app.notifications import center
+    return center.mark_read(c,str(notification_id))
+
+@router.post('/notifications/read-all')
+def notification_mark_all_read(c=Depends(get_db,scope='function')):
+    require_enabled()
+    from app.notifications import center
+    return center.mark_all_read(c)
+
+@router.get('/notifications/preferences')
+def notification_preferences_get(c=Depends(get_db,scope='function')):
+    require_enabled()
+    from app.notifications import center
+    return center.get_preferences(c)
+
+from app.notifications.center import NotificationPreferencesUpdate
+@router.put('/notifications/preferences')
+def notification_preferences_put(body:NotificationPreferencesUpdate,c=Depends(get_db,scope='function')):
+    require_enabled()
+    from app.notifications import center
+    return center.update_preferences(c,body)
+
+@router.post('/notifications/test-email')
+def notification_test_email(c=Depends(get_db,scope='function')):
+    require_enabled()
+    from app.notifications import center
+    return center.send_test_email(c)
 
 @router.get('/usage')
 def usage_overview(c=Depends(get_db,scope='function')):

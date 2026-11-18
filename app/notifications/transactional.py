@@ -9,7 +9,7 @@ from app.database.connection import db_session
 from app.database.prospects import now
 from app.accounts import security
 
-PURPOSES=frozenset(('SIGNUP_OTP','SIGNUP_NOTICE','SET_PASSWORD_OTP','PASSWORD_RESET','PASSWORD_CHANGED','TEAM_INVITATION','PAYMENT_CONFIRMED','RENEWAL_REMINDER','ACCESS_EXPIRED','WORKSPACE_NOTICE','SUBSCRIPTION_STATUS'))
+PURPOSES=frozenset(('SIGNUP_OTP','SIGNUP_NOTICE','SET_PASSWORD_OTP','PASSWORD_RESET','PASSWORD_CHANGED','TEAM_INVITATION','PAYMENT_CONFIRMED','RENEWAL_REMINDER','ACCESS_EXPIRED','WORKSPACE_NOTICE','SUBSCRIPTION_STATUS','NOTIFICATION_ALERT','INTELLIGENCE_DIGEST'))
 
 def configured():
     s=get_settings();sender=s.resend_from_email
@@ -55,10 +55,41 @@ def render(purpose,payload):
         text=payload['summary']+'\nReview your authorized workspace at https://app.planebyte.com/intent-radar.'
     elif purpose=='SUBSCRIPTION_STATUS':
         subject='Your PlaneByte subscription update'
-        text=payload['summary']+'\nReview confirmed dates, invoices and cancellation at https://app.planebyte.com/billing. Never send card details, passwords or OTPs to support.'
+        text=payload['summary']+'\nReview confirmed dates, invoices and cancellation at https://app.planebyte.com/settings?category=billing&tab=overview. Never send card details, passwords or OTPs to support.'
+        cta_label,cta_url='Open Billing & Usage','https://app.planebyte.com/settings?category=billing&tab=overview'
+    elif purpose=='NOTIFICATION_ALERT':
+        title=str(payload.get('title') or 'PlaneByte Workspace Alert')[:160]
+        summary=str(payload.get('summary') or payload.get('message') or '')
+        rel=str(payload.get('cta_url') or payload.get('url') or '/notifications')
+        full_url=rel if rel.startswith('https://') else 'https://app.planebyte.com'+(rel if rel.startswith('/') else '/notifications')
+        subject=f'PlaneByte · {title}'
+        text=f"{title}\n\n{summary}\n\nOpen in PlaneByte: {full_url}"
+        if payload.get('optional'):
+            text+='\nManage notification preferences: https://app.planebyte.com/settings?category=preferences&tab=notifications'
+        cta_label,cta_url=str(payload.get('cta_label') or 'View in PlaneByte')[:60],full_url
+    elif purpose=='INTELLIGENCE_DIGEST':
+        title=str(payload.get('title') or 'Your PlaneByte Intelligence Digest')[:160]
+        subject=f'PlaneByte · {title}'
+        text=f"{title}\n\n{payload['summary']}\n\nOpen Intent Radar: https://app.planebyte.com/intent-radar\nManage notification preferences: https://app.planebyte.com/settings?category=preferences&tab=notifications"
+        cta_label,cta_url='Open Intent Radar','https://app.planebyte.com/intent-radar'
     else:raise ValueError('Unsupported transactional purpose.')
     if len(text)>5000:raise ValueError('Notification exceeds its bound.')
-    return subject,text,'<div style="font-family:system-ui;line-height:1.6;max-width:600px">'+''.join('<p>'+html.escape(line)+'</p>' for line in text.split('\n'))+'</div>'
+    paragraphs=''.join(f'<p style="margin:0 0 12px;color:#334155;font-size:14px;line-height:1.6">{html.escape(line)}</p>' for line in text.split('\n') if line.strip())
+    cta_html=''
+    if purpose in ('SUBSCRIPTION_STATUS','NOTIFICATION_ALERT','INTELLIGENCE_DIGEST'):
+        cta_html=f'<div style="margin:24px 0 8px"><a href="{html.escape(cta_url)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:600;font-size:13px;padding:10px 18px;border-radius:10px">{html.escape(cta_label)}</a></div>'
+    pref_footer=''
+    if purpose in ('NOTIFICATION_ALERT','INTELLIGENCE_DIGEST') and payload.get('optional',True):
+        pref_footer='<p style="margin:8px 0 0;font-size:11px;color:#64748b"><a href="https://app.planebyte.com/settings?category=preferences&tab=notifications" style="color:#475569;text-decoration:underline">Manage notification preferences</a></p>'
+    branded_html=(
+        '<div style="background:#f8fafc;padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">'
+        '<div style="max-width:580px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden">'
+        '<div style="background:#0f172a;padding:18px 24px;color:#ffffff;font-weight:700;font-size:15px;letter-spacing:-0.01em">PlaneByte <span style="font-weight:400;color:#94a3b8;font-size:13px">· Intent Radar</span></div>'
+        f'<div style="padding:24px">{paragraphs}{cta_html}</div>'
+        f'<div style="padding:14px 24px;border-top:1px solid #f1f5f9;background:#f8fafc;font-size:11px;color:#64748b">Sent by PlaneByte · <a href="https://app.planebyte.com" style="color:#475569">app.planebyte.com</a>{pref_footer}</div>'
+        '</div></div>'
+    )
+    return subject,text,branded_html
 
 def queue(c,email,purpose,authority_id,payload,*,dedupe_key,expires_at,organization_id=None):
     require_enabled()
@@ -100,6 +131,9 @@ def authorized(c,row):
     if row['purpose']=='SUBSCRIPTION_STATUS':
         from app.api.organization import membership_role
         return bool(get_settings().subscription_onboarding_required and membership_role(c,row['account_email'],row['organization_id'])=='OWNER' and c.execute('SELECT 1 FROM subscription_contracts WHERE id=? AND organization_id=? AND created_by=? AND verified_at IS NOT NULL',(row['authority_id'],row['organization_id'],row['account_email'])).fetchone())
+    if row['purpose'] in ('NOTIFICATION_ALERT','INTELLIGENCE_DIGEST'):
+        from app.api.organization import membership_role
+        return bool(row['organization_id'] and membership_role(c,row['account_email'],row['organization_id']))
     from app.billing.access_periods import notification_authorized
     return notification_authorized(c,row)
 

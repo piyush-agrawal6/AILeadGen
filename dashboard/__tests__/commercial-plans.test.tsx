@@ -20,8 +20,8 @@ it('shows approved USD prices, hides dense Before purchasing block, and expands 
   );
   expect(screen.getByText('$59', { selector: '.commercial-price' })).toBeVisible();
   expect(screen.getByText(/Your selection is saved/)).toBeVisible();
-  expect(screen.getByRole('link', { name: /Choose Growth/ })).toHaveAttribute('href', '/billing/subscription');
-  expect(screen.queryByRole('button', { name: /pay|checkout|subscribe/i })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /Choose Growth/ })).toBeVisible();
+  expect(screen.queryByRole('link', { name: /Choose Growth/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: 'Before purchasing' })).not.toBeInTheDocument();
   expect(screen.queryByText('Pending approval')).not.toBeInTheDocument();
   expect(screen.queryByText(/internal test|₹100|₹200|₹300/i)).not.toBeInTheDocument();

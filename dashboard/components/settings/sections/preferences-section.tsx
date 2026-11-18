@@ -6,6 +6,7 @@ import { SlidersHorizontal, Bell, ShieldCheck, Cpu, Check, AlertCircle, Save } f
 import type { IntentPreferences } from "@/lib/intent-radar";
 import { useRadarRead, useRadarMutation, useRadarCapabilities } from "@/components/intent-radar/provider";
 import { ChipInput } from "@/components/intent-radar/monitors";
+import { NotificationPreferencesPanel } from "@/components/notifications/NotificationPreferencesPanel";
 import { Button } from "@/components/ui/button";
 
 export function PreferencesSection({ activeTab }: { activeTab: string }) {
@@ -243,11 +244,12 @@ function PreferencesForm({ initial, activeTab }: { initial: IntentPreferences; a
             </div>
 
             <div className="pt-2">
-              <Link className="inline-flex text-xs font-medium text-primary hover:underline" href="/intent-radar/alerts">
-                Review existing alerts in Intent Radar →
+              <Link className="inline-flex text-xs font-medium text-primary hover:underline" href="/notifications">
+                Open full Notifications Center →
               </Link>
             </div>
           </div>
+          <NotificationPreferencesPanel />
         </div>
       )}
 

@@ -156,7 +156,11 @@ def start(body):
    if body.customer_name and resolved_name:
     try:creem.request('PATCH','/customers/'+creem.identifier(customer_id,'cust_'),mode=mode,body={'name':resolved_name})
     except (creem.Unavailable,creem.Rejected):pass
-  checkout=creem.object_mode(creem.request('POST','/checkouts',mode=mode,body={'product_id':product['product_id'],'request_id':key,'units':1,'customer':{'id':customer_id},'success_url':'https://app.planebyte.com/onboarding?payment=returned','metadata':{'planebyte_checkout':key,'planebyte_workspace':org,'planebyte_policy':access.POLICY}}),mode)
+  with db_session() as c:
+   onb=c.execute('SELECT status FROM organization_onboarding WHERE organization_id=?',(org,)).fetchone()
+   onboarded=bool(onb and onb['status']=='COMPLETED')
+  success_url='https://app.planebyte.com/settings?category=billing&tab=overview&payment=returned' if onboarded else 'https://app.planebyte.com/onboarding?payment=returned'
+  checkout=creem.object_mode(creem.request('POST','/checkouts',mode=mode,body={'product_id':product['product_id'],'request_id':key,'units':1,'customer':{'id':customer_id},'success_url':success_url,'metadata':{'planebyte_checkout':key,'planebyte_workspace':org,'planebyte_policy':access.POLICY}}),mode)
   checkout_id=creem.identifier(checkout.get('id'),'ch_');url=creem.hosted_url(checkout.get('checkout_url'))
   # Persist a known provider ID before further reads. Ambiguous creates can be
   # reconciled without repeating the non-idempotent POST.
@@ -204,6 +208,11 @@ def cancel(body):
   raise HTTPException(502,'Cancellation has not been confirmed by the provider. Refresh subscription status before retrying; no cancellation success is assumed.') from None
  with db_session() as c:
   c.execute("UPDATE subscription_cancellations SET status='CONFIRMED',effective_at=?,updated_at=? WHERE id=? AND organization_id=?",(result['period_end'],now(),key,org))
+  try:
+   from app.notifications import center
+   center.emit(c,org,category='billing',event_type='SUBSCRIPTION_CANCELED',title='Subscription auto-renewal canceled',description=f"Access remains active until {result['period_end'] or 'the end of the current period'}.",priority='high',resource_url='/settings?category=billing&tab=overview',dedupe_key=f"sub-cancel:{key}",recipient_email=ctx.actor)
+  except Exception:
+   pass
  return {'status':'CONFIRMED','effective_at':result['period_end']}
 
 

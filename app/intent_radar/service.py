@@ -540,6 +540,11 @@ def save_monitor(c, body, key=None):
             commercial_capacity(c,ctx.organization_id,'monitors',active_count)
         key = str(uuid.uuid4())
         c.execute('INSERT INTO intent_monitors(id,organization_id,created_by,name,description,goal,configuration_json,status,request_id,fingerprint,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(key,ctx.organization_id,ctx.actor,body.name,body.description,body.goal,encoded,body.status,str(body.request_id),fingerprint,now(),now()))
+        try:
+            from app.notifications import center
+            center.emit(c,ctx.organization_id,category='monitoring',event_type='MONITOR_CREATED',title=f"Monitor created: {body.name}",description=f"Status: {body.status}. Monitor saved and ready for scheduled checks.",priority='low',resource_url='/intent-radar/monitors',dedupe_key=f"monitor-created:{key}",monitor_id=key,recipient_email=ctx.actor)
+        except Exception:
+            pass
     audit(c,'MONITOR_SAVED',key)
     return get(c,'monitors',key)
 
@@ -553,7 +558,11 @@ def preferences(c, body=None):
     lock(c)
     old = c.execute('SELECT * FROM intent_preferences WHERE organization_id=?',(ctx.organization_id,)).fetchone()
     if body.revision != (old['revision'] if old else 0): raise HTTPException(409,'Preferences changed; reload first.')
-    c.execute('INSERT INTO intent_preferences(organization_id,configuration_json,updated_at) VALUES(?,?,?) ON CONFLICT(organization_id) DO UPDATE SET configuration_json=excluded.configuration_json,updated_at=excluded.updated_at,revision=intent_preferences.revision+1',(ctx.organization_id,json.dumps(body.model_dump(mode='json',exclude={'revision'})),now()))
+    prev_doc = json.loads(old['configuration_json']) if old and old['configuration_json'] else {}
+    merged_doc = body.model_dump(mode='json',exclude={'revision'})
+    if 'user_notification_preferences' in prev_doc:
+        merged_doc['user_notification_preferences'] = prev_doc['user_notification_preferences']
+    c.execute('INSERT INTO intent_preferences(organization_id,configuration_json,updated_at) VALUES(?,?,?) ON CONFLICT(organization_id) DO UPDATE SET configuration_json=excluded.configuration_json,updated_at=excluded.updated_at,revision=intent_preferences.revision+1',(ctx.organization_id,json.dumps(merged_doc),now()))
     audit(c,'PREFERENCES_SAVED',ctx.organization_id)
     return preferences(c)
 
@@ -632,6 +641,11 @@ def opportunity(c,key,body=None,create_body=None):
             "UPDATE intent_signals SET status='Reviewed',revision=revision+1 WHERE id=? AND organization_id=? AND status IN ('New','Needs Review','In Review')",
             (signal_id,ctx.organization_id),
         )
+        try:
+            from app.notifications import center
+            center.emit(c,ctx.organization_id,category='opportunities',event_type='OPPORTUNITY_CREATED',title=f"Opportunity created: {signal['title'][:90]}",description=f"Priority: {priority}. Next action: {next_action}",priority='high' if priority=='High' else 'normal',resource_url='/intent-radar/opportunities',dedupe_key=f"opp-created:{key}",signal_id=signal_id,recipient_email=ctx.actor)
+        except Exception:
+            pass
     audit(c,'OPPORTUNITY_UPDATED',key)
     res = get(c,'opportunities',key)
     if not body:

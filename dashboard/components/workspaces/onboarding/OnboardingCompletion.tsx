@@ -44,12 +44,15 @@ export function OnboardingCompletion({
             <dd className="text-sm font-semibold text-foreground mt-1 truncate">{companyName || 'Saved'}</dd>
           </div>
 
-          <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
+          <Link
+            href="/intent-radar/ideal-customers"
+            className="block rounded-xl border border-border/80 bg-muted/20 p-3.5 transition-colors hover:border-primary/40"
+          >
             <dt className="text-muted-foreground flex items-center gap-1.5">
               <Check size={13} className="text-primary" aria-hidden="true" /> Primary ICP
             </dt>
             <dd className="text-sm font-semibold text-foreground mt-1 truncate">{primaryICPName || 'Configured'}</dd>
-          </div>
+          </Link>
 
           <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
             <dt className="text-muted-foreground flex items-center gap-1.5">

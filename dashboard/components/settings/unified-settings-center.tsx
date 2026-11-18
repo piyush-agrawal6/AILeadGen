@@ -61,12 +61,11 @@ export const SETTINGS_CATEGORIES: SettingsCategoryDef[] = [
     key: "company",
     label: "Company & Targeting",
     shortLabel: "Company",
-    description: "Organization context, ideal customer profiles (ICP), and business domains.",
+    description: "Organization context and verified business domains. Manage Ideal Customers in the Intelligence sidebar.",
     icon: Building2,
     defaultTab: "profile",
     tabs: [
       { id: "profile", label: "Organization Profile" },
-      { id: "icp", label: "Ideal Customers (ICP)" },
       { id: "domains", label: "Business Domains" },
     ],
   },
@@ -132,8 +131,16 @@ export function UnifiedSettingsCenter({
   initialTab?: string;
 }) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const pathname = usePathname();
   const workspace = useWorkspace();
+
+  // Redirect legacy ?category=company&tab=icp links to the dedicated Ideal Customers workspace
+  useEffect(() => {
+    if (searchParams.get("category") === "company" && searchParams.get("tab") === "icp") {
+      router.replace("/intent-radar/ideal-customers");
+    }
+  }, [searchParams, router]);
 
   // Determine starting category and tab from props, URL searchParams, or path
   const paramCategory = searchParams.get("category") as SettingsCategoryKey | null;

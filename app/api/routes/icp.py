@@ -84,3 +84,22 @@ def history(profile_id:UUID,page:int=Query(1,ge=1,le=10000),c=Depends(get_db,sco
 @router.get('/{profile_id}/compare')
 def compare(profile_id:UUID,before:int=Query(ge=1),after:int=Query(ge=1),c=Depends(get_db,scope='function')):
     return service.compare(c,str(profile_id),before,after)
+
+@router.post('/{profile_id}/set-primary',response_model=Profile)
+def set_primary(profile_id:UUID,c=Depends(get_db,scope='function')):
+    return service.set_primary(c,str(profile_id))
+
+@router.delete('/{profile_id}')
+def delete_profile(profile_id:UUID,c=Depends(get_db,scope='function')):
+    return service.delete(c,str(profile_id))
+
+@router.get('/{profile_id}/related')
+def related_records(profile_id:UUID,c=Depends(get_db,scope='function')):
+    return service.related(c,str(profile_id))
+
+class CompareRequest(ai.Strict):
+    profile_ids:list[UUID]=Field(default_factory=list,max_length=6)
+
+@router.post('/compare-profiles')
+def compare_profiles(body:CompareRequest,c=Depends(get_db,scope='function')):
+    return service.compare_profiles(c,[str(x) for x in body.profile_ids])

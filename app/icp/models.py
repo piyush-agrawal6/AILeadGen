@@ -60,6 +60,11 @@ class IntentCriteria(Strict):
     relevant_services:Terms=Field(default_factory=list)
     technology_requirements:Terms=Field(default_factory=list)
     qualification_conditions:Terms=Field(default_factory=list)
+    competitors:Terms=Field(default_factory=list,description='Competitor or alternative products this buyer evaluates or migrates away from.')
+    budget_indicators:Terms=Field(default_factory=list,description='Observable budget or willingness-to-pay indicators.')
+    preferred_sources:Terms=Field(default_factory=list,description='Preferred public research sources (e.g. GitHub, Hacker News, Stack Exchange, Bluesky).')
+    search_terms:Terms=Field(default_factory=list,description='Concrete search terminology and phrases used by this buyer segment.')
+    custom_criteria:Terms=Field(default_factory=list,description='Additional user-defined targeting attributes.')
     exclusions:Terms=Field(default_factory=list,description='1 to 3 context-sensitive negative exclusion criteria (e.g. student projects, job seekers, unrelated consumer/free-only requests) to filter out noisy signals.')
 
 
@@ -110,6 +115,8 @@ class Profile(ProfileFields):
     id:UUID
     organization_id:UUID
     revision:int
+    is_primary:bool=False
+    related_counts:dict[str,int]=Field(default_factory=dict)
     created_at:str
     updated_at:str
     created_by:str

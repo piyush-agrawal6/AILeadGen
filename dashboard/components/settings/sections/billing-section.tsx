@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -365,6 +365,28 @@ export function BillingSection({
   const [showDetailedUsage, setShowDetailedUsage] = useState(false);
   const [showAiDetails, setShowAiDetails] = useState(false);
   const [showInvoices, setShowInvoices] = useState(false);
+  const returnedHandled = useRef(false);
+
+  const selectedPlanParam =
+    typeof window !== "undefined"
+      ? (new URLSearchParams(window.location.search).get("plan") as
+          | "starter"
+          | "growth"
+          | "scale"
+          | null)
+      : null;
+
+  useEffect(() => {
+    if (typeof window === "undefined" || returnedHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "returned") {
+      returnedHandled.current = true;
+      params.delete("payment");
+      const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
+      window.history.replaceState({}, "", nextUrl);
+      void runSubscriptionAction("refresh");
+    }
+  }, []);
 
   async function runSubscriptionAction(kind: "portal" | "cancel" | "refresh") {
     setBusyAction(kind);
@@ -451,9 +473,10 @@ export function BillingSection({
     return (
       <CommercialPlans
         data={data.commercial}
-        selectedPlan={null}
+        selectedPlan={selectedPlanParam}
         currentPlanCode={currentPlanCode}
         currentIsTrial={resolved.isTrial}
+        subscriptionState={subState ?? null}
       />
     );
   }

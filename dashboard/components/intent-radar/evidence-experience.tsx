@@ -18,6 +18,7 @@ import {
   Loader2,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
   StickyNote,
   Target,
   ThumbsDown,
@@ -202,6 +203,13 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
         </Link>
 
         <div className="flex items-center gap-1.5">
+          <Link
+            href={`/intelligence/assistant?context=signal&entityId=${encodeURIComponent(s.id)}&prompt=${encodeURIComponent(`Analyze this signal ("${s.title.slice(0, 80)}") against my primary ICP and recommend next steps.`)}`}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-2.5 text-xs font-semibold text-primary hover:bg-primary/15 transition-colors"
+          >
+            <Sparkles size={13} />
+            Ask AI
+          </Link>
           <button
             type="button"
             disabled={!returnCtx.prevId}
