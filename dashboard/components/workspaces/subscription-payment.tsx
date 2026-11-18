@@ -215,7 +215,7 @@ export function SubscriptionPayment({ onActivated, embedded = false }: { onActiv
           <div className="space-y-1">
             <p className="flex items-center gap-2 font-semibold text-foreground">
               <Check size={18} className="text-primary" />
-              Verified access is active
+              Existing verified Creem plan recognized
             </p>
             <p className="text-sm text-muted-foreground capitalize">
               {data.contract?.plan_code} plan · {data.contract?.status} · via {data.contract?.provider}
@@ -224,17 +224,24 @@ export function SubscriptionPayment({ onActivated, embedded = false }: { onActiv
               <p className="text-xs text-muted-foreground">
                 Current period ends {formatDate(data.contract.period_end)}.{' '}
                 {data.contract.cancel_confirmed_at
-                  ? 'Automatic renewal canceled.'
+                  ? 'Automatic renewal canceled — no new trial or charge will be created.'
                   : 'Next charge: ' + formatDate(data.contract.next_charge_at)}
               </p>
             )}
           </div>
-          <Link
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-95"
-            href="/intent-radar"
-          >
-            Open dashboard <ArrowRight size={15} />
-          </Link>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {embedded && onActivated ? (
+              <Button size="lg" className="ai-btn-primary" onClick={() => onActivated()}>
+                Complete setup <ArrowRight size={15} className="ml-1.5" />
+              </Button>
+            ) : null}
+            <Link
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:border-primary/50"
+              href="/intent-radar"
+            >
+              Open dashboard <ArrowRight size={15} />
+            </Link>
+          </div>
         </div>
       )}
 

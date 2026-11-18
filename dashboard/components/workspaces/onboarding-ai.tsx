@@ -742,8 +742,12 @@ function SetupWorkspace({ initial, onRefresh }: { initial: State; onRefresh: () 
         excluded_keywords: terms(excluded)
       });
       setState(v => ({ ...v, progress: { ...v.progress, status: 'COMPLETED' } }));
-      if (state.payment?.required && !state.payment.active) {
-        setNotice('Research setup saved. Complete your trial or plan activation below to enter Intent Radar.');
+      if (state.payment?.required) {
+        setNotice(
+          state.payment.active
+            ? 'Research setup saved. Your existing verified Creem access is recognized below — no additional charge is needed.'
+            : 'Research setup saved. Complete your trial or plan activation below to enter Intent Radar.'
+        );
         setView('plan');
       } else {
         setNotice('Workspace setup saved.');
