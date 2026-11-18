@@ -1,5 +1,5 @@
 """GitHub public/connected discovery, customer OAuth installation binding, and HMAC webhooks."""
-import base64, hashlib, hmac, json, re, secrets, uuid
+import base64, hashlib, hmac, json, logging, re, secrets, uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 from fastapi import HTTPException
@@ -13,6 +13,7 @@ from app.intent_radar.permissions import context
 from app.intent_radar.source_http import JsonClient, ProviderFailure
 from app.intent_radar.source_runtime import Gateway
 
+logger = logging.getLogger(__name__)
 REPO_RE = re.compile(r'^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$')
 
 
@@ -309,6 +310,10 @@ def disconnect(c) -> dict:
     return connection_status(c)
 
 
+MAX_WEBHOOK_BYTES = 512_000
+MAX_WEBHOOK_ATTEMPTS = 3
+
+
 def verify_webhook_signature(raw_body: bytes, signature_header: str) -> bool:
     secret = get_settings().github_app_webhook_secret.get_secret_value()
     if not secret or not signature_header or not signature_header.startswith('sha256='):
@@ -319,14 +324,18 @@ def verify_webhook_signature(raw_body: bytes, signature_header: str) -> bool:
 
 def ingest_webhook(c, *, raw_body: bytes, delivery_id: str, event_type: str, signature: str) -> dict:
     s = get_settings()
-    if not s.intent_radar_github_webhooks_enabled or not s.github_app_webhook_secret.get_secret_value():
-        raise HTTPException(503, 'GitHub webhooks are not enabled.')
+    if not s.github_app_webhook_secret.get_secret_value():
+        raise HTTPException(503, 'GitHub webhooks are not configured.')
+    if len(raw_body) > MAX_WEBHOOK_BYTES:
+        raise HTTPException(413, 'Webhook payload exceeds supported size.')
     if not delivery_id or len(delivery_id) > 128 or not event_type or len(event_type) > 80:
         raise HTTPException(400, 'Missing required GitHub delivery metadata.')
     if not verify_webhook_signature(raw_body, signature):
+        logger.warning('Rejected GitHub webhook with invalid signature (event=%s delivery=%s)', event_type, delivery_id)
         raise HTTPException(401, 'Invalid GitHub webhook signature.')
-    if len(raw_body) > 512_000:
-        raise HTTPException(413, 'Webhook payload exceeds supported size.')
+    if not s.intent_radar_github_webhooks_enabled:
+        logger.info('Verified GitHub webhook signature while processing disabled (event=%s delivery=%s)', event_type, delivery_id)
+        raise HTTPException(503, 'GitHub webhook processing is currently disabled.')
     try:
         payload = json.loads(raw_body.decode('utf-8'))
     except (UnicodeDecodeError, ValueError):
@@ -349,13 +358,35 @@ def ingest_webhook(c, *, raw_body: bytes, delivery_id: str, event_type: str, sig
         return {'status': 'DUPLICATE', 'delivery_id': delivery_id}
     c.commit()
     processed = process_github_event(c, event_id)
+    logger.info('Processed GitHub webhook (event=%s delivery=%s status=%s)', event_type, delivery_id, processed)
     return {'status': processed, 'delivery_id': delivery_id, 'event_id': event_id}
+
+
+def _repo_authorized_for_connection(conn, payload: dict) -> bool:
+    if not conn or conn['status'] != 'CONNECTED':
+        return False
+    repos = json.loads(conn['repositories_json'] or '[]')
+    if not repos:
+        # Installation has no explicit per-repo restriction saved yet; public/all-repo scope permitted.
+        return True
+    repo_obj = payload.get('repository') or {}
+    repo_id = repo_obj.get('id')
+    repo_name = (repo_obj.get('full_name') or '').casefold()
+    selected = [r for r in repos if r.get('selected', True)]
+    for entry in selected:
+        if repo_id is not None and entry.get('id') == repo_id:
+            return True
+        if repo_name and (entry.get('full_name') or '').casefold() == repo_name:
+            return True
+    return False
 
 
 def process_github_event(c, event_id: str) -> str:
     row = c.execute("SELECT * FROM intent_provider_events WHERE id=? AND provider='github'", (event_id,)).fetchone()
     if not row or row['status'] in ('COMPLETE', 'IGNORED'):
         return row['status'] if row else 'IGNORED'
+    if (row['attempts'] or 0) >= MAX_WEBHOOK_ATTEMPTS:
+        return 'FAILED'
     payload = open_envelope(row['payload_ciphertext'], organization_id=row['organization_id'] or 'system', connection_id=row['delivery_id'], provider='github', purpose='WEBHOOK_EVENT')
     event_type = row['event_type']
     action = str(payload.get('action') or '')
@@ -381,19 +412,27 @@ def process_github_event(c, event_id: str) -> str:
                 c.execute('UPDATE intent_github_connections SET repositories_json=?, revision=revision+1, updated_at=? WHERE id=?', (json.dumps(repos[:100]), now(), conn['id']))
                 GitHubAuth.revoke_cached()
             status = 'COMPLETE'
-        elif event_type in ('issues', 'issue_comment', 'discussion', 'discussion_comment', 'release', 'pull_request') and row['organization_id']:
-            record = _normalize_webhook_record(event_type, payload)
-            if record:
-                _persist_webhook_signal(c, row['organization_id'], record)
-                status = 'COMPLETE'
-            else:
+        elif event_type in ('issues', 'issue_comment', 'discussion', 'discussion_comment', 'release', 'pull_request') and row['organization_id'] and inst_id:
+            conn = c.execute(
+                "SELECT id,status,repositories_json FROM intent_github_connections WHERE organization_id=? AND installation_id=?",
+                (row['organization_id'], inst_id),
+            ).fetchone()
+            if not _repo_authorized_for_connection(conn, payload):
                 status = 'IGNORED'
+            else:
+                record = _normalize_webhook_record(event_type, payload)
+                if record:
+                    _persist_webhook_signal(c, row['organization_id'], record)
+                    status = 'COMPLETE'
+                else:
+                    status = 'IGNORED'
         else:
             status = 'IGNORED'
         c.execute('UPDATE intent_provider_events SET status=?, attempts=attempts+1, updated_at=? WHERE id=?', (status, now(), event_id))
         c.commit()
         return status
     except Exception as exc:
+        logger.warning('Failed processing GitHub webhook (event=%s delivery=%s error=%s)', event_type, row['delivery_id'], type(exc).__name__)
         c.execute("UPDATE intent_provider_events SET status='FAILED', attempts=attempts+1, error_code=?, updated_at=? WHERE id=?", (type(exc).__name__, now(), event_id))
         c.commit()
         return 'FAILED'
@@ -424,6 +463,13 @@ def _normalize_webhook_record(event_type: str, payload: dict) -> dict | None:
             'GitHub', f"discussion:{ds.get('id')}", ds.get('html_url', ''), ds.get('title', ''), ds.get('body') or '', ds.get('created_at') or now(),
             fetch_method='github_webhook', content_kind='discussion', repo=repo, visibility=visibility,
             attribution={'author': providers.text((ds.get('user') or {}).get('login'), 100), 'profile_url': (ds.get('user') or {}).get('html_url'), 'license': 'GitHub API', 'source': 'GitHub'},
+        )
+    if event_type == 'discussion_comment' and payload.get('comment') and payload.get('discussion'):
+        cm, ds = payload['comment'], payload['discussion']
+        return connectors.normalized(
+            'GitHub', f"discussion_comment:{cm.get('id')}", cm.get('html_url', ''), ds.get('title', ''), cm.get('body') or '', cm.get('created_at') or now(),
+            fetch_method='github_webhook', content_kind='comment', repo=repo, visibility=visibility, parent_id=str(ds.get('id')),
+            attribution={'author': providers.text((cm.get('user') or {}).get('login'), 100), 'profile_url': (cm.get('user') or {}).get('html_url'), 'license': 'GitHub API', 'source': 'GitHub'},
         )
     if event_type == 'release' and payload.get('release'):
         rl = payload['release']

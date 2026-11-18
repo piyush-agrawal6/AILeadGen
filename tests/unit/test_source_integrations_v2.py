@@ -184,6 +184,59 @@ def test_github_webhook_hmac_dedup_ingestion_and_revocation(radar, monkeypatch):
         assert connection_status(c)['status'] == 'REVOKED'
 
 
+def test_github_webhook_validates_signature_while_disabled_and_enforces_repo_isolation_and_retry_bounds(radar, monkeypatch):
+    from app.intent_radar.github_source import process_github_event, MAX_WEBHOOK_ATTEMPTS
+    c, _, org, _ = radar
+    s = get_settings()
+    secret = 'whsec_test_disabled_gate_456'
+    monkeypatch.setattr(s, 'intent_radar_sources_v2_enabled', True)
+    monkeypatch.setattr(s, 'heysow_integration_encryption_key', Fernet.generate_key().decode())
+    monkeypatch.setattr(s, 'intent_radar_github_enabled', True)
+    monkeypatch.setattr(s, 'github_app_webhook_secret', SecretStr(secret))
+    monkeypatch.setattr(s, 'intent_radar_github_webhooks_enabled', False)
+
+    ping_body = json.dumps({'zen': 'Keep it logically awesome.'}).encode('utf-8')
+    # Even while processing is disabled, invalid signatures MUST fail with 401
+    with pytest.raises(HTTPException) as bad:
+        ingest_webhook(c, raw_body=ping_body, delivery_id='deliv-disabled-bad', event_type='ping', signature='sha256=invalid')
+    assert bad.value.status_code == 401
+    # Valid signature passes HMAC verification and hits explicit disabled gate (503) with ZERO DB writes
+    with pytest.raises(HTTPException) as disabled:
+        ingest_webhook(c, raw_body=ping_body, delivery_id='deliv-disabled-ok', event_type='ping', signature=_sign_github(ping_body, secret))
+    assert disabled.value.status_code == 503
+    assert c.execute("SELECT COUNT(*) FROM intent_provider_events WHERE provider='github'").fetchone()[0] == 0
+
+    # Enable processing and test repository isolation + bounded retries
+    monkeypatch.setattr(s, 'intent_radar_github_webhooks_enabled', True)
+    with workspace_scope(c, 'controlled@example.test', org):
+        ts = datetime.now(timezone.utc).isoformat()
+        repos_json = json.dumps([{'id': 101, 'full_name': 'Planebyte-Labs/authorized', 'private': True, 'selected': True}])
+        c.execute(
+            "INSERT INTO intent_github_connections(id,organization_id,owner_user_id,installation_id,account_login,account_type,status,permissions_json,repositories_json,revision,created_at,updated_at) VALUES(?,?,?,'182639091','Planebyte-Labs','Organization','CONNECTED','{}',?,1,?,?)",
+            (str(uuid.uuid4()), org, 'controlled@example.test', repos_json, ts, ts),
+        )
+        c.commit()
+
+        unauth_repo_payload = json.dumps({
+            'action': 'opened',
+            'installation': {'id': 182639091},
+            'repository': {'id': 999, 'full_name': 'Planebyte-Labs/unselected-private', 'private': True},
+            'issue': {'id': 888, 'html_url': 'https://github.com/Planebyte-Labs/unselected-private/issues/1', 'title': 'Secret issue', 'body': 'CRM alternative', 'created_at': ts, 'user': {'login': 'dev'}},
+        }).encode('utf-8')
+        res = ingest_webhook(c, raw_body=unauth_repo_payload, delivery_id='deliv-unauth-repo', event_type='issues', signature=_sign_github(unauth_repo_payload, secret))
+        assert res['status'] == 'IGNORED'
+        assert service.listing(c, 'signals', source='GitHub')['items'] == []
+
+        # Bounded retries: event at MAX_WEBHOOK_ATTEMPTS cannot be retried again
+        ev_id = str(uuid.uuid4())
+        c.execute(
+            "INSERT INTO intent_provider_events(id,provider,delivery_id,organization_id,installation_id,event_type,payload_hash,payload_ciphertext,status,attempts,created_at,updated_at) VALUES(?, 'github', 'deliv-max-retry', ?, '182639091', 'issues', 'hash-max', 'unused', 'FAILED', ?, ?, ?)",
+            (ev_id, org, MAX_WEBHOOK_ATTEMPTS, ts, ts),
+        )
+        c.commit()
+        assert process_github_event(c, ev_id) == 'FAILED'
+
+
 def test_youtube_fair_usage_comments_disabled_and_ai_policy_gate(radar, monkeypatch):
     c, _, org, _ = radar
     s = get_settings()

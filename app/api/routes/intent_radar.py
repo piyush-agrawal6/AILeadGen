@@ -82,11 +82,15 @@ def github_disconnect(c=Depends(get_db,scope='function')):
     return disconnect(c)
 @router.post('/webhooks/github')
 async def github_webhook(request:Request,c=Depends(get_db,scope='function')):
-    from app.intent_radar.github_source import ingest_webhook
-    raw=await request.body()
+    from app.intent_radar.github_source import ingest_webhook, MAX_WEBHOOK_BYTES
+    buf=bytearray()
+    async for chunk in request.stream():
+        buf.extend(chunk)
+        if len(buf)>MAX_WEBHOOK_BYTES:
+            raise HTTPException(413,'Webhook payload exceeds supported size.')
     return ingest_webhook(
         c,
-        raw_body=raw,
+        raw_body=bytes(buf),
         delivery_id=request.headers.get('x-github-delivery',''),
         event_type=request.headers.get('x-github-event',''),
         signature=request.headers.get('x-hub-signature-256',''),
