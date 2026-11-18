@@ -142,12 +142,55 @@ def create(c,body:InviteCreate):
         (key,org,body.email,body.role,hashlib.sha256(token.encode()).hexdigest(),actor,stamp,expiry))
     _audit(c,org,actor,'INVITATION_CREATED',key,{'role':body.role})
     delivery='MANUAL_SHARE'
-    from app.notifications import transactional as mail
+    nid=None
+    from app.notifications import transactional as mail, dispatch
     if get_settings().transactional_mail_enabled and mail.configured():
         company=c.execute('SELECT name FROM organizations WHERE id=?',(org,)).fetchone()[0]
-        mail.queue(c,body.email,'TEAM_INVITATION',key,{'token':token,'company':company},dedupe_key='team-invitation:'+key,expires_at=int(datetime.fromisoformat(expiry).timestamp()),organization_id=org)
+        nid=mail.queue(c,body.email,'TEAM_INVITATION',key,{'token':token,'company':company},dedupe_key='team-invitation:'+key,expires_at=int(datetime.fromisoformat(expiry).timestamp()),organization_id=org)
         delivery='EMAIL_QUEUED'
+    if nid:
+        c.commit()
+        try:dispatch.enqueue_notification(nid)
+        except Exception:pass
     return {'id':key,'email':body.email,'role':body.role,'status':'PENDING','expires_at':expiry,'token':token,'delivery':delivery}
+
+
+def resend(c,key:str):
+    org=organization();actor=current().actor
+    _manager(c,org,actor);_lock(c,org);_manager(c,org,actor)
+    _expire(c,org)
+    row=c.execute('SELECT id,email,role,status,expires_at FROM workspace_invitations WHERE id=? AND organization_id=?',(key,org)).fetchone()
+    if not row:raise HTTPException(404,'Invitation not found.')
+    _manager(c,org,actor,row['role'])
+    if row['status'] not in ('PENDING','EXPIRED'):
+        raise HTTPException(409,'Only pending or expired invitations can be resent.')
+    if membership_role(c,row['email'],org):
+        raise HTTPException(409,'This account is already an active workspace member.')
+    if row['status']=='EXPIRED':
+        from app.billing.usage import capacity_for_workspace
+        seats=c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0]
+        pending=c.execute("SELECT COUNT(*) FROM workspace_invitations WHERE organization_id=? AND status='PENDING'",(org,)).fetchone()[0]
+        capacity_for_workspace(c,org,'team_members',seats+pending)
+    token=secrets.token_urlsafe(32);stamp=now()
+    expiry=(datetime.now(timezone.utc)+timedelta(days=7)).isoformat()
+    c.execute(
+        "UPDATE workspace_invitations SET token_hash=?,status='PENDING',invited_by=?,expires_at=?,responded_at=NULL WHERE id=? AND organization_id=?",
+        (hashlib.sha256(token.encode()).hexdigest(),actor,expiry,key,org),
+    )
+    _audit(c,org,actor,'INVITATION_RESENT',key,{'role':row['role']})
+    delivery='MANUAL_SHARE'
+    nid=None
+    from app.config.settings import get_settings
+    from app.notifications import transactional as mail, dispatch
+    if get_settings().transactional_mail_enabled and mail.configured():
+        company=c.execute('SELECT name FROM organizations WHERE id=?',(org,)).fetchone()[0]
+        nid=mail.queue(c,row['email'],'TEAM_INVITATION',key,{'token':token,'company':company},dedupe_key=f'team-invitation-resend:{key}:{int(datetime.now(timezone.utc).timestamp())}',expires_at=int(datetime.fromisoformat(expiry).timestamp()),organization_id=org)
+        delivery='EMAIL_QUEUED'
+    if nid:
+        c.commit()
+        try:dispatch.enqueue_notification(nid)
+        except Exception:pass
+    return {'id':key,'email':row['email'],'role':row['role'],'status':'PENDING','expires_at':expiry,'token':token,'delivery':delivery}
 
 
 def list_invitations(c,page=1):

@@ -66,3 +66,103 @@ def select_workspace(c,actor,organization_id):
     c.execute('INSERT INTO audit_log(id,actor,action,entity,result,organization_id,created_at) VALUES(?,?,?,?,?,?,?)',
         (str(uuid.uuid4()),actor,'WORKSPACE_SELECTED','organization:'+organization_id,'SUCCESS',organization_id,stamp))
     return {'organization_id':organization_id}
+
+
+class WorkspaceRename(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    name:str=Field(min_length=2,max_length=120)
+
+    @field_validator('name')
+    @classmethod
+    def clean_name(cls,value):
+        value=value.strip()
+        if len(value)<2 or any(ord(ch)<32 for ch in value):raise ValueError('Enter a workspace name of at least two characters without control characters.')
+        return value
+
+
+def rename_workspace(c,actor,organization_id:str,body:WorkspaceRename):
+    if membership_role(c,actor,organization_id)!='OWNER':
+        raise HTTPException(403,'Only a workspace owner can rename a workspace.')
+    row=c.execute("SELECT id,name FROM organizations WHERE id=? AND status='ACTIVE'",(organization_id,)).fetchone()
+    if not row:raise HTTPException(404,'Workspace not found.')
+    stamp=now()
+    c.execute('UPDATE organizations SET name=?,updated_at=? WHERE id=?',(body.name,stamp,organization_id))
+    c.execute('UPDATE organization_profiles SET display_name=?,updated_at=? WHERE organization_id=?',(body.name,stamp,organization_id))
+    import json
+    c.execute('INSERT INTO audit_log(id,actor,action,entity,result,details_json,organization_id,created_at) VALUES(?,?,?,?,?,?,?,?)',
+        (str(uuid.uuid4()),actor,'ORGANIZATION_RENAMED','organization:'+organization_id,'SUCCESS',
+         json.dumps({'previous_name':row['name'],'name':body.name}),organization_id,stamp))
+    return {'organization_id':organization_id,'name':body.name}
+
+
+def leave_workspace(c,actor,organization_id:str):
+    role=membership_role(c,actor,organization_id)
+    if not role:raise HTTPException(404,'Workspace membership not found.')
+    if getattr(c,'backend',None)=='postgres':
+        c.execute('SELECT id FROM organizations WHERE id=? FOR UPDATE',(organization_id,))
+    elif not c.in_transaction:c.execute('BEGIN IMMEDIATE')
+    if role=='OWNER':
+        owners=c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND role='OWNER' AND status='ACTIVE'",(organization_id,)).fetchone()[0]
+        if owners<=1:
+            raise HTTPException(409,'You are the last owner of this workspace. Assign another owner before leaving.')
+    stamp=now()
+    c.execute("UPDATE organization_memberships SET status='REVOKED',updated_at=? WHERE organization_id=? AND user_id=? AND status='ACTIVE'",(stamp,organization_id,actor))
+    c.execute('INSERT INTO audit_log(id,actor,action,entity,result,organization_id,created_at) VALUES(?,?,?,?,?,?,?)',
+        (str(uuid.uuid4()),actor,'MEMBERSHIP_LEFT','organization:'+organization_id,'SUCCESS',organization_id,stamp))
+    # If the user left their active workspace, switch active_organization_id to another remaining workspace (or NULL)
+    prof=c.execute('SELECT active_organization_id FROM user_profiles WHERE user_id=?',(actor,)).fetchone()
+    next_org=None
+    if prof and prof['active_organization_id']==organization_id:
+        fallback=c.execute(
+            "SELECT m.organization_id FROM organization_memberships m JOIN organizations o ON o.id=m.organization_id WHERE m.user_id=? AND m.status='ACTIVE' AND o.status='ACTIVE' ORDER BY m.created_at ASC LIMIT 1",
+            (actor,),
+        ).fetchone()
+        next_org=fallback['organization_id'] if fallback else None
+        c.execute('UPDATE user_profiles SET active_organization_id=?,updated_at=? WHERE user_id=?',(next_org,stamp,actor))
+    return {'organization_id':organization_id,'left':True,'next_organization_id':next_org}
+
+
+def enrich_memberships(c,rows):
+    from app.intent_radar.permissions import availability
+    from app.billing.subscription_access import product_grant,enabled as sub_enabled
+    from app.config.settings import get_settings
+    step_map={'OBJECTIVES':0,'COMPANY':1,'SERVICES':2,'ICP':2,'PREFERENCES':3,'REVIEW':4}
+    enriched=[]
+    env=get_settings().creem_environment
+    for r in rows:
+        org=r['organization_id']
+        avail=availability(c,org)
+        grant=product_grant(c,org) if sub_enabled() else None
+        plan_label=None
+        if grant and grant.get('entitlement_label'):
+            plan_label=grant['entitlement_label']
+        elif avail.get('enabled'):
+            plan_label='Active Access'
+        else:
+            c_row=c.execute(
+                'SELECT p.plan_code,p.status,p.trial_start,p.period_start FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.organization_id=p.organization_id AND w.contract_id=p.id AND w.environment=p.environment WHERE p.organization_id=? AND p.environment=?',
+                (org,env),
+            ).fetchone() if sub_enabled() else None
+            if c_row:
+                from app.billing.subscription_access import entitlement_label
+                plan_label=entitlement_label(c_row)
+            else:
+                plan_label='No active plan'
+        onb_status=avail.get('onboarding_status') or 'IN_PROGRESS'
+        if onb_status=='COMPLETED':
+            completed_steps=5 if avail.get('enabled') or not avail.get('subscription_required') else 4
+        else:
+            setup_row=c.execute('SELECT current_step FROM organization_setup WHERE organization_id=?',(org,)).fetchone()
+            cur_step=(setup_row['current_step'] if setup_row else None) or 'OBJECTIVES'
+            completed_steps=step_map.get(cur_step,0)
+        member_count=c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0]
+        enriched.append({
+            **r,
+            'plan_label':plan_label,
+            'access_state':avail.get('access_state'),
+            'onboarding_status':onb_status,
+            'onboarding_completed_steps':completed_steps,
+            'onboarding_total_steps':5,
+            'member_count':member_count,
+        })
+    return enriched

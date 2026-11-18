@@ -58,12 +58,12 @@ class CompanyFields(BaseModel):
 
     @field_validator('countries_served','target_customers','target_industries','specialties')
     @classmethod
-    def countries(cls,values):
+    def clean_tag_list(cls,values):
         if values is None:return None
         result=[]
         for value in values:
             value=value.strip()
-            if not value or len(value)>100:raise ValueError('Use country names of at most 100 characters.')
+            if not value or len(value)>100:raise ValueError('Each entry must be between 1 and 100 characters.')
             if value not in result:result.append(value)
         return result
 
@@ -87,11 +87,90 @@ class CompanyUpdate(CompanyFields):
     review_id:UUID|None=None
     reviewed_fields:list[str]=Field(default_factory=list,max_length=20)
 
+class ProfileQualityIssue(BaseModel):
+    field:str
+    severity:str
+    code:str
+    message:str
+    current_value:str=''
+
+
 class CompanyProfile(CompanyFields):
     organization_id:str
     version:str|None
     can_edit:bool
     onboarding_status:str
+    quality_issues:list[ProfileQualityIssue]=Field(default_factory=list)
+
+
+_PLACEHOLDER_PATTERNS=frozenset((
+    'test','testing','asdf','qwerty','foo','bar','baz','sample','example','dummy','placeholder',
+    'tbd','todo','n/a','na','none','null','undefined','xyz','abc','123','1234','12345','aaa','bbb',
+    'lorem','lorem ipsum','my company','company name','demo','temp','idk','something','anything',
+))
+
+
+def _looks_placeholder(val:str)->bool:
+    s=(val or '').strip().lower()
+    if not s:return False
+    if s in _PLACEHOLDER_PATTERNS:return True
+    if len(set(s.replace(' ','')))<=2 and len(s)>=3:return True
+    if any(tok in s.split() for tok in ('asdf','qwerty','lorem','ipsum','placeholder')):return True
+    return False
+
+
+def analyze_profile_quality(data:dict)->list[dict]:
+    """Detect placeholder/low-quality company profile fields without mutating stored data."""
+    issues:list[dict]=[]
+    desc=(data.get('description') or '').strip()
+    industry=(data.get('industry') or '').strip()
+    positioning=(data.get('positioning') or '').strip()
+    website=(data.get('website') or '').strip()
+    services=data.get('products_services') or []
+
+    if not website:
+        issues.append({'field':'website','severity':'info','code':'missing_website','message':'Add your company website to enable grounded AI profile enrichment.','current_value':''})
+    elif any(bad in website.lower() for bad in ('example.com','localhost','test.com')):
+        issues.append({'field':'website','severity':'warning','code':'placeholder_website','message':'Website looks like a placeholder URL. Replace with your live company domain.','current_value':website})
+
+    if not industry:
+        issues.append({'field':'industry','severity':'warning','code':'missing_industry','message':'Industry is missing — adding it improves ICP matching and signal relevance.','current_value':''})
+    elif _looks_placeholder(industry) or len(industry)<3 or industry.isdigit():
+        issues.append({'field':'industry','severity':'warning','code':'invalid_industry','message':f'Industry "{industry}" looks like a placeholder or invalid value.','current_value':industry})
+
+    if not desc:
+        issues.append({'field':'description','severity':'warning','code':'missing_description','message':'Add a clear summary of what your company builds or offers.','current_value':''})
+    elif _looks_placeholder(desc) or len(desc)<20:
+        issues.append({'field':'description','severity':'warning','code':'low_quality_description','message':'Company description is too brief or placeholder-like.','current_value':desc[:80]})
+
+    if positioning and (_looks_placeholder(positioning) or len(positioning)<15):
+        issues.append({'field':'positioning','severity':'warning','code':'low_quality_positioning','message':'Business positioning looks like placeholder text.','current_value':positioning[:80]})
+
+    for list_field,label in (
+        ('countries_served','Countries served'),
+        ('target_customers','Target customers'),
+        ('target_industries','Target industries'),
+        ('specialties','Specialties'),
+    ):
+        vals=data.get(list_field) or []
+        bad=[v for v in vals if _looks_placeholder(v) or len(v.strip())<2]
+        if bad:
+            issues.append({'field':list_field,'severity':'warning','code':'placeholder_entries','message':f'{label} contains low-quality or placeholder entries: {", ".join(bad[:3])}.','current_value':', '.join(bad[:3])})
+
+    if not services:
+        issues.append({'field':'products_services','severity':'info','code':'missing_offerings','message':'Add at least one product or service so AI discovery understands what you sell.','current_value':''})
+    else:
+        seen=set()
+        for svc in services:
+            sname=(svc.get('name') or '').strip()
+            sdesc=(svc.get('description') or '').strip()
+            key=sname.lower()
+            if key in seen:
+                issues.append({'field':'products_services','severity':'warning','code':'duplicate_offering','message':f'Duplicate product/service "{sname}".','current_value':sname})
+            seen.add(key)
+            if _looks_placeholder(sname) or (sdesc and _looks_placeholder(sdesc)):
+                issues.append({'field':'products_services','severity':'warning','code':'placeholder_offering','message':f'Offering "{sname}" contains placeholder text.','current_value':sname})
+    return issues
 
 COLUMNS={'website':'website_url','description':'short_description','industry':'industry',
          'company_size':'company_size','country':'country','city':'city','timezone':'timezone',
@@ -115,7 +194,8 @@ def read_profile(c):
     version=hashlib.sha256(json.dumps({'fields':data,'updated_at':row['updated_at']},sort_keys=True).encode()).hexdigest() if row else None
     return {**data,'organization_id':org,'version':version,
             'can_edit':membership_role(c,actor,org) in ('OWNER','ADMIN'),
-            'onboarding_status':state[0] if state else 'NOT_STARTED'}
+            'onboarding_status':state[0] if state else 'NOT_STARTED',
+            'quality_issues':analyze_profile_quality(data)}
 
 
 def save_profile(c,body):

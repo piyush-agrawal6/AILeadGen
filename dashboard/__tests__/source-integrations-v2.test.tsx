@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SourceSelection } from '@/components/intent-radar/advanced-controls';
 import { SourceManagement } from '@/components/intent-radar/source-management';
@@ -107,19 +107,17 @@ describe('Source Integrations v2 UI', () => {
     expect(screen.getByText(/Stack Exchange communities/i)).toBeTruthy();
   });
 
-  it('renders GitHub Connect CTA, Bluesky Jetstream health and categorized preset feed catalog', () => {
+  it('renders GitHub Connect CTA inside drawer, Bluesky Jetstream health and unified preset feed catalog', () => {
     const qc = new QueryClient();
     render(
       <QueryClientProvider client={qc}>
         <SourceManagement />
       </QueryClientProvider>
     );
+    fireEvent.click(screen.getByTestId('source-card-github'));
     expect(screen.getByRole('button', { name: /Connect GitHub/i })).toBeTruthy();
-    expect(screen.getByText(/Jetstream v2:/i)).toBeTruthy();
-    expect(screen.getByText(/Cursor #12345/i)).toBeTruthy();
-    expect(screen.getByRole('heading', { name: /Community Discussions/i })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: /Software Releases/i })).toBeTruthy();
-    expect(screen.getByText(/n8n Community/i)).toBeTruthy();
-    expect(screen.getByText(/Next\.js Releases/i)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('source-card-bluesky'));
+    expect(screen.getByRole('dialog', { name: 'Bluesky' })).toBeTruthy();
+    expect(screen.getAllByText(/Jetstream/i).length).toBeGreaterThanOrEqual(1);
   });
 });

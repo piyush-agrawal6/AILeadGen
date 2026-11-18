@@ -24,6 +24,10 @@ def eligible_sql(alias,actor=None):
         from app.billing.service import eligibility_sql
         paid,values=eligibility_sql(org)
         clauses[0]='('+clauses[0]+' OR '+paid+')';args.extend(values)
+    if get_settings().subscription_onboarding_required:
+        from app.billing.subscription_access import scheduled_sql as sub_scheduled_sql
+        creem_paid,creem_values=sub_scheduled_sql(org)
+        clauses[0]='('+clauses[0]+' OR '+creem_paid+')';args.extend(creem_values)
     if get_settings().intent_radar_stage=='Internal Preview':
         approved=[value for value in get_settings().intent_radar_internal_workspaces.split(',') if value]
         clauses.append(org+' IN ('+','.join('?' for _ in approved)+')' if approved else '1=0');args.extend(approved)

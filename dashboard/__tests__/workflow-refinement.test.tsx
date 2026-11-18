@@ -33,7 +33,10 @@ it('guides users to ICP setup instead of showing an empty recommendations select
  expect(await screen.findByRole('heading',{name:'Create your first targeting profile'})).toBeVisible();expect(screen.queryByRole('combobox')).not.toBeInTheDocument();expect(screen.getByRole('link',{name:'Generate with AI'})).toHaveAttribute('href','/settings/icp');expect(calls.mock.calls.some(([path])=>path.startsWith('/qualification/'))).toBe(false);
 });
 
-it('provides searchable real product guidance and an email support channel',async()=>{
- calls.mockResolvedValue({items:[{id:'tasks',title:'Manage tasks',category:'Sales',body:'Internal tasks do not send email automatically.',href:'/tasks'},{id:'company-results',title:'Company evidence',category:'Prospecting',body:'Missing observations remain unknown.',href:'/leads'}]});mount(<Help/>);
- expect(await screen.findByRole('heading',{name:'Manage tasks'})).toBeVisible();fireEvent.change(screen.getByLabelText('Search help topics'),{target:{value:'unknown'}});expect(screen.queryByRole('heading',{name:'Manage tasks'})).not.toBeInTheDocument();expect(screen.getByRole('heading',{name:'Company evidence'})).toBeVisible();expect(screen.getByRole('link',{name:'Contact Support'})).toHaveAttribute('href',expect.stringContaining('mailto:contact@planebyte.com'));expect(screen.queryByRole('link',{name:'Open assistant'})).not.toBeInTheDocument();
+it('provides searchable real product guidance and a support workflow',async()=>{
+ mount(<Help/>);
+ expect(await screen.findByRole('heading',{name:'How can we help?'})).toBeVisible();
+ fireEvent.change(screen.getByLabelText('Search help articles'),{target:{value:'monitors'}});
+ expect(screen.getByText(/Creating monitors, schedules & notification preferences/i)).toBeVisible();
+ expect(screen.getAllByRole('button',{name:/Contact Support/i}).length).toBeGreaterThanOrEqual(1);
 });

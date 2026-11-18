@@ -188,6 +188,8 @@ def create_app() -> FastAPI:
     app.include_router(webhooks.router,prefix="/api")
     from app.api.routes import help as product_help
     app.include_router(product_help.router,prefix="/api")
+    from app.api.routes import search as workspace_search
+    app.include_router(workspace_search.router,prefix="/api")
     app.include_router(mail.router, prefix='/api')
     app.include_router(tracking.router, prefix='/api')
     app.include_router(campaigns.router, prefix="/api")

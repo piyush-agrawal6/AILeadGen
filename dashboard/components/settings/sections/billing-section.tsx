@@ -19,7 +19,9 @@ import {
 import { request } from "@/lib/intelligence";
 import { Button } from "@/components/ui/button";
 import { useUsage, type UsageData } from "@/components/workspaces/usage";
+import { useWorkspace } from "@/components/workspaces/use-workspace";
 import { CommercialPlans } from "@/components/workspaces/commercial-plans";
+import Link from "next/link";
 import { FixedTermPayments } from "@/components/workspaces/fixed-term-payments";
 import {
   SubscriptionPayment,
@@ -266,9 +268,11 @@ export function BillingSection({
   onSwitchTab?: (tab: string) => void;
 }) {
   const client = useQueryClient();
+  const workspace = useWorkspace();
+  const orgId = workspace.data?.active_organization_id || "";
   const usageQuery = useUsage();
   const subQuery = useQuery({
-    queryKey: ["workspace-subscription"],
+    queryKey: ["workspace-subscription", orgId],
     queryFn: ({ signal }) => request<SubscriptionState>("/billing/subscription", { signal }),
     retry: false,
     refetchOnWindowFocus: false,
@@ -550,9 +554,18 @@ export function BillingSection({
                 Invoices ({totalInvoices})
               </Button>
             </div>
-            <span className="text-[11px] text-muted-foreground">
-              Billed via <span className="capitalize">{contract.provider || "Creem"}</span>
-            </span>
+            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+              <Link
+                href="/help?article=billing-subscriptions"
+                className="text-primary hover:underline"
+              >
+                Billing guide
+              </Link>
+              <span>·</span>
+              <span>
+                Billed via <span className="capitalize">{contract.provider || "Creem"}</span>
+              </span>
+            </div>
           </div>
         )}
 

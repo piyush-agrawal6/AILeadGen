@@ -10,7 +10,6 @@ import {
   SlidersHorizontal,
   Plug,
   CreditCard,
-  X,
   ChevronRight,
   type LucideIcon,
 } from "lucide-react";
@@ -165,18 +164,38 @@ export function UnifiedSettingsCenter({
 
   const [activeTab, setActiveTab] = useState<string>(resolvedTab);
 
-  // Sync state if initial props change
+  // Sync state if initial props or URL searchParams change (e.g., clicking Settings links while already on /settings)
   useEffect(() => {
     if (initialCategory && initialCategory !== category) {
       setCategory(initialCategory);
+    } else if (
+      !initialCategory &&
+      paramCategory &&
+      SETTINGS_CATEGORIES.some((c) => c.key === paramCategory) &&
+      paramCategory !== category
+    ) {
+      setCategory(paramCategory);
+      const nextDef = SETTINGS_CATEGORIES.find((c) => c.key === paramCategory);
+      const nextTab =
+        paramTab && nextDef?.tabs.some((t) => t.id === paramTab)
+          ? paramTab
+          : nextDef?.defaultTab ?? "profile";
+      setActiveTab(nextTab);
     }
-  }, [initialCategory]);
+  }, [initialCategory, paramCategory, paramTab]);
 
   useEffect(() => {
     if (initialTab && initialTab !== activeTab) {
       setActiveTab(initialTab);
+    } else if (
+      !initialTab &&
+      paramTab &&
+      categoryDef.tabs.some((t) => t.id === paramTab) &&
+      paramTab !== activeTab
+    ) {
+      setActiveTab(paramTab);
     }
-  }, [initialTab]);
+  }, [initialTab, paramTab, categoryDef]);
 
   // Support browser back/forward navigation
   useEffect(() => {
@@ -298,26 +317,16 @@ export function UnifiedSettingsCenter({
 
             {/* Category Header & Sub-Tabs */}
             <header className="pb-settings-content-header">
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <categoryDef.icon size={18} className="text-primary shrink-0 hidden sm:block" />
-                    <h2 className="text-lg sm:text-xl font-bold tracking-tight">
-                      {categoryDef.label}
-                    </h2>
-                  </div>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    {categoryDef.description}
-                  </p>
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <categoryDef.icon size={18} className="text-primary shrink-0 hidden sm:block" />
+                  <h2 className="text-lg sm:text-xl font-bold tracking-tight">
+                    {categoryDef.label}
+                  </h2>
                 </div>
-
-                <Link
-                  href="/intent-radar"
-                  aria-label="Close settings"
-                  className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
-                >
-                  <X size={18} />
-                </Link>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                  {categoryDef.description}
+                </p>
               </div>
 
               {/* Sub-Tabs Bar */}

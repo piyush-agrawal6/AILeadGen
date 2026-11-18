@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Menu, MenuContent } from "@/components/ui/menu";
 import { request } from "@/lib/intelligence";
+import { useWorkspace } from "@/components/workspaces/use-workspace";
 
 export type WorkspaceNotification = {
   id: string;
@@ -73,13 +74,16 @@ function relativeTime(iso: string): string {
 
 export function Notifications() {
   const client = useQueryClient();
+  const workspace = useWorkspace();
+  const orgId = workspace.data?.active_organization_id || "";
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const query = useQuery({
-    queryKey: ["workspace-notifications"],
-    queryFn: () =>
-      request<NotificationListResponse>("/organization/notifications?page=1&page_size=12"),
+    queryKey: ["workspace-notifications", orgId],
+    queryFn: ({ signal }) =>
+      request<NotificationListResponse>("/organization/notifications?page=1&page_size=12", { signal }),
+    enabled: Boolean(orgId),
     retry: false,
     refetchInterval: 45000,
     staleTime: 15000,

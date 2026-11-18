@@ -55,8 +55,21 @@ export interface IntentOpportunity {opportunity_eligibility?:OpportunityEligibil
 export interface IntentSaved {signal?:IntentSignal;signal_id:string;collection:string;tags:string[];notes:string;revision:number}
 export interface IntentAlert {id:string;monitor_id:string|null;signal_id:string|null;title:string;description:string;created_at:string;read_at:string|null}
 export interface IntentJob {id:string;discovery_id?:string;status:string;error_code:string|null;created_at:string;attempts:number;sources?:{provider:string;status:string;coverage:string;requests:number;scanned:number;retry_at?:string}[];items:{status:string;error_code:string|null;result:{signals?:string[];scanned?:number;matched?:number;requests?:number;coverage?:string}}[]}
-export interface IntentPreferences {discovery_keywords?:string[];discovery_excluded?:string[];default_view:'table'|'cards';min_relevance:number;topics:string[];alerts_enabled:boolean;alert_threshold:number;revision:number;default_icp_id?:string|null;ai_assistance?:boolean;analysis_daily_call_limit?:number;analysis_daily_token_limit?:number;source_retention_days?:number}
-export interface ProductAccess {billing_enabled?:boolean;organization_id:string|null;lead_engine_available?:boolean;lead_engine:boolean;intent_radar:{enabled:boolean;growth_enabled?:boolean;stage:'Disabled'|'Internal Preview'|'Beta'}}
+export interface IntentLimitsMeta {
+  platform_daily_call_limit: number;
+  platform_daily_token_limit: number;
+  effective_daily_call_limit: number;
+  effective_daily_token_limit: number;
+  calls_used_today: number;
+  tokens_used_today: number;
+  reset_at_utc: string;
+  plan_monthly_ai_calls_limit?: number | null;
+  plan_monthly_ai_calls_used?: number | null;
+  plan_monthly_ai_calls_remaining?: number | null;
+}
+export interface IntentPreferences {discovery_keywords?:string[];discovery_excluded?:string[];default_view:'table'|'cards';min_relevance:number;topics:string[];alerts_enabled:boolean;alert_threshold:number;revision:number;default_icp_id?:string|null;ai_assistance?:boolean;analysis_daily_call_limit?:number;analysis_daily_token_limit?:number;source_retention_days?:number;limits_meta?:IntentLimitsMeta}
+export type WorkspaceAccessState = 'ACTIVE' | 'TRIAL_ACTIVE' | 'CANCELED_REMAINING' | 'SETUP_REQUIRED' | 'TRIAL_AVAILABLE' | 'SUBSCRIPTION_REQUIRED' | 'PAYMENT_PENDING' | 'EXPIRED' | 'RESTRICTED';
+export interface ProductAccess {billing_enabled?:boolean;organization_id:string|null;lead_engine_available?:boolean;lead_engine:boolean;intent_radar:{enabled:boolean;growth_enabled?:boolean;stage:'Disabled'|'Internal Preview'|'Beta';access_state?:WorkspaceAccessState;onboarding_status?:string|null;setup_deferred?:boolean;subscription_required?:boolean;subscription_active?:boolean;contract_status?:string|null;period_end?:number|null;trial_eligible?:boolean}}
 export interface SourcePolicySummary {
   provider_id: string;
   publisher: string;

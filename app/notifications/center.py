@@ -50,6 +50,29 @@ class NotificationPreferencesUpdate(BaseModel):
     quiet_hours_start: str = Field("22:00", pattern=r"^\d{2}:\d{2}$")
     quiet_hours_end: str = Field("07:00", pattern=r"^\d{2}:\d{2}$")
     categories: dict[str, bool] = Field(default_factory=dict)
+    email_categories: dict[str, bool] | None = None
+
+
+def _in_quiet_hours(prefs: dict) -> bool:
+    if not prefs.get("quiet_hours_enabled"):
+        return False
+    try:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(str(prefs.get("timezone") or "UTC"))
+        now_local = datetime.now(tz)
+        cur = now_local.hour * 60 + now_local.minute
+        sh, sm = (int(x) for x in str(prefs.get("quiet_hours_start") or "22:00").split(":"))
+        eh, em = (int(x) for x in str(prefs.get("quiet_hours_end") or "07:00").split(":"))
+        start = sh * 60 + sm
+        end = eh * 60 + em
+        if start == end:
+            return False
+        if start < end:
+            return start <= cur < end
+        return cur >= start or cur < end
+    except Exception:
+        return False
 
 
 def _require_member(c):
@@ -74,23 +97,31 @@ def _load_prefs_doc(c, org: str) -> tuple[dict, bool]:
 
 
 def get_preferences(c, *, actor: str | None = None, org: str | None = None) -> dict:
+    role = None
     if actor is None or org is None:
-        ctx, _ = _require_member(c)
+        ctx, role = _require_member(c)
         actor = ctx.actor
         org = ctx.organization_id
+    else:
+        role = membership_role(c, actor, org)
     doc, _ = _load_prefs_doc(c, org)
     saved = (doc.get("user_notification_preferences") or {}).get(actor) or {}
-    merged = {**DEFAULT_USER_PREFS, **{k: v for k, v in saved.items() if k != "categories"}}
+    merged = {**DEFAULT_USER_PREFS, **{k: v for k, v in saved.items() if k not in ("categories", "email_categories")}}
     cats = {**DEFAULT_USER_PREFS["categories"], **(saved.get("categories") or {})}
     # Security and billing mandatory notices always remain enabled for account integrity
     cats["security"] = True
     cats["billing"] = True
     merged["categories"] = {k: bool(cats.get(k, True)) for k in CATEGORIES}
+    email_cats = {**merged["categories"], **(saved.get("email_categories") or {})}
+    email_cats["security"] = True
+    email_cats["billing"] = True
+    merged["email_categories"] = {k: bool(email_cats.get(k, True)) for k in CATEGORIES}
     from app.notifications import transactional as mail
 
     merged["email_delivery_available"] = bool(
         get_settings().transactional_mail_enabled and mail.configured()
     )
+    merged["can_send_test_email"] = role in ("OWNER", "ADMIN")
     return merged
 
 
@@ -98,10 +129,22 @@ def update_preferences(c, body: NotificationPreferencesUpdate) -> dict:
     ctx, _ = _require_member(c)
     org = ctx.organization_id
     actor = ctx.actor
+    try:
+        from zoneinfo import ZoneInfo
+        ZoneInfo(body.timezone)
+    except Exception:
+        raise HTTPException(422, "Choose a valid IANA timezone.") from None
     doc, exists = _load_prefs_doc(c, org)
     cats = {**DEFAULT_USER_PREFS["categories"], **{k: bool(v) for k, v in body.categories.items() if k in CATEGORIES}}
     cats["security"] = True
     cats["billing"] = True
+    email_cats = (
+        {**cats, **{k: bool(v) for k, v in body.email_categories.items() if k in CATEGORIES}}
+        if body.email_categories is not None
+        else dict(cats)
+    )
+    email_cats["security"] = True
+    email_cats["billing"] = True
     user_pref = {
         "in_app_enabled": body.in_app_enabled,
         "email_enabled": body.email_enabled,
@@ -112,28 +155,31 @@ def update_preferences(c, body: NotificationPreferencesUpdate) -> dict:
         "quiet_hours_start": body.quiet_hours_start,
         "quiet_hours_end": body.quiet_hours_end,
         "categories": cats,
+        "email_categories": email_cats,
     }
     all_user_prefs = dict(doc.get("user_notification_preferences") or {})
     all_user_prefs[actor] = user_pref
     doc["user_notification_preferences"] = all_user_prefs
     stamp = now()
     if exists:
+        # Preserve workspace intent_preferences.revision so saving personal notification
+        # preferences never triggers spurious 409 conflicts on workspace Research Preferences.
         c.execute(
-            "UPDATE intent_preferences SET configuration_json=?, revision=revision+1, updated_at=? WHERE organization_id=?",
+            "UPDATE intent_preferences SET configuration_json=?, updated_at=? WHERE organization_id=?",
             (json.dumps(doc), stamp, org),
         )
     else:
         base = {
             "default_view": "table",
-            "min_relevance": 35,
+            "min_relevance": 0,
             "topics": [],
             "alerts_enabled": True,
-            "alert_threshold": 70,
+            "alert_threshold": 85,
             "source_retention_days": 30,
             **doc,
         }
         c.execute(
-            "INSERT INTO intent_preferences(organization_id, configuration_json, revision, updated_at) VALUES(?,?,1,?)",
+            "INSERT INTO intent_preferences(organization_id, configuration_json, revision, updated_at) VALUES(?,?,0,?)",
             (org, json.dumps(base), stamp),
         )
     return get_preferences(c, actor=actor, org=org)
@@ -289,9 +335,12 @@ def _maybe_queue_email(
     if not mandatory:
         if not prefs.get("email_enabled") or prefs.get("email_cadence") != "immediate":
             return None
-        if not (prefs.get("categories") or {}).get(category, True):
+        email_cats = prefs.get("email_categories") or prefs.get("categories") or {}
+        if not email_cats.get(category, True):
             return None
         if prefs.get("high_priority_only") and priority not in ("high", "urgent"):
+            return None
+        if _in_quiet_hours(prefs):
             return None
     try:
         nid = mail.queue(
@@ -420,7 +469,7 @@ def send_test_email(c) -> dict:
     if role not in ("OWNER", "ADMIN"):
         raise HTTPException(403, "Only workspace owners or admins can send a test notification email.")
     from app.accounts import security
-    from app.notifications import dispatch, transactional as mail
+    from app.notifications import transactional as mail
 
     if not get_settings().transactional_mail_enabled or not mail.configured():
         raise HTTPException(503, "Transactional email delivery (Resend) is not configured in this environment.")
@@ -444,5 +493,33 @@ def send_test_email(c) -> dict:
         organization_id=ctx.organization_id,
     )
     c.commit()
-    dispatch.enqueue_notification(nid)
-    return {"queued": True, "notification_id": nid, "recipient": ctx.actor}
+    # Perform synchronous bounded delivery so the caller receives honest delivery
+    # confirmation (provider acceptance ID) or an actionable failure reason.
+    try:
+        mail.deliver(nid)
+    except Exception as exc:
+        raise HTTPException(502, f"Test email delivery failed: {str(exc)[:180]}") from None
+
+    row = c.execute(
+        "SELECT status, provider_message_id, error_code FROM transactional_notifications WHERE id=?",
+        (nid,),
+    ).fetchone()
+    status = row["status"] if row else "UNKNOWN"
+    err = row["error_code"] if row else None
+    provider_id = row["provider_message_id"] if row else None
+    if status in ("ACCEPTED", "DELIVERED"):
+        return {
+            "delivered": True,
+            "queued": True,
+            "status": status,
+            "notification_id": nid,
+            "provider_message_id": provider_id,
+            "recipient": ctx.actor,
+        }
+    if status == "CANCELLED":
+        raise HTTPException(409, "Test email could not be delivered because this address is suppressed or not authorized for transactional mail.")
+    if err == "DAILY_DELIVERY_LIMIT":
+        raise HTTPException(429, "Platform daily transactional email limit has been reached. Try again after 00:00 UTC.")
+    if status == "QUEUED" and err == "DELIVERY_RETRY_PENDING":
+        raise HTTPException(503, "Email provider temporarily unavailable; delivery is queued for automatic retry.")
+    raise HTTPException(502, f"Email provider rejected the test delivery ({err or status}). Verify Resend domain & sender settings.")

@@ -135,26 +135,125 @@ def roles(request:Request,c=Depends(get_db,scope='function')):
 class RoleChange(BaseModel):
     model_config=ConfigDict(extra='forbid')
     email:str=Field(max_length=254)
-    role:Literal['OWNER','ADMIN','OPERATOR','VIEWER']
+    role:Literal['OWNER','ADMIN','OPERATOR','MEMBER','VIEWER']
 
 @router.put('/roles')
 def set_role(body:RoleChange,request:Request,c=Depends(get_db,scope='function')):
     from app.api.permissions import require_owner
+    from app.api.organization import membership_role
     from app.config.settings import get_settings
     from app.platform.context import organization
     org=organization(request.state.organization_id)
     require_owner(c,request.state.user_email,org)
+    target=body.email.strip().lower()
     allowed=get_settings().allowed_emails
-    if body.email not in allowed:raise HTTPException(422,'Role changes are limited to authenticated allowlisted accounts.')
+    # Allow changing the role of any existing active workspace member, while
+    # keeping brand-new direct additions restricted to allowlisted accounts
+    # (other teammates must join through verified invitations).
+    if target not in allowed and not membership_role(c,target,org):
+        raise HTTPException(422,'Invite this teammate first before assigning a workspace role.')
     from app.platform.memberships import change_role
-    return change_role(c,request.state.user_email,body.email,body.role)
+    return change_role(c,request.state.user_email,target,body.role)
+
+def _safe_audit_details(raw):
+    if not raw:return None
+    try:
+        parsed=json.loads(raw) if isinstance(raw,str) else raw
+    except Exception:
+        return None
+    if not isinstance(parsed,dict):return None
+    blocked=('secret','token','password','api_key','key_hash','authorization','cookie','credential')
+    return {k:('[redacted]' if any(b in str(k).lower() for b in blocked) else v) for k,v in parsed.items()}
+
+def _audit_query(organization:str,action:str|None,actor:str|None,result:str|None,search:str|None,from_date:str|None,to_date:str|None):
+    where=['organization_id=?'];args=[organization]
+    if action and action!='all':
+        where.append('LOWER(action) LIKE ?');args.append('%'+action.strip().lower()+'%')
+    if actor and actor.strip():
+        where.append('LOWER(actor) LIKE ?');args.append('%'+actor.strip().lower()+'%')
+    if result and result!='all':
+        if result.upper()=='FAILED':
+            where.append("result<>'SUCCESS'")
+        else:
+            where.append('UPPER(result)=?');args.append(result.strip().upper())
+    if search and search.strip():
+        q='%'+search.strip().lower()+'%'
+        where.append('(LOWER(action) LIKE ? OR LOWER(actor) LIKE ? OR LOWER(entity) LIKE ? OR LOWER(result) LIKE ?)')
+        args.extend([q,q,q,q])
+    if from_date and from_date.strip():
+        where.append('created_at>=?');args.append(from_date.strip()[:32])
+    if to_date and to_date.strip():
+        val=to_date.strip()[:32]
+        if len(val)==10:val=val+'T23:59:59+00:00'
+        where.append('created_at<=?');args.append(val)
+    return ' AND '.join(where),args
 
 @router.get('/audit')
-def audit(request:Request,page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=100),c=Depends(get_db,scope='function')):
+def audit(
+    request:Request,
+    page:int=Query(1,ge=1),
+    page_size:int=Query(25,ge=1,le=100),
+    action:str|None=None,
+    actor:str|None=None,
+    result:str|None=None,
+    search:str|None=None,
+    from_date:str|None=None,
+    to_date:str|None=None,
+    c=Depends(get_db,scope='function'),
+):
     from app.api.permissions import role
     if role(c,request.state.user_email) not in ('OWNER','ADMIN'):raise HTTPException(403,'Audit history requires owner or administrator access.')
     organization=request.state.organization_id
-    return {'items':[dict(r) for r in c.execute('SELECT id,actor,action,entity,result,created_at FROM audit_log WHERE organization_id=? ORDER BY created_at DESC LIMIT ? OFFSET ?',(organization,page_size,(page-1)*page_size)).fetchall()],'total':c.execute('SELECT COUNT(*) FROM audit_log WHERE organization_id=?',(organization,)).fetchone()[0],'page':page,'page_size':page_size}
+    where_sql,args=_audit_query(organization,action,actor,result,search,from_date,to_date)
+    rows=c.execute(f'SELECT id,actor,action,entity,result,details_json,created_at FROM audit_log WHERE {where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?',(*args,page_size,(page-1)*page_size)).fetchall()
+    total=c.execute(f'SELECT COUNT(*) FROM audit_log WHERE {where_sql}',tuple(args)).fetchone()[0]
+    items=[{
+        'id':r['id'],
+        'actor':r['actor'],
+        'action':r['action'],
+        'entity':r['entity'],
+        'result':r['result'],
+        'details':_safe_audit_details(r['details_json']),
+        'created_at':r['created_at'],
+    } for r in rows]
+    return {'items':items,'total':total,'page':page,'page_size':page_size}
+
+@router.get('/audit/export')
+def audit_export(
+    request:Request,
+    format:Literal['csv','json']='csv',
+    action:str|None=None,
+    actor:str|None=None,
+    result:str|None=None,
+    search:str|None=None,
+    from_date:str|None=None,
+    to_date:str|None=None,
+    c=Depends(get_db,scope='function'),
+):
+    import csv,io
+    from fastapi.responses import Response
+    from app.api.permissions import role
+    if role(c,request.state.user_email) not in ('OWNER','ADMIN'):raise HTTPException(403,'Audit export requires owner or administrator access.')
+    organization=request.state.organization_id
+    where_sql,args=_audit_query(organization,action,actor,result,search,from_date,to_date)
+    rows=c.execute(f'SELECT id,created_at,actor,action,entity,result,details_json FROM audit_log WHERE {where_sql} ORDER BY created_at DESC LIMIT 1000',tuple(args)).fetchall()
+    records=[{
+        'id':r['id'],
+        'created_at':r['created_at'],
+        'actor':r['actor'],
+        'action':r['action'],
+        'entity':r['entity'],
+        'result':r['result'],
+        'details':_safe_audit_details(r['details_json']),
+    } for r in rows]
+    if format=='json':
+        return Response(content=json.dumps({'items':records,'count':len(records)},indent=2),media_type='application/json',headers={'Content-Disposition':'attachment; filename="planebyte-audit-log.json"','Cache-Control':'no-store'})
+    buf=io.StringIO()
+    writer=csv.DictWriter(buf,fieldnames=['id','created_at','actor','action','entity','result','details'])
+    writer.writeheader()
+    for rec in records:
+        writer.writerow({**rec,'details':json.dumps(rec['details']) if rec['details'] else ''})
+    return Response(content=buf.getvalue(),media_type='text/csv; charset=utf-8',headers={'Content-Disposition':'attachment; filename="planebyte-audit-log.csv"','Cache-Control':'no-store'})
 
 @router.get('/quality')
 def data_quality(c=Depends(get_db,scope='function')):

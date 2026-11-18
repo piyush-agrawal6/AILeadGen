@@ -140,7 +140,12 @@ def create_organization(c, email, name, *, setup_method='MANUAL'):
     c.execute("INSERT INTO organization_memberships(id,organization_id,user_id,role,status,created_at,updated_at) "
               "VALUES(?,?,?,?, 'ACTIVE',?,?)", (str(uuid.uuid4()), organization_id, email, 'OWNER', stamp, stamp))
     c.execute("INSERT INTO organization_onboarding(organization_id,status,current_step,setup_method,created_at,updated_at) "
-              "VALUES(?,'IN_PROGRESS','COMPANY',?,?,?)", (organization_id, setup_method, stamp, stamp))
+              "VALUES(?,'IN_PROGRESS','OBJECTIVES',?,?,?)", (organization_id, setup_method, stamp, stamp))
+    try:
+        c.execute("INSERT INTO organization_setup(organization_id,revision,current_step,objectives_json,preferences_json,updated_by,updated_at) "
+                  "VALUES(?,0,'OBJECTIVES','[]','{}',?,?) ON CONFLICT(organization_id) DO NOTHING", (organization_id, email, stamp))
+    except Exception:
+        pass
     from app.config.settings import get_settings
     for product, enabled in (('LEADGEN', int(get_settings().lead_engine_public_enabled)), ('INTENT_RADAR', 0), ('SEARCH_VISIBILITY', 0)):
         c.execute("INSERT INTO organization_products(organization_id,product,enabled,created_at,updated_at) "
@@ -150,10 +155,17 @@ def create_organization(c, email, name, *, setup_method='MANUAL'):
               "VALUES(?,?,?,?,?,?,?,?)",
               (str(uuid.uuid4()), email, 'ORGANIZATION_CREATED', f'organization:{organization_id}', 'SUCCESS',
                json.dumps({'name': name, 'slug': slug, 'setup_method': setup_method}), organization_id, stamp))
-    if get_settings().heysow_access_periods_enabled and c.execute("SELECT 1 FROM customer_accounts WHERE user_id=? AND status='ACTIVE' AND verified_at IS NOT NULL",(email,)).fetchone():
+    settings_obj = get_settings()
+    if settings_obj.heysow_access_periods_enabled and c.execute("SELECT 1 FROM customer_accounts WHERE user_id=? AND status='ACTIVE' AND verified_at IS NOT NULL",(email,)).fetchone():
         # Every workspace created by a new commercial account stays managed;
         # creating a second workspace cannot recover unrestricted Beta access.
         c.execute('INSERT INTO customer_workspace_access(organization_id,registered_by,created_at) VALUES(?,?,?)',(organization_id,email,stamp))
+        from app.billing.subscription_access import enroll
+        enroll(c,email,organization_id)
+    elif settings_obj.subscription_onboarding_required:
+        # Ensure newly created secondary workspaces owned by allowlisted/existing
+        # accounts also enter the legitimate subscription/activation lifecycle
+        # instead of landing in an unresolvable restricted state.
         from app.billing.subscription_access import enroll
         enroll(c,email,organization_id)
     # Return the newly created workspace rather than an older active preference.

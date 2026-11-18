@@ -76,7 +76,30 @@ def capabilities(c):
     config=provider_settings();settings=get_settings()
     configured=bool(config.vertex_enabled or config.gemini_enabled and config.gemini_key.get_secret_value())
     from app.api.organization import membership_role
-    return {'ai_enabled':settings.heysow_company_ai_enabled,'configured':configured,'can_analyze':settings.heysow_company_ai_enabled and configured and membership_role(c,current().actor,organization()) in ('OWNER','ADMIN'),'max_pages':5,'supports_description':True,'supports_documents':False,'review_required':True}
+    ai_remaining=None
+    ai_limit=None
+    try:
+        from app.billing.overview import overview
+        ov=overview(c)
+        for item in ov.get('usage',[]):
+            if item.get('dimension')=='plan_ai_calls':
+                ai_remaining=item.get('remaining')
+                ai_limit=item.get('limit')
+                break
+    except Exception:
+        pass
+    return {
+        'ai_enabled':settings.heysow_company_ai_enabled,
+        'configured':configured,
+        'can_analyze':settings.heysow_company_ai_enabled and configured and membership_role(c,current().actor,organization()) in ('OWNER','ADMIN'),
+        'max_pages':5,
+        'supports_description':True,
+        'supports_documents':False,
+        'review_required':True,
+        'estimated_ai_operations':1,
+        'ai_calls_remaining':ai_remaining,
+        'ai_calls_limit':ai_limit,
+    }
 
 def require_ai():
     if not get_settings().heysow_company_ai_enabled:raise HTTPException(503,'Company profile AI is not enabled. Manual editing remains available.')

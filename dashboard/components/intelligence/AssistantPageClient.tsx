@@ -37,6 +37,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { request } from "@/lib/intelligence";
+import { useWorkspace } from "@/components/workspaces/use-workspace";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -761,6 +762,9 @@ export function AssistantPageClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const workspace = useWorkspace();
+  const activeOrgId = workspace.data?.active_organization_id || "";
+  const draftStorageKey = activeOrgId ? `pb_ai_assistant_draft:${activeOrgId}` : "pb_ai_assistant_draft";
 
   const initialContextType = searchParams.get("context") || "overview";
   const initialEntityId = searchParams.get("entityId") || "";
@@ -778,13 +782,32 @@ export function AssistantPageClient() {
   const [draft, setDraft] = useState<string>(() => {
     if (initialPromptParam) return initialPromptParam;
     if (typeof window !== "undefined") {
-      return window.sessionStorage.getItem("pb_ai_assistant_draft") || "";
+      return window.sessionStorage.getItem(draftStorageKey) || "";
     }
     return "";
   });
   const [contextBadge, setContextBadge] = useState<{ type: string; entityId: string } | null>(
     initialContextType !== "overview" ? { type: initialContextType, entityId: initialEntityId } : null,
   );
+
+  // Sync URL ?prompt= changes (e.g. from Global Search / Help Center deep-links)
+  useEffect(() => {
+    if (initialPromptParam) {
+      setDraft(initialPromptParam);
+    }
+  }, [initialPromptParam]);
+
+  // Reset active thread/messages if active workspace switches in-place
+  const prevOrgRef = useRef<string>(activeOrgId);
+  useEffect(() => {
+    if (prevOrgRef.current && activeOrgId && prevOrgRef.current !== activeOrgId) {
+      abortRef.current?.abort();
+      setActiveThreadId(null);
+      setMessages([]);
+      setDraft(typeof window !== "undefined" ? window.sessionStorage.getItem(draftStorageKey) || "" : "");
+    }
+    prevOrgRef.current = activeOrgId;
+  }, [activeOrgId, draftStorageKey]);
 
   const [streaming, setStreaming] = useState(false);
   const [statusLabel, setStatusLabel] = useState<string>("");
@@ -798,24 +821,25 @@ export function AssistantPageClient() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
-  // Conversations list
+  // Conversations list (strictly scoped by active workspace ID)
   const conversationsQuery = useQuery({
-    queryKey: ["assistant-conversations-v2", searchQuery, showArchived],
+    queryKey: ["assistant-conversations-v2", activeOrgId, searchQuery, showArchived],
     queryFn: ({ signal }) =>
       request<{ items: ConversationItem[] }>(
         `/intent-radar/assistant/conversations?archived=${showArchived ? "true" : "false"}&search=${encodeURIComponent(searchQuery)}`,
         { signal },
       ),
+    enabled: Boolean(activeOrgId),
     retry: false,
     staleTime: 10_000,
   });
 
-  // Action history query (fetched when drawer opens)
+  // Action history query (fetched when drawer opens, strictly workspace-scoped)
   const actionHistoryQuery = useQuery({
-    queryKey: ["assistant-action-history"],
+    queryKey: ["assistant-action-history", activeOrgId],
     queryFn: ({ signal }) =>
       request<{ items: ActionHistoryEntry[] }>("/intent-radar/assistant/action-history?limit=40", { signal }),
-    enabled: actionHistoryOpen,
+    enabled: actionHistoryOpen && Boolean(activeOrgId),
     retry: false,
   });
 
@@ -839,12 +863,12 @@ export function AssistantPageClient() {
     }
   }, [initialThreadParam, loadThread]);
 
-  // Persist draft in sessionStorage
+  // Persist draft in workspace-scoped sessionStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
-      window.sessionStorage.setItem("pb_ai_assistant_draft", draft);
+      window.sessionStorage.setItem(draftStorageKey, draft);
     }
-  }, [draft]);
+  }, [draft, draftStorageKey]);
 
   // Auto-resize composer textarea
   useEffect(() => {

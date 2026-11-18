@@ -544,10 +544,66 @@ def save_monitor(c, body, key=None):
     audit(c,'MONITOR_SAVED',key)
     return get(c,'monitors',key)
 
+def _limits_meta(c, org: str, saved_calls: int, saved_tokens: int) -> dict:
+    from datetime import datetime, timedelta, timezone
+    s = get_settings()
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    next_reset = (datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)).isoformat()
+    row = c.execute(
+        'SELECT COALESCE(calls,0) calls, COALESCE(reserved_tokens,0) tokens FROM intent_analysis_usage WHERE organization_id=? AND day=?',
+        (org, today),
+    ).fetchone()
+    calls_used = int(row['calls']) if row else 0
+    tokens_used = int(row['tokens']) if row else 0
+    platform_calls = int(s.intent_radar_ai_daily_calls)
+    platform_tokens = int(s.intent_radar_ai_daily_tokens)
+    plan_ai_limit = None
+    plan_ai_used = None
+    plan_ai_remaining = None
+    try:
+        from app.billing.overview import overview
+        ov = overview(c)
+        for item in ov.get('usage', []):
+            if item.get('dimension') == 'plan_ai_calls':
+                plan_ai_limit = item.get('limit')
+                plan_ai_used = item.get('used')
+                plan_ai_remaining = item.get('remaining')
+                break
+    except Exception:
+        pass
+    return {
+        'platform_daily_call_limit': platform_calls,
+        'platform_daily_token_limit': platform_tokens,
+        'effective_daily_call_limit': min(platform_calls, int(saved_calls)),
+        'effective_daily_token_limit': min(platform_tokens, int(saved_tokens)),
+        'calls_used_today': calls_used,
+        'tokens_used_today': tokens_used,
+        'reset_at_utc': next_reset,
+        'plan_monthly_ai_calls_limit': plan_ai_limit,
+        'plan_monthly_ai_calls_used': plan_ai_used,
+        'plan_monthly_ai_calls_remaining': plan_ai_remaining,
+    }
+
 def preferences(c, body=None):
     ctx = context(c, body is not None, body is not None)
     old = c.execute('SELECT * FROM intent_preferences WHERE organization_id=?',(ctx.organization_id,)).fetchone()
-    if body is None: return {**models.Preferences().model_dump(), **(json.loads(old['configuration_json']) if old else {}), 'revision': old['revision'] if old else 0}
+    if body is None:
+        raw = json.loads(old['configuration_json']) if old and old['configuration_json'] else {}
+        allowed_keys = set(models.Preferences.model_fields.keys()) - {'revision'}
+        clean_saved = {k: v for k, v in raw.items() if k in allowed_keys}
+        merged = {**models.Preferences().model_dump(), **clean_saved, 'revision': old['revision'] if old else 0}
+        merged['limits_meta'] = _limits_meta(
+            c,
+            ctx.organization_id,
+            merged.get('analysis_daily_call_limit', 3),
+            merged.get('analysis_daily_token_limit', 60000),
+        )
+        return merged
+    s = get_settings()
+    if body.analysis_daily_call_limit > s.intent_radar_ai_daily_calls:
+        raise HTTPException(422, f'Daily AI analysis limit cannot exceed the workspace safety ceiling ({s.intent_radar_ai_daily_calls}/day).')
+    if body.analysis_daily_token_limit > s.intent_radar_ai_daily_tokens:
+        raise HTTPException(422, f'Daily AI token cap cannot exceed the workspace safety ceiling ({s.intent_radar_ai_daily_tokens:,} tokens/day).')
     if body.default_icp_id:
         from app.icp.service import get as get_icp
         get_icp(c,str(body.default_icp_id))

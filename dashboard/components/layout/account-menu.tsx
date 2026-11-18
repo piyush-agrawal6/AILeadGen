@@ -12,10 +12,7 @@ import {
   LogOut,
   Monitor,
   Moon,
-  ShieldCheck,
-  Sparkles,
   Sun,
-  UserRound,
   Users,
 } from 'lucide-react';
 import { Menu, MenuContent } from '@/components/ui/menu';
@@ -75,7 +72,7 @@ export function AccountMenu({
           <span className="account-avatar">{initials(name)}</span>
         </button>
       </Menu.Trigger>
-      <MenuContent align="end" className="w-68 min-w-[260px]">
+      <MenuContent align="end" className="w-64 min-w-[252px]">
         {/* User Identity Header */}
         <Menu.Label className="app-menu-identity">
           <div className="flex items-center gap-3">
@@ -108,34 +105,9 @@ export function AccountMenu({
 
         <Menu.Separator className="app-menu-separator" />
 
-        {/* Personal Profile & Security */}
-        <Menu.Item asChild className="app-menu-item">
-          <Link href="/settings?category=account&tab=profile">
-            <UserRound size={15} />
-            <span>Personal profile</span>
-          </Link>
-        </Menu.Item>
-        <Menu.Item asChild className="app-menu-item">
-          <Link href="/settings?category=account&tab=security">
-            <ShieldCheck size={15} />
-            <span>Sign-in & security</span>
-          </Link>
-        </Menu.Item>
-
-        {/* Workspace Management */}
+        {/* Workspace & Billing Navigation */}
         {workspaceManagementEnabled && (
           <>
-            <Menu.Separator className="app-menu-separator" />
-            {workspace.data?.active_organization_id &&
-              workspace.data?.active_onboarding_status &&
-              workspace.data.active_onboarding_status !== 'COMPLETED' && (
-                <Menu.Item asChild className="app-menu-item text-primary font-medium">
-                  <Link href="/onboarding">
-                    <Sparkles size={15} />
-                    <span>Continue onboarding</span>
-                  </Link>
-                </Menu.Item>
-              )}
             <Menu.Item asChild className="app-menu-item">
               <Link href="/settings?category=company">
                 <Building2 size={15} />
@@ -152,7 +124,7 @@ export function AccountMenu({
         )}
 
         <Menu.Item asChild className="app-menu-item">
-          <Link href="/billing">
+          <Link href="/settings?category=billing&tab=overview">
             <CreditCard size={15} />
             <span>Billing & usage</span>
           </Link>
@@ -160,7 +132,7 @@ export function AccountMenu({
 
         <Menu.Separator className="app-menu-separator" />
 
-        {/* Appearance & Preferences */}
+        {/* Appearance & Help */}
         <Menu.Sub>
           <Menu.SubTrigger className="app-menu-item">
             <ThemeIcon size={15} />

@@ -25,6 +25,12 @@ class WorkspaceMembership(BaseModel):
     name:str
     slug:str
     created_at:str
+    plan_label:str|None=None
+    access_state:str|None=None
+    onboarding_status:str|None=None
+    onboarding_completed_steps:int|None=None
+    onboarding_total_steps:int|None=None
+    member_count:int|None=None
 
 class WorkspaceList(BaseModel):
     items:list[WorkspaceMembership]
@@ -38,11 +44,12 @@ def workspaces(request:Request,c=Depends(get_db,scope='function')):
     require_enabled()
     state=resolve(c,request.state.user_email)
     from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
+    from app.platform.workspaces import enrich_memberships
     if state:
         from app.billing.subscription_access import required,product_grant
         if required(c,state['organization_id']) and not product_grant(c,state['organization_id']):
             state={**state,'onboarding_status':'IN_PROGRESS'}
-    return {'items':memberships(c,request.state.user_email),'active_organization_id':state['organization_id'] if state else None,'active_onboarding_status':state['onboarding_status'] if state else None,'active_onboarding_deferred':bool(state and state.get('onboarding_deferred')),'active_is_internal':bool(state and state['organization_id']==PLANEBYTE_ORGANIZATION_ID)}
+    return {'items':enrich_memberships(c,memberships(c,request.state.user_email)),'active_organization_id':state['organization_id'] if state else None,'active_onboarding_status':state['onboarding_status'] if state else None,'active_onboarding_deferred':bool(state and state.get('onboarding_deferred')),'active_is_internal':bool(state and state['organization_id']==PLANEBYTE_ORGANIZATION_ID)}
 
 @router.get('/products')
 def product_access(request:Request,c=Depends(get_db,scope='function')):
@@ -75,12 +82,34 @@ def update_profile(body:CompanyUpdate,c=Depends(get_db,scope='function')):
     return save_profile(c,body)
 
 from app.platform import invitations
-from app.platform.workspaces import WorkspaceCreate,WorkspaceCreated,create_workspace
+from app.platform.workspaces import WorkspaceCreate,WorkspaceCreated,WorkspaceRename,create_workspace,rename_workspace,leave_workspace
 
 @router.post('/workspaces',status_code=201,response_model=WorkspaceCreated)
 def workspace_create(body:WorkspaceCreate,request:Request,c=Depends(get_db,scope='function')):
     require_enabled()
     return create_workspace(c,request.state.user_email,body)
+
+@router.patch('/workspaces/{workspace_id}')
+def workspace_rename(workspace_id:UUID,body:WorkspaceRename,request:Request,c=Depends(get_db,scope='function')):
+    require_enabled()
+    return rename_workspace(c,request.state.user_email,str(workspace_id),body)
+
+@router.post('/workspaces/{workspace_id}/leave')
+def workspace_leave(workspace_id:UUID,request:Request,c=Depends(get_db,scope='function')):
+    require_enabled()
+    return leave_workspace(c,request.state.user_email,str(workspace_id))
+
+@router.get('/members')
+def member_list(request:Request,c=Depends(get_db,scope='function')):
+    require_enabled()
+    from app.platform.memberships import list_members
+    return list_members(c,request.state.user_email)
+
+@router.delete('/members/{member_email:path}')
+def member_remove(member_email:str,request:Request,c=Depends(get_db,scope='function')):
+    require_enabled()
+    from app.platform.memberships import remove_member
+    return remove_member(c,request.state.user_email,member_email)
 
 @router.get('/invitations',response_model=invitations.InvitationPage)
 def invitation_list(page:int=Query(default=1,ge=1,le=10000),c=Depends(get_db,scope='function')):
@@ -92,6 +121,12 @@ def invitation_create(body:invitations.InviteCreate,response:Response,c=Depends(
     require_enabled()
     response.headers['Cache-Control']='no-store'
     return invitations.create(c,body)
+
+@router.post('/invitations/{invitation_id}/resend',response_model=invitations.InvitationCreated)
+def invitation_resend(invitation_id:UUID,response:Response,c=Depends(get_db,scope='function')):
+    require_enabled()
+    response.headers['Cache-Control']='no-store'
+    return invitations.resend(c,str(invitation_id))
 
 @router.post('/invitations/respond',response_model=invitations.InvitationResult)
 def invitation_respond(body:invitations.InviteRespond,request:Request,response:Response,c=Depends(get_db,scope='function')):

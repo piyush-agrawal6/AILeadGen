@@ -108,7 +108,7 @@ def start(body):
   selected=commercial.plan(body.plan_code);provider,_=route(c,org)
   if provider!='creem':raise HTTPException(409,'This provider payment path is not ready.')
   mode=s.creem_environment;lock(c,org);lock(c,'subscription-actor:'+ctx.actor)
-  if c.execute("SELECT 1 FROM subscription_checkouts WHERE created_by=? AND organization_id<>? AND status IN ('CREATING','PENDING','COMPLETED','REVIEW') LIMIT 1",(ctx.actor,org)).fetchone():raise HTTPException(409,'An existing checkout belongs to another workspace. Complete or review that billing request before creating another subscription.')
+  if c.execute("SELECT 1 FROM subscription_checkouts WHERE created_by=? AND organization_id<>? AND status IN ('CREATING','PENDING','REVIEW') LIMIT 1",(ctx.actor,org)).fetchone():raise HTTPException(409,'An in-progress checkout belongs to another workspace. Complete or cancel that billing request before creating another subscription.')
   digest=hashlib.sha256(json.dumps({**body.model_dump(mode='json'),'mode':mode},sort_keys=True).encode()).hexdigest()
   previous=c.execute('SELECT * FROM subscription_checkouts WHERE organization_id=? AND request_id=?',(org,str(body.request_id))).fetchone()
   if previous:
@@ -123,7 +123,6 @@ def start(body):
   product=c.execute("SELECT * FROM subscription_products WHERE provider='creem' AND environment=? AND plan_code=? AND variant=?",(mode,body.plan_code,body.variant)).fetchone()
   if not product or product['catalog_hash']!=commercial.catalog()['catalog_sha256']:raise HTTPException(503,'Provider product mapping is awaiting verification.')
   key=str(uuid.uuid4());stamp=now();customer=c.execute("SELECT customer_id FROM subscription_customers WHERE provider='creem' AND environment=? AND organization_id=?",(mode,org)).fetchone()
-  if not customer and c.execute("SELECT 1 FROM subscription_customers p JOIN subscription_checkouts h ON h.customer_id=p.customer_id AND h.provider=p.provider AND h.environment=p.environment AND h.organization_id=p.organization_id WHERE p.provider='creem' AND p.environment=? AND h.created_by=? AND p.organization_id<>? LIMIT 1",(mode,ctx.actor,org)).fetchone():raise HTTPException(409,'An existing provider customer belongs to another workspace. A reviewed billing transition is required; no duplicate subscription is created.')
   disclosure={'plan':body.plan_code,'amount_minor':selected['monthly_minor'],'currency':'USD','billing_interval':'every-month','trial_seconds':access.TRIAL_SECONDS if body.variant=='trial' else 0,'automatic_renewal':True,'accepted_recurring':True,'hosted_final_disclosure_required':True,'policy_version':access.POLICY}
   resolved_name=(body.customer_name or '').strip()
   if resolved_name and (any(ord(ch)<32 for ch in resolved_name) or resolved_name.casefold()==ctx.actor.split('@')[0].casefold()):

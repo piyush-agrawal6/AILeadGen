@@ -32,6 +32,11 @@ def authorize(c,email,method,path,body,organization_id=None):
     # This creates an independent workspace owned by the authenticated account;
     # it does not mutate the currently selected organization's data.
     if method=='POST' and path=='/api/organization/workspaces':return r
+    # Leaving a workspace, updating personal notification preferences, or contacting support
+    # are allowed for any authenticated workspace member regardless of viewer role.
+    if method=='POST' and path.startswith('/api/organization/workspaces/') and path.endswith('/leave'):return r
+    if method=='PUT' and path=='/api/organization/notifications/preferences':return r
+    if method=='POST' and path=='/api/help/support':return r
     if r=='VIEWER':raise HTTPException(403,'Viewer access is read-only.')
     nested=body.get('configuration') if isinstance(body.get('configuration'),dict) else {}
     owner_only=('/automation/controls' in path or '/foundation/roles' in path or '/foundation/duplicates/merge' in path or '/unsuppress' in path or '/deletions/campaign/' in path or '/deletions/scan/' in path or body.get('confirm_recontact') is True or nested.get('confirm_recontact') is True)

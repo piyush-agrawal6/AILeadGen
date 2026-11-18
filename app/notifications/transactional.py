@@ -9,7 +9,7 @@ from app.database.connection import db_session
 from app.database.prospects import now
 from app.accounts import security
 
-PURPOSES=frozenset(('SIGNUP_OTP','SIGNUP_NOTICE','SET_PASSWORD_OTP','PASSWORD_RESET','PASSWORD_CHANGED','TEAM_INVITATION','PAYMENT_CONFIRMED','RENEWAL_REMINDER','ACCESS_EXPIRED','WORKSPACE_NOTICE','SUBSCRIPTION_STATUS','NOTIFICATION_ALERT','INTELLIGENCE_DIGEST'))
+PURPOSES=frozenset(('SIGNUP_OTP','SIGNUP_NOTICE','SET_PASSWORD_OTP','PASSWORD_RESET','PASSWORD_CHANGED','TEAM_INVITATION','PAYMENT_CONFIRMED','RENEWAL_REMINDER','ACCESS_EXPIRED','WORKSPACE_NOTICE','SUBSCRIPTION_STATUS','NOTIFICATION_ALERT','INTELLIGENCE_DIGEST','SUPPORT_REQUEST'))
 
 def configured():
     s=get_settings();sender=s.resend_from_email
@@ -72,6 +72,11 @@ def render(purpose,payload):
         subject=f'PlaneByte · {title}'
         text=f"{title}\n\n{payload['summary']}\n\nOpen Intent Radar: https://app.planebyte.com/intent-radar\nManage notification preferences: https://app.planebyte.com/settings?category=preferences&tab=notifications"
         cta_label,cta_url='Open Intent Radar','https://app.planebyte.com/intent-radar'
+    elif purpose=='SUPPORT_REQUEST':
+        kind=str(payload.get('category') or 'support').upper()[:24]
+        subj=str(payload.get('subject') or 'Workspace support request')[:160]
+        subject=f'[PlaneByte {kind}] {subj}'
+        text=str(payload.get('summary') or '')[:4500]
     else:raise ValueError('Unsupported transactional purpose.')
     if len(text)>5000:raise ValueError('Notification exceeds its bound.')
     paragraphs=''.join(f'<p style="margin:0 0 12px;color:#334155;font-size:14px;line-height:1.6">{html.escape(line)}</p>' for line in text.split('\n') if line.strip())
@@ -91,7 +96,7 @@ def render(purpose,payload):
     )
     return subject,text,branded_html
 
-def queue(c,email,purpose,authority_id,payload,*,dedupe_key,expires_at,organization_id=None):
+def queue(c,email,purpose,authority_id,payload,*,dedupe_key,expires_at,organization_id=None,reply_to=None):
     require_enabled()
     if purpose not in PURPOSES or not 1<=len(dedupe_key)<=200:raise ValueError('Supported bounded notification required.')
     previous=c.execute('SELECT id FROM transactional_notifications WHERE dedupe_key=?',(dedupe_key,)).fetchone()
@@ -101,6 +106,8 @@ def queue(c,email,purpose,authority_id,payload,*,dedupe_key,expires_at,organizat
     # Store the identical provider payload encrypted for safe idempotent retries;
     # remove it after acceptance/expiry. Verification records contain only hashes.
     mail={'from':get_settings().resend_from_email,'to':[email],'subject':subject,'text':text,'html':body,'headers':{'X-PlaneByte-Notification':key}}
+    if reply_to:
+        mail['reply_to']=reply_to
     encrypted=cipher().encrypt(json.dumps(mail,separators=(',',':')).encode()).decode()
     c.execute("INSERT INTO transactional_notifications(id,account_email,organization_id,purpose,authority_id,dedupe_key,payload_encrypted,status,available_at,expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,'QUEUED',?,?,?,?)",(key,email,organization_id,purpose,authority_id,dedupe_key,encrypted,int(time.time()),expires_at,stamp,stamp))
     return key
@@ -122,10 +129,13 @@ def authorized(c,row):
         inviter=membership_role(c,invitation['invited_by'],row['organization_id'])
         if inviter not in (('OWNER',) if invitation['role']=='ADMIN' else ('OWNER','ADMIN')):return False
         from app.billing.access_periods import managed,active
-        if managed(c,row['organization_id']) and not active(c,row['organization_id']):return False
+        from app.billing.subscription_access import product_grant
+        if managed(c,row['organization_id']) and not active(c,row['organization_id']) and not product_grant(c,row['organization_id']):return False
         from app.platform.admission import access
         if get_settings().heysow_customer_access_enabled and invitation['invited_by'] not in get_settings().allowed_emails and not access(c,invitation['invited_by']):return False
         return True
+    if row['purpose']=='SUPPORT_REQUEST':
+        return row['account_email'].lower()=='contact@planebyte.com'
     # Billing and optional workspace notifications are authorized by their own
     # immutable payment/access records; no arbitrary message endpoint exists.
     if row['purpose']=='SUBSCRIPTION_STATUS':

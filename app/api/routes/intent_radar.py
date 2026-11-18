@@ -410,10 +410,10 @@ def feedback(key:UUID,body:models.Feedback,c=Depends(get_db,scope='function')):
     from app.intent_radar.intelligence import feedback
     return feedback(c,str(key),body)
 @router.get('/icps')
-def icps(c=Depends(get_db,scope='function')):
+def icps(page:int=Query(1,ge=1,le=500),page_size:int=Query(50,ge=1,le=100),c=Depends(get_db,scope='function')):
     context(c)
     from app.icp.service import listing
-    return listing(c)
+    return listing(c,page=page,page_size=page_size)
 
 # The global assistant reuses the existing asynchronous research/job pipeline
 # and provides a streaming full-page workspace chat with typed read/write tools.

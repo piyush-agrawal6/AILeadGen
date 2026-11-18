@@ -50,8 +50,8 @@ def _audit(c,key,action):
 
 def listing(c):
     org=organization()
-    rows=c.execute('SELECT id,domain,status,challenge_expires_at,verified_at,checked_at FROM organization_domains WHERE organization_id=? ORDER BY domain LIMIT 100',(org,)).fetchall()
-    return {'items':[{**dict(row),'status':'EXPIRED' if row['status']=='PENDING' and row['challenge_expires_at']<=now() else row['status']} for row in rows],'can_edit':membership_role(c,current().actor,org) in ('OWNER','ADMIN')}
+    rows=c.execute('SELECT id,domain,status,challenge_expires_at,verified_at,checked_at,attempts FROM organization_domains WHERE organization_id=? ORDER BY domain LIMIT 100',(org,)).fetchall()
+    return {'items':[{**dict(row),'record_type':'TXT','record_name':'_heysow-verify.'+row['domain'],'status':'EXPIRED' if row['status']=='PENDING' and row['challenge_expires_at']<=now() else row['status']} for row in rows],'can_edit':membership_role(c,current().actor,org) in ('OWNER','ADMIN')}
 
 def challenge(c,body:DomainCreate):
     org=_manager(c);_lock(c,org)
@@ -59,7 +59,7 @@ def challenge(c,body:DomainCreate):
     if existing and existing['status']=='VERIFIED':raise HTTPException(409,'This domain already has recorded ownership verification.')
     if existing and datetime.now(timezone.utc)-datetime.fromisoformat(existing['updated_at'])<timedelta(seconds=30):raise HTTPException(429,'Wait 30 seconds before replacing this challenge.')
     from app.config.settings import get_settings
-    if not existing and c.execute('SELECT COUNT(*) FROM organization_domains WHERE organization_id=?',(org,)).fetchone()[0]>=get_settings().heysow_domain_limit:raise HTTPException(409,'This workspace has reached its domain verification safety limit.')
+    if not existing and c.execute("SELECT COUNT(*) FROM organization_domains WHERE organization_id=? AND status<>'REVOKED'",(org,)).fetchone()[0]>=get_settings().heysow_domain_limit:raise HTTPException(409,'This workspace has reached its domain verification safety limit.')
     token=secrets.token_urlsafe(32);digest=hashlib.sha256((PREFIX+token).encode()).hexdigest();stamp=now();key=existing['id'] if existing else str(uuid.uuid4())
     expiry=(datetime.now(timezone.utc)+timedelta(days=7)).isoformat()
     c.execute('''INSERT INTO organization_domains(id,organization_id,domain,status,challenge_hash,challenge_expires_at,created_at,updated_at)

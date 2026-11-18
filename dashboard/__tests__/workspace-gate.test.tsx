@@ -40,23 +40,17 @@ it('keeps incomplete company setup outside product views when not deferred', asy
   expect(screen.queryByText('Private product')).not.toBeInTheDocument();
 });
 
-it('shows Finish setting up your workspace banner with Continue onboarding and dismiss when onboarding is skipped', async () => {
-  mocked.mockImplementation(async path => {
-    if (path === '/organization/onboarding/progress') return { current_step: 'ICP' };
-    if (path === '/organization/onboarding/resume') return { status: 'IN_PROGRESS' };
-    return {
-      items: [{ organization_id: 'owned', name: 'Company', role: 'OWNER' }],
-      active_organization_id: 'owned',
-      active_onboarding_status: 'IN_PROGRESS',
-      active_onboarding_deferred: true
-    };
+it('renders product content without repeated onboarding banner when onboarding is deferred', async () => {
+  mocked.mockResolvedValue({
+    items: [{ organization_id: 'owned', name: 'Company', role: 'OWNER' }],
+    active_organization_id: 'owned',
+    active_onboarding_status: 'IN_PROGRESS',
+    active_onboarding_deferred: true
   });
   mount();
   expect(await screen.findByText('Private product')).toBeVisible();
-  expect(screen.getByText('Finish setting up your workspace')).toBeVisible();
-  expect(await screen.findByText('2 of 5 steps completed')).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'Continue onboarding' }));
-  await waitFor(() => expect(push).toHaveBeenCalledWith('/onboarding'));
+  expect(screen.queryByText('Finish setting up your workspace')).not.toBeInTheDocument();
+  expect(replace).not.toHaveBeenCalled();
 });
 
 it('renders products only after verified completed workspace metadata', async () => {
