@@ -101,11 +101,11 @@ export const SETTINGS_CATEGORIES: SettingsCategoryDef[] = [
     key: "integrations",
     label: "Integrations & API",
     shortLabel: "Integrations",
-    description: "Approved research sources, Model Context Protocol (MCP), and scoped developer keys.",
+    description: "Manage your research sources, connected accounts, approved feeds, and developer access.",
     icon: Plug,
     defaultTab: "sources",
     tabs: [
-      { id: "sources", label: "Approved Sources" },
+      { id: "sources", label: "Research Sources" },
       { id: "developer", label: "MCP & Developer API" },
       { id: "feeds", label: "Custom Feeds" },
     ],
@@ -114,12 +114,12 @@ export const SETTINGS_CATEGORIES: SettingsCategoryDef[] = [
     key: "billing",
     label: "Billing & Usage",
     shortLabel: "Billing",
-    description: "Active subscription plan, search allowances, AI telemetry, and plans catalog.",
+    description: "Manage your subscription and keep track of your usage.",
     icon: CreditCard,
     defaultTab: "overview",
     tabs: [
       { id: "overview", label: "Current Plan & Usage" },
-      { id: "plans", label: "Plans Catalog" },
+      { id: "plans", label: "Compare Plans" },
     ],
   },
 ];
@@ -338,7 +338,7 @@ export function UnifiedSettingsCenter({
               {category === "company" && <CompanySection activeTab={activeTab} />}
               {category === "team" && <TeamSection activeTab={activeTab} onSwitchTab={switchTab} />}
               {category === "preferences" && <PreferencesSection activeTab={activeTab} />}
-              {category === "integrations" && <IntegrationsSection activeTab={activeTab} />}
+              {category === "integrations" && <IntegrationsSection activeTab={activeTab} onSwitchTab={switchTab} />}
               {category === "billing" && <BillingSection activeTab={activeTab} onSwitchTab={switchTab} />}
             </div>
           </main>

@@ -13,9 +13,9 @@ vi.mock('@/components/intent-radar/provider',()=>({useRadarMutation:()=>({mutate
 beforeEach(()=>state.mutate.mockReset());
 it('an explicitly labeled manual draft stays inert until the user confirms a public search',async()=>{
  state.mutate.mockResolvedValueOnce({draft:{configuration:{...emptyIntentSearch(),keywords:['website']}},mode:'Manual fallback',fallback_reason:'AI assistance is disabled.'}).mockResolvedValueOnce({id:'fixture-job'});
- render(<DiscoverExperience/>);fireEvent.change(screen.getByLabelText('Describe conversations'),{target:{value:'Find website development recommendations'}});fireEvent.click(screen.getByRole('button',{name:'Generate Search Criteria'}));
- await screen.findByRole('heading',{name:'Your search is ready'});expect(screen.getByText('Manual fallback',{exact:true})).toBeVisible();expect(state.mutate).toHaveBeenCalledTimes(1);expect(state.mutate.mock.calls[0][0].path).toBe('/draft');
- fireEvent.click(screen.getByRole('button',{name:'Search Public Conversations'}));await waitFor(()=>expect(state.mutate).toHaveBeenCalledWith(expect.objectContaining({path:'/discover',body:expect.objectContaining({configuration:expect.objectContaining({keywords:['website']})})})));
+ render(<DiscoverExperience/>);fireEvent.click(screen.getByRole('button',{name:/Describe with AI/i}));fireEvent.change(screen.getByLabelText('What are you looking for?'),{target:{value:'Find website development recommendations'}});fireEvent.click(screen.getByRole('button',{name:/Generate Criteria/i}));
+ await screen.findByRole('heading',{name:'Review Search Criteria'});expect(screen.getByText(/Manual Fallback Criteria/i)).toBeVisible();expect(state.mutate).toHaveBeenCalledTimes(1);expect(state.mutate.mock.calls[0][0].path).toBe('/draft');
+ fireEvent.click(screen.getByRole('button',{name:/Run Search/i}));await waitFor(()=>expect(state.mutate).toHaveBeenCalledWith(expect.objectContaining({path:'/discover',body:expect.objectContaining({configuration:expect.objectContaining({keywords:['website']})})})));
 });
 it('advanced search requires a committed keyword before reaching review',()=>{
  render(<DiscoverExperience/>);fireEvent.click(screen.getByRole('button',{name:'Advanced Search'}));fireEvent.click(screen.getByRole('button',{name:'Review Search'}));expect(screen.getByRole('alert')).toHaveTextContent('Add at least one keyword');expect(state.mutate).not.toHaveBeenCalled();
