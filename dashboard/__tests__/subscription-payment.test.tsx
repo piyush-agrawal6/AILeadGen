@@ -49,9 +49,9 @@ it('shows mandatory card trial, tax-inclusive copy, and explicit conversion with
   expect(await screen.findByRole('heading', { name: 'Choose Your Plan & Payment' })).toBeVisible();
   expect(screen.queryByText('Review before secure checkout')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: /3-Day Free Trial/ })).toHaveAttribute('aria-pressed', 'true');
-  expect(screen.getByLabelText('Which paid plan should follow your 72-hour trial?')).toHaveValue('starter');
+  expect(screen.getByLabelText('Choose the plan after your trial')).toHaveValue('starter');
   expect(screen.getByLabelText('Full name for billing')).toHaveValue('');
-  expect(screen.getByRole('button', { name: 'Start my 3-day trial' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Continue to secure checkout' })).toBeDisabled();
   expect(screen.queryByRole('link', { name: /dashboard/i })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /skip/i })).not.toBeInTheDocument();
 });
@@ -60,7 +60,7 @@ it('does not initiate checkout when consent is missing or a path is blocked', as
   mount();
   await screen.findByRole('heading', { name: 'Choose Your Plan & Payment' });
   fireEvent.click(screen.getByRole('checkbox'));
-  expect(screen.getByRole('button', { name: 'Start my 3-day trial' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Continue to secure checkout' })).toBeDisabled();
   expect(mocked.mock.calls.every(([, options]) => !options?.method)).toBe(true);
 });
 
@@ -87,14 +87,14 @@ it('selecting a paid plan clears earlier recurring consent and forwards explicit
 
   await screen.findByRole('heading', { name: 'Choose Your Plan & Payment' });
   fireEvent.click(screen.getByRole('checkbox'));
-  expect(screen.getByRole('button', { name: 'Start my 3-day trial' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Continue to secure checkout' })).toBeEnabled();
   fireEvent.click(screen.getByRole('button', { name: /Growth.*149/ }));
   expect(screen.getByRole('checkbox')).not.toBeChecked();
-  expect(screen.getByRole('button', { name: 'Continue to secure payment' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Continue to secure checkout' })).toBeDisabled();
 
   fireEvent.change(screen.getByLabelText('Full name for billing'), { target: { value: 'Piyush Agrawal' } });
   fireEvent.click(screen.getByRole('checkbox'));
-  fireEvent.click(screen.getByRole('button', { name: 'Continue to secure payment' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue to secure checkout' }));
   expect(await screen.findByText(/requires provider reconciliation/)).toBeVisible();
 });
 

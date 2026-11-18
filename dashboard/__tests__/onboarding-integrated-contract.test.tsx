@@ -38,14 +38,14 @@ it('reviews actual Vertex fields, saves five actual recommendations, answers con
  expect(screen.queryByText('View quoted evidence')).not.toBeInTheDocument();
  expect(screen.queryByText('Analysis details')).not.toBeInTheDocument();
  fireEvent.change(screen.getByRole('textbox',{name:'Company description'}),{target:{value:'Owner-reviewed description: '+real.websiteReview.preview.suggestions.description}});
- fireEvent.click(screen.getByRole('button',{name:/Approve profile & discover ideal customers/}));
+ fireEvent.click(screen.getByRole('button',{name:/Save business profile & continue/}));
  for(const item of real.icpReview.preview.candidates)expect(await screen.findByText(item.draft.name,{exact:true})).toBeVisible();
  expect(saved.description).toMatch(/^Owner-reviewed description:/);
  fireEvent.change(screen.getByRole('textbox',{name:'Ask Copilot about your business'}),{target:{value:'Which saved offerings fit our primary segment?'}});
  fireEvent.click(screen.getByRole('button',{name:'Send question to Copilot'}));
  await waitFor(()=>expect(document.querySelector('.ai-copilot-messages')).toHaveTextContent(real.copilotReview.preview.answer.replace(/\s+/g,' ').trim()));
- fireEvent.click(screen.getByRole('button',{name:/Confirm customer profiles & prepare research/}));
- fireEvent.click(await screen.findByRole('button',{name:/Continue to plan & payment/}));
+ fireEvent.click(screen.getByRole('button',{name:/Save ideal customers & continue/}));
+ fireEvent.click(await screen.findByRole('button',{name:/Save research setup & continue/}));
  expect(await screen.findByRole('heading',{name:'Choose Your Plan & Payment'})).toBeVisible();
  expect(finished).toBe(true);
  expect(screen.queryByRole('heading',{name:'Your reviewed context is saved'})).not.toBeInTheDocument();

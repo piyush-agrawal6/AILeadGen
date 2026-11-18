@@ -1,35 +1,181 @@
 "use client";
 import Link from 'next/link';
-import {useEffect} from 'react';
-import {usePathname,useRouter} from 'next/navigation';
-import {useWorkspace} from './use-workspace';
-import {Button} from '@/components/ui/button';
-export type {WorkspaceSummary} from './use-workspace';
-function ResumeOwnerSetup(){
- const router=useRouter();useEffect(()=>{router.replace('/onboarding')},[router]);
- return <p role="status">Resuming your saved company setup…</p>;
+import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { X } from 'lucide-react';
+import { request } from '@/lib/intelligence';
+import { useWorkspace } from './use-workspace';
+import { Button } from '@/components/ui/button';
+export type { WorkspaceSummary } from './use-workspace';
+
+const STEP_INDEX: Record<string, number> = {
+  OBJECTIVES: 1,
+  COMPANY: 2,
+  SERVICES: 2,
+  ICP: 3,
+  PREFERENCES: 3,
+  REVIEW: 4
+};
+
+function ResumeOwnerSetup() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/onboarding');
+  }, [router]);
+  return <p role="status">Resuming your saved company setup…</p>;
 }
-export function WorkspaceGate({children}:{children:React.ReactNode}){
- const path=usePathname(),state=useWorkspace();
- if(state.isPending)return <p role="status" className="text-sm text-muted-foreground">Loading your workspace…</p>;
- if(state.isError)return <section className="settings-page"><header><h1>Your workspace could not be loaded</h1><p>Retry or sign out and sign in again with your permitted account.</p></header><Button onClick={()=>void state.refetch()}>Retry workspace access</Button></section>;
- const personal=path==='/account'||path.startsWith('/account/')||path==='/help';
- const create=path==='/settings/workspaces'||path==='/settings'||path==='/settings/profile';
- if(!state.data.items.length&&!personal&&!create)return <section className="workspace-welcome"><p className="page-eyebrow">PlaneByte · Intent Radar</p><h1>Welcome to PlaneByte</h1><p>Your verified account is signed in. Create a company workspace to set up your profile and ideal customers, or accept an invitation from your team.</p><Link className="control ops-primary inline-flex" href="/settings/workspaces">Create your workspace</Link></section>;
- if(state.data.items.length&&!state.data.active_organization_id&&!personal&&!create)return <section className="workspace-welcome"><h1>Choose your workspace</h1><p>Select a workspace from the menu above. Each company has its own data and permissions.</p></section>;
- const setup=personal||path==='/billing'||path.startsWith('/billing/')||path==='/settings'||path.startsWith('/settings/')||path.startsWith('/onboarding')||path==='/acquisition/sheets/callback';
- const incomplete=Boolean(state.data.active_organization_id&&state.data.active_onboarding_status!=='COMPLETED');
- const deferred=Boolean(state.data.active_onboarding_deferred);
- if(incomplete&&!deferred&&!setup&&state.active?.role==='OWNER')return <ResumeOwnerSetup/>;
- if(incomplete&&!deferred&&!setup)return <section className="workspace-welcome"><p className="page-eyebrow">Your next step</p><h1>Finish setting up your workspace</h1><p>Confirm your company information and ideal customers to establish your workspace context. Your permitted workspace settings are already available.</p><div className="flex flex-wrap gap-3"><Link className="control ops-primary inline-flex" href="/onboarding">Resume company setup</Link><Link className="control inline-flex" href="/settings">Open settings</Link></div></section>;
- if(incomplete&&deferred&&!setup){
-  return <>
-   <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card/90 px-4 py-2.5 text-sm shadow-sm">
-    <span><strong>Finish setting up your workspace</strong> — your onboarding progress is saved. Resume anytime to complete your ICPs and research preferences.</span>
-    <Link className="control ops-primary inline-flex text-xs" href="/onboarding">Resume Onboarding →</Link>
-   </div>
-   {children}
-  </>;
- }
- return <>{children}</>;
+
+function DeferredOnboardingBanner({ orgId }: { orgId: string }) {
+  const router = useRouter();
+  const client = useQueryClient();
+  const [dismissed, setDismissed] = useState(false);
+  const [resuming, setResuming] = useState(false);
+
+  const progress = useQuery({
+    queryKey: ['onboarding-progress', orgId],
+    queryFn: ({ signal }) =>
+      request<{ current_step?: string; completed_steps?: number; total_steps?: number }>(
+        '/organization/onboarding/progress',
+        { signal }
+      ),
+    retry: false,
+    refetchOnWindowFocus: false
+  });
+
+  if (dismissed) return null;
+
+  const stepNum = progress.data?.current_step ? STEP_INDEX[progress.data.current_step] || 1 : 1;
+  const completedCount = Math.max(0, Math.min(4, stepNum - 1));
+
+  async function handleContinue() {
+    if (resuming) return;
+    setResuming(true);
+    try {
+      await request('/organization/onboarding/resume', { method: 'POST', body: '{}' });
+      await client.invalidateQueries({ queryKey: ['account-workspaces'] });
+    } catch {
+      // Still allow navigating to /onboarding to resume saved state
+    } finally {
+      setResuming(false);
+      router.push('/onboarding');
+    }
+  }
+
+  return (
+    <div
+      role="status"
+      className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/25 bg-card/95 px-4 py-3 text-sm shadow-sm"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <strong className="text-foreground">Finish setting up your workspace</strong>
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+            {completedCount} of 5 steps completed
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Your progress is saved. Continue to confirm your business profile, ideal customers, and research preferences.
+        </p>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <Button size="sm" disabled={resuming} onClick={() => void handleContinue()}>
+          {resuming ? 'Resuming…' : 'Continue onboarding'}
+        </Button>
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          aria-label="Dismiss setup reminder for now"
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60"
+        >
+          <X size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function WorkspaceGate({ children }: { children: React.ReactNode }) {
+  const path = usePathname();
+  const state = useWorkspace();
+
+  if (state.isPending) return <p role="status" className="text-sm text-muted-foreground">Loading your workspace…</p>;
+  if (state.isError) {
+    return (
+      <section className="settings-page">
+        <header>
+          <h1>Your workspace could not be loaded</h1>
+          <p>Retry or sign out and sign in again with your permitted account.</p>
+        </header>
+        <Button onClick={() => void state.refetch()}>Retry workspace access</Button>
+      </section>
+    );
+  }
+
+  const personal = path === '/account' || path.startsWith('/account/') || path === '/help';
+  const create = path === '/settings/workspaces' || path === '/settings' || path === '/settings/profile';
+  if (!state.data.items.length && !personal && !create) {
+    return (
+      <section className="workspace-welcome">
+        <p className="page-eyebrow">PlaneByte · Intent Radar</p>
+        <h1>Welcome to PlaneByte</h1>
+        <p>
+          Your verified account is signed in. Create a company workspace to set up your profile and ideal customers, or accept an invitation from your team.
+        </p>
+        <Link className="control ops-primary inline-flex" href="/settings/workspaces">
+          Create your workspace
+        </Link>
+      </section>
+    );
+  }
+  if (state.data.items.length && !state.data.active_organization_id && !personal && !create) {
+    return (
+      <section className="workspace-welcome">
+        <h1>Choose your workspace</h1>
+        <p>Select a workspace from the menu above. Each company has its own data and permissions.</p>
+      </section>
+    );
+  }
+
+  const setup =
+    personal ||
+    path === '/billing' ||
+    path.startsWith('/billing/') ||
+    path === '/settings' ||
+    path.startsWith('/settings/') ||
+    path.startsWith('/onboarding') ||
+    path === '/acquisition/sheets/callback';
+
+  const incomplete = Boolean(state.data.active_organization_id && state.data.active_onboarding_status !== 'COMPLETED');
+  const deferred = Boolean(state.data.active_onboarding_deferred);
+
+  if (incomplete && !deferred && !setup && state.active?.role === 'OWNER') return <ResumeOwnerSetup />;
+  if (incomplete && !deferred && !setup) {
+    return (
+      <section className="workspace-welcome">
+        <p className="page-eyebrow">Your next step</p>
+        <h1>Finish setting up your workspace</h1>
+        <p>
+          Confirm your company information and ideal customers to establish your workspace context. Your permitted workspace settings are already available.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Link className="control ops-primary inline-flex" href="/onboarding">
+            Continue onboarding
+          </Link>
+          <Link className="control inline-flex" href="/settings">
+            Open settings
+          </Link>
+        </div>
+      </section>
+    );
+  }
+  if (incomplete && deferred && !setup && state.data.active_organization_id) {
+    return (
+      <>
+        <DeferredOnboardingBanner orgId={state.data.active_organization_id} />
+        {children}
+      </>
+    );
+  }
+  return <>{children}</>;
 }

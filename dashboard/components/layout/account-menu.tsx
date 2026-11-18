@@ -13,6 +13,7 @@ import {
   Monitor,
   Moon,
   ShieldCheck,
+  Sparkles,
   Sun,
   UserRound,
   Users,
@@ -125,6 +126,16 @@ export function AccountMenu({
         {workspaceManagementEnabled && (
           <>
             <Menu.Separator className="app-menu-separator" />
+            {workspace.data?.active_organization_id &&
+              workspace.data?.active_onboarding_status &&
+              workspace.data.active_onboarding_status !== 'COMPLETED' && (
+                <Menu.Item asChild className="app-menu-item text-primary font-medium">
+                  <Link href="/onboarding">
+                    <Sparkles size={15} />
+                    <span>Continue onboarding</span>
+                  </Link>
+                </Menu.Item>
+              )}
             <Menu.Item asChild className="app-menu-item">
               <Link href="/settings?category=company">
                 <Building2 size={15} />

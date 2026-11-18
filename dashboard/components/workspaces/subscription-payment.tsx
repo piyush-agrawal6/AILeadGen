@@ -333,7 +333,7 @@ export function SubscriptionPayment({ onActivated, embedded = false }: { onActiv
             <div className="rounded-xl border border-border bg-muted/25 px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <label className="block text-sm font-medium text-foreground" htmlFor="trial-conversion-plan">
-                  Which paid plan should follow your 72-hour trial?
+                  Choose the plan after your trial
                 </label>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   You can switch or cancel before the trial ends. Scheduled checks, reports, API & MCP unlock on paid plans.
@@ -465,9 +465,7 @@ export function SubscriptionPayment({ onActivated, embedded = false }: { onActiv
                 <CreditCard size={16} className="mr-2" />
                 {pending
                   ? 'Opening secure checkout…'
-                  : trial
-                    ? 'Start my 3-day trial'
-                    : 'Continue to secure payment'}
+                  : 'Continue to secure checkout'}
               </Button>
               <Button variant="outline" size="default" disabled={pending} onClick={() => void refresh()}>
                 <RefreshCw size={14} className="mr-1.5" />
