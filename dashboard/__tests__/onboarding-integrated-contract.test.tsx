@@ -35,7 +35,8 @@ it('reviews actual Vertex fields, saves five actual recommendations, answers con
  expect(screen.getByRole('textbox',{name:'Business positioning'})).toHaveValue(real.websiteReview.preview.suggestions.positioning);
  expect(screen.getAllByDisplayValue('Intent Radar')).toHaveLength(1);
  expect(screen.getAllByDisplayValue('Growth Intelligence')).toHaveLength(1);
- expect(screen.getAllByText('View quoted evidence').length).toBeGreaterThan(0);
+ expect(screen.queryByText('View quoted evidence')).not.toBeInTheDocument();
+ expect(screen.queryByText('Analysis details')).not.toBeInTheDocument();
  fireEvent.change(screen.getByRole('textbox',{name:'Company description'}),{target:{value:'Owner-reviewed description: '+real.websiteReview.preview.suggestions.description}});
  fireEvent.click(screen.getByRole('button',{name:/Approve profile & discover ideal customers/}));
  for(const item of real.icpReview.preview.candidates)expect(await screen.findByText(item.draft.name,{exact:true})).toBeVisible();

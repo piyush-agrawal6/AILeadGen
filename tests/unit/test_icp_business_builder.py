@@ -16,7 +16,7 @@ from test_icp_ai import client
 def candidate(name='Software teams'):
     return builder.Candidate(draft={'name':name,'criteria':{
         'company':{'industries':['Software'],'countries':['GB'],'employee_min':10,'employee_max':100},
-        'contact':{'job_titles':['CTO']},'intent':{'business_needs':['Custom applications']},
+        'contact':{'job_titles':['CTO']},'intent':{'business_needs':['Custom applications'],'buying_signals':['Publicly asking for custom web application engineering partners']},
         'weights':{'company.industries':5}}},
         reason='Custom application delivery may be relevant to software teams with internal product needs.',
         assumptions=['Software teams and CTOs are recommended audiences, not verified existing customers.'])

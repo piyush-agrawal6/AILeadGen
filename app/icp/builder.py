@@ -103,20 +103,28 @@ empty/null. Do not silently drop requested unsupported criteria: put these in
 questions. Keep status INACTIVE. All text must be concise; no assertions of measured fit.'''
 
 EXACT_INSTRUCTION=INSTRUCTION+''' Return exactly the requested candidate count as
-distinct, editable targeting hypotheses. Vary industry/use case, buyer roles and
-concrete needs/pain points; different names alone are not distinct segments.
+distinct, editable targeting hypotheses. Vary industry/use case, buyer roles,
+concrete needs/pain points, and observable buying triggers; different names alone
+are not distinct segments. For EVERY candidate, you MUST populate:
+- company.industries (1-3 specific industries) and company.company_sizes (1-3 canonical size ranges)
+- contact.job_titles (2-5 realistic buyer/decision-maker roles)
+- intent.business_needs (2-3 concrete operational needs tied to the supplied offerings)
+- intent.pain_points (2-3 specific frustrations driving evaluation)
+- intent.buying_signals (2-4 specific, observable public buying triggers and buyer-intent signals — concrete questions, tool comparisons, workflow breakdowns, or evaluations this buyer posts publicly, dynamically tailored to the supplied business; NEVER leave buying_signals empty)
+- intent.exclusions (1-3 context-sensitive negative filters such as student assignments, job seekers, or unrelated free-only requests when helpful)
 Explicitly label inferred targeting as assumptions, never existing customer facts.
 Do not pad the list with duplicates or invented evidence. If you cannot propose
 the requested number reliably, fail instead of presenting a shorter list as a
-completed request. Omit empty/default criteria. Use exact supplied service names
-and canonical size ranges.'''
+completed request. Omit truly unknown optional fields (like geography when not stated).
+Use exact supplied service names and canonical size ranges.'''
 
 INSTRUCTION+=''' Return up to the requested candidate count. Prefer 3–5 useful, genuinely different segments when the business
 evidence supports them. Different names alone are not distinct segments: vary
-industry/use case, buyer roles and concrete business needs/pain points. Include
+industry/use case, buyer roles, concrete business needs/pain points, and observable
+buying_signals (2-4 concrete public buying triggers per segment). Include
 those criteria and concise use cases in each description. If evidence cannot
 support that many useful segments, return fewer and explain what is missing in
-questions. Omit empty/default criteria rather than repeating every schema field.
+questions. Omit unknown optional fields rather than guessing.
 Use exact supplied service names and canonical size ranges, not renamed services.'''
 
 REFINE_INSTRUCTION = INSTRUCTION + ''' Refine the supplied editable draft using only
@@ -168,6 +176,8 @@ def _check_suggestions(value, count, services, *, exact=False):
         candidate.based_on_services=[canonical[ai._text(name)] for name in candidate.based_on_services]
         if len(candidate.reason) > 600 or any(len(text) > 600 for text in candidate.assumptions + value.questions):
             raise gateway.AiOutputError('ICP_VERBOSE_RESPONSE')
+        if exact and not candidate.draft.criteria.intent.buying_signals:
+            raise gateway.AiOutputError('ICP_MISSING_BUYING_SIGNALS')
     if len({candidate.draft.name.casefold() for candidate in value.candidates}) != len(value.candidates):
         raise gateway.AiOutputError('ICP_DUPLICATE_SEGMENTS')
     if len(value.candidates)>=3:
@@ -222,12 +232,12 @@ def _persist(c, source, inputs, output, hit, version=None, changes=None):
 
 async def _call(c, task, payload, schema, instruction, validator,operation_id=None):
     async def produce():
-        operation_id_value=ai_usage.reserve_icp(operation_id=operation_id,tokens=ai_usage.estimate(instruction,payload,schema,7000))
+        operation_id_value=ai_usage.reserve_icp(operation_id=operation_id,tokens=ai_usage.estimate(instruction,payload,schema,8192))
         from app.platform.provider_usage import operation
         with operation('ICP_RECOMMENDATIONS',operation_id=operation_id_value):
             return await asyncio.wait_for(gateway.provider(c).structured(
-                instruction, payload, schema, max_output_tokens=7000, timeout_seconds=25,
-                max_response_bytes=60000, retry_transient=False,attempts_per_provider=1), timeout=30)
+                instruction, payload, schema, max_output_tokens=8192, timeout_seconds=35,
+                max_response_bytes=80000, retry_transient=False,attempts_per_provider=1), timeout=40)
     try:
         return await gateway.cached(c, current().actor, task, payload, produce, schema, validator)
     except (gateway.AiUnavailable, gateway.AiApplicationError, asyncio.TimeoutError, ValueError) as error:
@@ -246,7 +256,7 @@ async def generate(c, body: Generate, *, operation_id=None, require_exact_count=
         raise HTTPException(409, 'Add a business description or services to your company profile first. You can analyze your website and review the suggestions there.')
     inputs = {'approved_business': approved, 'profile_version': profile['version'],
               'user_request': body.prompt, 'candidate_count': body.candidate_count,
-              'mode': body.mode}
+              'mode': body.mode, 'signals_required': True}
     if require_exact_count:inputs['exact_candidate_count']=body.candidate_count
     services = [item['name'] for item in profile['products_services']]
     schema=exact_suggestions(body.candidate_count) if require_exact_count else Suggestions

@@ -190,3 +190,31 @@ def test_retired_payu_creation_is_denied_before_provider_work():
  for path in ('/api/organization/billing/access/orders','/api/billing/payments/payu/callback'):
   with pytest.raises(HTTPException) as e:guard_route(path,organization_id='synthetic',role='OWNER',method='POST')
   assert e.value.status_code==410
+
+def test_creem_customer_never_derives_name_from_email_local_part(subscribed,monkeypatch):
+ c,s,org,actor,state,product,checkout,_=subscribed
+ monkeypatch.setattr(s,'subscription_checkout_enabled',True)
+ c.execute("UPDATE subscription_checkouts SET status='CANCELLED'")
+ c.execute("DELETE FROM subscription_customers WHERE organization_id=?",(org,))
+ c.execute("UPDATE users SET display_name=? WHERE id=?",(actor.split('@')[0],actor))
+ c.execute("DELETE FROM user_profiles WHERE user_id=?",(actor,))
+ c.execute("INSERT INTO subscription_provider_readiness(provider,environment,checkout_verified,recurring_verified,trial_verified,merchant_verified,verification_reference,verified_at) VALUES('creem','production',1,1,1,1,'synthetic-acceptance',?)",(now(),))
+ c.execute("INSERT INTO subscription_products(provider,environment,plan_code,variant,product_id,price_minor,currency,interval,trial_days,catalog_hash,verified_json,verified_at) VALUES('creem','production','starter','trial','prod_fixture',5900,'USD','every-month',3,?,?,?)",(commercial.catalog()['catalog_sha256'],json.dumps(product),now()));c.commit()
+ customer_calls=[];checkout_calls=[]
+ def req(method,path,**kw):
+  if path=='/customers' and method=='POST':
+   customer_calls.append(kw['body'])
+   return {'id':'cust_real_name','mode':'prod','email':actor,'external_id':org}
+  if path=='/checkouts' and method=='POST':
+   checkout_calls.append(kw['body'])
+   return {'id':'ch_real_name','mode':'prod','checkout_url':'https://checkout.creem.io/ch_real_name'}
+  raise AssertionError('Unexpected call '+method+' '+path)
+ monkeypatch.setattr(creem,'request',req)
+ monkeypatch.setattr(creem,'get_checkout',lambda *a,**kw:{'id':'ch_real_name','mode':'prod','request_id':checkout_calls[0]['request_id'],'product':'prod_fixture','metadata':checkout_calls[0]['metadata']})
+ with workspace_scope(c,actor,org):
+  # summary must NOT return the email local part as customer_name
+  info=service.summary(c)
+  assert info['customer_name'] is None and info['account_email']==actor
+  body=service.Checkout(plan_code='starter',variant='trial',request_id=uuid.uuid4(),terms_version=access.POLICY,accepted_terms=True,accepted_recurring=True)
+  service.start(body)
+  assert 'name' not in customer_calls[0]

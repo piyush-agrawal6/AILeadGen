@@ -13,13 +13,27 @@ from app.database.prospects import now
 from app.developer.keys import lock
 
 class Checkout(BaseModel):
- model_config=ConfigDict(extra='forbid')
+ model_config=ConfigDict(extra='forbid',str_strip_whitespace=True)
  plan_code:Literal['starter','growth','scale']
  variant:Literal['paid','trial']
  request_id:uuid.UUID
  terms_version:str=Field(min_length=1,max_length=100)
  accepted_terms:Literal[True]
  accepted_recurring:Literal[True]
+ customer_name:str|None=Field(default=None,min_length=2,max_length=120)
+
+def _real_customer_name(c,actor):
+ local=actor.split('@')[0].casefold()
+ try:
+  row=c.execute('SELECT display_name FROM user_profiles WHERE user_id=?',(actor,)).fetchone()
+  name=(row['display_name'] or '').strip() if row else ''
+  if not name:
+   user=c.execute('SELECT display_name FROM users WHERE id=?',(actor,)).fetchone()
+   name=(user[0] or '').strip() if user else ''
+ except Exception:
+  return None
+ if len(name)<2 or name.casefold()==local or any(ord(ch)<32 for ch in name):return None
+ return name
 
 class Action(BaseModel):
  model_config=ConfigDict(extra='forbid')
@@ -71,6 +85,7 @@ def summary(c):
  provider,reason=route(c,org);billing=profile(c,org)
  history=[dict(r) for r in c.execute('SELECT provider,environment,payment_id,amount_minor,currency,status,period_start,period_end,receipt_url,recorded_at FROM subscription_payments WHERE organization_id=? ORDER BY recorded_at DESC,payment_id DESC LIMIT 50',(org,)).fetchall()]
  return {'enabled':True,'required':access.required(c,org),'active':bool(active),'provider':provider,'country':billing['country'] if billing else None,'country_verified':bool(billing and billing['status']=='VERIFIED' and billing['verified_at']),
+  'account_email':ctx.actor,'customer_name':_real_customer_name(c,ctx.actor),
   'terms_version':s.subscription_terms_version,'policy_version':access.POLICY,'trial_seconds':access.TRIAL_SECONDS,'trial_limits':access.TRIAL_LIMITS,
   'trial_eligible':trial_available(c,ctx.actor),'plans':commercial.catalog()['plans'],'can_manage':membership_role(c,ctx.actor,org)=='OWNER',
   'contract':public_contract(row),'history':history,
@@ -107,12 +122,24 @@ def start(body):
   key=str(uuid.uuid4());stamp=now();customer=c.execute("SELECT customer_id FROM subscription_customers WHERE provider='creem' AND environment=? AND organization_id=?",(mode,org)).fetchone()
   if not customer and c.execute("SELECT 1 FROM subscription_customers p JOIN subscription_checkouts h ON h.customer_id=p.customer_id AND h.provider=p.provider AND h.environment=p.environment AND h.organization_id=p.organization_id WHERE p.provider='creem' AND p.environment=? AND h.created_by=? AND p.organization_id<>? LIMIT 1",(mode,ctx.actor,org)).fetchone():raise HTTPException(409,'An existing provider customer belongs to another workspace. A reviewed billing transition is required; no duplicate subscription is created.')
   disclosure={'plan':body.plan_code,'amount_minor':selected['monthly_minor'],'currency':'USD','billing_interval':'every-month','trial_seconds':access.TRIAL_SECONDS if body.variant=='trial' else 0,'automatic_renewal':True,'accepted_recurring':True,'hosted_final_disclosure_required':True,'policy_version':access.POLICY}
+  resolved_name=(body.customer_name or '').strip()
+  if resolved_name and (any(ord(ch)<32 for ch in resolved_name) or resolved_name.casefold()==ctx.actor.split('@')[0].casefold()):
+   resolved_name=''
+  if not resolved_name:resolved_name=_real_customer_name(c,ctx.actor) or ''
+  if resolved_name and body.customer_name and not _real_customer_name(c,ctx.actor):
+   try:
+    c.execute("INSERT INTO user_profiles(user_id,display_name,job_title,phone,timezone,locale,created_at,updated_at) VALUES(?,?,'','','UTC','en',?,?) ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name,updated_at=excluded.updated_at",(ctx.actor,resolved_name,stamp,stamp))
+    c.execute('UPDATE users SET display_name=?,updated_at=? WHERE id=?',(resolved_name,stamp,ctx.actor))
+   except Exception:
+    pass
   c.execute("INSERT INTO subscription_checkouts(id,organization_id,created_by,provider,environment,plan_code,variant,request_id,request_hash,customer_id,product_id,status,country,currency,amount_minor,trial_days,terms_version,accepted_at,disclosure_json,created_at,updated_at) VALUES(?,?,?,'creem',?,?,?,?,?,?,?,'CREATING',?,'USD',?,?,?,?,?,?,?)",(key,org,ctx.actor,mode,body.plan_code,body.variant,str(body.request_id),digest,customer['customer_id'] if customer else None,product['product_id'],'UNCONFIRMED',selected['monthly_minor'],3 if body.variant=='trial' else 0,body.terms_version,stamp,json.dumps(disclosure,sort_keys=True),stamp,stamp))
  # CREATING is committed before any remote POST; uncertain creates never retry.
  try:
   creem.validate_product(creem.get_product(product['product_id'],mode=mode),selected,body.variant,mode)
   if not customer:
-   created=creem.object_mode(creem.request('POST','/customers',mode=mode,body={'email':ctx.actor,'name':ctx.actor.split('@')[0],'external_id':org,'metadata':{'planebyte_workspace':org}}),mode)
+   customer_body={'email':ctx.actor,'external_id':org,'metadata':{'planebyte_workspace':org}}
+   if resolved_name:customer_body['name']=resolved_name
+   created=creem.object_mode(creem.request('POST','/customers',mode=mode,body=customer_body),mode)
    customer_id=creem.identifier(created.get('id'),'cust_')
    if created.get('external_id')!=org or created.get('email','').lower()!=ctx.actor:raise creem.Rejected('Provider customer mapping does not match.')
    with db_session() as c:
@@ -121,7 +148,11 @@ def start(body):
     if existing and existing['organization_id']!=org:raise creem.Rejected('Provider customer is already assigned to another workspace; billing review is required.')
     c.execute("INSERT INTO subscription_customers(provider,environment,organization_id,customer_id,created_at) VALUES('creem',?,?,?,?)",(mode,org,customer_id,now()))
     c.execute('UPDATE subscription_checkouts SET customer_id=? WHERE id=? AND organization_id=?',(customer_id,key,org))
-  else:customer_id=customer['customer_id']
+  else:
+   customer_id=customer['customer_id']
+   if body.customer_name and resolved_name:
+    try:creem.request('PATCH','/customers/'+creem.identifier(customer_id,'cust_'),mode=mode,body={'name':resolved_name})
+    except (creem.Unavailable,creem.Rejected):pass
   checkout=creem.object_mode(creem.request('POST','/checkouts',mode=mode,body={'product_id':product['product_id'],'request_id':key,'units':1,'customer':{'id':customer_id},'success_url':'https://app.planebyte.com/onboarding?payment=returned','metadata':{'planebyte_checkout':key,'planebyte_workspace':org,'planebyte_policy':access.POLICY}}),mode)
   checkout_id=creem.identifier(checkout.get('id'),'ch_');url=creem.hosted_url(checkout.get('checkout_url'))
   # Persist a known provider ID before further reads. Ambiguous creates can be

@@ -53,14 +53,14 @@ class ContactCriteria(Strict):
 
 
 class IntentCriteria(Strict):
-    business_needs:Terms=Field(default_factory=list)
-    pain_points:Terms=Field(default_factory=list)
-    buying_signals:Terms=Field(default_factory=list)
-    growth_signals:Terms=Field(default_factory=list)
+    business_needs:Terms=Field(default_factory=list,description='Concrete operational or commercial needs this buyer segment is trying to solve.')
+    pain_points:Terms=Field(default_factory=list,description='Specific recurring frustrations or gaps motivating this buyer to evaluate solutions.')
+    buying_signals:Terms=Field(default_factory=list,description='2 to 4 concrete, observable public buying triggers and buyer-intent signals (e.g. specific questions, vendor comparisons, workflow complaints, or evaluations this buyer posts publicly).')
+    growth_signals:Terms=Field(default_factory=list,description='Optional observable growth or hiring signals indicating readiness.')
     relevant_services:Terms=Field(default_factory=list)
     technology_requirements:Terms=Field(default_factory=list)
     qualification_conditions:Terms=Field(default_factory=list)
-    exclusions:Terms=Field(default_factory=list)
+    exclusions:Terms=Field(default_factory=list,description='1 to 3 context-sensitive negative exclusion criteria (e.g. student projects, job seekers, unrelated consumer/free-only requests) to filter out noisy signals.')
 
 
 class Criteria(Strict):

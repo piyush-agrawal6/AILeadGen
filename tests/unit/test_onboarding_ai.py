@@ -214,3 +214,14 @@ def test_exact_suggestion_schema_rejects_short_or_padded_output():
     complete.candidates[-1]=complete.candidates[0].model_copy(deep=True)
     with pytest.raises(gateway.AiOutputError,match='ICP_DUPLICATE_SEGMENTS'):
         builder._check_suggestions(complete,5,[],exact=True)
+    no_signals=schema(candidates=five_candidates())
+    no_signals.candidates[2].draft.criteria.intent.buying_signals=[]
+    with pytest.raises(gateway.AiOutputError,match='ICP_MISSING_BUYING_SIGNALS'):
+        builder._check_suggestions(no_signals,5,[],exact=True)
+
+def test_copilot_advice_supports_proposed_updates_and_contextual_fields():
+    from app.platform.onboarding_ai import Advice,Question
+    q=Question(prompt='Suggest negative keywords',request_id=uuid.uuid4(),current_step='research',research_keywords=['buyer intent tool'],excluded_keywords=['homework'])
+    assert q.current_step=='research' and q.research_keywords==['buyer intent tool']
+    adv=Advice(answer='Here are context-sensitive exclusion keywords.',proposed_updates=[{'target':'excluded_keywords','label':'Add exclusion terms','value':['internship','student project'],'mode':'append'}])
+    assert len(adv.proposed_updates)==1 and adv.proposed_updates[0].target=='excluded_keywords'

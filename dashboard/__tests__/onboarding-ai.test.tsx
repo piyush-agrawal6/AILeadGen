@@ -60,3 +60,30 @@ it('terminates failed Copilot guidance and retries the same owned job without di
  expect(mocked.mock.calls.filter(([path])=>path.endsWith('/assistant'))).toHaveLength(1);
  expect(mocked.mock.calls.some(([path])=>path.endsWith('/website-reviews/advice-owned/control'))).toBe(true);
 });
+
+it('applies actionable Copilot proposed_updates to the form without silently overwriting unsaved fields',async()=>{
+ const state={progress,company:profile,reviews:{},capabilities:{company_analysis:true,icp_recommendations:true}};
+ const advice={id:'advice-apply',status:'READY',progress_stage:'READY',can_retry:false,preview:{answer:'Here is a sharper positioning statement.',proposed_updates:[{target:'positioning',label:'Apply positioning statement',value:'Buyer-intent intelligence that uncovers live B2B demand.',mode:'replace'}]}};
+ mocked.mockImplementation(async(path)=>{
+  if(path.endsWith('/assistant-context'))return state;
+  if(path.endsWith('/assistant'))return {mode:'AI guidance',job:advice};
+  if(path.endsWith('/reviews/advice-apply'))return advice;
+  return {items:[]};
+ });
+ render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false,gcTime:0}}})}><AIOnboarding/></QueryClientProvider>);
+ fireEvent.change(await screen.findByRole('textbox',{name:'Company name'}),{target:{value:'Custom Unsaved Name'}});
+ fireEvent.change(screen.getByRole('textbox',{name:'Ask Copilot about your business'}),{target:{value:'Make my positioning more specific'}});
+ fireEvent.click(screen.getByRole('button',{name:'Send question to Copilot'}));
+ const applyBtn=await screen.findByRole('button',{name:'Apply positioning statement'});
+ expect(screen.getByRole('textbox',{name:'Business positioning'})).toHaveValue('');
+ fireEvent.click(applyBtn);
+ expect(screen.getByRole('textbox',{name:'Business positioning'})).toHaveValue('Buyer-intent intelligence that uncovers live B2B demand.');
+ expect(screen.getByRole('textbox',{name:'Company name'})).toHaveValue('Custom Unsaved Name');
+});
+
+it('renders the redesigned activation success screen with Explore My Dashboard when billing is verified active',async()=>{
+ mount({payment:{required:true,active:true,contract:{plan_code:'starter',status:'trialing',provider:'creem',trial_end:1795000000}},progress:{...progress,status:'COMPLETED'},company:profile,reviews:{},capabilities:{company_analysis:false,icp_recommendations:false}});
+ expect(await screen.findByRole('heading',{name:"You're all set. Let's discover your next opportunity."})).toBeVisible();
+ expect(screen.getByRole('link',{name:/Explore My Dashboard/})).toHaveAttribute('href','/intent-radar');
+ expect(screen.getByText(/starter · trialing/i)).toBeVisible();
+});
