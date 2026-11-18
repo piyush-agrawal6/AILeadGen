@@ -82,7 +82,7 @@ def validate_schema_mode():
     excluded=('LEADENGINE_CUSTOMER_MAILBOX_ID','LEADENGINE_SHEET_EXPORT_ID',
               'LEADENGINE_RUN_ID','LEADENGINE_REPORT_ID')
     mode=os.environ.get('LEADENGINE_AUTOMATION_MODE','')
-    if any(os.environ.get(k) for k in excluded) or os.environ.get('LEADENGINE_EMAIL_SYNC')=='1' or (mode and mode not in ('intent-radar-dispatch','webhooks-dispatch')):
+    if any(os.environ.get(k) for k in excluded) or os.environ.get('LEADENGINE_EMAIL_SYNC')=='1' or (mode and mode not in ('intent-radar-dispatch','webhooks-dispatch','bluesky-jetstream-poll')):
         raise SystemExit('This worker mode is unavailable on the Intent Radar database profile.')
 
 
@@ -144,6 +144,13 @@ if __name__ == "__main__":
             with db_session() as c:verify_schema(c)
             from app.intent_radar.schedules import tick
             asyncio.run(tick())
+            raise SystemExit(0)
+        if mode=='bluesky-jetstream-poll':
+            import json
+            with db_session() as c:verify_schema(c)
+            from app.intent_radar.bluesky_source import poll_jetstream
+            result=asyncio.run(poll_jetstream(max_seconds=8.0,max_events=250,reconnect_attempts=2))
+            print(json.dumps(result))
             raise SystemExit(0)
         if mode=='webhooks-dispatch':
             from app.webhooks.service import enabled

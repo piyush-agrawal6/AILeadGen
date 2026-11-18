@@ -3,10 +3,11 @@ import re
 from datetime import datetime, timezone
 
 RULES = (
- ('Alternative search', r'\balternative(?:s)?\b|instead of|replace our'),
+ ('Alternative search', r'\balternative(?:s)?\b|instead of|replace our|migrat(?:e|ing) (?:from|away from)'),
  ('Product comparison', r'\bvs\b|versus|compar(?:e|ing|ison)'),
  ('Recommendation request', r'recommend|looking for|any suggestions|what.*(?:tool|service).*(?:use|best)'),
- ('Problem / pain point', r'struggl|pain point|problem|frustrat|too (?:expensive|complex|slow)'),
+ ('Feature request', r'\bfeature request\b|\bwish.*support(?:ed)?\b|\bplease add\b|\bmissing integration\b|\bdoes not support\b'),
+ ('Problem / pain point', r'struggl|pain point|problem|frustrat|too (?:expensive|complex|slow)|broken integration|failing to sync'),
  ('Purchase consideration', r'\bbuy(?:ing)?\b|\bpurchas|\bhir(?:e|ing)\b'),
  ('Tool / service evaluation', r'evaluat|considering|which.*(?:tool|service)'),
 )
@@ -21,6 +22,21 @@ def classify(item, query):
     if not matched and not semantic_candidate: return None
     day = item['observed_at'][:10]
     if query.from_date and day < query.from_date.isoformat() or query.to_date and day > query.to_date.isoformat(): return None
+    provenance = item.get('provenance') or {}
+    content_kind = provenance.get('content_kind')
+    if content_kind in ('release', 'paper'):
+        # Technical releases and research papers are market/technology intelligence, never fabricated buyers.
+        category, phrase = 'Market / technology intelligence', None
+        if query.categories and category not in query.categories: return None
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(item['observed_at'])).total_seconds()
+        topics = [term for term in [*query.topics, *query.phrases] if term.casefold() in value]
+        score = min(65, 35 + min(20, 10 * len(matched)) + min(5, 5 * len(topics)) + (5 if 0 <= age < 7 * 86400 else 0))
+        if not query.semantic and score < query.min_relevance: return None
+        return {**item, 'category': category, 'score': score, 'evidence': {'matched_keywords': matched, 'matched_topics': topics, 'intent_phrase': None,
+                 'confidence': 'Market / tech intelligence', 'method': 'DETERMINISTIC_V3',
+                 'explanation': f"Matched {', '.join(matched)} in a technical {content_kind}. Classified as market/technology intelligence, not a buying request." if matched else f"Technical {content_kind} retained for research review.",
+                 'observed_text': item['excerpt'] or item['title'], 'unknown': ['Buyer intent (non-buying technical release/research)', 'Identity', 'Budget', 'Purchase authority'],
+                 'semantic_candidate': semantic_candidate and not matched, 'penalties': [], 'scoring_version': 'DETERMINISTIC_V3', 'purchasing_event_verified': False}}
     category, phrase = 'General discussion', None
     for label, pattern in RULES:
         hit = re.search(pattern, value)

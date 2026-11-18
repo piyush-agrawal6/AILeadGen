@@ -9,6 +9,35 @@ from bs4 import BeautifulSoup
 ATOM='http://www.w3.org/2005/Atom'
 TOMBSTONES='http://purl.org/atompub/tombstones/1.0'
 XMLBASE='{http://www.w3.org/XML/1998/namespace}base'
+MAX_FEED_BYTES=2_000_000
+MAX_FEED_NODES=16_000
+
+CURATED_FEED_PRESETS = [
+    # 10 verified Discourse RSS feeds (Directive B)
+    {'preset_id':'discourse-meta','name':'Discourse Meta','family':'discourse','endpoint':'https://meta.discourse.org/latest.rss','attribution':'Discourse Meta Community','policy_reference':'Public Discourse RSS syndication; commercial AI processing requires publisher review','retention_days':7,'polling_minutes':60,'content_kind':'discussion','ai_processing_authorized':False},
+    {'preset_id':'discourse-nodered','name':'Node-RED Community','family':'discourse','endpoint':'https://discourse.nodered.org/latest.rss','attribution':'Node-RED Forum','policy_reference':'Public Discourse RSS syndication; commercial AI processing requires publisher review','retention_days':7,'polling_minutes':60,'content_kind':'discussion','ai_processing_authorized':False},
+    {'preset_id':'discourse-vercel','name':'Vercel Community','family':'discourse','endpoint':'https://community.vercel.com/latest.rss','attribution':'Vercel Community','policy_reference':'Public Discourse RSS syndication; commercial AI processing requires publisher review','retention_days':7,'polling_minutes':60,'content_kind':'discussion','ai_processing_authorized':False},
+    {'preset_id':'discourse-postman','name':'Postman Community','family':'discourse','endpoint':'https://community.postman.com/latest.rss','attribution':'Postman Community','policy_reference':'Public Discourse RSS syndication; commercial AI processing requires publisher review','retention_days':7,'polling_minutes':60,'content_kind':'discussion','ai_processing_authorized':False},
+    {'preset_id':'discourse-shopify','name':'Shopify Dev Community','family':'discourse','endpoint':'https://community.shopify.dev/latest.rss','attribution':'Shopify Developer Community','policy_reference':'Public Discourse RSS syndication; commercial AI processing requires publisher review','retention_days':7,'polling_minutes':60,'content_kind':'discussion','ai_processing_authorized':False},
+    {'preset_id':'discourse-bubble','name':'Bubble Forum','family':'discourse','endpoint':'https://forum.bubble.io/latest.rss','attribution':'Bubble Forum','policy_reference':'Public Discourse RSS syndication; commercial AI processing requires publisher review','retention_days':7,'polling_minutes':60,'content_kind':'discussion','ai_processing_authorized':False},
+    {'preset_id':'discourse-cursor','name':'Cursor Forum','family':'discourse','endpoint':'https://forum.cursor.com/latest.rss','attribution':'Cursor Community Forum','policy_reference':'Public Discourse RSS syndication; commercial AI processing requires publisher review','retention_days':7,'polling_minutes':60,'content_kind':'discussion','ai_processing_authorized':False},
+    {'preset_id':'discourse-make','name':'Make Community','family':'discourse','endpoint':'https://community.make.com/latest.rss','attribution':'Make Community','policy_reference':'Public Discourse RSS syndication; commercial AI processing requires publisher review','retention_days':7,'polling_minutes':60,'content_kind':'discussion','ai_processing_authorized':False},
+    {'preset_id':'discourse-retool','name':'Retool Community','family':'discourse','endpoint':'https://community.retool.com/latest.rss','attribution':'Retool Community','policy_reference':'Public Discourse RSS syndication; commercial AI processing requires publisher review','retention_days':7,'polling_minutes':60,'content_kind':'discussion','ai_processing_authorized':False},
+    {'preset_id':'discourse-n8n','name':'n8n Community','family':'discourse','endpoint':'https://community.n8n.io/latest.rss','attribution':'n8n Community','policy_reference':'Public Discourse RSS syndication; commercial AI processing requires publisher review','retention_days':7,'polling_minutes':60,'content_kind':'discussion','ai_processing_authorized':False},
+    # 10 verified Atom 1.0 feeds (Directive B — market/technology intelligence)
+    {'preset_id':'atom-nextjs','name':'Next.js Releases','family':'atom','endpoint':'https://github.com/vercel/next.js/releases.atom','attribution':'Vercel Next.js GitHub Releases','policy_reference':'Public GitHub Atom release feed (market/technology intelligence)','retention_days':14,'polling_minutes':120,'content_kind':'release','ai_processing_authorized':True},
+    {'preset_id':'atom-n8n','name':'n8n Releases','family':'atom','endpoint':'https://github.com/n8n-io/n8n/releases.atom','attribution':'n8n GitHub Releases','policy_reference':'Public GitHub Atom release feed (market/technology intelligence)','retention_days':14,'polling_minutes':120,'content_kind':'release','ai_processing_authorized':True},
+    {'preset_id':'atom-langchain','name':'LangChain Releases','family':'atom','endpoint':'https://github.com/langchain-ai/langchain/releases.atom','attribution':'LangChain GitHub Releases','policy_reference':'Public GitHub Atom release feed (market/technology intelligence)','retention_days':14,'polling_minutes':120,'content_kind':'release','ai_processing_authorized':True},
+    {'preset_id':'atom-openai-python','name':'OpenAI Python SDK Releases','family':'atom','endpoint':'https://github.com/openai/openai-python/releases.atom','attribution':'OpenAI Python SDK GitHub Releases','policy_reference':'Public GitHub Atom release feed (market/technology intelligence)','retention_days':14,'polling_minutes':120,'content_kind':'release','ai_processing_authorized':True},
+    {'preset_id':'atom-vscode','name':'VS Code Releases','family':'atom','endpoint':'https://github.com/microsoft/vscode/releases.atom','attribution':'Microsoft VS Code GitHub Releases','policy_reference':'Public GitHub Atom release feed (market/technology intelligence)','retention_days':14,'polling_minutes':120,'content_kind':'release','ai_processing_authorized':True},
+    {'preset_id':'atom-fastapi','name':'FastAPI Releases','family':'atom','endpoint':'https://github.com/fastapi/fastapi/releases.atom','attribution':'FastAPI GitHub Releases','policy_reference':'Public GitHub Atom release feed (market/technology intelligence)','retention_days':14,'polling_minutes':120,'content_kind':'release','ai_processing_authorized':True},
+    {'preset_id':'atom-arxiv-ai','name':'arXiv AI Research (cs.AI)','family':'atom','endpoint':'https://rss.arxiv.org/atom/cs.AI','attribution':'arXiv.org cs.AI','policy_reference':'arXiv public Atom syndication feed; attribution required (market/tech research)','retention_days':14,'polling_minutes':240,'content_kind':'paper','ai_processing_authorized':True},
+    {'preset_id':'atom-arxiv-ml','name':'arXiv Machine Learning (cs.LG)','family':'atom','endpoint':'https://rss.arxiv.org/atom/cs.LG','attribution':'arXiv.org cs.LG','policy_reference':'arXiv public Atom syndication feed; attribution required (market/tech research)','retention_days':14,'polling_minutes':240,'content_kind':'paper','ai_processing_authorized':True},
+    {'preset_id':'atom-arxiv-se','name':'arXiv Software Engineering (cs.SE)','family':'atom','endpoint':'https://rss.arxiv.org/atom/cs.SE','attribution':'arXiv.org cs.SE','policy_reference':'arXiv public Atom syndication feed; attribution required (market/tech research)','retention_days':14,'polling_minutes':240,'content_kind':'paper','ai_processing_authorized':True},
+    {'preset_id':'atom-google-dev-yt','name':'Google Developers YouTube Feed','family':'atom','endpoint':'https://www.youtube.com/feeds/videos.xml?channel_id=UC_x5XG1OV2P6uZZ5FSM9Ttw','attribution':'Google for Developers YouTube Atom Feed','policy_reference':'Public YouTube channel Atom feed; derived AI analytics remain gated under YouTube API policy','retention_days':14,'polling_minutes':120,'content_kind':'video','ai_processing_authorized':False},
+]
+
+APPROVED_PRESET_HOSTS = sorted({urlsplit(p['endpoint']).hostname for p in CURATED_FEED_PRESETS if urlsplit(p['endpoint']).hostname})
 
 def reference(url,base=''):
     from app.utils.urls import is_safe_url
@@ -37,14 +66,14 @@ def instant(value):
     except (ValueError,TypeError,OverflowError):return None
 
 def parse(content,config,normalize):
-    if not isinstance(content,bytes) or len(content)>500000:raise ValueError('Unsafe or oversized feed.')
+    if not isinstance(content,bytes) or len(content)>MAX_FEED_BYTES:raise ValueError('Unsafe or oversized feed.')
     try:text=content.decode('utf-16' if content.startswith((b'\xff\xfe',b'\xfe\xff')) else 'utf-8-sig')
     except UnicodeError:raise ValueError('Unsupported feed encoding.') from None
     if re.search(r'<!\s*(?:DOCTYPE|ENTITY)\b',text,re.I):raise ValueError('Unsafe feed declarations.')
     try:root=ET.fromstring(text)
     except ET.ParseError:raise ValueError('Malformed feed.') from None
     nodes=list(root.iter())
-    if len(nodes)>5000:raise ValueError('Feed exceeds the XML node limit.')
+    if len(nodes)>MAX_FEED_NODES:raise ValueError('Feed exceeds the XML node limit.')
     stack=[(root,0)]
     while stack:
         node,depth=stack.pop()
@@ -56,7 +85,8 @@ def parse(content,config,normalize):
         channel=first(root,'channel');entries=children(channel,'item') if channel is not None else []
     elif root.tag=='{http://www.w3.org/1999/02/22-rdf-syntax-ns#}RDF':entries=children(root,'item')
     else:raise ValueError('Document is not a supported RSS or Atom feed.')
-    base=urljoin(config.get('endpoint',''),root.attrib.get(XMLBASE,''));source='Approved Discourse' if config['family']=='discourse' else 'RSS / Atom'
+    base=urljoin(config.get('endpoint',''),root.attrib.get(XMLBASE,''))
+    source='Approved Discourse' if config['family']=='discourse' else 'Atom' if config['family']=='atom' else 'RSS / Atom'
     self_link=None
     for candidate in root:
         if local(candidate)=='link' and candidate.attrib.get('rel')=='self' and candidate.attrib.get('href'):
@@ -94,6 +124,7 @@ def parse(content,config,normalize):
         categories=list(dict.fromkeys(plain(x.attrib.get('term') or ' '.join(x.itertext()),100) for x in children(native,'category')))[:10]
         metadata={'feed_id':config['id'],'feed_name':config['name'],'attribution':config['attribution'],'policy_reference':config['policy_reference'],'retention_days':config['retention_days'],'fetch_method':'public_feed','feed_format':'atom' if atom else 'rss','categories':[x for x in categories if x],'feed_authors':authors[:10],'updated_at':updated,'published_at':published,'observed_time_basis':'published' if published else 'updated','feed_self_url':self_link,'declared_feed_language':next((' '.join(x.itertext())[:30] for x in nodes if local(x)=='language'),None)}
         if config.get('content_kind'):metadata['content_kind']=config['content_kind']
+        if 'ai_processing_authorized' in config:metadata['ai_processing_authorized']=bool(config['ai_processing_authorized'])
         item=normalize(source,config['id']+':'+hashlib.sha256(guid.encode()).hexdigest(),link,plain(value(native,'title'),300),plain(body),observed,**metadata)
         if item:items.append(item)
     # RFC6721 tombstones are explicit removals; a rotated feed window is not.

@@ -13,9 +13,11 @@ import {IntelligenceGraph} from './intelligence-graph';
 import {AssistantWorkspace} from './assistant-panel';
 import {GrowthExperience} from './growth-experience';
 import {UnifiedSettingsCenter} from '@/components/settings/unified-settings-center';
+import {GitHubOAuthCallbackView} from './github-callback';
 export function IntentRadarExperience({route}:{route:string}){
  const access=useRadarCapabilities();
  if(access.error)return <ErrorState message={access.error.message} retry={()=>void access.refetch()}/>;
+ if(route==='integrations/github/callback')return <GitHubOAuthCallbackView/>;
 
  if(route==='growth'||route.startsWith('growth/'))return !access.data?<LoadingSkeleton/>:access.data.growth_enabled?<GrowthExperience route={route}/>:<ErrorState message="Growth Intelligence is not enabled for this workspace."/>;
  if(route.startsWith('monitors'))return <MonitorsExperience route={route}/>;

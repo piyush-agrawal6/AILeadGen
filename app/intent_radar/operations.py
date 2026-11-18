@@ -7,7 +7,7 @@ from app.database.connection import db_session
 from app.database.prospects import now
 from app.intent_radar.permissions import context
 
-CAPS={'hacker_news':22,'stack_exchange':3,'rss':4,'discourse':4}
+CAPS={'hacker_news':30,'stack_exchange':8,'github':24,'youtube':14,'bluesky':14,'rss':4,'discourse':4,'atom':4}
 
 def reserve_source(provider):
     from app.platform.context import current
@@ -33,13 +33,21 @@ def source_health(c):
     for row in rows:history.setdefault(row['provider'],[]).append(row)
     successes={row['provider']:row['last_success'] for row in c.execute("SELECT provider,MAX(updated_at) last_success FROM intent_source_runs WHERE organization_id=? AND status IN ('COMPLETE','NO_RESULTS') GROUP BY provider",(org,)).fetchall()}
     usage={row['provider']:row['reserved_requests'] for row in c.execute('SELECT provider,reserved_requests FROM intent_source_usage WHERE organization_id=? AND day=?',(org,now()[:10])).fetchall()}
+    from app.intent_radar.source_runtime import health as runtime_health
+    from app.intent_radar.bluesky_source import stream_health
+    bsky_stream=None
+    try:bsky_stream=stream_health(c)
+    except Exception:pass
     items=[]
     for provider in catalog(c):
         attempts=history.get(provider['id'],[]);latest=json.loads(attempts[0]['result_json']) if attempts else {};failures=0
         for row in attempts:
             if row['status'] in ('COMPLETE','NO_RESULTS'):break
             failures+=1
-        items.append({'provider':provider['id'],'name':provider['name'],'availability':provider['state'],'state':attempts[0]['status'] if attempts else 'Never checked','last_check':attempts[0]['updated_at'] if attempts else None,'last_success':successes.get(provider['id']),'last_error':None if not attempts or attempts[0]['status'] in ('COMPLETE','NO_RESULTS') else {'code':attempts[0]['status'],'errors':latest.get('errors',[])},'retry_at':latest.get('retry_at'),'quota_remaining':latest.get('quota_remaining'),'consecutive_failures':failures,'failure_count_capped':failures==100,'daily_requests_reserved':usage.get(provider['id'],0),'daily_reservation_limit':get_settings().intent_radar_daily_searches*CAPS[provider['id']],'accounting_basis':'Upper-bound reserved requests; failed transport usage may be unknown.'})
+        obs=runtime_health(c,provider['id'])
+        entry={'provider':provider['id'],'name':provider['name'],'availability':provider['state'],'state':attempts[0]['status'] if attempts else 'Never checked','last_check':attempts[0]['updated_at'] if attempts else None,'last_success':successes.get(provider['id']),'last_error':None if not attempts or attempts[0]['status'] in ('COMPLETE','NO_RESULTS') else {'code':attempts[0]['status'],'errors':latest.get('errors',[])},'retry_at':latest.get('retry_at') or obs.get('retry_at'),'quota_remaining':latest.get('quota_remaining'),'consecutive_failures':failures,'failure_count_capped':failures==100,'daily_requests_reserved':usage.get(provider['id'],0),'daily_reservation_limit':get_settings().intent_radar_daily_searches*CAPS[provider['id']],'accounting_basis':'Upper-bound reserved requests; failed transport usage may be unknown.'}
+        if provider['id']=='bluesky' and bsky_stream:entry['stream_health']=bsky_stream
+        items.append(entry)
     return {'items':items}
 
 def overview(c,*,include_sources=True):

@@ -146,6 +146,13 @@ async def tick():
         try:verified=await asyncio.to_thread(_dispatch_context,item)
         except HTTPException:continue # A revoked candidate must not starve other authorized jobs.
         await asyncio.create_task(launch(item['id']),context=verified)
+    if get_settings().intent_radar_bluesky_enabled and get_settings().intent_radar_bluesky_jetstream_enabled:
+        try:
+            from app.intent_radar.bluesky_source import poll_jetstream
+            await poll_jetstream(max_seconds=6.0,max_events=200,reconnect_attempts=2)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning('Bounded Bluesky Jetstream poll failed during scheduler tick.')
     await asyncio.to_thread(_record_tick,len(pending))
 
 async def loop():

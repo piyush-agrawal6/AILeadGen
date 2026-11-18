@@ -110,6 +110,9 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
 
     async def _dispatch(self, request, call_next):
         if request.url.path in ('/api/billing/webhooks/creem','/api/billing/webhooks/creem/test') and request.method=='POST':return await call_next(request)
+        if request.url.path=='/api/intent-radar/webhooks/github' and request.method=='POST':
+            # GitHub App webhook uses its own bounded raw-body HMAC-SHA256 verification.
+            return await call_next(request)
         if request.url.path=='/api/billing/payments/payu/callback' and request.method=='POST':return await call_next(request)
         if request.url.path=='/api/notifications/webhooks/resend' and request.method=='POST':return await call_next(request)
         if request.url.path=='/api/billing/webhooks/razorpay' and request.method=='POST':

@@ -1,8 +1,8 @@
 from uuid import UUID
 from typing import Literal
 from datetime import date
-from fastapi import APIRouter,Depends,Query,HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter,Depends,Query,HTTPException,Request
+from pydantic import BaseModel,Field
 from starlette.concurrency import run_in_threadpool
 from app.api.dependencies import get_db
 from app.intent_radar import models,service,discovery,providers,ai
@@ -37,6 +37,75 @@ def source_create(body:models.SourceConfig,c=Depends(get_db,scope='function')):
 def source_update(key:UUID,body:models.SourceConfig,c=Depends(get_db,scope='function')):
     from app.intent_radar.connectors import configure
     return configure(c,body,str(key))
+@router.get('/sources/presets')
+def source_presets(c=Depends(get_db,scope='function')):
+    context(c)
+    from app.intent_radar.feeds import CURATED_FEED_PRESETS
+    from app.intent_radar.connectors import configurations
+    from app.config.settings import get_settings
+    from urllib.parse import urlsplit
+    approved=set(x for x in get_settings().intent_radar_approved_feed_hosts.split(';') if x)
+    existing={x['endpoint']:x for x in configurations(c)}
+    return {'items':[{**p,'host_approved':urlsplit(p['endpoint']).hostname in approved,'configured':p['endpoint'] in existing,'enabled':bool(existing.get(p['endpoint'],{}).get('enabled')),'config_id':existing.get(p['endpoint'],{}).get('id')} for p in CURATED_FEED_PRESETS]}
+class PresetToggle(BaseModel):
+    enabled:bool=True
+@router.post('/sources/presets/{preset_id}/enable')
+def source_enable_preset(preset_id:str,body:PresetToggle=PresetToggle(),c=Depends(get_db,scope='function')):
+    from app.intent_radar.connectors import enable_preset
+    return enable_preset(c,preset_id,enabled=body.enabled)
+
+@router.get('/sources/github/status')
+def github_status(c=Depends(get_db,scope='function')):
+    from app.intent_radar.github_source import connection_status
+    return connection_status(c)
+@router.post('/sources/github/oauth/start')
+def github_oauth_start(c=Depends(get_db,scope='function')):
+    from app.intent_radar.github_source import start_oauth
+    return start_oauth(c)
+class GitHubOAuthCallback(BaseModel):
+    code:str=Field(min_length=1,max_length=256)
+    state:str=Field(min_length=1,max_length=256)
+    installation_id:str|None=Field(None,max_length=40)
+@router.post('/sources/github/oauth/callback')
+async def github_oauth_callback(body:GitHubOAuthCallback,c=Depends(get_db,scope='function')):
+    from app.intent_radar.github_source import complete_oauth
+    return await complete_oauth(c,code=body.code,state=body.state,installation_id=body.installation_id)
+class GitHubRepoSelection(BaseModel):
+    repository_ids:list[int]=Field(default_factory=list,max_length=100)
+@router.put('/sources/github/repositories')
+def github_repositories(body:GitHubRepoSelection,c=Depends(get_db,scope='function')):
+    from app.intent_radar.github_source import update_repositories
+    return update_repositories(c,body.repository_ids)
+@router.post('/sources/github/disconnect')
+def github_disconnect(c=Depends(get_db,scope='function')):
+    from app.intent_radar.github_source import disconnect
+    return disconnect(c)
+@router.post('/webhooks/github')
+async def github_webhook(request:Request,c=Depends(get_db,scope='function')):
+    from app.intent_radar.github_source import ingest_webhook
+    raw=await request.body()
+    return ingest_webhook(
+        c,
+        raw_body=raw,
+        delivery_id=request.headers.get('x-github-delivery',''),
+        event_type=request.headers.get('x-github-event',''),
+        signature=request.headers.get('x-hub-signature-256',''),
+    )
+@router.get('/sources/bluesky/stream-health')
+def bluesky_stream_health(c=Depends(get_db,scope='function')):
+    context(c)
+    from app.intent_radar.bluesky_source import stream_health
+    return stream_health(c)
+@router.post('/sources/bluesky/stream-poll')
+async def bluesky_stream_poll(c=Depends(get_db,scope='function')):
+    context(c,True,True)
+    from app.intent_radar.bluesky_source import poll_jetstream
+    return await poll_jetstream(max_seconds=6.0,max_events=200,reconnect_attempts=2)
+@router.get('/sources/youtube/policy')
+def youtube_policy(c=Depends(get_db,scope='function')):
+    context(c)
+    from app.intent_radar.youtube_source import policy_state
+    return policy_state()
 @router.put('/monitors/{key}/schedule')
 def schedule(key:UUID,body:models.Schedule,c=Depends(get_db,scope='function')):
     from app.intent_radar.schedules import update

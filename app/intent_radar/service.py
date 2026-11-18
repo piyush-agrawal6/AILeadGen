@@ -111,6 +111,11 @@ def expire_content(c):
             else:data['items']=remaining;data.pop('etag',None);data.pop('last_modified',None)
             c.execute('UPDATE intent_source_cache SET result_json=? WHERE organization_id=? AND fingerprint=?',(json.dumps(data),org,row['fingerprint']))
     c.execute('INSERT INTO intent_retention_cursors(organization_id,signal_after,cache_after,updated_at) VALUES(?,?,?,?) ON CONFLICT(organization_id) DO UPDATE SET signal_after=excluded.signal_after,cache_after=excluded.cache_after,updated_at=excluded.updated_at',(org,rows[-1]['id'] if len(rows)==1000 else '',caches[-1]['fingerprint'] if len(caches)==1000 else '',now()))
+    try:
+        c.execute('DELETE FROM intent_stream_matches WHERE organization_id=? AND expires_at<=?',(org,now()))
+        c.execute("DELETE FROM intent_provider_cache WHERE expires_at<=? AND state!='FETCHING' AND (scope='public' OR scope LIKE ?)",(now(),'workspace:'+org+'%'))
+    except Exception:
+        pass
     return {'expired_source_items':count,'customer_notes_preserved':True,'scanned':len(rows),'more_signal_batches':len(rows)==1000}
 
 def _listing(c, kind, *, page=1, size=25, search='', status='', category='', source='', min_score=0, monitor_id='', saved='', from_date='', to_date='', sort='newest'):

@@ -107,24 +107,37 @@ class Settings(BaseSettings):
     github_app_client_id:str=''
     github_app_client_secret:SecretStr=SecretStr('')
     github_app_webhook_secret:SecretStr=SecretStr('')
+    github_oauth_redirect_uri:str='https://app.planebyte.com/intent-radar/integrations/github/callback'
     github_api_version:str='2026-03-10'
     intent_radar_github_enabled:bool=False
     intent_radar_github_public_search_enabled:bool=False
     intent_radar_github_monitoring_enabled:bool=False
     intent_radar_github_webhooks_enabled:bool=False
     youtube_api_key:SecretStr=SecretStr('')
+    youtube_daily_search_limit:int=Field(80,ge=1,le=1000)
+    youtube_workspace_daily_search_limit:int=Field(10,ge=1,le=200)
+    youtube_daily_unit_limit:int=Field(9000,ge=100,le=100000)
+    youtube_workspace_daily_unit_limit:int=Field(500,ge=10,le=20000)
     intent_radar_youtube_enabled:bool=False
     intent_radar_youtube_search_enabled:bool=False
     intent_radar_youtube_comments_enabled:bool=False
     intent_radar_youtube_monitoring_enabled:bool=False
     intent_radar_youtube_ai_analytics_enabled:bool=False
     intent_radar_youtube_cross_source_analytics_enabled:bool=False
-    bluesky_api_base_url:str='https://public.api.bsky.app'
+    bluesky_api_base_url:str='https://api.bsky.app'
     bluesky_jetstream_url:str='wss://jetstream.us-east.bsky.network/xrpc/network.bsky.jetstream.subscribeEvents'
     bluesky_identifier:str=''
     bluesky_app_password:SecretStr=SecretStr('')
     intent_radar_bluesky_enabled:bool=False
     intent_radar_bluesky_jetstream_enabled:bool=False
+
+    @field_validator('bluesky_jetstream_url',mode='before')
+    @classmethod
+    def normalize_jetstream_url(cls,value):
+        raw=str(value or '').strip().rstrip('/')
+        if not raw:return 'wss://jetstream.us-east.bsky.network/xrpc/network.bsky.jetstream.subscribeEvents'
+        if '/xrpc/' not in raw:return raw+'/xrpc/network.bsky.jetstream.subscribeEvents'
+        return raw
     intent_radar_schedules_enabled:bool=False
     intent_radar_min_schedule_hours:int=Field(12,ge=6,le=24)
     intent_radar_ai_daily_calls:int=Field(10,ge=1,le=50)

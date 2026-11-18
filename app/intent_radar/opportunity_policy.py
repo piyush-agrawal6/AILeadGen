@@ -11,8 +11,11 @@ OBJECT=re.compile(r'\b(tool|software|platform|provider|vendor|service|agency|con
 
 def assess(signal):
     source=(signal.get('title','')+'\n'+signal.get('excerpt',''));evidence=signal.get('evidence') or {};ranking=signal.get('ranking') or {}
+    provenance=evidence.get('provenance') or {}
     reasons=[];quote=None
     if not signal.get('available'):reasons.append('Current source evidence is unavailable or expired.')
+    if provenance.get('content_kind') in ('release','paper') or signal.get('category')=='Market / technology intelligence':
+        reasons.append('Technical releases and research papers are market/technology intelligence, not buyer opportunities.')
     if NEGATIVE.search(source) or evidence.get('penalties') or ranking.get('excluded') or ranking.get('scoring',{}).get('dimensions',{}).get('contradictory_evidence',0)<0:
         reasons.append('Negative or noncommercial evidence requires review before promotion.')
     for match in REQUEST.finditer(source):

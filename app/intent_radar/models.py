@@ -3,7 +3,20 @@ from typing import Annotated, Literal
 from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
-Category = Literal['Recommendation request', 'Problem / pain point', 'Product comparison', 'Alternative search', 'Tool / service evaluation', 'Purchase consideration', 'General discussion', 'Uncertain']
+Category = Literal[
+    'Recommendation request',
+    'Problem / pain point',
+    'Product comparison',
+    'Alternative search',
+    'Tool / service evaluation',
+    'Purchase consideration',
+    'Feature request',
+    'Competitor activity',
+    'Market / technology intelligence',
+    'General discussion',
+    'Uncertain',
+]
+SourceId = Literal['hacker_news','stack_exchange','github','youtube','bluesky','discourse','rss','atom']
 Term = Annotated[str, Field(min_length=1, max_length=100)]
 Language = Literal['en','es','fr','de','pt','hi','ja']
 
@@ -18,19 +31,31 @@ class Search(Strict):
     phrases: list[Term] = Field(default_factory=list, max_length=12)
     offerings: str = Field('', max_length=500)
     source: Literal['Hacker News'] = 'Hacker News'
-    sources: list[Literal['hacker_news','stack_exchange','rss','discourse']] = Field(default_factory=lambda:['hacker_news'],min_length=1,max_length=4)
-    hn_feeds: list[Literal['ask','show','new','top','best','jobs']] = Field(default_factory=lambda:['ask'],min_length=1,max_length=3)
+    sources: list[SourceId] = Field(default_factory=lambda:['hacker_news'],min_length=1,max_length=8)
+    hn_feeds: list[Literal['ask','show','new','top','best','jobs']] = Field(default_factory=lambda:['ask'],min_length=1,max_length=6)
     hn_comments: bool = False
-    sites: list[Term] = Field(default_factory=lambda:['stackoverflow'],max_length=3)
+    sites: list[Term] = Field(default_factory=lambda:['stackoverflow'],max_length=5)
     tags: list[Term] = Field(default_factory=list,max_length=5)
-    feed_ids: list[UUID] = Field(default_factory=list,max_length=4)
+    se_include_answers: bool = False
+    se_include_comments: bool = False
+    github_kinds: list[Literal['repositories','issues','discussions','pull_requests','releases']] = Field(default_factory=lambda:['issues','discussions'],min_length=1,max_length=5)
+    github_repos: list[Term] = Field(default_factory=list,max_length=5)
+    github_comments: bool = False
+    github_scope: Literal['public','connected'] = 'public'
+    youtube_mode: Literal['videos','channels','both'] = 'videos'
+    youtube_comments: bool = True
+    youtube_channel_ids: list[Term] = Field(default_factory=list,max_length=3)
+    bluesky_mode: Literal['search','profiles','feeds'] = 'search'
+    bluesky_handles: list[Term] = Field(default_factory=list,max_length=5)
+    bluesky_threads: bool = False
+    feed_ids: list[UUID] = Field(default_factory=list,max_length=10)
     icp_id: UUID | None = None
     semantic: bool = False
     semantic_criteria: list[Term] = Field(default_factory=list,max_length=12)
     semantic_exclusions: list[Term] = Field(default_factory=list,max_length=12)
     semantic_analysis_limit: int = Field(3,ge=1,le=10)
     summary_language: Language | None = None
-    categories: list[Category] = Field(default_factory=list, max_length=8)
+    categories: list[Category] = Field(default_factory=list, max_length=11)
     language: Literal['Any / unverified','en','es','fr','de','pt','hi','ja'] = 'Any / unverified'
     geography: Literal['Any / unknown'] = 'Any / unknown'
     from_date: date | None = None
@@ -42,6 +67,8 @@ class Search(Strict):
         if self.from_date and self.to_date and self.from_date > self.to_date: raise ValueError('The start date must not follow the end date.')
         self.sources=list(dict.fromkeys(self.sources))
         self.hn_feeds=list(dict.fromkeys(self.hn_feeds))
+        self.github_kinds=list(dict.fromkeys(self.github_kinds))
+        self.sites=list(dict.fromkeys(s.casefold() for s in self.sites))
         if (self.semantic_criteria or self.semantic_exclusions or self.summary_language or self.language!='Any / unverified') and not self.semantic:
             raise ValueError('Semantic/language criteria require explicitly approved semantic analysis.')
         return self
@@ -50,7 +77,7 @@ class SourceResult(BaseModel):
     """Validated bounded adapter contract; provider metadata is retained."""
     model_config=ConfigDict(extra='allow',strict=True)
     items:list[dict]=Field(max_length=200)
-    requests:int=Field(ge=0,le=33)
+    requests:int=Field(ge=0,le=60)
     scanned:int=Field(ge=0,le=200)
     next_offset:int | None=None
     coverage:str=Field(min_length=1,max_length=2000)
@@ -88,13 +115,15 @@ class Schedule(Strict):
 
 class SourceConfig(Strict):
     name: str = Field(min_length=1,max_length=120)
-    family: Literal['rss','discourse']
+    family: Literal['rss','discourse','atom']
     endpoint: str = Field(min_length=10,max_length=1000)
     policy_reference: str = Field(min_length=10,max_length=1000)
     attribution: str = Field(min_length=1,max_length=300)
     retention_days: int = Field(7,ge=1,le=30)
     polling_minutes: int = Field(60,ge=60,le=1440)
     enabled: bool = False
+    ai_processing_authorized: bool = False
+    content_kind: Literal['question','answer','comment','story','job','release','repository','issue','discussion','pull_request','article','paper','video','channel','playlist','post'] | None = None
 
 class AnalysisRequest(Strict):
     icp_id: UUID | None = None
@@ -110,14 +139,14 @@ class Attribution(Strict):
     author: str = Field('',max_length=100)
     profile_url: str | None = Field(None,max_length=1000)
     license: str = Field('CC BY-SA',max_length=100)
-    source: Literal['Stack Exchange'] = 'Stack Exchange'
+    source: Literal['Stack Exchange','GitHub','YouTube','Bluesky','Hacker News','Approved Discourse','RSS / Atom','Atom'] = 'Stack Exchange'
 
 class Provenance(Strict):
     site: str | None = Field(None,max_length=100)
     tags: list[Term] = Field(default_factory=list,max_length=10)
     updated_at: int | str | None = None
     attribution: Attribution | str | None = None
-    fetch_method: Literal['official_api','public_feed','official_hn'] | None = None
+    fetch_method: Literal['official_api','official_graphql','official_jetstream','public_feed','official_hn','github_webhook'] | None = None
     feed_id: str | None = Field(None,max_length=100)
     feed_name: str | None = Field(None,max_length=120)
     policy_reference: str | None = Field(None,max_length=1000)
@@ -130,6 +159,19 @@ class Provenance(Strict):
     published_at: str | None = Field(None,max_length=60)
     observed_time_basis: Literal['published','updated'] | None = None
     content_kind: Literal['question','answer','comment','story','job','release','repository','issue','discussion','pull_request','article','paper','video','channel','playlist','post'] | None = None
+    repo: str | None = Field(None,max_length=200)
+    channel_id: str | None = Field(None,max_length=100)
+    video_id: str | None = Field(None,max_length=60)
+    author_handle: str | None = Field(None,max_length=120)
+    is_answered: bool | None = None
+    accepted_answer_id: int | None = None
+    answer_count: int | None = None
+    visibility: Literal['public','private_connected'] | None = None
+    ai_processing_authorized: bool | None = None
+    ai_policy_note: str | None = Field(None,max_length=300)
+    parent_id: str | None = Field(None,max_length=120)
+    depth: int | None = Field(None,ge=0,le=4)
+    metrics: dict[str,int] | None = None
 
 
 class Discovery(Strict):
