@@ -131,7 +131,7 @@ class AnalysisRequest(Strict):
     summary_language: Language | None = None
 
 class Feedback(Strict):
-    label: Literal['Relevant','Not relevant','Wrong intent category','Not a target customer','Too old','Duplicate','Helpful recommendation','Incorrect AI summary']
+    label: Literal['Relevant','Not relevant','Unsure','Wrong intent category','Not a target customer','Too old','Duplicate','Helpful recommendation','Incorrect AI summary']
     note: str = Field('',max_length=1000)
     active: bool = True
 
@@ -195,12 +195,17 @@ class Discovery(Strict):
 
 class SignalUpdate(Strict):
     revision: int = Field(ge=1)
-    status: Literal['New', 'Reviewed', 'Saved', 'Dismissed', 'Needs Review']
+    status: Literal['New', 'In Review', 'Reviewed', 'Qualified', 'Saved', 'Dismissed', 'Needs Review']
     notes: str | None = Field(None, max_length=4000)
 
 class Bulk(Strict):
     ids: list[UUID] = Field(min_length=1, max_length=50)
-    action: Literal['save', 'review', 'dismiss', 'opportunity']
+    action: Literal['save', 'unsave', 'review', 'qualify', 'dismiss', 'opportunity']
+
+class OpportunityCreate(Strict):
+    priority: Literal['High', 'Medium', 'Low'] = 'Medium'
+    notes: str = Field('', max_length=4000)
+    next_action: str = Field('Review context', max_length=300)
 
 class OpportunityUpdate(Strict):
     revision: int = Field(ge=1)

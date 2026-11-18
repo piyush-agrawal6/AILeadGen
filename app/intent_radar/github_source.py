@@ -438,66 +438,98 @@ def process_github_event(c, event_id: str) -> str:
         return 'FAILED'
 
 
+ALLOWED_WEBHOOK_ACTIONS: dict[str, set[str]] = {
+    'issues': {'opened', 'edited', 'reopened', ''},
+    'issue_comment': {'created', 'edited', ''},
+    'discussion': {'created', 'edited', ''},
+    'discussion_comment': {'created', 'edited', ''},
+    'release': {'published', 'released', 'edited', ''},
+    'pull_request': {'opened', 'edited', 'reopened', 'ready_for_review', ''},
+}
+
+
 def _normalize_webhook_record(event_type: str, payload: dict) -> dict | None:
-    repo = (payload.get('repository') or {}).get('full_name') or ''
-    is_private = bool((payload.get('repository') or {}).get('private'))
+    action = str(payload.get('action') or '').strip().lower()
+    allowed_actions = ALLOWED_WEBHOOK_ACTIONS.get(event_type)
+    if allowed_actions is None or action not in allowed_actions:
+        return None
+    repo_obj = payload.get('repository') or {}
+    repo = str(repo_obj.get('full_name') or '').strip()
+    is_private = bool(repo_obj.get('private'))
     visibility = 'private_connected' if is_private else 'public'
-    if event_type == 'issues' and payload.get('issue'):
+    if event_type == 'issues' and isinstance(payload.get('issue'), dict):
         it = payload['issue']
+        if not it.get('id'):
+            return None
         return connectors.normalized(
-            'GitHub', f"issue:{it.get('id')}", it.get('html_url', ''), it.get('title', ''), it.get('body') or '', it.get('created_at') or now(),
+            'GitHub', f"issue:{it.get('id')}", it.get('html_url', ''), it.get('title', ''), it.get('body') or '', it.get('created_at') or it.get('updated_at') or now(),
             fetch_method='github_webhook', content_kind='issue', repo=repo, visibility=visibility,
             attribution={'author': providers.text((it.get('user') or {}).get('login'), 100), 'profile_url': (it.get('user') or {}).get('html_url'), 'license': 'GitHub API', 'source': 'GitHub'},
-            tags=[lb.get('name', '') for lb in (it.get('labels') or []) if lb.get('name')][:10],
+            tags=[lb.get('name', '') for lb in (it.get('labels') or []) if isinstance(lb, dict) and lb.get('name')][:10],
         )
-    if event_type == 'issue_comment' and payload.get('comment') and payload.get('issue'):
+    if event_type == 'issue_comment' and isinstance(payload.get('comment'), dict) and isinstance(payload.get('issue'), dict):
         cm, it = payload['comment'], payload['issue']
+        if not cm.get('id'):
+            return None
+        title = it.get('title') or (f"Comment on {repo}#{it.get('number')}" if repo and it.get('number') else 'GitHub issue comment')
         return connectors.normalized(
-            'GitHub', f"issue_comment:{cm.get('id')}", cm.get('html_url', ''), it.get('title', ''), cm.get('body') or '', cm.get('created_at') or now(),
-            fetch_method='github_webhook', content_kind='comment', repo=repo, visibility=visibility, parent_id=str(it.get('id')),
+            'GitHub', f"issue_comment:{cm.get('id')}", cm.get('html_url', ''), title, cm.get('body') or '', cm.get('created_at') or cm.get('updated_at') or now(),
+            fetch_method='github_webhook', content_kind='comment', repo=repo, visibility=visibility, parent_id=str(it.get('id') or ''),
             attribution={'author': providers.text((cm.get('user') or {}).get('login'), 100), 'profile_url': (cm.get('user') or {}).get('html_url'), 'license': 'GitHub API', 'source': 'GitHub'},
         )
-    if event_type == 'discussion' and payload.get('discussion'):
+    if event_type == 'discussion' and isinstance(payload.get('discussion'), dict):
         ds = payload['discussion']
+        if not ds.get('id'):
+            return None
         return connectors.normalized(
-            'GitHub', f"discussion:{ds.get('id')}", ds.get('html_url', ''), ds.get('title', ''), ds.get('body') or '', ds.get('created_at') or now(),
+            'GitHub', f"discussion:{ds.get('id')}", ds.get('html_url', ''), ds.get('title', ''), ds.get('body') or '', ds.get('created_at') or ds.get('updated_at') or now(),
             fetch_method='github_webhook', content_kind='discussion', repo=repo, visibility=visibility,
             attribution={'author': providers.text((ds.get('user') or {}).get('login'), 100), 'profile_url': (ds.get('user') or {}).get('html_url'), 'license': 'GitHub API', 'source': 'GitHub'},
         )
-    if event_type == 'discussion_comment' and payload.get('comment') and payload.get('discussion'):
+    if event_type == 'discussion_comment' and isinstance(payload.get('comment'), dict) and isinstance(payload.get('discussion'), dict):
         cm, ds = payload['comment'], payload['discussion']
+        if not cm.get('id'):
+            return None
+        title = ds.get('title') or (f"Discussion comment in {repo}" if repo else 'GitHub discussion comment')
         return connectors.normalized(
-            'GitHub', f"discussion_comment:{cm.get('id')}", cm.get('html_url', ''), ds.get('title', ''), cm.get('body') or '', cm.get('created_at') or now(),
-            fetch_method='github_webhook', content_kind='comment', repo=repo, visibility=visibility, parent_id=str(ds.get('id')),
+            'GitHub', f"discussion_comment:{cm.get('id')}", cm.get('html_url', ''), title, cm.get('body') or '', cm.get('created_at') or cm.get('updated_at') or now(),
+            fetch_method='github_webhook', content_kind='comment', repo=repo, visibility=visibility, parent_id=str(ds.get('id') or ''),
             attribution={'author': providers.text((cm.get('user') or {}).get('login'), 100), 'profile_url': (cm.get('user') or {}).get('html_url'), 'license': 'GitHub API', 'source': 'GitHub'},
         )
-    if event_type == 'release' and payload.get('release'):
+    if event_type == 'release' and isinstance(payload.get('release'), dict):
         rl = payload['release']
+        if not rl.get('id'):
+            return None
+        rel_name = rl.get('name') or rl.get('tag_name') or 'release'
+        title = f"{repo} {rel_name}".strip() if repo else rel_name
         return connectors.normalized(
-            'GitHub', f"release:{rl.get('id')}", rl.get('html_url', ''), rl.get('name') or rl.get('tag_name') or repo, rl.get('body') or '', rl.get('published_at') or rl.get('created_at') or now(),
+            'GitHub', f"release:{rl.get('id')}", rl.get('html_url', ''), title, rl.get('body') or rel_name, rl.get('published_at') or rl.get('created_at') or now(),
             fetch_method='github_webhook', content_kind='release', repo=repo, visibility=visibility,
             attribution={'author': providers.text((rl.get('author') or {}).get('login'), 100), 'profile_url': (rl.get('author') or {}).get('html_url'), 'license': 'GitHub API', 'source': 'GitHub'},
         )
-    if event_type == 'pull_request' and payload.get('pull_request'):
+    if event_type == 'pull_request' and isinstance(payload.get('pull_request'), dict):
         pr = payload['pull_request']
+        if not pr.get('id'):
+            return None
         return connectors.normalized(
-            'GitHub', f"pr:{pr.get('id')}", pr.get('html_url', ''), pr.get('title', ''), pr.get('body') or '', pr.get('created_at') or now(),
+            'GitHub', f"pull_request:{pr.get('id')}", pr.get('html_url', ''), pr.get('title', ''), pr.get('body') or '', pr.get('created_at') or pr.get('updated_at') or now(),
             fetch_method='github_webhook', content_kind='pull_request', repo=repo, visibility=visibility,
             attribution={'author': providers.text((pr.get('user') or {}).get('login'), 100), 'profile_url': (pr.get('user') or {}).get('html_url'), 'license': 'GitHub API', 'source': 'GitHub'},
         )
     return None
 
 
-def _persist_webhook_signal(c, organization_id: str, raw: dict):
+def _persist_webhook_signal(c, organization_id: str, raw: dict) -> int:
     from app.intent_radar import models, classification
     monitors = c.execute("SELECT id,created_by,configuration_json FROM intent_monitors WHERE organization_id=? AND status='Active'", (organization_id,)).fetchall()
+    matched_count = 0
     for m in monitors:
         cfg = json.loads(m['configuration_json'])
         if 'github' not in (cfg.get('sources') or []):
             continue
         query = models.Search.model_validate(cfg)
-        repo = raw.get('provenance', {}).get('repo', '')
-        if query.github_repos and repo and repo.casefold() not in {r.casefold() for r in query.github_repos}:
+        repo = (raw.get('provenance') or {}).get('repo') or ''
+        if query.github_repos and (not repo or repo.casefold() not in {r.casefold() for r in query.github_repos}):
             continue
         item = classification.classify(raw, query)
         if not item:
@@ -509,6 +541,7 @@ def _persist_webhook_signal(c, organization_id: str, raw: dict):
             (signal_id, organization_id, item['source'], item['source_record_id'], item['source_url'], item['title'], item['excerpt'], item['observed_at'], item['retrieved_at'], item['category'], item['score'], json.dumps(item['evidence'])),
         )
         linked = c.execute('INSERT INTO intent_monitor_signals(organization_id,monitor_id,signal_id,matched_at) VALUES(?,?,?,?) ON CONFLICT(organization_id,monitor_id,signal_id) DO NOTHING', (organization_id, m['id'], signal_id, now())).rowcount
+        matched_count += 1
         if linked:
             alert_id = str(uuid.uuid5(uuid.NAMESPACE_URL, organization_id + ':intent-alert:match:' + m['id'] + ':' + signal_id))
             inserted_alert = c.execute(
@@ -517,6 +550,7 @@ def _persist_webhook_signal(c, organization_id: str, raw: dict):
             ).rowcount
             if inserted_alert and m['created_by']:
                 c.execute('INSERT INTO workspace_notifications(id,organization_id,user_id,kind,entity_id,created_at) VALUES(?,?,?,?,?,?)', (str(uuid.uuid4()), organization_id, m['created_by'], 'INTENT_RADAR', alert_id, now()))
+    return matched_count
 
 
 class GitHubCollector:

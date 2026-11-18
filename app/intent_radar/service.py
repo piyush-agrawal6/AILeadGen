@@ -51,8 +51,238 @@ def decode(row):
     item.pop('fingerprint', None)
     return item
 
+HIGH_INTENT_SQL = (
+    "("
+    "category <> 'Market / technology intelligence' AND ("
+    "EXISTS(SELECT 1 FROM intent_rankings hr WHERE hr.organization_id=intent_signals.organization_id AND hr.signal_id=intent_signals.id "
+    "AND (hr.explanation_json LIKE '%\"intent_strength\": \"Explicit evidence\"%' OR hr.explanation_json LIKE '%\"intent_strength\":\"Explicit evidence\"%') "
+    "AND hr.explanation_json NOT LIKE '%\"excluded\": [\"%' AND hr.explanation_json NOT LIKE '%\"excluded\":[\"%') "
+    "OR ("
+    "category IN ('Recommendation request','Product comparison','Alternative search','Tool / service evaluation','Purchase consideration') "
+    "AND (evidence_json LIKE '%\"intent_phrase\": \"%' OR evidence_json LIKE '%\"intent_phrase\":\"%') "
+    "AND (evidence_json LIKE '%\"penalties\": []%' OR evidence_json LIKE '%\"penalties\":[]%' OR evidence_json NOT LIKE '%\"penalties\"%')"
+    ")"
+    "))"
+)
+
+def _extract_buying_intent_and_icp(item, latest_analysis=None):
+    """Derive truthful buying-intent and ICP-fit summaries without fabricating unassessed values."""
+    if latest_analysis:
+        structured = latest_analysis.get('structured')
+        if not structured and latest_analysis.get('interpretation'):
+            from app.intent_radar import intelligence
+            try:
+                interp = intelligence.Interpretation.model_validate(latest_analysis['interpretation'])
+                structured = intelligence.structured_summary(item, interp, latest_analysis.get('scoring') or {}, latest_analysis.get('icp'))
+            except Exception:
+                structured = None
+        if structured and structured.get('buying_intent'):
+            icp_label = structured.get('icp_fit') or 'Unassessed — no ICP selected'
+            icp_tier = 'Unassessed'
+            if icp_label.startswith('Aligned'):
+                icp_tier = 'Match'
+            elif icp_label.startswith('Partial mismatch'):
+                icp_tier = 'Mismatch'
+            elif latest_analysis.get('icp') and 'Possible' in icp_label:
+                icp_tier = 'Possible'
+            return {
+                'buying_intent': structured['buying_intent'],
+                'buying_intent_basis': 'ai_assessed',
+                'icp_fit': icp_tier,
+                'icp_fit_detail': icp_label,
+                'has_analysis': True,
+                'latest_analysis_at': latest_analysis.get('analysis_at'),
+                'latest_analysis_summary': structured.get('summary'),
+                'latest_analysis_mode': latest_analysis.get('mode'),
+            }
+    return {
+        'buying_intent': None,
+        'buying_intent_basis': 'unassessed',
+        'icp_fit': 'Unassessed',
+        'icp_fit_detail': 'Not assessed — run Analyze Signal with an ICP to evaluate fit.',
+        'has_analysis': False,
+        'latest_analysis_at': None,
+        'latest_analysis_summary': None,
+        'latest_analysis_mode': None,
+    }
+
+
+def _hydrate_signal_metadata(c, org: str, items: list[dict], actor: str | None = None):
+    if not items:
+        return items
+    ids = [i['id'] for i in items]
+    marks = ','.join('?' for _ in ids)
+    links: dict[str, list[dict]] = {key: [] for key in ids}
+    for r in c.execute(
+        'SELECT x.signal_id,m.id,m.name FROM intent_monitor_signals x '
+        'JOIN intent_monitors m ON m.id=x.monitor_id AND m.organization_id=x.organization_id '
+        'WHERE x.organization_id=? AND x.signal_id IN (' + marks + ')',
+        [org, *ids],
+    ).fetchall():
+        links[r['signal_id']].append({'id': r['id'], 'name': r['name']})
+
+    saved_ids = {
+        r[0]
+        for r in c.execute(
+            'SELECT signal_id FROM intent_saved_signals WHERE organization_id=? AND signal_id IN (' + marks + ')',
+            [org, *ids],
+        ).fetchall()
+    }
+
+    opps: dict[str, dict] = {}
+    for r in c.execute(
+        'SELECT signal_id,id,status,priority FROM intent_opportunities WHERE organization_id=? AND signal_id IN (' + marks + ')',
+        [org, *ids],
+    ).fetchall():
+        opps[r['signal_id']] = {'id': r['id'], 'status': r['status'], 'priority': r['priority']}
+
+    latest_analyses: dict[str, dict] = {}
+    for r in c.execute(
+        'SELECT signal_id,analysis_json,created_at FROM intent_analyses '
+        'WHERE organization_id=? AND signal_id IN (' + marks + ') ORDER BY created_at DESC',
+        [org, *ids],
+    ).fetchall():
+        sid = r['signal_id']
+        if sid not in latest_analyses:
+            try:
+                latest_analyses[sid] = json.loads(r['analysis_json'])
+            except Exception:
+                pass
+
+    actor_feedback: dict[str, dict] = {}
+    if actor:
+        for r in c.execute(
+            'SELECT signal_id,label,note,active,updated_at FROM intent_feedback '
+            'WHERE organization_id=? AND actor=? AND signal_id IN (' + marks + ')',
+            [org, actor, *ids],
+        ).fetchall():
+            if r['active']:
+                actor_feedback[r['signal_id']] = {'label': r['label'], 'note': r['note'], 'updated_at': r['updated_at']}
+
+    discovery_ids = list(dict.fromkeys(
+        str(i.get('evidence', {}).get('discovery_id'))
+        for i in items
+        if i.get('evidence', {}).get('discovery_id')
+    ))
+    discovery_titles: dict[str, str] = {}
+    if discovery_ids:
+        dmarks = ','.join('?' for _ in discovery_ids)
+        try:
+            for r in c.execute(
+                'SELECT discovery_id,title FROM intent_discovery_runs_meta '
+                'WHERE organization_id=? AND discovery_id IN (' + dmarks + ')',
+                [org, *discovery_ids],
+            ).fetchall():
+                if r['title']:
+                    discovery_titles[r['discovery_id']] = r['title']
+        except Exception:
+            pass
+
+    for item in items:
+        sid = item['id']
+        item['monitors'] = links[sid]
+        item['saved'] = sid in saved_ids
+        opp = opps.get(sid)
+        item['opportunity_id'] = opp['id'] if opp else None
+        item['opportunity_status'] = opp['status'] if opp else None
+        disc_id = item.get('evidence', {}).get('discovery_id')
+        item['discovery_id'] = str(disc_id) if disc_id else None
+        item['discovery_title'] = discovery_titles.get(str(disc_id)) if disc_id else None
+        fb = actor_feedback.get(sid)
+        item['feedback_label'] = fb['label'] if fb else None
+        item.update(_extract_buying_intent_and_icp(item, latest_analyses.get(sid)))
+    return items
+
+
+def _signal_activity(c, org: str, item: dict) -> list[dict]:
+    key = item['id']
+    events: list[dict] = []
+    prov = (item.get('evidence') or {}).get('provenance') or {}
+    fetch_method = prov.get('fetch_method') or 'public_source'
+    events.append({
+        'kind': 'collected',
+        'title': f"Collected from {item.get('source', 'public source')}",
+        'detail': f"Via {str(fetch_method).replace('_', ' ')}" + (f" · {prov.get('repo')}" if prov.get('repo') else ''),
+        'actor': None,
+        'at': item.get('retrieved_at') or item.get('observed_at'),
+    })
+    saved_row = c.execute(
+        'SELECT saved_by,saved_at,collection FROM intent_saved_signals WHERE organization_id=? AND signal_id=?',
+        (org, key),
+    ).fetchone()
+    if saved_row:
+        events.append({
+            'kind': 'saved',
+            'title': 'Saved to research bookmarks',
+            'detail': f"Collection: {saved_row['collection'] or 'Inbox'}",
+            'actor': saved_row['saved_by'],
+            'at': saved_row['saved_at'],
+        })
+    for r in c.execute(
+        'SELECT created_at,analysis_json FROM intent_analyses WHERE organization_id=? AND signal_id=? ORDER BY created_at DESC LIMIT 5',
+        (org, key),
+    ).fetchall():
+        try:
+            data = json.loads(r['analysis_json'])
+            mode = data.get('mode') or 'Analysis'
+            model = data.get('model') or ''
+            events.append({
+                'kind': 'analysis',
+                'title': f"AI analysis completed ({mode})",
+                'detail': model or 'Evidence-grounded evaluation',
+                'actor': None,
+                'at': r['created_at'],
+            })
+        except Exception:
+            pass
+    for r in c.execute(
+        'SELECT actor,label,note,active,updated_at FROM intent_feedback WHERE organization_id=? AND signal_id=? ORDER BY updated_at DESC LIMIT 10',
+        (org, key),
+    ).fetchall():
+        events.append({
+            'kind': 'feedback',
+            'title': f"Reviewer feedback: {r['label']}" + ('' if r['active'] else ' (disabled)'),
+            'detail': r['note'] or '',
+            'actor': r['actor'],
+            'at': r['updated_at'],
+        })
+    opp_row = c.execute(
+        'SELECT id,status,priority,created_by,created_at FROM intent_opportunities WHERE organization_id=? AND signal_id=?',
+        (org, key),
+    ).fetchone()
+    if opp_row:
+        events.append({
+            'kind': 'opportunity',
+            'title': f"Linked opportunity ({opp_row['status']}, {opp_row['priority']} priority)",
+            'detail': opp_row['id'],
+            'actor': opp_row['created_by'],
+            'at': opp_row['created_at'],
+        })
+    for r in c.execute(
+        "SELECT actor,action,created_at FROM audit_log WHERE organization_id=? AND entity=? AND action LIKE 'INTENT_RADAR_%' ORDER BY created_at DESC LIMIT 10",
+        (org, key),
+    ).fetchall():
+        label_map = {
+            'INTENT_RADAR_SIGNAL_REVIEWED': 'Review status / notes updated',
+            'INTENT_RADAR_BOOKMARK_UPDATED': 'Bookmark updated',
+            'INTENT_RADAR_FEEDBACK_UPDATED': 'Feedback updated',
+            'INTENT_RADAR_SOURCE_CONTENT_WITHDRAWN': 'Source content withdrawn',
+        }
+        if r['action'] in label_map:
+            events.append({
+                'kind': 'audit',
+                'title': label_map[r['action']],
+                'detail': '',
+                'actor': r['actor'],
+                'at': r['created_at'],
+            })
+    events.sort(key=lambda e: str(e.get('at') or ''), reverse=True)
+    return events[:30]
+
+
 def get(c, kind, key):
-    org = context(c).organization_id
+    ctx = context(c)
+    org = ctx.organization_id
     table = TABLES[kind]
     row = c.execute(f'SELECT * FROM {table} WHERE organization_id=? AND id=?', (org, key)).fetchone()
     if not row: raise HTTPException(404, 'Intent Radar record not found.')
@@ -60,9 +290,9 @@ def get(c, kind, key):
     if kind == 'signals':
         if expired(item,preferences(c)['source_retention_days']):
             item.update(available=0,title='Source item unavailable',excerpt='',evidence={})
-        item['monitors'] = [dict(r) for r in c.execute('SELECT m.id,m.name FROM intent_monitors m JOIN intent_monitor_signals x ON x.monitor_id=m.id AND x.organization_id=m.organization_id WHERE x.organization_id=? AND x.signal_id=?', (org, key)).fetchall()]
-        item['saved'] = bool(c.execute('SELECT 1 FROM intent_saved_signals WHERE organization_id=? AND signal_id=?', (org, key)).fetchone())
         ranked_signal(c,item)
+        _hydrate_signal_metadata(c, org, [item], actor=ctx.actor)
+        item['activity'] = _signal_activity(c, org, item)
     if kind=='opportunities':
         signal=get(c,'signals',item['signal_id']);item['score']=signal['score'];item['ranking']=signal['ranking'];item['opportunity_eligibility']=signal['opportunity_eligibility']
     return item
@@ -148,25 +378,95 @@ def _listing(c, kind, *, page=1, size=25, search='', status='', category='', sou
 
 def listing(c,kind,**filters):
     if kind not in ('signals','opportunities','alerts'):return _listing(c,kind,**filters)
-    org=context(c).organization_id;page=filters.get('page',1);size=filters.get('size',25)
+    ctx=context(c);org=ctx.organization_id;page=filters.get('page',1);size=filters.get('size',25)
     if not 1<=page<=10000 or not 1<=size<=100:raise HTTPException(422,'Bounded pagination required.')
     where=['organization_id=?'];args=[org];sort=filters.get('sort','newest')
     if filters.get('search'):
-        field='title' if kind in ('signals','alerts') else 'notes'
-        where.append('LOWER('+field+') LIKE ?');args.append('%'+filters['search'].casefold()+'%')
+        qtext = '%'+filters['search'].casefold()+'%'
+        if kind == 'signals':
+            where.append('(LOWER(title) LIKE ? OR LOWER(excerpt) LIKE ? OR LOWER(source) LIKE ?)')
+            args.extend([qtext, qtext, qtext])
+        else:
+            field='title' if kind=='alerts' else 'notes'
+            where.append('LOWER('+field+') LIKE ?');args.append(qtext)
     if filters.get('status') and kind!='alerts':where.append('status=?');args.append(filters['status'])
+    view_counts = None
     if kind=='signals':
+        retention_days = preferences(c)['source_retention_days']
+        retention,retention_args=retention_sql(c,retention_days)
         where+=['available=1',rank_expression()+'>=?'];args.append(filters.get('min_score',0))
-        retention,retention_args=retention_sql(c,preferences(c)['source_retention_days']);where.append(retention);args.extend(retention_args)
+        where.append(retention);args.extend(retention_args)
+
+        view = filters.get('view') or ''
+        if view == 'needs_review':
+            where.append("status IN ('New','Needs Review','In Review')")
+        elif view == 'high_intent':
+            where.append(HIGH_INTENT_SQL)
+        elif view == 'saved':
+            where.append('EXISTS(SELECT 1 FROM intent_saved_signals s WHERE s.organization_id=intent_signals.organization_id AND s.signal_id=intent_signals.id)')
+        elif view == 'qualified':
+            where.append("status='Qualified'")
+        elif view == 'dismissed':
+            where.append("status='Dismissed'")
+
         for field in ('category','source'):
             if filters.get(field):where.append(field+'=?');args.append(filters[field])
         if filters.get('monitor_id'):
             get(c,'monitors',filters['monitor_id']);where.append('id IN (SELECT signal_id FROM intent_monitor_signals WHERE organization_id=? AND monitor_id=?)');args.extend([org,filters['monitor_id']])
+        if filters.get('discovery_id'):
+            did = str(filters['discovery_id'])
+            where.append('(evidence_json LIKE ? OR evidence_json LIKE ?)')
+            args.extend([f'%"discovery_id": "{did}"%', f'%"discovery_id":"{did}"%'])
         if filters.get('saved'):
             where.append(('NOT ' if filters['saved']=='unsaved' else '')+'EXISTS(SELECT 1 FROM intent_saved_signals s WHERE s.organization_id=intent_signals.organization_id AND s.signal_id=intent_signals.id)')
+        buying_intent = filters.get('buying_intent') or ''
+        if buying_intent == 'unassessed':
+            where.append('NOT EXISTS(SELECT 1 FROM intent_analyses a WHERE a.organization_id=intent_signals.organization_id AND a.signal_id=intent_signals.id)')
+        elif buying_intent == 'explicit':
+            where.append("EXISTS(SELECT 1 FROM intent_analyses a WHERE a.organization_id=intent_signals.organization_id AND a.signal_id=intent_signals.id AND (a.analysis_json LIKE '%\"buying_intent\": \"Explicit commercial intent\"%' OR a.analysis_json LIKE '%\"intent_strength\": \"Explicit evidence\"%'))")
+        elif buying_intent == 'possible':
+            where.append("EXISTS(SELECT 1 FROM intent_analyses a WHERE a.organization_id=intent_signals.organization_id AND a.signal_id=intent_signals.id AND a.analysis_json LIKE '%\"buying_intent\": \"Possible commercial intent\"%')")
+        elif buying_intent == 'none':
+            where.append("EXISTS(SELECT 1 FROM intent_analyses a WHERE a.organization_id=intent_signals.organization_id AND a.signal_id=intent_signals.id AND (a.analysis_json LIKE '%\"buying_intent\": \"No demonstrated commercial intent\"%' OR a.analysis_json LIKE '%\"intent_strength\": \"Contradictory / non-buying\"%'))")
+        elif buying_intent == 'insufficient':
+            where.append("EXISTS(SELECT 1 FROM intent_analyses a WHERE a.organization_id=intent_signals.organization_id AND a.signal_id=intent_signals.id AND a.analysis_json LIKE '%\"buying_intent\": \"Insufficient evidence\"%')")
+        icp_fit = filters.get('icp_fit') or ''
+        if icp_fit == 'unassessed':
+            where.append('NOT EXISTS(SELECT 1 FROM intent_rankings r WHERE r.organization_id=intent_signals.organization_id AND r.signal_id=intent_signals.id AND r.icp_id IS NOT NULL)')
+        elif icp_fit == 'match':
+            where.append("EXISTS(SELECT 1 FROM intent_rankings r WHERE r.organization_id=intent_signals.organization_id AND r.signal_id=intent_signals.id AND r.icp_id IS NOT NULL AND (r.explanation_json LIKE '%\"status\": \"MATCH\"%' OR r.explanation_json LIKE '%Problem/service wording matches target%'))")
+        elif icp_fit == 'possible':
+            where.append("EXISTS(SELECT 1 FROM intent_rankings r WHERE r.organization_id=intent_signals.organization_id AND r.signal_id=intent_signals.id AND r.icp_id IS NOT NULL AND r.explanation_json LIKE '%Possible service alignment%')")
+        elif icp_fit == 'mismatch':
+            where.append("EXISTS(SELECT 1 FROM intent_rankings r WHERE r.organization_id=intent_signals.organization_id AND r.signal_id=intent_signals.id AND r.icp_id IS NOT NULL AND r.explanation_json LIKE '%\"status\": \"MISMATCH\"%')")
         for field,operator,end in [('from_date','>=',''),('to_date','<','T23:59:59.999999+00:00')]:
             if filters.get(field):where.append('observed_at'+operator+'?');args.append(filters[field]+end)
-        order={'score':rank_expression()+' DESC,id','title':'title,id','newest':'observed_at DESC,id'}[sort]
+        order_map = {
+            'score': rank_expression()+' DESC,id DESC',
+            'score_asc': rank_expression()+' ASC,id ASC',
+            'title': 'LOWER(title) ASC,id ASC',
+            'newest': 'observed_at DESC,id DESC',
+            'oldest': 'observed_at ASC,id ASC',
+        }
+        order = order_map.get(sort, 'observed_at DESC,id DESC')
+        vc_row = c.execute(
+            "SELECT COUNT(*) AS all_count,"
+            "COALESCE(SUM(CASE WHEN status IN ('New','Needs Review','In Review') THEN 1 ELSE 0 END),0) AS needs_review_count,"
+            "COALESCE(SUM(CASE WHEN " + HIGH_INTENT_SQL + " THEN 1 ELSE 0 END),0) AS high_intent_count,"
+            "COALESCE(SUM(CASE WHEN EXISTS(SELECT 1 FROM intent_saved_signals ss WHERE ss.organization_id=intent_signals.organization_id AND ss.signal_id=intent_signals.id) THEN 1 ELSE 0 END),0) AS saved_count,"
+            "COALESCE(SUM(CASE WHEN status='Qualified' THEN 1 ELSE 0 END),0) AS qualified_count,"
+            "COALESCE(SUM(CASE WHEN status='Dismissed' THEN 1 ELSE 0 END),0) AS dismissed_count "
+            "FROM intent_signals WHERE organization_id=? AND available=1 AND " + retention,
+            [org, *retention_args],
+        ).fetchone()
+        view_counts = {
+            'all': int(vc_row['all_count'] or 0),
+            'needs_review': int(vc_row['needs_review_count'] or 0),
+            'high_intent': int(vc_row['high_intent_count'] or 0),
+            'saved': int(vc_row['saved_count'] or 0),
+            'qualified': int(vc_row['qualified_count'] or 0),
+            'dismissed': int(vc_row['dismissed_count'] or 0),
+        }
     elif kind=='opportunities':
         order="CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END,(SELECT "+rank_expression('s')+" FROM intent_signals s WHERE s.id=intent_opportunities.signal_id AND s.organization_id=intent_opportunities.organization_id) DESC,created_at DESC,id"
     else:
@@ -199,14 +499,11 @@ def listing(c,kind,**filters):
             if expired(item,retention_days):item.update(available=0,title='Source item unavailable',excerpt='',evidence={})
             items.append(item)
         ranked_signals(c,items)
-        ids=[i['id'] for i in items]
-        links={key:[] for key in ids};saved_ids=set()
-        if ids:
-            marks=','.join('?' for _ in ids)
-            for r in c.execute('SELECT x.signal_id,m.id,m.name FROM intent_monitor_signals x JOIN intent_monitors m ON m.id=x.monitor_id AND m.organization_id=x.organization_id WHERE x.organization_id=? AND x.signal_id IN ('+marks+')',[org,*ids]).fetchall():links[r['signal_id']].append({'id':r['id'],'name':r['name']})
-            saved_ids={r[0] for r in c.execute('SELECT signal_id FROM intent_saved_signals WHERE organization_id=? AND signal_id IN ('+marks+')',[org,*ids]).fetchall()}
-        for item in items:item['monitors']=links[item['id']];item['saved']=item['id'] in saved_ids
-    return {'items':items,'total':total,'page':page,'page_size':size}
+        _hydrate_signal_metadata(c, org, items, actor=ctx.actor)
+    result = {'items':items,'total':total,'page':page,'page_size':size,'has_more':(page*size)<total}
+    if view_counts is not None:
+        result['view_counts'] = view_counts
+    return result
 
 def save_monitor(c, body, key=None):
     ctx = context(c, True)
@@ -292,7 +589,6 @@ def bookmark(c, key, body=None, remove=False):
         if not c.execute('UPDATE intent_saved_signals SET collection=?,tags_json=?,notes=?,revision=revision+1 WHERE organization_id=? AND signal_id=? AND revision=?',(body.collection,json.dumps(body.tags),body.notes,ctx.organization_id,key,body.revision)).rowcount: raise HTTPException(409,'Saved signal changed; reload first.')
     else:
         c.execute('INSERT INTO intent_saved_signals(organization_id,signal_id,saved_by,saved_at) VALUES(?,?,?,?) ON CONFLICT(organization_id,signal_id) DO NOTHING',(ctx.organization_id,key,ctx.actor,now()))
-        c.execute("UPDATE intent_signals SET status='Saved',revision=revision+1 WHERE id=? AND organization_id=? AND status<>'Saved'",(key,ctx.organization_id))
     audit(c,'BOOKMARK_UPDATED',key)
     return get(c,'signals',key)
 
@@ -303,7 +599,7 @@ def review(c,key,body):
     audit(c,'SIGNAL_REVIEWED',key)
     return get(c,'signals',key)
 
-def opportunity(c,key,body=None):
+def opportunity(c,key,body=None,create_body=None):
     ctx = context(c,True); lock(c)
     if body:
         old = get(c,'opportunities',key)
@@ -314,14 +610,33 @@ def opportunity(c,key,body=None):
         if not c.execute('UPDATE intent_opportunities SET status=?,priority=?,notes=?,next_action=?,assigned_to=?,revision=revision+1,updated_at=? WHERE id=? AND organization_id=? AND revision=?',(body.status,body.priority,body.notes,body.next_action,body.assigned_to,now(),key,ctx.organization_id,body.revision)).rowcount: raise HTTPException(409,'Opportunity changed; reload before saving.')
     else:
         signal=get(c,'signals',key)
+        signal_id = key
+        existing = c.execute('SELECT id FROM intent_opportunities WHERE organization_id=? AND signal_id=?', (ctx.organization_id, signal_id)).fetchone()
+        if existing:
+            res = get(c, 'opportunities', existing['id'])
+            res['already_existed'] = True
+            return res
         if not signal['opportunity_eligibility']['eligible']:raise HTTPException(409,'This discussion does not yet have sufficient intent and targeting evidence for an opportunity. Save the signal or review its evidence first.')
-        signal_id = key; key = str(uuid.uuid5(uuid.NAMESPACE_URL,ctx.organization_id + ':intent-opportunity:' + signal_id))
+        key = str(uuid.uuid5(uuid.NAMESPACE_URL,ctx.organization_id + ':intent-opportunity:' + signal_id))
         from app.billing.usage import reserve
         reserve(c,{'opportunities':1},key)
-        c.execute('INSERT INTO intent_opportunities(id,organization_id,signal_id,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(organization_id,signal_id) DO NOTHING',(key,ctx.organization_id,signal_id,ctx.actor,now(),now()))
-        c.execute("UPDATE intent_signals SET status='Reviewed',revision=revision+1 WHERE id=? AND organization_id=? AND status<>'Reviewed'",(signal_id,ctx.organization_id))
+        priority = create_body.priority if create_body else 'Medium'
+        notes = create_body.notes if create_body else ''
+        next_action = create_body.next_action if create_body else 'Review context'
+        c.execute(
+            'INSERT INTO intent_opportunities(id,organization_id,signal_id,priority,notes,next_action,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(organization_id,signal_id) DO NOTHING',
+            (key,ctx.organization_id,signal_id,priority,notes,next_action,ctx.actor,now(),now()),
+        )
+        # Preserve Qualified review history; only advance unreviewed statuses to Reviewed.
+        c.execute(
+            "UPDATE intent_signals SET status='Reviewed',revision=revision+1 WHERE id=? AND organization_id=? AND status IN ('New','Needs Review','In Review')",
+            (signal_id,ctx.organization_id),
+        )
     audit(c,'OPPORTUNITY_UPDATED',key)
-    return get(c,'opportunities',key)
+    res = get(c,'opportunities',key)
+    if not body:
+        res['already_existed'] = False
+    return res
 
 def mark_alert(c,key,read):
     org=context(c,True).organization_id; get(c,'alerts',key)

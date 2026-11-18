@@ -180,8 +180,35 @@ async def control(key:UUID,action:Literal['cancel','retry'],c=Depends(get_db,sco
     return result
 
 @router.get('/signals')
-def signals(page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),search:str=Query('',max_length=120),status:str=Query('',max_length=30),category:str=Query('',max_length=50),source:str=Query('',max_length=40),min_score:int=Query(0,ge=0,le=100),monitor_id:UUID|None=None,saved:Literal['','saved','unsaved']='',from_date:date|None=None,to_date:date|None=None,sort:Literal['newest','score','title']='newest',c=Depends(get_db,scope='function')):
-    return service.listing(c,'signals',page=page,size=page_size,search=search,status=status,category=category,source=source,min_score=min_score,monitor_id=str(monitor_id) if monitor_id else '',saved=saved,from_date=from_date.isoformat() if from_date else '',to_date=to_date.isoformat() if to_date else '',sort=sort)
+def signals(
+    page:int=Query(1,ge=1,le=10000),
+    page_size:int=Query(25,ge=1,le=100),
+    search:str=Query('',max_length=120),
+    status:str=Query('',max_length=30),
+    category:str=Query('',max_length=50),
+    source:str=Query('',max_length=40),
+    min_score:int=Query(0,ge=0,le=100),
+    monitor_id:UUID|None=None,
+    discovery_id:UUID|None=None,
+    saved:Literal['','saved','unsaved']='',
+    view:Literal['','all','needs_review','high_intent','saved','qualified','dismissed']='',
+    buying_intent:Literal['','explicit','possible','none','insufficient','unassessed']='',
+    icp_fit:Literal['','match','possible','mismatch','unassessed']='',
+    from_date:date|None=None,
+    to_date:date|None=None,
+    sort:Literal['newest','oldest','score','score_asc','title']='newest',
+    c=Depends(get_db,scope='function'),
+):
+    return service.listing(
+        c,'signals',
+        page=page,size=page_size,search=search,status=status,category=category,source=source,
+        min_score=min_score,monitor_id=str(monitor_id) if monitor_id else '',
+        discovery_id=str(discovery_id) if discovery_id else '',
+        saved=saved,view=view,buying_intent=buying_intent,icp_fit=icp_fit,
+        from_date=from_date.isoformat() if from_date else '',
+        to_date=to_date.isoformat() if to_date else '',
+        sort=sort,
+    )
 @router.get('/signals/{key}')
 def signal(key:UUID,c=Depends(get_db,scope='function')):return service.get(c,'signals',str(key))
 @router.patch('/signals/{key}')
@@ -191,12 +218,27 @@ def bulk(body:models.Bulk,c=Depends(get_db,scope='function')):
     context(c,True)
     keys=list(dict.fromkeys(map(str,body.ids)))
     for key in keys:service.get(c,'signals',key)
+    updated=0
+    skipped:list[dict]=[]
     for key in keys:
-        if body.action=='save':service.bookmark(c,key)
-        elif body.action=='opportunity':service.opportunity(c,key)
+        if body.action=='save':
+            service.bookmark(c,key);updated+=1
+        elif body.action=='unsave':
+            service.bookmark(c,key,remove=True);updated+=1
+        elif body.action=='opportunity':
+            try:
+                service.opportunity(c,key);updated+=1
+            except HTTPException as exc:
+                if exc.status_code==409:
+                    skipped.append({'id':key,'reason':str(exc.detail)})
+                else:
+                    raise
         else:
-            old=service.get(c,'signals',key);service.review(c,key,models.SignalUpdate(revision=old['revision'],status='Reviewed' if body.action=='review' else 'Dismissed'))
-    return {'updated':len(keys)}
+            status_map={'review':'Reviewed','qualify':'Qualified','dismiss':'Dismissed'}
+            old=service.get(c,'signals',key)
+            service.review(c,key,models.SignalUpdate(revision=old['revision'],status=status_map[body.action]))
+            updated+=1
+    return {'updated':updated,'skipped':skipped}
 @router.get('/saved')
 def saved(page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),search:str=Query('',max_length=120),collection:str=Query('',max_length=100),sort:Literal['newest','oldest','collection']='newest',c=Depends(get_db,scope='function')):return service.saved(c,page=page,size=page_size,search=search,collection=collection,sort=sort)
 @router.post('/saved/{key}')
@@ -206,7 +248,7 @@ def edit_saved(key:UUID,body:models.SavedUpdate,c=Depends(get_db,scope='function
 @router.delete('/saved/{key}')
 def unsave(key:UUID,c=Depends(get_db,scope='function')):return service.bookmark(c,str(key),remove=True)
 @router.post('/opportunities/{signal_id}',status_code=201)
-def select(signal_id:UUID,c=Depends(get_db,scope='function')):return service.opportunity(c,str(signal_id))
+def select(signal_id:UUID,body:models.OpportunityCreate|None=None,c=Depends(get_db,scope='function')):return service.opportunity(c,str(signal_id),create_body=body)
 @router.get('/opportunities')
 def opportunities(page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),status:str=Query('',max_length=30),c=Depends(get_db,scope='function')):return service.listing(c,'opportunities',page=page,size=page_size,status=status)
 @router.get('/opportunities/{key}')

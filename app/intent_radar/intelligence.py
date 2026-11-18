@@ -127,6 +127,80 @@ def _score(signal,output,feedback):
     needs_review=not output or output.review_needed or output.uncertainty=='High' or inferred_fit
     return {'version':'INTENT_SCORE_V2','overall':total,'tier':'Needs review' if needs_review else 'High relevance' if total>=75 else 'Medium relevance' if total>=45 else 'Low relevance','dimensions':dimensions,'intent_strength':'Explicit evidence' if explicit else 'Weak / ambiguous','icp_fit':'Possible service alignment (inference; review required)' if inferred_fit else 'Problem/service wording matches target' if fit else 'Unknown','purchase_probability':None,'unknown':['Buyer identity','Company size','Industry','Market/geography','Buyer role','Purchase authority'],'penalties':[feedback['explanation']] if feedback['ranking_adjustment'] else [],'thresholds_status':'Heuristic defaults, not calibrated probabilities'}
 
+def structured_summary(signal, output, scoring, icp):
+    """Build a concise, decision-oriented structured summary without inventing facts."""
+    provenance = (signal.get('evidence') or {}).get('provenance') or {}
+    content_kind = provenance.get('content_kind') or ''
+    if not output:
+        return {
+            'summary': None,
+            'problem': None,
+            'topic_relevance': None,
+            'buying_intent': 'Insufficient evidence',
+            'icp_fit': 'Unassessed — no ICP selected' if not icp else 'Unassessed — AI analysis unavailable',
+            'recommended_next_step': 'Read original discussion',
+            'source_statements': [],
+            'model_inferences': [],
+            'unknowns': list(scoring.get('unknown') or []),
+        }
+    cats = list(output.categories or [])
+    contradiction = any(c.kind in ('contradiction', 'exclusion') for c in output.claims)
+    explicit_cats = {'Recommendation request', 'Seeking service provider', 'Product comparison', 'Alternative search', 'Explicit budget/timeline'}
+    possible_cats = {'Operational pain point', 'Solution research', 'Implementation help'}
+    noncommercial_cats = {'Promotion', 'Jobs / hiring', 'Security announcement', 'Unrelated discussion', 'Explicitly non-buying'}
+    has_intent_claim = any(c.kind == 'intent' for c in output.claims)
+
+    if contradiction or content_kind in ('release', 'paper') or any(c in noncommercial_cats for c in cats):
+        buying_intent = 'No demonstrated commercial intent'
+    elif has_intent_claim and any(c in explicit_cats for c in cats):
+        buying_intent = 'Explicit commercial intent'
+    elif any(c in possible_cats for c in cats) or has_intent_claim:
+        buying_intent = 'Possible commercial intent'
+    elif 'Insufficient evidence' in cats:
+        buying_intent = 'Insufficient evidence'
+    else:
+        buying_intent = 'No demonstrated commercial intent'
+
+    if not icp:
+        icp_fit = 'Unassessed — no ICP selected'
+    else:
+        assessments = list(output.icp_assessments or [])
+        matches = [a.criterion for a in assessments if a.status == 'MATCH']
+        mismatches = [a.criterion for a in assessments if a.status == 'MISMATCH']
+        if mismatches:
+            icp_fit = f"Partial mismatch with {icp['name']} ({', '.join(mismatches[:3])})"
+        elif matches:
+            icp_fit = f"Aligned with {icp['name']} on {', '.join(matches[:3])}"
+        elif scoring.get('icp_fit') and scoring['icp_fit'] != 'Unknown':
+            icp_fit = f"{icp['name']}: {scoring['icp_fit']}"
+        else:
+            icp_fit = f"Insufficient evidence to verify fit against {icp['name']}"
+
+    seen_quotes: set[str] = set()
+    source_statements: list[str] = []
+    model_inferences: list[str] = []
+    for item in [output.summary, output.buyer_problem, output.business_relevance, *output.claims]:
+        if not item:
+            continue
+        if item.quote and item.quote not in seen_quotes:
+            seen_quotes.add(item.quote)
+            source_statements.append(item.quote)
+        if item.interpretation and item.interpretation not in model_inferences:
+            model_inferences.append(item.interpretation)
+
+    return {
+        'summary': output.summary.interpretation if output.summary else (model_inferences[0] if model_inferences else None),
+        'problem': output.buyer_problem.interpretation if output.buyer_problem else None,
+        'topic_relevance': output.business_relevance.interpretation if output.business_relevance else None,
+        'buying_intent': buying_intent,
+        'icp_fit': icp_fit,
+        'recommended_next_step': output.recommended_research or 'Read original discussion',
+        'source_statements': source_statements[:6],
+        'model_inferences': model_inferences[:6],
+        'unknowns': list(scoring.get('unknown') or []),
+    }
+
+
 def score(signal,output,feedback):
     result=_score({**signal,'evidence':signal.get('evidence') or {}},output,feedback)
     result['version']='INTENT_SCORE_V3'
@@ -190,7 +264,8 @@ async def analyze(c,key,body,*,candidate_monitor=False,persistence_fence=None):
         result=json.loads(row[0]);output=Interpretation.model_validate(result['interpretation']) if result['interpretation'] else None
         try:
             if output:validated(output,signal,targets)
-            return {**result,'cached':True,'scoring':score(signal,output,reviewed),'feedback':reviewed}
+            computed=score(signal,output,reviewed)
+            return {**result,'cached':True,'scoring':computed,'structured':structured_summary(signal,output,computed,result.get('icp')),'feedback':reviewed}
         except ai.AiOutputError:pass
     provenance = (signal.get('evidence') or {}).get('provenance') or {}
     policy_gated_reason = None
@@ -227,7 +302,9 @@ async def analyze(c,key,body,*,candidate_monitor=False,persistence_fence=None):
         from app.icp.service import get
         if get(c,icp_id)['revision']!=icp['revision']:raise HTTPException(409,'ICP changed during analysis; retry.')
     if output:excluded+= [claim.target for claim in output.claims if claim.kind=='exclusion']
-    result={'version':VERSION,'mode':mode,'fallback_reason':reason,'interpretation':output.model_dump() if output else None,'analysis_at':now(),'model':getattr(gateway,'last_model',None),'provider':getattr(gateway,'last_provider',None),'usage':getattr(gateway,'last_usage',None),'source_url':signal['source_url'],'monitor_id':monitor['id'] if monitor else None,'summary_language':query['_summary_language'],'icp':{'id':icp_id,'name':icp['name'],'revision':icp['revision']} if icp else None,'excluded':excluded,'scoring':score(signal,output,reviewed),'feedback':reviewed,'recommendation':output.recommended_research if output else 'Read original discussion','cached':False}
+    computed=score(signal,output,reviewed)
+    icp_ref={'id':icp_id,'name':icp['name'],'revision':icp['revision']} if icp else None
+    result={'version':VERSION,'mode':mode,'fallback_reason':reason,'interpretation':output.model_dump() if output else None,'analysis_at':now(),'model':getattr(gateway,'last_model',None),'provider':getattr(gateway,'last_provider',None),'usage':getattr(gateway,'last_usage',None),'source_url':signal['source_url'],'monitor_id':monitor['id'] if monitor else None,'summary_language':query['_summary_language'],'icp':icp_ref,'excluded':excluded,'scoring':computed,'structured':structured_summary(signal,output,computed,icp_ref),'feedback':reviewed,'recommendation':output.recommended_research if output else 'Read original discussion','cached':False}
     if output:
         from app.intent_radar.permissions import persistence_context
         persistence_context(c,manager=True)
@@ -256,7 +333,9 @@ def history(c,key):
             if input_hash(signal,query,icp)!=row['input_hash']:continue
             signal['_exclusions']=[*query.get('semantic_exclusions',[]),*(icp['criteria']['intent']['exclusions'] if icp else [])];signal['_summary_language']=query['_summary_language']
             validated(output,signal,targets_for(query,icp))
-            result['scoring']=score(signal,output,feedback_state(c,key))
+            computed=score(signal,output,feedback_state(c,key))
+            result['scoring']=computed
+            result['structured']=structured_summary(signal,output,computed,result.get('icp'))
             items.append(result)
         except (ValueError,ai.AiOutputError,HTTPException):continue
     return {'items':items, 'feedback':feedback_state(c,key)}
