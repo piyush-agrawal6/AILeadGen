@@ -105,6 +105,13 @@ function makeTrialUsage(overrides: Partial<UsageData> = {}): UsageData {
     sandbox_tools_available: false,
     support_url: 'mailto:contact@planebyte.com',
     unmetered: [],
+    internal_testing: {
+      active: true,
+      expires_at: 1795580000,
+      base_entitlement: 'Starter Trial',
+      base_limits: { searches: 5, ai_calls: 3 },
+      base_usage: { searches: 5, ai_calls: 3 },
+    },
     ...overrides,
   };
 }
@@ -221,15 +228,26 @@ describe('P0 Billing & Usage Redesign', () => {
     });
 
     render(wrap(<BillingSection activeTab="overview" />));
-    expect(await screen.findByText('Starter Trial')).toBeVisible();
-    expect(screen.getByText('Canceled — Access Remaining')).toBeVisible();
-    expect(screen.getByText(/Your trial has been canceled\. You can continue using your current access until/)).toBeVisible();
+    expect(await screen.findByRole('button', { name: /Manage Subscription/i })).toBeVisible();
+    expect(screen.getAllByText('Starter Trial').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Canceled · Access remaining').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('None scheduled')).toBeVisible();
     expect(screen.queryByText('Choose Your Plan & Payment')).not.toBeInTheDocument();
-    expect(screen.getByText('Search allowance exhausted')).toBeVisible();
-    expect(screen.getByText(/even though your daily safety limit has remaining capacity/)).toBeVisible();
-    expect(screen.getByText('Not included in your current plan')).toBeVisible();
-    expect(screen.getByRole('button', { name: /Detailed Usage/i })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByRole('button', { name: /AI Usage Details/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText(/Temporary internal testing allowance/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Owner live production QA/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Starter Trial allowances apply/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Monthly search allowance exhausted/i)).toBeVisible();
+    expect(screen.getByText('Not included in current plan')).toBeVisible();
+    const detailedBtn = screen.getByRole('button', { name: /Detailed Usage/i });
+    expect(detailedBtn).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /Change Plan/i })).toBeVisible();
+
+    // Expanding Detailed Usage reveals advanced metrics, provider-reported consumption, and daily safety limits
+    fireEvent.click(detailedBtn);
+    expect(detailedBtn).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Reserved AI Tokens')).toBeVisible();
+    expect(screen.getByText(/Provider-Reported AI Consumption/i)).toBeVisible();
+    expect(screen.getByText('Daily Safety Limits (UTC)')).toBeVisible();
   });
 });
 

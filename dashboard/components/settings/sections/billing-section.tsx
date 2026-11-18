@@ -10,7 +10,6 @@ import {
   CreditCard,
   ExternalLink,
   FileText,
-  Info,
   Radio,
   Receipt,
   RefreshCw,
@@ -32,17 +31,9 @@ type Allowance = UsageData["usage"][number];
 const formatDate = (unix?: number | null) =>
   unix
     ? new Date(unix * 1000).toLocaleDateString(undefined, {
-        month: "short",
         day: "numeric",
+        month: "short",
         year: "numeric",
-      })
-    : "—";
-
-const formatDateTime = (unix?: number | null) =>
-  unix
-    ? new Date(unix * 1000).toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
       })
     : "—";
 
@@ -57,11 +48,10 @@ type ResolvedStatus = {
   label: string;
   tone: "emerald" | "amber" | "blue" | "red" | "muted";
   planTitle: string;
-  planSubtitle: string;
-  explanation: string;
   isTrial: boolean;
   isCanceled: boolean;
   isActive: boolean;
+  alertMessage?: string;
 };
 
 function resolvePlanStatus(
@@ -84,12 +74,6 @@ function resolvePlanStatus(
       rawStatus === "canceled" ||
       rawStatus === "scheduled_cancel"
   );
-  const endTs =
-    (isTrial ? contract?.trial_end ?? sub?.trial_end : null) ??
-    contract?.period_end ??
-    sub?.period_end ??
-    usage?.native_access?.expires_at ??
-    null;
 
   const planCode = (contract?.plan_code || sub?.plan_code || "").trim().toLowerCase();
   const tierName = planCode
@@ -98,27 +82,23 @@ function resolvePlanStatus(
   const planTitle =
     contract?.entitlement_label ||
     sub?.entitlement_label ||
-    (tierName ? (isTrial ? `${tierName} Trial` : `Paid ${tierName}`) : usage?.access.kind || "No active plan");
+    (tierName ? (isTrial ? `${tierName} Trial` : tierName) : usage?.access.kind || "No active plan");
 
   if (!contract && !sub) {
     if (usage?.access.intent_radar) {
       return {
         label: "Active",
         tone: "blue",
-        planTitle: usage.access.kind || "Approved Access",
-        planSubtitle: "Workspace access is enabled",
-        explanation: "Your workspace currently has authorized access without a recurring Creem subscription.",
+        planTitle: usage.access.kind || "Workspace Access",
         isTrial: false,
         isCanceled: false,
         isActive: true,
       };
     }
     return {
-      label: "No Subscription",
+      label: "No subscription",
       tone: "muted",
-      planTitle: "No active subscription",
-      planSubtitle: "Choose a plan or start a 3-day card trial",
-      explanation: "Activate a verified subscription via Creem to unlock Intent Radar searches, monitoring, and reports.",
+      planTitle: "No active plan",
       isTrial: false,
       isCanceled: false,
       isActive: false,
@@ -127,27 +107,25 @@ function resolvePlanStatus(
 
   if (rawStatus === "past_due" || rawStatus === "unpaid") {
     return {
-      label: "Past Due",
+      label: "Past due",
       tone: "red",
       planTitle,
-      planSubtitle: "Payment attention required",
-      explanation: "Your last subscription payment failed or is past due. Update your payment method in the Creem billing portal to restore access.",
       isTrial,
       isCanceled,
       isActive: false,
+      alertMessage: "Payment failed or past due. Update your payment method in the billing portal to restore access.",
     };
   }
 
   if (rawStatus === "pending" || rawStatus === "creating") {
     return {
-      label: "Payment Pending",
+      label: "Payment pending",
       tone: "amber",
       planTitle,
-      planSubtitle: "Awaiting provider confirmation",
-      explanation: "Creem is confirming your checkout. Refresh status shortly — no duplicate charge will be created.",
       isTrial,
       isCanceled: false,
       isActive: false,
+      alertMessage: "Awaiting Creem checkout confirmation. Refresh status shortly — no duplicate charge will be created.",
     };
   }
 
@@ -156,22 +134,18 @@ function resolvePlanStatus(
       label: "Expired",
       tone: "muted",
       planTitle,
-      planSubtitle: endTs ? `Ended ${formatDate(endTs)}` : "Subscription period ended",
-      explanation: "Your previous access period has ended. Saved research remains available; choose a plan to resume discovery.",
       isTrial,
       isCanceled: true,
       isActive: false,
     };
   }
 
-  if (isTrial && isCanceled) {
+  if (isCanceled) {
     return {
-      label: "Canceled — Access Remaining",
+      label: "Canceled · Access remaining",
       tone: "amber",
       planTitle,
-      planSubtitle: "3-day card trial · renewal canceled",
-      explanation: `Your trial has been canceled. You can continue using your current access until ${formatDateTime(endTs)}. No automatic renewal is scheduled.`,
-      isTrial: true,
+      isTrial,
       isCanceled: true,
       isActive: true,
     };
@@ -179,26 +153,11 @@ function resolvePlanStatus(
 
   if (isTrial) {
     return {
-      label: "Trial Active",
+      label: "Trial active",
       tone: "blue",
       planTitle,
-      planSubtitle: "3-day card trial",
-      explanation: `Your 3-day trial is active until ${formatDateTime(endTs)}. Unless canceled before expiration, your plan will convert automatically to Paid ${tierName || "Starter"}.`,
       isTrial: true,
       isCanceled: false,
-      isActive: true,
-    };
-  }
-
-  if (isCanceled) {
-    return {
-      label: endTs ? `Cancels on ${formatDate(endTs)}` : "Canceled — Access Remaining",
-      tone: "amber",
-      planTitle,
-      planSubtitle: "Paid monthly subscription · renewal canceled",
-      explanation: `Automatic renewal is canceled. Your paid access remains active until ${formatDateTime(endTs)} with no future charge.`,
-      isTrial: false,
-      isCanceled: true,
       isActive: true,
     };
   }
@@ -207,8 +166,6 @@ function resolvePlanStatus(
     label: "Active",
     tone: "emerald",
     planTitle,
-    planSubtitle: "Paid monthly subscription",
-    explanation: `Your subscription is active and renews automatically on ${formatDate(contract?.next_charge_at ?? endTs)}.`,
     isTrial: false,
     isCanceled: false,
     isActive: true,
@@ -227,25 +184,20 @@ function findAllowance(items: Allowance[], dimension: string): Allowance | undef
   return items.find((i) => i.dimension === dimension);
 }
 
-function barColor(used: number, limit: number, neutral = false): string {
-  if (neutral) return "bg-primary/70";
+function barColor(used: number, limit: number): string {
   if (limit > 0 && used >= limit) return "bg-destructive";
   if (limit > 0 && used / limit >= 0.8) return "bg-amber-500";
   return "bg-primary";
 }
 
-function PrimaryMetricCard({
+function CompactUsageCard({
   title,
   icon: Icon,
   item,
-  secondaryNote,
-  exhaustedBanner,
 }: {
   title: string;
   icon: typeof Search;
   item?: Allowance;
-  secondaryNote?: string;
-  exhaustedBanner?: string;
 }) {
   if (!item) return null;
   const notIncluded = item.limit === 0;
@@ -254,89 +206,53 @@ function PrimaryMetricCard({
   const percent = notIncluded ? 0 : Math.min(100, Math.round((item.used / item.limit) * 100));
 
   return (
-    <article className="flex flex-col justify-between rounded-2xl border border-border bg-card p-5 space-y-3">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Icon size={16} className="text-primary shrink-0" aria-hidden="true" />
-            <span>{title}</span>
-          </div>
-          {notIncluded ? (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-              Not included
-            </span>
-          ) : exhausted ? (
-            <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive">
-              Exhausted
-            </span>
-          ) : approaching ? (
-            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
-              Near limit
-            </span>
-          ) : (
-            <span className="text-xs font-medium text-muted-foreground tabular-nums">
-              {item.remaining.toLocaleString()} left
-            </span>
-          )}
+    <article className="rounded-xl border border-border bg-card px-4 py-3.5 space-y-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground min-w-0">
+          <Icon size={14} className="text-primary shrink-0" aria-hidden="true" />
+          <span className="leading-tight">{title}</span>
         </div>
-
-        {notIncluded ? (
-          <div className="space-y-1 pt-1">
-            <p className="text-sm font-medium text-muted-foreground">
-              Not included in your current plan
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Upgrade to a paid plan to unlock {title.toLowerCase()}.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
-                {item.used.toLocaleString()}
-                <span className="text-sm font-normal text-muted-foreground">
-                  {" "}
-                  of {item.limit.toLocaleString()} used
-                </span>
-              </p>
-            </div>
-            <div
-              className="h-2 w-full overflow-hidden rounded-full bg-muted"
-              role="progressbar"
-              aria-label={title}
-              aria-valuenow={item.used}
-              aria-valuemin={0}
-              aria-valuemax={item.limit}
-            >
-              <div
-                className={`h-full rounded-full transition-all ${barColor(item.used, item.limit)}`}
-                style={{ width: `${percent}%` }}
-              />
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-              <span>
-                {exhausted
-                  ? "No allowance remaining"
-                  : `${item.remaining.toLocaleString()} remaining`}
-              </span>
-              {item.resets_at && (
-                <span>Resets {new Date(item.resets_at).toLocaleDateString()}</span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {exhaustedBanner && (
-          <div className="rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2 text-xs text-destructive leading-relaxed">
-            {exhaustedBanner}
-          </div>
-        )}
+        {!notIncluded && exhausted ? (
+          <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive shrink-0">
+            Exhausted
+          </span>
+        ) : !notIncluded && approaching ? (
+          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300 shrink-0">
+            Near limit
+          </span>
+        ) : null}
       </div>
 
-      {secondaryNote && (
-        <p className="border-t border-border/60 pt-2.5 text-[11px] text-muted-foreground">
-          {secondaryNote}
-        </p>
+      {notIncluded ? (
+        <p className="text-xs text-muted-foreground pt-1">Not included in current plan</p>
+      ) : (
+        <div className="space-y-1.5">
+          <p className="text-base font-bold tracking-tight text-foreground tabular-nums">
+            {item.used.toLocaleString()}
+            <span className="text-xs font-normal text-muted-foreground">
+              {" "}
+              / {item.limit.toLocaleString()}
+            </span>
+          </p>
+          <div
+            className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-label={title}
+            aria-valuenow={item.used}
+            aria-valuemin={0}
+            aria-valuemax={item.limit}
+          >
+            <div
+              className={`h-full rounded-full transition-all ${barColor(item.used, item.limit)}`}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground tabular-nums">
+            {exhausted
+              ? "0 remaining"
+              : `${item.remaining.toLocaleString()} remaining`}
+          </p>
+        </div>
       )}
     </article>
   );
@@ -363,7 +279,6 @@ export function BillingSection({
   const [actionNotice, setActionNotice] = useState("");
   const [actionError, setActionError] = useState("");
   const [showDetailedUsage, setShowDetailedUsage] = useState(false);
-  const [showAiDetails, setShowAiDetails] = useState(false);
   const [showInvoices, setShowInvoices] = useState(false);
   const returnedHandled = useRef(false);
 
@@ -386,6 +301,7 @@ export function BillingSection({
       window.history.replaceState({}, "", nextUrl);
       void runSubscriptionAction("refresh");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function runSubscriptionAction(kind: "portal" | "cancel" | "refresh") {
@@ -399,7 +315,7 @@ export function BillingSection({
         });
         client.setQueryData(["workspace-subscription"], next);
         await usageQuery.refetch();
-        setActionNotice("Subscription status synchronized with Creem.");
+        setActionNotice("Billing status synchronized with Creem.");
       } else if (kind === "portal") {
         const res = await request<{ url?: string }>("/billing/subscription/portal", {
           method: "POST",
@@ -417,7 +333,7 @@ export function BillingSection({
         setConfirmCancel(false);
         setActionNotice(
           res.status === "CONFIRMED"
-            ? "Automatic renewal has been canceled with Creem. Your access remains active until the end of the current period."
+            ? "Automatic renewal canceled. Access remains active until the end of your current period."
             : "Cancellation requested and awaiting Creem confirmation."
         );
         await Promise.all([subQuery.refetch(), usageQuery.refetch()]);
@@ -431,11 +347,12 @@ export function BillingSection({
 
   if (usageQuery.isPending) {
     return (
-      <div className="space-y-5" role="status" aria-label="Loading billing and usage">
-        <div className="h-44 rounded-2xl border border-border bg-muted/30 animate-pulse" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="h-36 rounded-2xl border border-border bg-muted/30 animate-pulse" />
-          <div className="h-36 rounded-2xl border border-border bg-muted/30 animate-pulse" />
+      <div className="space-y-4" role="status" aria-label="Loading billing and usage">
+        <div className="h-32 rounded-2xl border border-border bg-muted/30 animate-pulse" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="h-28 rounded-xl border border-border bg-muted/30 animate-pulse" />
+          ))}
         </div>
       </div>
     );
@@ -481,7 +398,6 @@ export function BillingSection({
     );
   }
 
-  // Categorize allowances cleanly
   const planSearches = findAllowance(data.usage, "plan_searches");
   const dailySearches = findAllowance(data.usage, "searches");
   const planAiCalls = findAllowance(data.usage, "plan_ai_calls");
@@ -501,7 +417,6 @@ export function BillingSection({
       dailySearches.remaining > 0
   );
 
-  const periodStart = contract?.trial_start ?? contract?.period_start ?? data.subscription?.period_start ?? data.native_access?.starts_at ?? null;
   const periodEnd =
     (resolved.isTrial ? contract?.trial_end ?? data.subscription?.trial_end : null) ??
     contract?.period_end ??
@@ -509,177 +424,148 @@ export function BillingSection({
     data.native_access?.expires_at ??
     null;
 
+  const nextPaymentText = resolved.isCanceled
+    ? "None scheduled"
+    : contract?.next_charge_at && catalogPlan?.monthly_minor
+      ? `${formatMoney(catalogPlan.monthly_minor)} on ${formatDate(contract.next_charge_at)}`
+      : resolved.isTrial && periodEnd && catalogPlan?.monthly_minor
+        ? `${formatMoney(catalogPlan.monthly_minor)} on ${formatDate(periodEnd)}`
+        : "None scheduled";
+
   const creemInvoices = subState?.history || [];
   const legacyPayments = data.commercial.historical_payments || [];
   const totalInvoices = creemInvoices.length + legacyPayments.length;
 
   return (
-    <div className="space-y-6">
-      {/* 1. Authoritative Current Subscription Summary */}
+    <div className="space-y-5">
+      {/* 1. Compact Current Subscription Summary */}
       <section
-        aria-label="Your Current Plan"
-        className="rounded-2xl border border-border bg-card p-5 sm:p-6 space-y-5"
+        aria-label="Current subscription"
+        className="rounded-2xl border border-border bg-card p-5 space-y-4"
       >
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Your Current Plan
-            </p>
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h3 className="text-xl font-bold tracking-tight text-foreground">
-                {resolved.planTitle}
-              </h3>
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${BADGE_TONES[resolved.tone]}`}
-              >
-                {resolved.tone === "emerald" ? (
-                  <CheckCircle2 size={13} aria-hidden="true" />
-                ) : resolved.tone === "red" || resolved.tone === "amber" ? (
-                  <AlertTriangle size={13} aria-hidden="true" />
-                ) : (
-                  <Info size={13} aria-hidden="true" />
-                )}
-                {resolved.label}
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
-              {resolved.explanation}
-            </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h3 className="text-lg font-bold tracking-tight text-foreground">
+              {resolved.planTitle}
+            </h3>
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${BADGE_TONES[resolved.tone]}`}
+            >
+              {resolved.tone === "emerald" ? (
+                <CheckCircle2 size={12} aria-hidden="true" />
+              ) : resolved.tone === "red" || resolved.tone === "amber" ? (
+                <AlertTriangle size={12} aria-hidden="true" />
+              ) : null}
+              {resolved.label}
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {contract && subState?.can_manage && (
+            {contract && subState?.can_manage ? (
               <Button
                 size="sm"
                 disabled={busyAction !== null}
                 onClick={() => void runSubscriptionAction("portal")}
-                className="gap-1.5"
+                className="h-8 text-xs gap-1.5"
               >
-                <CreditCard size={14} />
-                {busyAction === "portal" ? "Opening portal…" : "Manage Subscription"}
+                <CreditCard size={13} />
+                {busyAction === "portal" ? "Opening…" : "Manage Subscription"}
               </Button>
-            )}
+            ) : null}
             <Button
-              variant="outline"
+              variant={contract && subState?.can_manage ? "outline" : "default"}
               size="sm"
               onClick={() => onSwitchTab?.("plans")}
+              className="h-8 text-xs"
             >
-              View Plans
+              {contract ? "Change Plan" : "Choose Plan"}
             </Button>
           </div>
         </div>
 
-        {/* Clean 4-item billing facts strip */}
-        {(contract || data.subscription) && (
-          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 border-t border-border/70 pt-4 text-xs">
-            <div className="rounded-xl bg-muted/30 px-3.5 py-2.5">
-              <dt className="text-muted-foreground">Subscription type</dt>
-              <dd className="font-semibold text-foreground mt-0.5">{resolved.planSubtitle}</dd>
-            </div>
-            <div className="rounded-xl bg-muted/30 px-3.5 py-2.5">
-              <dt className="text-muted-foreground">
-                {resolved.isTrial ? "Trial window" : "Current billing period"}
-              </dt>
-              <dd className="font-semibold text-foreground mt-0.5">
-                {periodStart ? `${formatDate(periodStart)} – ${formatDate(periodEnd)}` : formatDate(periodEnd)}
-              </dd>
-            </div>
-            <div className="rounded-xl bg-muted/30 px-3.5 py-2.5">
-              <dt className="text-muted-foreground">Next charge</dt>
-              <dd className="font-semibold text-foreground mt-0.5">
-                {resolved.isCanceled
-                  ? "No automatic renewal scheduled"
-                  : contract?.next_charge_at && catalogPlan?.monthly_minor
-                    ? `${formatMoney(catalogPlan.monthly_minor)} on ${formatDate(contract.next_charge_at)}`
-                    : "—"}
-              </dd>
-            </div>
-            <div className="rounded-xl bg-muted/30 px-3.5 py-2.5">
-              <dt className="text-muted-foreground">Billing provider</dt>
-              <dd className="font-semibold text-foreground mt-0.5 capitalize">
-                {contract?.provider || "Creem"} · {contract?.environment || data.subscription?.mode || "live"}
-              </dd>
-            </div>
-          </dl>
-        )}
-
-        {/* Trial vs Paid Allowance Difference Callout */}
-        {resolved.isTrial && catalogPlan?.limits && (
-          <div className="flex items-start gap-2.5 rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3 text-xs text-foreground">
-            <Info size={15} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" aria-hidden="true" />
-            <p className="leading-relaxed">
-              <strong>Starter Trial allowances apply</strong> (5 searches, 3 shared AI operations, 150,000 reserved AI tokens, 1 manual monitor). Paid {catalogPlan.name} unlocks{" "}
-              {catalogPlan.limits.searches.toLocaleString()} monthly searches,{" "}
-              {catalogPlan.limits.ai_calls.toLocaleString()} AI operations,{" "}
-              {catalogPlan.limits.monitors} active monitors, scheduled checks, reports, and Developer API access.
-            </p>
-          </div>
-        )}
-
-        {/* Owner-Only Temporary Internal Testing Allowance Notice (omitted for all regular customers) */}
-        {data.internal_testing?.active && (
+        {resolved.alertMessage && (
           <div
-            role="status"
-            className="flex items-start gap-2.5 rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-xs text-foreground"
+            role="alert"
+            className="flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/5 px-3.5 py-2.5 text-xs text-destructive"
           >
-            <Sparkles size={15} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
-            <div className="space-y-0.5">
-              <p className="font-semibold">
-                Temporary internal testing allowance active (owner testing workspace only)
-              </p>
-              <p className="text-muted-foreground leading-relaxed">
-                Underlying plan remains <strong>{data.internal_testing.base_entitlement || resolved.planTitle}</strong> and your original trial usage history is preserved untouched. Bounded testing capacity auto-expires on{" "}
-                <strong>{formatDateTime(data.internal_testing.expires_at)}</strong>.
-              </p>
-            </div>
+            <AlertTriangle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
+            <span>{resolved.alertMessage}</span>
           </div>
         )}
 
-        {/* Secondary Subscription Actions */}
+        {/* Concise 4-item key-value summary */}
+        <dl className="grid gap-3 grid-cols-2 lg:grid-cols-4 border-t border-border/70 pt-3.5 text-xs">
+          <div>
+            <dt className="text-[11px] text-muted-foreground">Current plan</dt>
+            <dd className="font-semibold text-foreground mt-0.5">{resolved.planTitle}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-muted-foreground">Status</dt>
+            <dd className="font-semibold text-foreground mt-0.5">{resolved.label}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-muted-foreground">
+              {resolved.isCanceled || resolved.isTrial ? "Access until" : "Current period ends"}
+            </dt>
+            <dd className="font-semibold text-foreground mt-0.5">{formatDate(periodEnd)}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] text-muted-foreground">Next payment</dt>
+            <dd className="font-semibold text-foreground mt-0.5">{nextPaymentText}</dd>
+          </div>
+        </dl>
+
+        {/* Compact Secondary Controls Row */}
         {contract && subState?.can_manage && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3.5">
-            {!resolved.isCanceled && resolved.isActive && !confirmCancel && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {!resolved.isCanceled && resolved.isActive && !confirmCancel && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busyAction !== null}
+                  onClick={() => setConfirmCancel(true)}
+                  className="h-7 px-2.5 text-xs text-muted-foreground hover:text-destructive"
+                >
+                  Cancel Renewal
+                </Button>
+              )}
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 disabled={busyAction !== null}
-                onClick={() => setConfirmCancel(true)}
+                onClick={() => void runSubscriptionAction("refresh")}
+                className="h-7 px-2.5 text-xs gap-1.5 text-muted-foreground"
               >
-                Cancel Renewal
+                <RefreshCw size={12} className={busyAction === "refresh" ? "animate-spin" : ""} />
+                {busyAction === "refresh" ? "Syncing…" : "Refresh Status"}
               </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busyAction !== null}
-              onClick={() => void runSubscriptionAction("refresh")}
-              className="gap-1.5 text-muted-foreground"
-            >
-              <RefreshCw size={13} className={busyAction === "refresh" ? "animate-spin" : ""} />
-              {busyAction === "refresh" ? "Syncing…" : "Refresh Status"}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowInvoices((v) => !v)}
-              className="gap-1.5 text-muted-foreground ml-auto"
-            >
-              <Receipt size={13} />
-              Payment History &amp; Invoices ({totalInvoices})
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowInvoices((v) => !v)}
+                className="h-7 px-2.5 text-xs gap-1.5 text-muted-foreground"
+              >
+                <Receipt size={12} />
+                Invoices ({totalInvoices})
+              </Button>
+            </div>
+            <span className="text-[11px] text-muted-foreground">
+              Billed via <span className="capitalize">{contract.provider || "Creem"}</span>
+            </span>
           </div>
         )}
 
-        {/* Inline Cancel Confirmation */}
+        {/* Inline Cancel Confirmation (preserves required cancellation disclosure) */}
         {confirmCancel && (
           <div
             role="alertdialog"
             aria-label="Confirm automatic renewal cancellation"
-            className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-3"
+            className="rounded-xl border border-destructive/30 bg-destructive/5 p-3.5 space-y-2.5"
           >
             <p className="text-xs text-foreground leading-relaxed">
-              <strong>Cancel automatic renewal?</strong> Your current access will continue until{" "}
-              <strong>{formatDateTime(periodEnd)}</strong>. No further renewal charge will be billed, and your saved research remains preserved.
+              <strong>Cancel automatic renewal?</strong> Your access will continue until{" "}
+              <strong>{formatDate(periodEnd)}</strong> with no further renewal charge.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -687,6 +573,7 @@ export function BillingSection({
                 variant="destructive"
                 disabled={busyAction !== null}
                 onClick={() => void runSubscriptionAction("cancel")}
+                className="h-7 text-xs"
               >
                 {busyAction === "cancel" ? "Canceling…" : "Confirm cancellation"}
               </Button>
@@ -695,8 +582,9 @@ export function BillingSection({
                 variant="outline"
                 disabled={busyAction !== null}
                 onClick={() => setConfirmCancel(false)}
+                className="h-7 text-xs"
               >
-                Keep renewal active
+                Keep active
               </Button>
             </div>
           </div>
@@ -714,10 +602,10 @@ export function BillingSection({
         )}
       </section>
 
-      {/* Only render full checkout flow when workspace does NOT have an active verified subscription */}
+      {/* Only show checkout onboarding panel when no active subscription exists */}
       {!resolved.isActive && subState?.enabled && <SubscriptionPayment />}
 
-      {/* Legacy fixed-term history if present */}
+      {/* Legacy fixed-term records if present */}
       {!!data.commercial.fixed_term?.items.length && (
         <FixedTermPayments
           data={data.commercial.fixed_term}
@@ -725,24 +613,13 @@ export function BillingSection({
         />
       )}
 
-      {/* 2. Primary Customer Usage Dashboard */}
-      <section aria-label="Usage overview" className="space-y-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h3 className="text-base font-semibold tracking-tight text-foreground">
-              {data.internal_testing?.active
-                ? "Active Testing Usage"
-                : resolved.isTrial
-                  ? `${resolved.planTitle} Usage`
-                  : "Plan Usage"}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              Enforced server-side in UTC across your current allowance window.
-            </p>
-          </div>
+      {/* 2. Compact 4-Card Usage Overview */}
+      <section aria-label="Usage overview" className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold tracking-tight text-foreground">Usage Overview</h3>
           {periodEnd && (
-            <span className="text-xs text-muted-foreground">
-              Window ends {formatDate(periodEnd)}
+            <span className="text-[11px] text-muted-foreground">
+              Resets {formatDate(periodEnd)}
             </span>
           )}
         </div>
@@ -750,104 +627,89 @@ export function BillingSection({
         {monthlySearchBlockedButDailyAvailable && (
           <div
             role="status"
-            className="flex items-start gap-2.5 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-xs text-foreground"
+            className="flex items-center gap-2 rounded-xl border border-destructive/25 bg-destructive/5 px-3.5 py-2 text-xs text-destructive"
           >
-            <AlertTriangle size={15} className="text-destructive shrink-0 mt-0.5" aria-hidden="true" />
-            <div>
-              <p className="font-semibold text-destructive">Search allowance exhausted</p>
-              <p className="text-muted-foreground mt-0.5">
-                Your monthly search allowance has been reached, even though your daily safety limit has remaining capacity ({dailySearches?.remaining.toLocaleString()} left today).
-              </p>
-            </div>
+            <AlertTriangle size={14} className="shrink-0" aria-hidden="true" />
+            <span>
+              <strong>Monthly search allowance exhausted</strong> (daily safety limit still has{" "}
+              {dailySearches?.remaining.toLocaleString()} left today).
+            </span>
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <PrimaryMetricCard
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <CompactUsageCard
             title="Monthly Searches"
             icon={Search}
             item={planSearches || dailySearches}
-            secondaryNote={
-              data.search_usage
-                ? `${data.search_usage.manual_searches} manual searches · ${data.search_usage.scheduled_checks} scheduled checks`
-                : undefined
-            }
           />
-          <PrimaryMetricCard
+          <CompactUsageCard
             title="AI Operations"
             icon={Sparkles}
             item={planAiCalls || findAllowance(data.usage, "ai_calls")}
-            secondaryNote={
-              planAiTokens
-                ? `Shared token capacity: ${planAiTokens.used.toLocaleString()} / ${planAiTokens.limit.toLocaleString()} reserved`
-                : undefined
-            }
           />
-          <PrimaryMetricCard
+          <CompactUsageCard
             title="Active Monitors"
             icon={Radio}
             item={planMonitors || findAllowance(data.usage, "monitors")}
-            secondaryNote={
-              planMonitorChecks
-                ? planMonitorChecks.limit === 0
-                  ? "Scheduled monitoring checks: Not included in your current plan"
-                  : `Scheduled checks: ${planMonitorChecks.used.toLocaleString()} / ${planMonitorChecks.limit.toLocaleString()}`
-                : undefined
-            }
           />
-          <PrimaryMetricCard
+          <CompactUsageCard
             title="Monthly Reports"
             icon={FileText}
             item={planReports}
-            secondaryNote="Reports use both monthly report allowance and shared AI operations."
           />
         </div>
       </section>
 
-      {/* 3. Expandable Detailed Usage (Tokens, API, Seats, Daily Safety Limits) */}
+      {/* 3. Single Collapsed Detailed Usage Drawer (Tokens, Provider Telemetry, API, Seats, Daily Limits) */}
       <section className="rounded-2xl border border-border bg-card overflow-hidden">
         <button
           type="button"
           aria-expanded={showDetailedUsage}
           onClick={() => setShowDetailedUsage((v) => !v)}
-          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left hover:bg-muted/30 transition-colors cursor-pointer"
+          className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-muted/30 transition-colors cursor-pointer"
         >
-          <div>
-            <span className="text-sm font-semibold text-foreground">Detailed Usage</span>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Reserved AI tokens, Developer API requests, workspace seats, and daily safety limits.
-            </p>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs font-semibold text-foreground">Detailed Usage</span>
+            <span className="hidden sm:inline text-[11px] text-muted-foreground truncate">
+              · AI tokens, provider consumption, API requests, seats, scheduled checks &amp; daily limits
+            </span>
           </div>
           {showDetailedUsage ? (
-            <ChevronUp size={16} className="text-muted-foreground shrink-0" />
+            <ChevronUp size={15} className="text-muted-foreground shrink-0" />
           ) : (
-            <ChevronDown size={16} className="text-muted-foreground shrink-0" />
+            <ChevronDown size={15} className="text-muted-foreground shrink-0" />
           )}
         </button>
 
         {showDetailedUsage && (
-          <div className="border-t border-border p-5 space-y-5">
-            <div className="grid gap-3.5 sm:grid-cols-3 text-xs">
+          <div className="border-t border-border p-4 space-y-4 text-xs">
+            {/* Monthly Plan Sub-Allowances */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {planAiTokens && (
-                <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-1.5">
-                  <span className="font-semibold text-foreground">Reserved AI Token Allowance</span>
+                <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-1">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Reserved AI Tokens
+                  </span>
                   <p className="text-sm font-bold tabular-nums text-foreground">
                     {planAiTokens.used.toLocaleString()}{" "}
                     <span className="font-normal text-muted-foreground">
                       / {planAiTokens.limit.toLocaleString()}
                     </span>
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Upper-bound capacity reserved before AI requests run.
+                  <p className="text-[10px] text-muted-foreground">
+                    Upper-bound capacity reserved before AI calls
                   </p>
                 </div>
               )}
 
               {planApiRequests && (
-                <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-1.5">
-                  <span className="font-semibold text-foreground">Developer API Requests</span>
+                <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-1">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Developer API Requests
+                  </span>
                   {planApiRequests.limit === 0 ? (
-                    <p className="text-xs text-muted-foreground">Not included in your current plan</p>
+                    <p className="text-xs text-muted-foreground">Not included in current plan</p>
                   ) : (
                     <p className="text-sm font-bold tabular-nums text-foreground">
                       {planApiRequests.used.toLocaleString()}{" "}
@@ -859,33 +721,82 @@ export function BillingSection({
                 </div>
               )}
 
-              <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 space-y-1.5">
-                <span className="font-semibold text-foreground">Team Seats</span>
+              <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-1">
+                <span className="text-[11px] font-medium text-muted-foreground">Team Seats</span>
                 <p className="text-sm font-bold tabular-nums text-foreground">
                   {data.team_seats}{" "}
                   <span className="font-normal text-muted-foreground">
-                    of {planSeats ? planSeats.limit : data.team_seats} assigned
+                    / {planSeats ? planSeats.limit : data.team_seats}
                   </span>
                 </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Active workspace members on your current plan.
-                </p>
+                <p className="text-[10px] text-muted-foreground">Active workspace members</p>
+              </div>
+
+              {planMonitorChecks && (
+                <div className="rounded-xl border border-border/80 bg-muted/20 p-3 space-y-1">
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    Scheduled Checks
+                  </span>
+                  {planMonitorChecks.limit === 0 ? (
+                    <p className="text-xs text-muted-foreground">Not included in current plan</p>
+                  ) : (
+                    <p className="text-sm font-bold tabular-nums text-foreground">
+                      {planMonitorChecks.used.toLocaleString()}{" "}
+                      <span className="font-normal text-muted-foreground">
+                        / {planMonitorChecks.limit.toLocaleString()}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Provider-Reported AI Token Consumption */}
+            <div className="space-y-2 border-t border-border/70 pt-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-xs font-semibold text-foreground">
+                  Provider-Reported AI Consumption (Month)
+                </h4>
+                <span className="text-[11px] text-muted-foreground">
+                  Actual Vertex AI / Gemini usage · separate from reserved capacity
+                </span>
+              </div>
+              <div className="grid gap-2.5 sm:grid-cols-3">
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/15 px-3 py-2">
+                  <span className="text-muted-foreground">Model requests</span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {data.provider_usage.requests.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/15 px-3 py-2">
+                  <span className="text-muted-foreground">Input tokens</span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {data.provider_usage.input_tokens_reported.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/15 px-3 py-2">
+                  <span className="text-muted-foreground">Output tokens</span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    {data.provider_usage.output_tokens_reported.toLocaleString()}
+                  </span>
+                </div>
               </div>
             </div>
 
+            {/* Daily Safety Limits */}
             {dailyItems.length > 0 && (
-              <div className="space-y-2.5 border-t border-border/70 pt-4">
-                <div>
+              <div className="space-y-2 border-t border-border/70 pt-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <h4 className="text-xs font-semibold text-foreground">Daily Safety Limits (UTC)</h4>
-                  <p className="text-[11px] text-muted-foreground">
-                    Per-day operational safeguards apply independently of your monthly plan allowances.
-                  </p>
+                  <span className="text-[11px] text-muted-foreground">
+                    Resets daily at 00:00 UTC · independent of monthly allowances
+                  </span>
                 </div>
-                <div className="grid gap-2.5 sm:grid-cols-2">
+                <div className="grid gap-2 sm:grid-cols-2">
                   {dailyItems.map((item) => (
                     <div
                       key={item.dimension}
-                      className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/15 px-3.5 py-2.5 text-xs"
+                      className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/15 px-3 py-2"
                     >
                       <span className="text-muted-foreground">{item.label}</span>
                       <span className="font-semibold tabular-nums text-foreground">
@@ -900,92 +811,42 @@ export function BillingSection({
         )}
       </section>
 
-      {/* 4. Expandable AI Usage Details (Telemetry) */}
-      <section className="rounded-2xl border border-border bg-card overflow-hidden">
-        <button
-          type="button"
-          aria-expanded={showAiDetails}
-          onClick={() => setShowAiDetails((v) => !v)}
-          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left hover:bg-muted/30 transition-colors cursor-pointer"
-        >
-          <div>
-            <span className="text-sm font-semibold text-foreground">AI Usage Details</span>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Provider-reported model requests and token consumption (separate from reserved allowance).
-            </p>
-          </div>
-          {showAiDetails ? (
-            <ChevronUp size={16} className="text-muted-foreground shrink-0" />
-          ) : (
-            <ChevronDown size={16} className="text-muted-foreground shrink-0" />
-          )}
-        </button>
-
-        {showAiDetails && (
-          <div className="border-t border-border p-5 space-y-4">
-            <div className="grid gap-3.5 sm:grid-cols-3">
-              <div className="rounded-xl bg-muted/30 p-3.5 space-y-1">
-                <span className="text-xs text-muted-foreground">Provider Requests (Month)</span>
-                <p className="text-xl font-bold tabular-nums text-foreground">
-                  {data.provider_usage.requests.toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-xl bg-muted/30 p-3.5 space-y-1">
-                <span className="text-xs text-muted-foreground">Reported Input Tokens</span>
-                <p className="text-xl font-bold tabular-nums text-foreground">
-                  {data.provider_usage.input_tokens_reported.toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-xl bg-muted/30 p-3.5 space-y-1">
-                <span className="text-xs text-muted-foreground">Reported Output Tokens</span>
-                <p className="text-xl font-bold tabular-nums text-foreground">
-                  {data.provider_usage.output_tokens_reported.toLocaleString()}
-                </p>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Token counts are reported directly by Vertex AI / Gemini and are shown for transparency — PlaneByte bills by monthly subscription plan, not per-token overages. Reserved token capacity is an upper-bound safeguard and may differ from actual reported consumption.
-            </p>
-          </div>
-        )}
-      </section>
-
-      {/* 5. Expandable Payment History & Invoices */}
+      {/* 4. Collapsible Payment History & Invoices */}
       {showInvoices && (
-        <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
+        <section className="rounded-2xl border border-border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-foreground">Payment History &amp; Invoices</h3>
+            <h3 className="text-xs font-semibold text-foreground">Payment History &amp; Invoices</h3>
             {contract && subState?.can_manage && (
               <Button
                 variant="outline"
                 size="sm"
                 disabled={busyAction !== null}
                 onClick={() => void runSubscriptionAction("portal")}
-                className="gap-1.5"
+                className="h-7 text-xs gap-1.5"
               >
-                Open Creem Invoices <ExternalLink size={13} />
+                Open Creem Invoices <ExternalLink size={12} />
               </Button>
             )}
           </div>
 
           {totalInvoices === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">
+            <p className="text-xs text-muted-foreground py-1">
               {resolved.isTrial
-                ? "No payments or invoices recorded yet ($0 charged during your 3-day trial)."
-                : "No verified payments or invoices have been recorded for this workspace."}
+                ? "No invoices recorded yet ($0 charged during trial)."
+                : "No verified payments or invoices recorded yet."}
             </p>
           ) : (
             <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
               {creemInvoices.map((p) => (
                 <div
                   key={`${p.provider}:${p.environment}:${p.payment_id}`}
-                  className="flex items-center justify-between p-3.5 text-xs"
+                  className="flex items-center justify-between px-3.5 py-2.5 text-xs"
                 >
                   <div>
                     <span className="font-medium text-foreground">
                       {new Date(p.recorded_at).toLocaleDateString()}
                     </span>
-                    <p className="text-muted-foreground capitalize mt-0.5">
+                    <p className="text-[11px] text-muted-foreground capitalize">
                       {p.provider} · {p.environment}
                     </p>
                   </div>
@@ -993,20 +854,20 @@ export function BillingSection({
                     <span className="font-semibold text-foreground">
                       {formatMoney(p.amount_minor, p.currency)}
                     </span>
-                    <p className="capitalize text-muted-foreground mt-0.5">{p.status}</p>
+                    <p className="text-[11px] capitalize text-muted-foreground">{p.status}</p>
                   </div>
                 </div>
               ))}
               {legacyPayments.map((p) => (
                 <div
                   key={`${p.provider}:${p.provider_id}`}
-                  className="flex items-center justify-between p-3.5 text-xs"
+                  className="flex items-center justify-between px-3.5 py-2.5 text-xs"
                 >
                   <div>
                     <span className="font-medium text-foreground">
                       {new Date(p.recorded_at).toLocaleDateString()}
                     </span>
-                    <p className="text-muted-foreground capitalize mt-0.5">
+                    <p className="text-[11px] text-muted-foreground capitalize">
                       {p.provider} · {p.mode}
                     </p>
                   </div>
@@ -1014,7 +875,7 @@ export function BillingSection({
                     <span className="font-semibold text-foreground">
                       {formatMoney(p.amount, p.currency)}
                     </span>
-                    <p className="capitalize text-muted-foreground mt-0.5">
+                    <p className="text-[11px] capitalize text-muted-foreground">
                       {p.status.toLowerCase()}
                     </p>
                   </div>

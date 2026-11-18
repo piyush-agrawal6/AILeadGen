@@ -69,18 +69,18 @@ const formatCount = (n: number) => new Intl.NumberFormat('en-US').format(n);
 function planHighlights(plan: CommercialCatalog['plans'][number]): string[] {
   if (!plan.limits) {
     return [
-      'Custom monthly search and monitoring volume',
-      'Dedicated AI analysis & token capacity',
-      'Multi-seat workspace access & custom API limits',
-      'Dedicated onboarding and tailored data retention',
+      'Custom search & monitor limits',
+      'Dedicated AI capacity',
+      'Multi-seat & custom API',
+      'Dedicated onboarding & SLA',
     ];
   }
   const l = plan.limits;
   return [
     `${formatCount(l.searches)} monthly searches`,
-    `${formatCount(l.ai_calls)} shared AI operations (${formatCount(l.ai_tokens)} reserved tokens)`,
-    `${formatCount(l.monitors)} active monitors · ${formatCount(l.monitor_executions)} scheduled checks`,
-    `${formatCount(l.reports)} monthly reports · ${formatCount(l.api_requests)} API requests`,
+    `${formatCount(l.ai_calls)} AI operations`,
+    `${formatCount(l.monitors)} active monitors`,
+    `${formatCount(l.reports)} monthly reports`,
     `${formatCount(l.team_members)} workspace ${l.team_members === 1 ? 'seat' : 'seats'}`,
   ];
 }
@@ -237,23 +237,17 @@ export function CommercialPlans({
     : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <section className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-              Monthly plans · Tax-inclusive USD
-            </p>
-            <h2 className="text-xl font-semibold tracking-tight text-foreground mt-0.5">
-              Intent intelligence for your next stage
+            <h2 className="text-base font-semibold tracking-tight text-foreground">
+              Compare Plans
             </h2>
-            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-              Compare monthly plans, published allowances, and team capacity. Selecting a plan opens Creem secure checkout or your Creem billing portal directly.
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Monthly plans in tax-inclusive USD · Billed via Creem
             </p>
           </div>
-          <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-            Billed via Creem
-          </span>
         </div>
 
         {selectedPlan && (
@@ -286,7 +280,7 @@ export function CommercialPlans({
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
           {data.catalog.plans.map((plan) => {
             const isSelected = selectedPlan === plan.code || activeCheckoutPlan === plan.code;
             const isCurrent = currentPlanCode?.toLowerCase() === plan.code.toLowerCase();
@@ -298,57 +292,57 @@ export function CommercialPlans({
               <article
                 key={plan.code}
                 className={
-                  'flex flex-col justify-between rounded-2xl border bg-card p-5 transition-colors ' +
+                  'flex flex-col justify-between rounded-xl border bg-card p-4 transition-colors ' +
                   (isCurrent
-                    ? 'border-primary ring-1 ring-primary/25'
+                    ? 'border-primary ring-1 ring-primary/20'
                     : isSelected
                       ? 'commercial-selected border-primary/70'
                       : 'border-border hover:border-primary/40')
                 }
               >
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-base font-semibold text-foreground">{plan.name}</h3>
+                    <h3 className="text-sm font-semibold text-foreground">{plan.name}</h3>
                     {isCurrent && (
-                      <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                         {currentIsTrial ? 'Current Trial' : 'Current Plan'}
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-baseline gap-1">
-                    <p className="commercial-price text-3xl font-bold tracking-tight text-foreground">
+                    <p className="commercial-price text-2xl font-bold tracking-tight text-foreground">
                       {plan.monthly_minor === null
                         ? 'Custom'
                         : formatMoney(plan.monthly_minor, data.catalog.list_currency)}
                     </p>
                     {plan.monthly_minor !== null && (
-                      <span className="text-xs text-muted-foreground">/month</span>
+                      <span className="text-xs text-muted-foreground">/mo</span>
                     )}
                   </div>
 
-                  <p className="text-xs text-muted-foreground leading-relaxed min-h-[2.5rem]">
+                  <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2 min-h-[2rem]">
                     {plan.audience}
                   </p>
 
-                  <ul className="space-y-2 border-t border-border/70 pt-3.5 text-xs text-foreground/90">
+                  <ul className="space-y-1.5 border-t border-border/70 pt-3 text-xs text-foreground/90">
                     {highlights.map((item) => (
                       <li key={item} className="flex items-start gap-2">
-                        <Check size={14} className="text-primary shrink-0 mt-0.5" aria-hidden="true" />
-                        <span>{item}</span>
+                        <Check size={13} className="text-primary shrink-0 mt-0.5" aria-hidden="true" />
+                        <span className="leading-snug">{item}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="pt-5">
+                <div className="pt-4">
                   {isEnterprise ? (
                     <a
-                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold text-foreground hover:border-primary/50 transition-colors"
+                      className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground hover:border-primary/50 transition-colors"
                       href="mailto:contact@planebyte.com?subject=Enterprise%20subscription"
                     >
                       <span>Contact sales</span>
-                      <ArrowUpRight size={14} aria-hidden="true" />
+                      <ArrowUpRight size={13} aria-hidden="true" />
                     </a>
                   ) : (
                     <button
@@ -357,7 +351,7 @@ export function CommercialPlans({
                       aria-busy={isBusy}
                       onClick={() => void handleChoosePlan(plan.code)}
                       className={
-                        'inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-60 ' +
+                        'inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-60 ' +
                         (isCurrent && !currentIsTrial
                           ? 'border border-border bg-muted/40 text-foreground hover:bg-muted'
                           : 'bg-primary text-primary-foreground hover:opacity-95')
@@ -365,9 +359,9 @@ export function CommercialPlans({
                     >
                       {isBusy ? (
                         <>
-                          <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                          <Loader2 size={13} className="animate-spin" aria-hidden="true" />
                           <span>
-                            {hasManageableContract ? 'Opening Creem Portal…' : 'Preparing Checkout…'}
+                            {hasManageableContract ? 'Opening Portal…' : 'Preparing…'}
                           </span>
                         </>
                       ) : (
@@ -379,7 +373,7 @@ export function CommercialPlans({
                                 ? `Switch to ${plan.name}`
                                 : `Choose ${plan.name}`}
                           </span>
-                          <ArrowUpRight size={14} aria-hidden="true" />
+                          <ArrowUpRight size={13} aria-hidden="true" />
                         </>
                       )}
                     </button>
@@ -505,17 +499,17 @@ export function CommercialPlans({
       </section>
 
       {/* Collapsible Feature Comparison */}
-      <section className="rounded-2xl border border-border bg-card overflow-hidden">
+      <section className="rounded-xl border border-border bg-card overflow-hidden">
         <button
           type="button"
           aria-expanded={showComparison}
           onClick={() => setShowComparison((prev) => !prev)}
-          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left hover:bg-muted/30 transition-colors cursor-pointer"
+          className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left hover:bg-muted/30 transition-colors cursor-pointer"
         >
           <div>
             <span className="text-sm font-semibold text-foreground">Compare All Features</span>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              View complete monthly search, AI, monitoring, reporting, and API allowances across every plan.
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Full monthly limits, monitoring, reporting, and API allowances across plans.
             </p>
           </div>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-primary shrink-0">
@@ -541,7 +535,7 @@ export function CommercialPlans({
                 <tr>
                   <th
                     scope="col"
-                    className="sticky left-0 z-10 bg-muted/90 backdrop-blur px-5 py-3 font-semibold text-foreground min-w-[200px]"
+                    className="sticky left-0 z-10 bg-muted/90 backdrop-blur px-4 py-2.5 font-semibold text-foreground min-w-[190px]"
                   >
                     Feature / Allowance
                   </th>
@@ -552,7 +546,7 @@ export function CommercialPlans({
                         scope="col"
                         key={p.code}
                         className={
-                          'px-4 py-3 font-semibold whitespace-nowrap ' +
+                          'px-3.5 py-2.5 font-semibold whitespace-nowrap ' +
                           (isCurrent ? 'text-primary bg-primary/5' : 'text-foreground')
                         }
                       >
@@ -571,12 +565,12 @@ export function CommercialPlans({
                 <tr>
                   <th
                     scope="row"
-                    className="sticky left-0 bg-card px-5 py-3 font-medium text-foreground"
+                    className="sticky left-0 bg-card px-4 py-2.5 font-medium text-foreground"
                   >
                     Monthly price (USD, tax-inclusive)
                   </th>
                   {data.catalog.plans.map((p) => (
-                    <td key={p.code} className="px-4 py-3 font-semibold text-foreground">
+                    <td key={p.code} className="px-3.5 py-2.5 font-semibold text-foreground">
                       {p.monthly_minor === null ? 'Custom' : formatMoney(p.monthly_minor, 'USD')}
                     </td>
                   ))}
@@ -586,7 +580,7 @@ export function CommercialPlans({
                   <tr key={item.key}>
                     <th
                       scope="row"
-                      className="sticky left-0 bg-card px-5 py-3 font-medium text-foreground align-top"
+                      className="sticky left-0 bg-card px-4 py-2.5 font-medium text-foreground align-top"
                     >
                       <div>{item.label}</div>
                       <div className="font-normal text-[11px] text-muted-foreground mt-0.5 max-w-xs">
@@ -594,7 +588,7 @@ export function CommercialPlans({
                       </div>
                     </th>
                     {data.catalog.plans.map((p) => (
-                      <td key={p.code} className="px-4 py-3 tabular-nums text-foreground">
+                      <td key={p.code} className="px-3.5 py-2.5 tabular-nums text-foreground">
                         {p.limits ? formatCount(p.limits[item.key]) : 'By agreement'}
                       </td>
                     ))}
@@ -604,12 +598,12 @@ export function CommercialPlans({
                 <tr>
                   <th
                     scope="row"
-                    className="sticky left-0 bg-card px-5 py-3 font-medium text-foreground"
+                    className="sticky left-0 bg-card px-4 py-2.5 font-medium text-foreground"
                   >
                     Scheduled monitoring frequency
                   </th>
                   {data.catalog.plans.map((p) => (
-                    <td key={p.code} className="px-4 py-3 text-muted-foreground">
+                    <td key={p.code} className="px-3.5 py-2.5 text-muted-foreground">
                       {p.limits ? 'Daily (minimum interval)' : 'By agreement'}
                     </td>
                   ))}
@@ -619,7 +613,7 @@ export function CommercialPlans({
                   <tr key={cap.id}>
                     <th
                       scope="row"
-                      className="sticky left-0 bg-card px-5 py-3 font-medium text-foreground align-top"
+                      className="sticky left-0 bg-card px-4 py-2.5 font-medium text-foreground align-top"
                     >
                       <div>{cap.name}</div>
                       <div className="font-normal text-[11px] text-muted-foreground mt-0.5 max-w-xs">
@@ -627,7 +621,7 @@ export function CommercialPlans({
                       </div>
                     </th>
                     {data.catalog.plans.map((p) => (
-                      <td key={p.code} className="px-4 py-3 text-muted-foreground">
+                      <td key={p.code} className="px-3.5 py-2.5 text-muted-foreground">
                         {p.code === 'enterprise' ? 'By agreement' : 'Included'}
                       </td>
                     ))}

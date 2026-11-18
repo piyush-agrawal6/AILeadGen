@@ -15,7 +15,7 @@ it('prioritizes monthly usage, shows uncertain reservations and separates daily 
  expect(screen.getByText('Daily operator safety limits')).toBeVisible();
  expect(screen.getByRole('heading',{name:'Daily limits',hidden:true})).not.toBeVisible();
  expect(screen.getByText(/Unknown outcomes retain reserved capacity/)).toBeVisible();
- expect(screen.getByRole('heading',{name:'Intent intelligence for your next stage',hidden:true})).not.toBeVisible();
+ expect(screen.getByRole('heading',{name:'Compare Plans',hidden:true})).not.toBeVisible();
  expect(screen.queryByRole('button',{name:/pay|checkout|subscribe/i})).not.toBeInTheDocument();
 });
 it('does not represent Beta operator budgets as a purchased monthly subscription',()=>{
