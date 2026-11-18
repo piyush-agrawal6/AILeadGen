@@ -78,15 +78,16 @@ def get(c,key):
     return _profile(row, primary_id=_primary_icp_id(c, org), counts=_related_counts(c, org, str(row['id'])))
 
 
-def listing(c,page=1,status=None):
+def listing(c,page=1,status=None,page_size=25):
     org=organization();where="organization_id=? AND status<>'DELETED'";args=[org]
     if status:where+=' AND status=?';args.append(status)
+    bound_size=max(1,min(int(page_size or 25),100))
     total=c.execute('SELECT COUNT(*) FROM ideal_customer_profiles WHERE '+where,args).fetchone()[0]
-    rows=c.execute('SELECT * FROM ideal_customer_profiles WHERE '+where+' ORDER BY updated_at DESC,id LIMIT 25 OFFSET ?',args+[(page-1)*25]).fetchall()
+    rows=c.execute('SELECT * FROM ideal_customer_profiles WHERE '+where+' ORDER BY updated_at DESC,id LIMIT ? OFFSET ?',args+[bound_size,(page-1)*bound_size]).fetchall()
     primary_id=_primary_icp_id(c, org)
     items=[_profile(dict(row), primary_id=primary_id, counts=_related_counts(c, org, str(row['id']))) for row in rows]
     items.sort(key=lambda x: (0 if x.get('is_primary') else 1, 0 if x.get('status') == 'ACTIVE' else 1))
-    return {'items':items,'total':total,'page':page,'page_size':25,'can_edit':membership_role(c,current().actor,org) in ('OWNER','ADMIN')}
+    return {'items':items,'total':total,'page':page,'page_size':bound_size,'can_edit':membership_role(c,current().actor,org) in ('OWNER','ADMIN')}
 
 
 def _record(c,key,action):
