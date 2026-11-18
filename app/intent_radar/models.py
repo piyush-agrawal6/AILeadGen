@@ -174,10 +174,24 @@ class Provenance(Strict):
     metrics: dict[str,int] | None = None
 
 
+class SearchStrategy(Strict):
+    objective: str = Field('', max_length=400)
+    target_customer_context: str = Field('', max_length=400)
+    keyword_rationale: str = Field('', max_length=500)
+    source_rationale: str = Field('', max_length=500)
+    exclusions_rationale: str = Field('', max_length=400)
+    limitations: list[str] = Field(default_factory=list, max_length=6)
+
+
 class Discovery(Strict):
     configuration: Search
     monitor_id: UUID | None = None
     request_id: UUID = Field(default_factory=uuid4)
+    title: str = Field('', max_length=120)
+    original_prompt: str = Field('', max_length=2000)
+    search_mode: Literal['ai', 'advanced', 'monitor', 'rerun'] = 'advanced'
+    parent_discovery_id: UUID | None = None
+    strategy: SearchStrategy | None = None
 
 class SignalUpdate(Strict):
     revision: int = Field(ge=1)
@@ -226,6 +240,66 @@ class SearchDraft(Strict):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field('', max_length=1000)
     configuration: Search
+    strategy: SearchStrategy | None = None
+
+CopilotActionType = Literal[
+    'add_keywords',
+    'remove_keywords',
+    'replace_keywords',
+    'add_exclusions',
+    'set_intent_categories',
+    'select_sources',
+    'choose_icp',
+    'update_filters',
+    'suggest_search_configuration',
+]
+
+class CopilotProposal(Strict):
+    id: str = Field(min_length=1, max_length=64)
+    action: CopilotActionType
+    label: str = Field(min_length=1, max_length=120)
+    rationale: str = Field('', max_length=400)
+    keywords: list[Term] = Field(default_factory=list, max_length=12)
+    excluded: list[Term] = Field(default_factory=list, max_length=12)
+    phrases: list[Term] = Field(default_factory=list, max_length=12)
+    topics: list[Term] = Field(default_factory=list, max_length=12)
+    categories: list[Category] = Field(default_factory=list, max_length=11)
+    sources: list[SourceId] = Field(default_factory=list, max_length=8)
+    icp_id: UUID | None = None
+    min_relevance: int | None = Field(None, ge=0, le=100)
+    result_limit: int | None = Field(None, ge=1, le=20)
+    from_date: date | None = None
+    to_date: date | None = None
+    configuration: Search | None = None
+
+class CopilotHistoryMessage(Strict):
+    role: Literal['user', 'assistant']
+    content: str = Field(min_length=1, max_length=1500)
+
+class CopilotRequest(Strict):
+    message: str = Field(min_length=1, max_length=1500)
+    quick_action: Literal[
+        'improve_keywords',
+        'suggest_sources',
+        'exclude_noise',
+        'align_icp',
+        'broaden_search',
+        'narrow_search',
+        'explain_strategy',
+        'suggest_search',
+        'refine_after_results',
+    ] | None = None
+    draft: Search | None = None
+    original_prompt: str = Field('', max_length=2000)
+    icp_id: UUID | None = None
+    active_run_id: UUID | None = None
+    history: list[CopilotHistoryMessage] = Field(default_factory=list, max_length=10)
+
+class CopilotAiOutput(Strict):
+    reply: str = Field(min_length=1, max_length=2000)
+    strategy: SearchStrategy | None = None
+    proposals: list[CopilotProposal] = Field(default_factory=list, max_length=8)
+    warnings: list[str] = Field(default_factory=list, max_length=5)
 
 class RequestKey(Strict):
     request_id: UUID = Field(default_factory=uuid4)

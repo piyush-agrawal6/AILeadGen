@@ -1,19 +1,15 @@
 "use client";
 
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { QueryClientContext } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowRight,
-  Bookmark,
   Check,
   ChevronDown,
   ChevronUp,
-  Info,
   Loader2,
-  Radio,
-  Search,
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
@@ -23,17 +19,28 @@ import {
   type IntentJob,
   type IntentPreferences,
   type IntentSearch,
-  type IntentSignal,
+  type SearchStrategy,
   type SourceId,
 } from "@/lib/intent-radar";
 import { Button } from "@/components/ui/button";
 import { useUsage, type UsageData } from "@/components/workspaces/usage";
 import { useRadarCapabilities, useRadarMutation, useRadarRead } from "./provider";
-import { Badge, EmptyState, ErrorState, Field, LoadingSkeleton, PageHeading } from "./ui";
+import { ErrorState, Field, LoadingSkeleton, PageHeading } from "./ui";
 import { ChipInput, MonitorWizard } from "./monitors";
 import { SourceSelection } from "./advanced-controls";
 import { JobPanel } from "./jobs";
-import { SignalCard } from "./signals";
+import { DiscoverNav } from "./discover/DiscoverNav";
+import { SourceConfigDrawer } from "./discover/SourceConfigDrawer";
+import { InlineReviewPanel } from "./discover/InlineReviewPanel";
+import { InlineResultsPanel } from "./discover/InlineResultsPanel";
+import {
+  DISCOVERY_PRELOAD_KEY,
+  DiscoveryCopilotPanel,
+  type CopilotQuickAction,
+} from "./discover/DiscoveryCopilotPanel";
+import { DiscoveryHistoryView } from "./discover/DiscoveryHistoryView";
+import { DiscoveryRunDetailView } from "./discover/DiscoveryRunDetailView";
+import { SavedSearchesView } from "./discover/SavedSearchesView";
 
 function UsageReader({ onData }: { onData: (data: UsageData | undefined) => void }) {
   const q = useUsage();
@@ -46,9 +53,15 @@ function UsageReader({ onData }: { onData: (data: UsageData | undefined) => void
 export function SearchFilters({
   value,
   onChange,
+  onSuggestKeywords,
+  onConfigureSource,
+  compactSourceOptions = false,
 }: {
   value: IntentSearch;
   onChange: (value: IntentSearch) => void;
+  onSuggestKeywords?: () => void;
+  onConfigureSource?: (sourceId: SourceId) => void;
+  compactSourceOptions?: boolean;
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const icps = useRadarRead<{ items: { id: string; name: string }[] }>("/icps");
@@ -67,10 +80,10 @@ export function SearchFilters({
   ].filter(Boolean).length;
 
   return (
-    <div className="space-y-6">
-      {/* Decision 1: What are you looking for? */}
+    <div className="space-y-5">
+      {/* 1. Search Terms */}
       <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
               1 · Search Terms
@@ -79,9 +92,21 @@ export function SearchFilters({
               What are you looking for?
             </h3>
           </div>
-          <span className="text-[11px] text-muted-foreground">
-            {value.keywords.length} / 12 keywords
-          </span>
+          <div className="flex items-center gap-2.5">
+            {onSuggestKeywords && (
+              <button
+                type="button"
+                onClick={onSuggestKeywords}
+                className="inline-flex items-center gap-1 rounded-full border border-primary/35 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/15 transition-colors cursor-pointer"
+              >
+                <Sparkles size={11} aria-hidden="true" />
+                Suggest keywords
+              </button>
+            )}
+            <span className="text-[11px] text-muted-foreground">
+              {value.keywords.length} / 12 keywords
+            </span>
+          </div>
         </div>
 
         <ChipInput
@@ -91,11 +116,11 @@ export function SearchFilters({
         />
 
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Type a keyword or short phrase and press Enter (or separate with commas). Discussions matching your keywords are scored and ranked by relevance — multiple keywords broaden discovery rather than requiring every term to appear in the same post.
+          Enter specific domain terms or short phrases (e.g. “CRM alternative”, “SOC 2 compliance”) and press Enter. Multiple keywords broaden discovery and rank discussions by relevance.
         </p>
       </section>
 
-      {/* Decision 2: Where should we search? */}
+      {/* 2. Research Sources */}
       <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
         <div>
           <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
@@ -105,19 +130,27 @@ export function SearchFilters({
             Where should we search?
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Select one or more available sources. Source-specific options appear only for the providers you select.
+            {compactSourceOptions
+              ? "Select one or more available sources. Click Configure on any selected source to adjust its options."
+              : "Select one or more available sources. Source-specific options appear only for the providers you select."}
           </p>
         </div>
 
-        <SourceSelection value={value} onChange={onChange} showAdvancedOptions={false} />
+        <SourceSelection
+          value={value}
+          onChange={onChange}
+          showAdvancedOptions={false}
+          compactOptions={compactSourceOptions}
+          onConfigureSource={onConfigureSource}
+        />
       </section>
 
-      {/* Decision 3: What type of conversations matter? */}
+      {/* 3. Research Intent */}
       <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-              3 · Intent Type
+              3 · Research Intent
             </span>
             <h3 className="text-sm font-semibold text-foreground mt-0.5">
               What type of conversations matter?
@@ -167,11 +200,11 @@ export function SearchFilters({
           {value.categories.length === 0
             ? "All conversation types included. "
             : `${value.categories.length} selected. `}
-          Selecting intent categories filters or classifies available evidence — it does not guarantee that a post represents a real buyer.
+          Selecting intent categories classifies available evidence — it does not guarantee a post represents an active buyer.
         </p>
       </section>
 
-      {/* Expandable Advanced Filters */}
+      {/* Collapsible Advanced Filters */}
       <section className="rounded-2xl border border-border bg-card overflow-hidden">
         <button
           type="button"
@@ -383,114 +416,65 @@ export function SearchSummary({ configuration: c }: { configuration: IntentSearc
     : "None (searching without an ICP)";
 
   return (
-    <div className="space-y-4">
-      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-xs">
-        <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <dt className="text-muted-foreground">Search keywords</dt>
-          <dd className="mt-1 flex flex-wrap gap-1.5">
-            {c.keywords.length ? (
-              c.keywords.map((k) => (
-                <span
-                  key={k}
-                  className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
-                >
-                  {k}
-                </span>
-              ))
-            ) : (
-              <span className="text-destructive font-medium">Add at least one keyword</span>
-            )}
-          </dd>
-        </div>
-
-        <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <dt className="text-muted-foreground">Selected sources ({sourceLabels.length})</dt>
-          <dd className="mt-1 font-semibold text-foreground">
-            {sourceLabels.length ? sourceLabels.join(", ") : "Select at least one source"}
-          </dd>
-        </div>
-
-        <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <dt className="text-muted-foreground">Intent categories</dt>
-          <dd className="mt-1 font-medium text-foreground">
-            {c.categories.length ? c.categories.join(", ") : "All conversation categories"}
-          </dd>
-        </div>
-
-        <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <dt className="text-muted-foreground">Exclusions</dt>
-          <dd className="mt-1 font-medium text-foreground">
-            {c.excluded.length ? c.excluded.join(", ") : "None"}
-          </dd>
-        </div>
-
-        <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <dt className="text-muted-foreground">Date window &amp; limit</dt>
-          <dd className="mt-1 font-medium text-foreground">
-            {c.from_date || "Any date"} → {c.to_date || "Latest"} · up to {c.result_limit} results
-            {c.min_relevance > 0 ? ` (≥ ${c.min_relevance}/100)` : ""}
-          </dd>
-        </div>
-
-        <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
-          <dt className="text-muted-foreground">Active ICP</dt>
-          <dd className="mt-1 font-medium text-foreground">{icpName}</dd>
-        </div>
-      </dl>
-
-      <details className="rounded-xl border border-border/80 bg-muted/15 px-4 py-3 text-xs">
-        <summary className="font-medium text-foreground cursor-pointer">
-          Source coverage &amp; search limitations
-        </summary>
-        <div className="mt-2.5 space-y-1.5 text-muted-foreground">
-          {access.data?.sources
-            .filter((s) => sources.includes((s.id || "hacker_news") as SourceId))
-            .map((s) => (
-              <p key={s.name}>
-                <strong className="text-foreground">{s.name}:</strong> {s.coverage} (up to{" "}
-                {s.request_limit_per_check || 22} requests per check).
-              </p>
-            ))}
-          <p>
-            One manual check consumes 1 search allowance. Saving a monitor stores criteria without executing a one-time search.
-          </p>
-        </div>
-      </details>
-    </div>
-  );
-}
-
-function SearchResult({ id }: { id: string }) {
-  const query = useRadarRead<IntentSignal>("/signals/" + id);
-  return query.error ? (
-    <ErrorState message={query.error.message} />
-  ) : query.data ? (
-    <SignalCard signal={query.data} />
-  ) : (
-    <LoadingSkeleton />
+    <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 text-xs">
+      <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
+        <dt className="text-muted-foreground">Search keywords</dt>
+        <dd className="mt-1 flex flex-wrap gap-1.5">
+          {c.keywords.length ? (
+            c.keywords.map((k) => (
+              <span
+                key={k}
+                className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+              >
+                {k}
+              </span>
+            ))
+          ) : (
+            <span className="text-destructive font-medium">Add at least one keyword</span>
+          )}
+        </dd>
+      </div>
+      <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
+        <dt className="text-muted-foreground">Selected sources ({sourceLabels.length})</dt>
+        <dd className="mt-1 font-semibold text-foreground">
+          {sourceLabels.length ? sourceLabels.join(", ") : "Select at least one source"}
+        </dd>
+      </div>
+      <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
+        <dt className="text-muted-foreground">Active ICP</dt>
+        <dd className="mt-1 font-medium text-foreground">{icpName}</dd>
+      </div>
+    </dl>
   );
 }
 
 const SUGGESTIONS = [
   [
-    "Tool & vendor comparisons",
-    "Find founders comparing CRM or analytics tools on GitHub and Hacker News.",
+    "CRM & tool comparisons",
+    "Find teams comparing Salesforce vs HubSpot or looking for a lightweight CRM alternative on Hacker News and GitHub.",
   ],
   [
-    "Engineering pain points",
-    "Find engineering teams discussing CI/CD bottlenecks and deployment failures on Stack Exchange.",
+    "Engineering & API pain points",
+    "Find developers hitting Stripe webhook timeouts or API rate limit errors on Stack Exchange and GitHub.",
   ],
   [
     "Alternative searches",
-    "Find SaaS teams looking for alternatives to expensive observability platforms.",
+    "Find SaaS teams switching away from Datadog to an open-source observability stack.",
   ],
   [
-    "Technical recommendations",
-    "Find startup CTOs asking for recommendations on API security and SOC 2 compliance.",
+    "Compliance & security",
+    "Find startup CTOs asking for recommendations on SOC 2 compliance and endpoint security.",
   ],
 ] as const;
 
-export function DiscoverExperience() {
+export function DiscoverExperience({ route = "discover" }: { route?: string }) {
+  if (route === "discover/history") return <DiscoveryHistoryView />;
+  if (route === "discover/saved") return <SavedSearchesView />;
+  if (route.startsWith("discover/runs/")) {
+    const runId = route.split("/")[2];
+    if (runId) return <DiscoveryRunDetailView id={runId} />;
+  }
+
   const preferences = useRadarRead<IntentPreferences>("/settings");
   if (preferences.error) {
     return (
@@ -501,12 +485,15 @@ export function DiscoverExperience() {
     );
   }
   if (!preferences.data) return <LoadingSkeleton />;
-  return <DiscoveryForm preferences={preferences.data} />;
+  return <DiscoveryWorkspace preferences={preferences.data} />;
 }
 
-function DiscoveryForm({ preferences }: { preferences: IntentPreferences }) {
-  const [mode, setMode] = useState<"ai" | "advanced" | "review">("advanced");
+function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences }) {
+  const [inputMode, setInputMode] = useState<"ai" | "advanced">("advanced");
   const [prompt, setPrompt] = useState("");
+  const [draftTitle, setDraftTitle] = useState("");
+  const [parentDiscoveryId, setParentDiscoveryId] = useState<string | null>(null);
+  const [strategy, setStrategy] = useState<SearchStrategy | null>(null);
   const [config, setConfig] = useState<IntentSearch>(() => ({
     ...emptyIntentSearch(),
     keywords: preferences.discovery_keywords || [],
@@ -521,21 +508,76 @@ function DiscoveryForm({ preferences }: { preferences: IntentPreferences }) {
     quota_exhausted?: boolean;
     source_warning?: string | null;
   } | null>(null);
+
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [builderCollapsed, setBuilderCollapsed] = useState(false);
+  const [configuringSource, setConfiguringSource] = useState<SourceId | null>(null);
+  const [mobileCopilotOpen, setMobileCopilotOpen] = useState(false);
+  const [copilotTrigger, setCopilotTrigger] = useState<{
+    action: CopilotQuickAction;
+    message: string;
+    nonce: number;
+  } | null>(null);
+
   const [job, setJob] = useState("");
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [finished, setFinished] = useState<IntentJob | null>(null);
   const [wizard, setWizard] = useState(false);
   const [error, setError] = useState("");
   const [quotaError, setQuotaError] = useState("");
 
+  const reviewRef = useRef<HTMLDivElement | null>(null);
   const mutation = useRadarMutation();
   const access = useRadarCapabilities();
   const hasQueryClient = Boolean(useContext(QueryClientContext));
   const [usageData, setUsageData] = useState<UsageData | undefined>(undefined);
 
+  // Recover preloaded criteria (from History / Saved Searches) or URL active run/job on refresh
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DISCOVERY_PRELOAD_KEY);
+      if (raw) {
+        sessionStorage.removeItem(DISCOVERY_PRELOAD_KEY);
+        const parsed = JSON.parse(raw) as {
+          configuration?: IntentSearch;
+          original_prompt?: string;
+          strategy?: SearchStrategy | null;
+          parent_discovery_id?: string | null;
+          title?: string;
+        };
+        if (parsed.configuration) {
+          setConfig(parsed.configuration);
+          setReviewOpen(true);
+        }
+        if (parsed.original_prompt) setPrompt(parsed.original_prompt);
+        if (parsed.strategy) setStrategy(parsed.strategy);
+        if (parsed.parent_discovery_id) setParentDiscoveryId(parsed.parent_discovery_id);
+        if (parsed.title) setDraftTitle(parsed.title);
+      }
+    } catch {
+      // ignore storage errors
+    }
+
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      const urlJob = sp.get("job");
+      const urlRun = sp.get("run");
+      if (urlJob && urlRun) {
+        setJob(urlJob);
+        setActiveRunId(urlRun);
+        setBuilderCollapsed(true);
+      }
+    }
+  }, []);
+
   const planSearches = usageData?.usage.find((u) => u.dimension === "plan_searches");
   const planAiCalls = usageData?.usage.find((u) => u.dimension === "plan_ai_calls");
-  const searchesExhausted = Boolean(planSearches && planSearches.limit > 0 && planSearches.remaining === 0);
-  const aiExhausted = Boolean(planAiCalls && planAiCalls.limit > 0 && planAiCalls.remaining === 0);
+  const searchesExhausted = Boolean(
+    planSearches && planSearches.limit > 0 && planSearches.remaining === 0
+  );
+  const aiExhausted = Boolean(
+    planAiCalls && planAiCalls.limit > 0 && planAiCalls.remaining === 0
+  );
 
   const selectedSources = config.sources ?? ["hacker_news"];
   const invalid =
@@ -544,7 +586,30 @@ function DiscoveryForm({ preferences }: { preferences: IntentPreferences }) {
     Boolean(config.from_date && config.to_date && config.from_date > config.to_date);
   const active = Boolean(job && !finished);
 
-  async function draft() {
+  function triggerCopilot(action: CopilotQuickAction, message: string) {
+    setCopilotTrigger({ action, message, nonce: Date.now() });
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setMobileCopilotOpen(true);
+    }
+  }
+
+  function openInlineReview() {
+    if (invalid) {
+      setError(
+        "Add at least one keyword, select an available source, and check your date range."
+      );
+      return;
+    }
+    setError("");
+    setReviewOpen(true);
+    setTimeout(() => {
+      if (typeof reviewRef.current?.scrollIntoView === "function") {
+        reviewRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }, 30);
+  }
+
+  async function draftWithAi() {
     setError("");
     setQuotaError("");
     try {
@@ -556,20 +621,31 @@ function DiscoveryForm({ preferences }: { preferences: IntentPreferences }) {
           icp_id: config.icp_id || null,
         },
       })) as {
-        draft: { configuration: IntentSearch };
+        draft: {
+          name?: string;
+          configuration: IntentSearch;
+          strategy?: SearchStrategy | null;
+        };
         mode: string;
         fallback_reason?: string;
         quota_exhausted?: boolean;
         source_warning?: string | null;
       };
       setConfig(result.draft.configuration);
+      if (result.draft.name) setDraftTitle(result.draft.name);
+      if (result.draft.strategy) setStrategy(result.draft.strategy);
       setDraftInfo({
         mode: result.mode,
         reason: result.fallback_reason,
         quota_exhausted: result.quota_exhausted,
         source_warning: result.source_warning,
       });
-      setMode("review");
+      setReviewOpen(true);
+      setTimeout(() => {
+        if (typeof reviewRef.current?.scrollIntoView === "function") {
+          reviewRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }, 30);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not generate criteria.");
     }
@@ -586,9 +662,27 @@ function DiscoveryForm({ preferences }: { preferences: IntentPreferences }) {
     try {
       const result = (await mutation.mutateAsync({
         path: "/discover",
-        body: { configuration: config, request_id: crypto.randomUUID() },
+        body: {
+          configuration: config,
+          request_id: crypto.randomUUID(),
+          title: draftTitle || config.keywords.slice(0, 3).join(" · "),
+          original_prompt: prompt,
+          search_mode: parentDiscoveryId ? "rerun" : inputMode,
+          parent_discovery_id: parentDiscoveryId,
+          strategy: strategy || null,
+        },
       })) as IntentJob;
       setJob(result.id);
+      if (result.discovery_id) setActiveRunId(result.discovery_id);
+      setBuilderCollapsed(true);
+
+      // Persist active run/job in URL without page reload for refresh recovery
+      if (typeof window !== "undefined" && result.discovery_id) {
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set("job", result.id);
+        nextUrl.searchParams.set("run", result.discovery_id);
+        window.history.replaceState({}, "", nextUrl.toString());
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Discovery could not be started.";
       if (/allowance|exhausted|quota|limit|429/i.test(msg)) {
@@ -599,441 +693,374 @@ function DiscoveryForm({ preferences }: { preferences: IntentPreferences }) {
     }
   }
 
-  const ids = [
+  async function saveReusableSearch(name: string, description: string) {
+    await mutation.mutateAsync({
+      path: "/saved-searches",
+      body: {
+        name,
+        description,
+        original_prompt: prompt,
+        configuration: config,
+      },
+    });
+  }
+
+  const resultIds = [
     ...new Set(finished?.items.flatMap((item) => item.result?.signals || []) || []),
   ].slice(0, 20);
+  const firstResult = finished?.items[0]?.result;
 
   return (
-    <div className="ir-page space-y-6">
+    <div className="ir-page space-y-5">
       {hasQueryClient && <UsageReader onData={setUsageData} />}
+
       <PageHeading
         title="Discover Conversations"
-        description="Find relevant discussions across your approved research sources."
+        description="Configure, review, run, and refine multi-source discovery inline with your context-aware Copilot."
       />
 
-      {/* Mode Switcher */}
-      <div
-        className="inline-flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-muted/30 p-1"
-        role="group"
-        aria-label="Search method"
-      >
-        <button
-          type="button"
-          aria-pressed={mode === "ai"}
-          onClick={() => setMode("ai")}
-          className={
-            "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer " +
-            (mode === "ai"
-              ? "bg-card text-foreground shadow-sm border border-border/80"
-              : "text-muted-foreground hover:text-foreground")
-          }
-        >
-          <Sparkles size={14} /> Describe with AI
-        </button>
-        <button
-          type="button"
-          aria-pressed={mode === "advanced"}
-          onClick={() => setMode("advanced")}
-          className={
-            "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer " +
-            (mode === "advanced"
-              ? "bg-card text-foreground shadow-sm border border-border/80"
-              : "text-muted-foreground hover:text-foreground")
-          }
-        >
-          <SlidersHorizontal size={14} /> Advanced Search
-        </button>
-        {mode === "review" && (
-          <button
-            type="button"
-            aria-pressed
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground"
-          >
-            <Check size={14} /> Review Search
-          </button>
-        )}
-      </div>
+      <DiscoverNav
+        activeTab="new"
+        showCopilotButton
+        onOpenMobileCopilot={() => setMobileCopilotOpen(true)}
+      />
 
-      {/* Mode 1: Describe with AI */}
-      {mode === "ai" && (
-        <div className="grid gap-5 lg:grid-cols-3">
-          <section className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 space-y-4">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <h2 className="text-base font-semibold text-foreground">
-                  Describe the conversations you want to find
-                </h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  PlaneByte drafts structured search criteria for your review before running any search.
-                </p>
-              </div>
-              <Sparkles size={18} className="text-primary shrink-0" aria-hidden="true" />
-            </div>
-
-            {/* Upfront AI Allowance Exhausted Warning */}
-            {aiExhausted && (
-              <div
-                role="status"
-                className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 space-y-2.5 text-xs"
-              >
-                <div className="flex items-start gap-2">
-                  <AlertTriangle
-                    size={15}
-                    className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <p className="font-semibold text-foreground">
-                      Shared AI operations allowance exhausted ({planAiCalls?.used}/{planAiCalls?.limit})
-                    </p>
-                    <p className="text-muted-foreground mt-0.5">
-                      AI criteria generation is unavailable until your allowance resets or your plan upgrades. You can still configure and run manual searches directly.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                  <Button size="sm" variant="outline" onClick={() => setMode("advanced")}>
-                    Continue with Manual Search
-                  </Button>
-                  <Link
-                    href="/settings?category=billing&tab=overview"
-                    className="text-xs font-semibold text-primary hover:underline px-2"
-                  >
-                    View Billing &amp; Usage →
-                  </Link>
-                </div>
-              </div>
-            )}
-
-            <Field
-              label="What are you looking for?"
-              hint="Mention customer problems, tools, or specific available sources (e.g., GitHub, Stack Exchange, YouTube, Bluesky)."
-            >
-              <textarea
-                rows={4}
-                value={prompt}
-                maxLength={2000}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Find SaaS founders discussing migration away from legacy analytics tools on GitHub and Hacker News."
-                className="w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground"
-              />
-            </Field>
-
-            <div className="flex flex-wrap gap-2" aria-label="Prompt ideas">
-              {SUGGESTIONS.map(([label, text]) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setPrompt(text)}
-                  className="rounded-full border border-border bg-muted/25 px-3 py-1 text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors cursor-pointer"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <Button
-                disabled={prompt.trim().length < 10 || mutation.isPending || !access.data?.can_manage}
-                onClick={() => void draft()}
-                className="gap-1.5"
-              >
-                {mutation.isPending ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" /> Preparing criteria…
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={14} />{" "}
-                    {draftInfo ? "Refine Search Criteria" : "Generate Criteria"}
-                  </>
-                )}
-              </Button>
-              <Button variant="outline" onClick={() => setMode("advanced")}>
-                Continue with Manual Search
-              </Button>
-            </div>
-
-            {!access.data?.can_manage && (
-              <p className="text-[11px] text-muted-foreground">
-                AI criteria generation requires an owner or administrator. Advanced Search is available to all workspace editors.
-              </p>
-            )}
-          </section>
-
-          <aside className="rounded-2xl border border-border bg-card p-5 space-y-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Radio size={20} aria-hidden="true" />
-            </div>
-            <div className="space-y-1.5">
-              <h3 className="text-sm font-semibold text-foreground">
-                AI draft and search execution are separate
-              </h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Generating criteria uses 1 shared AI operation. Running the search itself uses 1 monthly search allowance — nothing is searched until you review and confirm.
-              </p>
-            </div>
-            <div className="rounded-xl bg-muted/30 p-3 text-xs space-y-1">
-              <p className="font-medium text-foreground">Explicit fallback protection</p>
-              <p className="text-[11px] text-muted-foreground">
-                If AI drafting is unavailable or exhausted, PlaneByte shows a clearly labeled manual fallback and preserves your requested sources without silently switching them.
-              </p>
-            </div>
-          </aside>
-        </div>
-      )}
-
-      {/* Mode 2: Guided Advanced Search */}
-      {mode === "advanced" && (
-        <div className="space-y-5">
-          <SearchFilters value={config} onChange={setConfig} />
-
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-5 py-4">
-            <button
-              type="button"
-              onClick={() => {
-                setConfig(emptyIntentSearch());
-                setDraftInfo(null);
-                setError("");
-              }}
-              className="text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
-            >
-              Reset filters
-            </button>
-
-            <div className="flex items-center gap-3">
-              {invalid && (
-                <span className="text-xs text-muted-foreground">
-                  {!config.keywords.length
-                    ? "Add at least 1 keyword"
-                    : !selectedSources.length
-                      ? "Select at least 1 source"
-                      : "Check date range"}
-                </span>
-              )}
-              <Button
-                onClick={() => {
-                  if (invalid) {
-                    setError(
-                      "Add at least one keyword, select an available source, and check your date range."
-                    );
-                  } else {
-                    setError("");
-                    setMode("review");
-                  }
-                }}
-                className="gap-1.5"
-              >
-                Review Search <ArrowRight size={15} />
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mode 3: Review & Run */}
-      {mode === "review" && (
-        <section className="rounded-2xl border border-border bg-card p-6 space-y-5">
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
-            <div>
-              <h2 className="text-base font-semibold text-foreground">Review Search Criteria</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Confirm your keywords, sources, and filters before running a bounded discovery check.
-              </p>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setMode("advanced")}>
-              Edit Search
-            </Button>
-          </div>
-
-          {/* Explicit AI or Fallback Notice */}
-          {draftInfo && (
-            <div
-              role="status"
-              className={
-                "rounded-xl border p-4 text-xs space-y-2 " +
-                (draftInfo.mode === "Manual fallback"
-                  ? "border-amber-500/35 bg-amber-500/10"
-                  : "border-primary/25 bg-primary/5")
-              }
-            >
-              <div className="flex items-start gap-2">
-                {draftInfo.mode === "Manual fallback" ? (
-                  <AlertTriangle
-                    size={15}
-                    className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <Sparkles size={15} className="text-primary shrink-0 mt-0.5" aria-hidden="true" />
-                )}
-                <div className="space-y-1">
-                  <p className="font-semibold text-foreground">
-                    {draftInfo.mode === "Manual fallback"
-                      ? "Manual Fallback Criteria (AI did not generate this draft)"
-                      : "AI-Assisted Draft Criteria"}
-                  </p>
-                  <p className="text-muted-foreground">
-                    {draftInfo.reason ||
-                      "Review these editable criteria before running your search."}
-                  </p>
-                  {draftInfo.quota_exhausted && (
-                    <Link
-                      href="/settings?category=billing&tab=overview"
-                      className="inline-block font-semibold text-primary hover:underline pt-0.5"
+      {/* Two-column Desktop Split (~70% Main Workspace / ~30% Sticky Right Copilot) */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px] items-start">
+        {/* Main Continuous Workflow Column */}
+        <div className="min-w-0 space-y-5">
+          {/* Compact Expandable Builder Summary Bar when running/viewing results */}
+          {builderCollapsed ? (
+            <section className="rounded-2xl border border-border bg-card px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="font-semibold text-foreground">Active Search Criteria:</span>
+                  {config.keywords.slice(0, 4).map((k) => (
+                    <span
+                      key={k}
+                      className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
                     >
-                      Review AI allowance in Billing &amp; Usage →
-                    </Link>
+                      {k}
+                    </span>
+                  ))}
+                  {config.keywords.length > 4 && (
+                    <span className="text-[11px] text-muted-foreground">
+                      +{config.keywords.length - 4} more
+                    </span>
                   )}
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Sources: {selectedSources.join(", ")} · Limit: {config.result_limit}
+                </p>
               </div>
-            </div>
-          )}
-
-          <SearchSummary configuration={config} />
-
-          {/* Quota Visibility Before Execution */}
-          {planSearches && (
-            <div
-              className={
-                "flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs " +
-                (searchesExhausted
-                  ? "border-destructive/30 bg-destructive/5 text-destructive"
-                  : "border-border bg-muted/20 text-muted-foreground")
-              }
-            >
-              <span className="inline-flex items-center gap-2">
-                {searchesExhausted ? (
-                  <AlertTriangle size={14} aria-hidden="true" />
-                ) : (
-                  <Info size={14} aria-hidden="true" />
-                )}
-                {searchesExhausted ? (
-                  <span>
-                    <strong>Monthly search allowance exhausted</strong> ({planSearches.used}/
-                    {planSearches.limit} used). This check will be blocked until reset or upgrade.
-                  </span>
-                ) : (
-                  <span>
-                    Estimated quota impact: <strong>1 monthly search</strong> ({planSearches.remaining}{" "}
-                    of {planSearches.limit} remaining).
-                  </span>
-                )}
-              </span>
-              <Link
-                href="/settings?category=billing&tab=overview"
-                className="font-semibold text-primary hover:underline shrink-0"
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setBuilderCollapsed(false)}
+                className="gap-1.5 text-xs shrink-0"
               >
-                Billing &amp; Usage
-              </Link>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <Button
-              disabled={invalid || mutation.isPending || active || !access.data?.can_write}
-              onClick={() => void runSearch()}
-              className="gap-1.5"
-            >
-              {mutation.isPending ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" /> Starting search…
-                </>
-              ) : (
-                <>
-                  <Search size={14} /> Run Search
-                </>
-              )}
-            </Button>
-
-            <Button
-              variant="outline"
-              disabled={invalid || !access.data?.can_write || mutation.isPending}
-              onClick={() => setWizard(true)}
-              className="gap-1.5"
-            >
-              <Bookmark size={14} /> Save as Monitor
-            </Button>
-
-            <Button variant="ghost" size="sm" onClick={() => setMode("ai")}>
-              Refine with AI
-            </Button>
-          </div>
-        </section>
-      )}
-
-      {/* Distinct Usage Limit Reached State (never disguised as empty results!) */}
-      {quotaError && (
-        <section
-          role="alert"
-          className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5 space-y-2.5"
-        >
-          <div className="flex items-start gap-2.5">
-            <AlertTriangle size={17} className="text-destructive shrink-0 mt-0.5" aria-hidden="true" />
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-destructive">Usage Limit Reached</h3>
-              <p className="text-xs text-foreground">{quotaError}</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <Link
-              href="/settings?category=billing&tab=overview"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground"
-            >
-              Open Billing &amp; Usage <ArrowRight size={13} />
-            </Link>
-            <Button variant="outline" size="sm" onClick={() => setQuotaError("")}>
-              Dismiss
-            </Button>
-          </div>
-        </section>
-      )}
-
-      {error && <ErrorState message={error} />}
-
-      {/* Live Execution Progress */}
-      {job && <JobPanel key={job} id={job} onComplete={setFinished} />}
-
-      {/* Discovery Results */}
-      {finished && (
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-semibold text-foreground">Search Results</h2>
-            <Badge>
-              {ids.length} matching {ids.length === 1 ? "discussion" : "discussions"}
-            </Badge>
-          </div>
-
-          {ids.length > 0 ? (
-            <div className="grid gap-4 lg:grid-cols-2">
-              {ids.map((id) => (
-                <SearchResult key={id} id={id} />
-              ))}
-            </div>
-          ) : finished.status === "FAILED" ? (
-            <ErrorState
-              message="The search failed before completing provider checks. Review the source error above and retry."
-              retry={() => void runSearch()}
-            />
+                <SlidersHorizontal size={13} /> Edit Search Criteria
+              </Button>
+            </section>
           ) : (
-            <EmptyState
-              title={
-                finished.status === "CANCELLED"
-                  ? "Search cancelled"
-                  : "No matching discussions found"
-              }
-              description="Providers completed cleanly with no matching items for these terms. Try broadening your keywords, adding another source, or lowering the minimum relevance."
-              action={
-                <Button variant="outline" size="sm" onClick={() => setMode("advanced")}>
-                  Adjust search criteria
-                </Button>
+            <>
+              {/* Shared-State Mode Switcher (Describe with AI <-> Advanced Search) */}
+              <div
+                className="inline-flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-muted/30 p-1"
+                role="group"
+                aria-label="Search method"
+              >
+                <button
+                  type="button"
+                  aria-pressed={inputMode === "ai"}
+                  onClick={() => setInputMode("ai")}
+                  className={
+                    "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer " +
+                    (inputMode === "ai"
+                      ? "bg-card text-foreground shadow-sm border border-border/80"
+                      : "text-muted-foreground hover:text-foreground")
+                  }
+                >
+                  <Sparkles size={14} /> Describe with AI
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={inputMode === "advanced"}
+                  onClick={() => setInputMode("advanced")}
+                  className={
+                    "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer " +
+                    (inputMode === "advanced"
+                      ? "bg-card text-foreground shadow-sm border border-border/80"
+                      : "text-muted-foreground hover:text-foreground")
+                  }
+                >
+                  <SlidersHorizontal size={14} /> Advanced Search
+                </button>
+              </div>
+
+              {/* Mode 1: Describe with AI */}
+              {inputMode === "ai" && (
+                <section className="rounded-2xl border border-border bg-card p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-base font-semibold text-foreground">
+                        Describe the conversations you want to find
+                      </h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        PlaneByte drafts structured search criteria and strategy inline for your review before running any search.
+                      </p>
+                    </div>
+                    <Sparkles size={18} className="text-primary shrink-0" aria-hidden="true" />
+                  </div>
+
+                  {aiExhausted && (
+                    <div
+                      role="status"
+                      className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 space-y-2.5 text-xs"
+                    >
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle
+                          size={15}
+                          className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
+                          aria-hidden="true"
+                        />
+                        <div>
+                          <p className="font-semibold text-foreground">
+                            Shared AI operations allowance exhausted ({planAiCalls?.used}/{planAiCalls?.limit})
+                          </p>
+                          <p className="text-muted-foreground mt-0.5">
+                            AI criteria generation is unavailable until reset or plan upgrade. You can still configure and run manual searches directly.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                        <Button size="sm" variant="outline" onClick={() => setInputMode("advanced")}>
+                          Continue with Manual Search
+                        </Button>
+                        <Link
+                          href="/settings?category=billing&tab=overview"
+                          className="text-xs font-semibold text-primary hover:underline px-2"
+                        >
+                          View Billing &amp; Usage →
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
+                  <Field
+                    label="What are you looking for?"
+                    hint="Mention customer problems, competitors, tools, or specific available sources (e.g. GitHub, Stack Exchange, Hacker News, Bluesky)."
+                  >
+                    <textarea
+                      rows={4}
+                      value={prompt}
+                      maxLength={2000}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      placeholder="Find B2B SaaS teams comparing Salesforce vs HubSpot or looking for a lightweight CRM alternative on Hacker News and GitHub."
+                      className="w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground"
+                    />
+                  </Field>
+
+                  <div className="flex flex-wrap gap-2" aria-label="Prompt ideas">
+                    {SUGGESTIONS.map(([label, text]) => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setPrompt(text)}
+                        className="rounded-full border border-border bg-muted/25 px-3 py-1 text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors cursor-pointer"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <Button
+                      disabled={prompt.trim().length < 10 || mutation.isPending || !access.data?.can_manage}
+                      onClick={() => void draftWithAi()}
+                      className="gap-1.5"
+                    >
+                      {mutation.isPending ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" /> Preparing criteria…
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={14} />{" "}
+                          {draftInfo ? "Refine Search Criteria" : "Generate Criteria"}
+                        </>
+                      )}
+                    </Button>
+                    <Button variant="outline" onClick={() => setInputMode("advanced")}>
+                      Switch to Advanced Search
+                    </Button>
+                  </div>
+
+                  {!access.data?.can_manage && (
+                    <p className="text-[11px] text-muted-foreground">
+                      AI criteria generation requires an owner or administrator. Advanced Search and Copilot refinement are available to workspace editors.
+                    </p>
+                  )}
+                </section>
+              )}
+
+              {/* Mode 2: Simplified 3-Section Advanced Search */}
+              {inputMode === "advanced" && (
+                <div className="space-y-4">
+                  <SearchFilters
+                    value={config}
+                    onChange={setConfig}
+                    compactSourceOptions
+                    onConfigureSource={setConfiguringSource}
+                    onSuggestKeywords={() =>
+                      triggerCopilot(
+                        "improve_keywords",
+                        prompt.trim()
+                          ? `Suggest high-signal keywords for: ${prompt.trim()}`
+                          : "Suggest high-signal B2B discovery keywords based on my workspace profile and ICP."
+                      )
+                    }
+                  />
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConfig(emptyIntentSearch());
+                        setDraftInfo(null);
+                        setStrategy(null);
+                        setParentDiscoveryId(null);
+                        setReviewOpen(false);
+                        setError("");
+                      }}
+                      className="text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      Reset filters
+                    </button>
+
+                    <div className="flex items-center gap-3">
+                      {invalid && (
+                        <span className="text-xs text-muted-foreground">
+                          {!config.keywords.length
+                            ? "Add at least 1 keyword"
+                            : !selectedSources.length
+                              ? "Select at least 1 source"
+                              : "Check date range"}
+                        </span>
+                      )}
+                      <Button onClick={openInlineReview} className="gap-1.5">
+                        Review Search <ArrowRight size={15} />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Top-level validation error (e.g. clicking Review Search with 0 keywords) */}
+          {error && !reviewOpen && (
+            <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-3.5 text-xs text-destructive">
+              {error}
+            </div>
+          )}
+
+          {/* Inline Review Panel (Expands in-place — NEVER navigates away!) */}
+          <div ref={reviewRef}>
+            {reviewOpen && !builderCollapsed && (
+              <InlineReviewPanel
+                config={config}
+                strategy={strategy}
+                draftInfo={draftInfo}
+                canWrite={Boolean(access.data?.can_write)}
+                invalid={invalid}
+                active={active}
+                isPending={mutation.isPending}
+                searchesExhausted={searchesExhausted}
+                planSearches={planSearches}
+                quotaError={quotaError}
+                error={error}
+                onRunDiscovery={() => void runSearch()}
+                onEditCriteria={() => {
+                  setInputMode("advanced");
+                  setBuilderCollapsed(false);
+                }}
+                onImproveWithCopilot={() =>
+                  triggerCopilot(
+                    "improve_keywords",
+                    "Review my current search draft and suggest sharper keywords, exclusions, or source improvements."
+                  )
+                }
+                onSaveSearch={saveReusableSearch}
+                onOpenMonitorWizard={() => setWizard(true)}
+              />
+            )}
+          </div>
+
+          {/* Inline Live Execution Panel */}
+          {job && (
+            <JobPanel
+              id={job}
+              onComplete={(doneJob) => {
+                setFinished(doneJob);
+                if (doneJob.discovery_id && !activeRunId) {
+                  setActiveRunId(doneJob.discovery_id);
+                }
+              }}
+            />
+          )}
+
+          {/* Inline Results Panel */}
+          {finished && (
+            <InlineResultsPanel
+              discoveryId={activeRunId || finished.discovery_id || null}
+              signalIds={resultIds}
+              scannedCount={firstResult?.scanned}
+              matchedCount={firstResult?.matched ?? resultIds.length}
+              coverage={firstResult?.coverage}
+              onRefineWithCopilot={() =>
+                triggerCopilot(
+                  "refine_after_results",
+                  "Analyze my latest discovery run and suggest keyword, exclusion, or source refinements to improve relevance."
+                )
               }
             />
           )}
-        </section>
-      )}
 
-      {wizard && <MonitorWizard configuration={config} open onClose={() => setWizard(false)} />}
+          {/* Optional Save as Monitor Wizard */}
+          <MonitorWizard
+            open={wizard}
+            configuration={config}
+            onClose={() => setWizard(false)}
+          />
+        </div>
+
+        {/* Sticky Right Discovery Copilot (~30%) + Mobile Slide-over Drawer */}
+        <DiscoveryCopilotPanel
+          draft={config}
+          originalPrompt={prompt}
+          activeRunId={activeRunId}
+          aiExhausted={aiExhausted}
+          canWrite={Boolean(access.data?.can_write)}
+          externalTrigger={copilotTrigger}
+          onClearExternalTrigger={() => setCopilotTrigger(null)}
+          onApplyDraft={(next) => {
+            setConfig(next);
+            setError("");
+          }}
+          onUpdateStrategy={(nextStrategy) => setStrategy(nextStrategy)}
+          mobileOpen={mobileCopilotOpen}
+          onCloseMobile={() => setMobileCopilotOpen(false)}
+        />
+      </div>
+
+      {/* Per-Source Configure Drawer */}
+      <SourceConfigDrawer
+        sourceId={configuringSource}
+        value={config}
+        onChange={setConfig}
+        onClose={() => setConfiguringSource(null)}
+      />
     </div>
   );
 }

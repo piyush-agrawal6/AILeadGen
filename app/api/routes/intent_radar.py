@@ -6,6 +6,7 @@ from pydantic import BaseModel,Field
 from starlette.concurrency import run_in_threadpool
 from app.api.dependencies import get_db
 from app.intent_radar import models,service,discovery,providers,ai
+from app.intent_radar.discovery_workspace import SavedSearchInput
 from app.intent_radar.permissions import context,availability
 
 router=APIRouter(prefix='/intent-radar',tags=['Intent Radar'])
@@ -223,6 +224,82 @@ def settings(c=Depends(get_db,scope='function')):return service.preferences(c)
 def update_settings(body:models.Preferences,c=Depends(get_db,scope='function')):return service.preferences(c,body)
 @router.post('/draft')
 async def draft(body:models.Prompt,c=Depends(get_db,scope='function')):return await ai.draft(c,body)
+
+@router.get('/discover/context')
+def discover_context(icp_id:UUID|None=None,active_run_id:UUID|None=None,c=Depends(get_db,scope='function')):
+    from app.intent_radar.discovery_copilot import build_discovery_context
+    _,ui_summary=build_discovery_context(c,icp_id=str(icp_id) if icp_id else None,active_run_id=str(active_run_id) if active_run_id else None)
+    return ui_summary
+
+@router.post('/discover/copilot')
+async def discover_copilot(body:models.CopilotRequest,c=Depends(get_db,scope='function')):
+    from app.intent_radar.discovery_copilot import copilot
+    return await copilot(c,body)
+
+@router.get('/discoveries')
+def discoveries(
+    page:int=Query(1,ge=1,le=10000),
+    page_size:int=Query(20,ge=1,le=100),
+    search:str=Query('',max_length=120),
+    source:str=Query('',max_length=40),
+    status:str=Query('',max_length=30),
+    from_date:date|None=None,
+    to_date:date|None=None,
+    created_by:str=Query('',max_length=254),
+    c=Depends(get_db,scope='function'),
+):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.list_discoveries(
+        c,
+        page=page,
+        page_size=page_size,
+        search=search,
+        source=source,
+        status=status,
+        from_date=from_date.isoformat() if from_date else '',
+        to_date=to_date.isoformat() if to_date else '',
+        created_by=created_by,
+    )
+
+@router.get('/discoveries/{key}')
+def discovery_detail(key:UUID,c=Depends(get_db,scope='function')):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.get_discovery(c,str(key))
+
+@router.delete('/discoveries/{key}')
+def discovery_delete(key:UUID,c=Depends(get_db,scope='function')):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.delete_discovery(c,str(key))
+
+@router.get('/saved-searches')
+def saved_searches(
+    page:int=Query(1,ge=1,le=10000),
+    page_size:int=Query(50,ge=1,le=100),
+    search:str=Query('',max_length=120),
+    c=Depends(get_db,scope='function'),
+):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.list_saved_searches(c,search=search,page=page,page_size=page_size)
+
+@router.post('/saved-searches',status_code=201)
+def create_saved_search(body:SavedSearchInput,c=Depends(get_db,scope='function')):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.save_search(c,body)
+
+@router.put('/saved-searches/{key}')
+def update_saved_search(key:UUID,body:SavedSearchInput,c=Depends(get_db,scope='function')):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.save_search(c,body,str(key))
+
+@router.post('/saved-searches/{key}/duplicate',status_code=201)
+def duplicate_saved_search(key:UUID,c=Depends(get_db,scope='function')):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.duplicate_saved_search(c,str(key))
+
+@router.delete('/saved-searches/{key}')
+def delete_saved_search(key:UUID,c=Depends(get_db,scope='function')):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.delete_saved_search(c,str(key))
 
 @router.post('/signals/{key}/analysis')
 async def analyze(key:UUID,body:models.AnalysisRequest,c=Depends(get_db,scope='function')):

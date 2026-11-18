@@ -279,7 +279,7 @@ describe('P0 Discover Advanced Search, AI Fallback & Signal Cards', () => {
     // Switch to Describe with AI and verify upfront exhausted allowance notice
     fireEvent.click(screen.getByRole('button', { name: /Describe with AI/i }));
     expect(screen.getByText(/Shared AI operations allowance exhausted/i)).toBeVisible();
-    expect(screen.getByRole('link', { name: /View Billing & Usage/i })).toBeVisible();
+    expect(screen.getAllByRole('link', { name: /View Billing & Usage/i }).length).toBeGreaterThanOrEqual(1);
 
     // Generate criteria returns labeled manual fallback
     fireEvent.change(screen.getByLabelText('What are you looking for?'), {

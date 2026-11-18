@@ -20,6 +20,10 @@ def create(c, body, *, scheduled=False):
         monitor=service.get(c,'monitors',str(body.monitor_id))
         if monitor['status']!='Active':raise HTTPException(409,'Activate this monitor before running a check.')
         if monitor['configuration']!=config:raise HTTPException(409,'The monitor changed; reload its saved criteria before running.')
+    parent_id=str(body.parent_discovery_id) if getattr(body,'parent_discovery_id',None) else None
+    if parent_id:
+        parent_row=c.execute('SELECT id FROM intent_discoveries WHERE organization_id=? AND id=?',(ctx.organization_id,parent_id)).fetchone()
+        if not parent_row:raise HTTPException(404,'Parent discovery run not found.')
     key=str(uuid.uuid5(uuid.NAMESPACE_URL,ctx.organization_id+':intent-search:'+str(body.request_id)))
     old=c.execute('SELECT * FROM intent_discoveries WHERE id=? AND organization_id=?',(key,ctx.organization_id)).fetchone()
     encoded=json.dumps(config,sort_keys=True)
@@ -36,8 +40,21 @@ def create(c, body, *, scheduled=False):
         from app.billing.commercial_usage import settle
         if get_settings().payu_billing_enabled or get_settings().heysow_access_periods_enabled:settle(c,key)
         c.execute('INSERT INTO intent_discoveries(id,organization_id,created_by,monitor_id,monitor_revision,configuration_json,created_at) VALUES(?,?,?,?,?,?,?)',(key,ctx.organization_id,ctx.actor,str(body.monitor_id) if body.monitor_id else None,monitor['revision'] if body.monitor_id else None,encoded,now()))
+        from app.intent_radar import discovery_workspace
+        discovery_workspace.record_run_metadata(
+            c,
+            organization_id=ctx.organization_id,
+            discovery_id=key,
+            configuration=config,
+            title=getattr(body,'title','') or '',
+            original_prompt=getattr(body,'original_prompt','') or '',
+            search_mode='monitor' if body.monitor_id else (getattr(body,'search_mode','advanced') or 'advanced'),
+            parent_discovery_id=parent_id,
+            strategy=body.strategy.model_dump(mode='json') if getattr(body,'strategy',None) else None,
+        )
     from app.intelligence import jobs
     result=jobs.create(c,jobs.Start(kind='INTENT_DISCOVER',resource_ids=[key],request_id=body.request_id,reuse_days=0))
+    result['discovery_id']=key
     if body.monitor_id:c.execute('UPDATE intent_monitors SET last_job_id=? WHERE id=? AND organization_id=?',(result['id'],str(body.monitor_id),ctx.organization_id))
     service.audit(c,'DISCOVERY_REQUESTED',key)
     return result
@@ -214,6 +231,8 @@ def owned_job(c,key):
     if row['kind']!='INTENT_DISCOVER':raise HTTPException(404,'Intent Radar job not found.')
     result=jobs.detail(c,key)
     org=context(c).organization_id
+    item_row=c.execute('SELECT i.resource_id FROM intelligence_job_items i JOIN intelligence_jobs j ON j.id=i.job_id WHERE j.id=? AND j.organization_id=? ORDER BY i.id LIMIT 1',(key,org)).fetchone()
+    if item_row:result['discovery_id']=item_row['resource_id']
     result['sources']=[json.loads(r[0]) for r in c.execute('SELECT r.result_json FROM intent_source_runs r JOIN intelligence_job_items i ON i.resource_id=r.discovery_id JOIN intelligence_jobs j ON j.id=i.job_id AND j.organization_id=r.organization_id WHERE j.id=? AND j.organization_id=? ORDER BY r.provider',(key,org)).fetchall()]
     return result
 
