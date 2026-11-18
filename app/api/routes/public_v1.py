@@ -8,6 +8,104 @@ from app.developer.keys import require
 from app.prospecting import tools
 router=APIRouter(prefix='/v1',tags=['Public Lead Engine API v1'])
 
+@router.get('/intent-radar/workspace',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_workspace(c=Depends(get_db,scope='function')):
+    from app.intent_radar.operations import workspace_context
+    return workspace_context(c)
+
+@router.get('/intent-radar/sources',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_sources(c=Depends(get_db,scope='function')):
+    from app.intent_radar import connectors,operations
+    return {'items':connectors.catalog(c),'health':operations.source_health(c)['items']}
+
+@router.get('/intent-radar/signals',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_signals(
+    search:str=Query('',max_length=120),
+    source:str=Query('',max_length=40),
+    category:str=Query('',max_length=50),
+    status:str=Query('',max_length=30),
+    view:Literal['','all','needs_review','high_intent','saved','qualified','dismissed']='',
+    min_score:int=Query(0,ge=0,le=100),
+    buying_intent:Literal['','explicit','possible','none','insufficient','unassessed']='',
+    from_date:str=Query('',max_length=20),
+    to_date:str=Query('',max_length=20),
+    sort:Literal['newest','oldest','score','score_asc','title']='newest',
+    page:int=Query(1,ge=1,le=10000),
+    page_size:int=Query(25,ge=1,le=100),
+    cursor:str|None=Query(None,max_length=40),
+    c=Depends(get_db,scope='function'),
+):
+    from app.intent_radar import service
+    if cursor and cursor.isdigit():
+        page=max(1,min(10000,int(cursor)))
+    res=service.listing(
+        c,'signals',
+        page=page,size=page_size,search=search,source=source,category=category,status=status,
+        view=view,min_score=min_score,buying_intent=buying_intent,
+        from_date=from_date,to_date=to_date,sort=sort,
+    )
+    res['next_cursor']=str(page+1) if res.get('has_more') else None
+    return res
+
+@router.get('/intent-radar/signals/{key}',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_signal_detail(key:UUID,c=Depends(get_db,scope='function')):
+    from app.intent_radar import service
+    return service.get(c,'signals',str(key))
+
+@router.get('/intent-radar/signals/{key}/analysis',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_signal_analysis(key:UUID,c=Depends(get_db,scope='function')):
+    from app.intent_radar.intelligence import history
+    return history(c,str(key))
+
+@router.get('/intent-radar/discoveries',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_discoveries(
+    search:str=Query('',max_length=120),
+    source:str=Query('',max_length=40),
+    status:str=Query('',max_length=30),
+    sort:Literal['newest','oldest','title_asc','title_desc','results_desc','results_asc']='newest',
+    page:int=Query(1,ge=1,le=10000),
+    page_size:int=Query(20,ge=1,le=100),
+    c=Depends(get_db,scope='function'),
+):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.list_discoveries(c,page=page,page_size=page_size,search=search,source=source,status=status,sort=sort)
+
+@router.get('/intent-radar/discoveries/{key}',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_discovery_detail(key:UUID,c=Depends(get_db,scope='function')):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.get_discovery(c,str(key))
+
+@router.get('/intent-radar/saved-searches',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_saved_searches(search:str=Query('',max_length=120),page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),c=Depends(get_db,scope='function')):
+    from app.intent_radar import discovery_workspace
+    return discovery_workspace.list_saved_searches(c,search=search,page=page,page_size=page_size)
+
+@router.get('/intent-radar/monitors',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_monitors(search:str=Query('',max_length=120),status:str=Query('',max_length=30),page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),c=Depends(get_db,scope='function')):
+    from app.intent_radar import service
+    return service.listing(c,'monitors',page=page,size=page_size,search=search,status=status)
+
+@router.get('/intent-radar/monitors/{key}/runs',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_monitor_runs(key:UUID,c=Depends(get_db,scope='function')):
+    import json
+    from app.intent_radar import service
+    from app.intent_radar.permissions import context
+    service.get(c,'monitors',str(key));org=context(c).organization_id
+    rows=c.execute('SELECT d.id,d.created_at,r.provider,r.status,r.result_json FROM intent_discoveries d LEFT JOIN intent_source_runs r ON r.discovery_id=d.id AND r.organization_id=d.organization_id WHERE d.organization_id=? AND d.monitor_id=? ORDER BY d.created_at DESC LIMIT 50',(org,str(key))).fetchall()
+    return {'items':[{**dict(r),'result':json.loads(r['result_json'] or '{}')} for r in rows]}
+
+@router.get('/intent-radar/opportunities',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_opportunities(status:str=Query('',max_length=30),page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),c=Depends(get_db,scope='function')):
+    from app.intent_radar import service
+    return service.listing(c,'opportunities',page=page,size=page_size,status=status)
+
+@router.get('/intent-radar/icps',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_icps(page:int=Query(1,ge=1,le=10000),c=Depends(get_db,scope='function')):
+    from app.intent_radar.permissions import context
+    context(c)
+    from app.icp.service import listing
+    return listing(c,page)
+
 @router.get('/intent-radar/growth/overview')
 def growth_overview(grant=Depends(lambda:require('intent:read')),c=Depends(get_db,scope='function')):
     from app.growth_intelligence import analytics,models

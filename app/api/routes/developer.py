@@ -14,6 +14,36 @@ def status(c=Depends(get_db,scope='function')):
 @router.get('/keys')
 def listing(response:Response,c=Depends(get_db,scope='function')):
     response.headers['Cache-Control']='no-store';return keys.listing(c)
+@router.get('/usage')
+def usage(response:Response,c=Depends(get_db,scope='function')):
+    response.headers['Cache-Control']='no-store';return keys.usage_telemetry(c)
+@router.get('/openapi')
+def developer_openapi(c=Depends(get_db,scope='function')):
+    keys.manager(c)
+    from app.api.routes.public_v1 import openapi_document
+    return openapi_document()
+@router.post('/diagnostics')
+def diagnostics(response:Response,c=Depends(get_db,scope='function')):
+    response.headers['Cache-Control']='no-store'
+    from app.config.settings import get_settings
+    from app.intent_radar import tools as radar_tools
+    from app.api.routes.public_v1 import openapi_document
+    ctx_info=keys.manager(c)
+    key_listing=keys.listing(c)
+    telemetry=keys.usage_telemetry(c)
+    spec=openapi_document()
+    s=get_settings()
+    mcp_tools=list(radar_tools.READ.keys())+list(radar_tools.EXTENDED_READ.keys())+(list(radar_tools.GROWTH_READ.keys()) if s.intent_radar_growth_enabled else [])
+    return {
+        'ok':bool(s.heysow_developer_api_enabled),
+        'checked_at':keys.now(),
+        'workspace_id':ctx_info.organization_id,
+        'rest_api':{'enabled':bool(s.heysow_developer_api_enabled),'base_path':'/api/v1','openapi_path':'/api/v1/openapi.json','endpoint_count':len(spec.get('paths',{})),'rate_limit_per_minute':s.developer_key_requests_per_minute},
+        'mcp':{'enabled':bool(s.heysow_mcp_enabled),'endpoint_path':'/api/v1/mcp','transport':'Streamable HTTP (stateless JSON-RPC)','authentication':'Scoped Bearer API key (Authorization: Bearer pbk_...)','oauth_2_1_supported':False,'oauth_note':'Static scoped Bearer API keys are supported for Streamable HTTP MCP clients (Claude Code, Cursor, Codex, MCP Inspector). OAuth 2.1 Authorization Server / Dynamic Client Registration is not currently deployed.','tools':mcp_tools,'resources':['planebyte://workspace/context','planebyte://sources/catalog','planebyte://sources/policies']},
+        'available_scopes':key_listing['available_scopes'],
+        'active_keys':telemetry['keys']['active'],
+        'last_used_at':telemetry['keys']['last_used_at'],
+    }
 @router.post('/keys',status_code=201)
 def create(body:keys.Create,response:Response,c=Depends(get_db,scope='function')):
     response.headers['Cache-Control']='no-store';return keys.create(c,body)

@@ -268,11 +268,10 @@ async def analyze(c,key,body,*,candidate_monitor=False,persistence_fence=None):
             return {**result,'cached':True,'scoring':computed,'structured':structured_summary(signal,output,computed,result.get('icp')),'feedback':reviewed}
         except ai.AiOutputError:pass
     provenance = (signal.get('evidence') or {}).get('provenance') or {}
-    policy_gated_reason = None
-    if signal.get('source') == 'YouTube' and not get_settings().intent_radar_youtube_ai_analytics_enabled:
-        policy_gated_reason = 'YouTube derived AI analytics require separate YouTube API policy approval; source retrieval and human review remain available.'
-    elif provenance.get('ai_processing_authorized') is False:
-        policy_gated_reason = 'Commercial AI processing is not yet authorized for this feed; original source review remains available.'
+    from app.intent_radar.source_policy import can_run_ai_analysis
+    ai_allowed, policy_gated_reason = can_run_ai_analysis(signal)
+    if ai_allowed:
+        policy_gated_reason = None
     excluded=[t for t in exclusions if t.casefold() in (signal['title']+' '+signal['excerpt']).casefold()]
     value={'source':{'title':signal['title'],'excerpt':signal['excerpt'],'source_family':signal.get('source'),'content_kind':provenance.get('content_kind')},'targets':targets,'exclusions':exclusions,'workspace_business':profile_context(c),'summary_language':query['_summary_language'],'icp_criteria':signal['_icp_criteria'],'criterion_rules':'Assess provided criterion keys only. MATCH/MISMATCH require exact original evidence; absent company/market/role data is UNKNOWN, never inferred. All source context is unverified, not verified buyer identity or authority. Technical releases and research papers are market/technology intelligence, not buying requests.'}
     output=None;mode='Policy gated' if policy_gated_reason else 'Deterministic / manual review';reason=policy_gated_reason or 'AI assistance disabled.';gateway=None

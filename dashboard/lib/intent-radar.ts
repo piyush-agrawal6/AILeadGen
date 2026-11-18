@@ -57,7 +57,21 @@ export interface IntentAlert {id:string;monitor_id:string|null;signal_id:string|
 export interface IntentJob {id:string;discovery_id?:string;status:string;error_code:string|null;created_at:string;attempts:number;sources?:{provider:string;status:string;coverage:string;requests:number;scanned:number;retry_at?:string}[];items:{status:string;error_code:string|null;result:{signals?:string[];scanned?:number;matched?:number;requests?:number;coverage?:string}}[]}
 export interface IntentPreferences {discovery_keywords?:string[];discovery_excluded?:string[];default_view:'table'|'cards';min_relevance:number;topics:string[];alerts_enabled:boolean;alert_threshold:number;revision:number;default_icp_id?:string|null;ai_assistance?:boolean;analysis_daily_call_limit?:number;analysis_daily_token_limit?:number;source_retention_days?:number}
 export interface ProductAccess {billing_enabled?:boolean;organization_id:string|null;lead_engine_available?:boolean;lead_engine:boolean;intent_radar:{enabled:boolean;growth_enabled?:boolean;stage:'Disabled'|'Internal Preview'|'Beta'}}
-export interface IntentCapabilities {stage:string;growth_enabled?:boolean;can_write:boolean;can_manage:boolean;sources:{id?:SourceId;name:string;state:string;coverage:string;documentation:string;filters?:string[];request_limit_per_check?:number;configured_sites?:string[];oauth_configured?:boolean;webhooks_configured?:boolean;ai_analytics_authorized?:boolean;jetstream_enabled?:boolean;permission?:string;missing?:string[]}[];usage:{searches_today:number;daily_search_limit:number;monitor_limit:number;automatic_schedules_enabled?:boolean;minimum_schedule_hours?:number}}
+export interface SourcePolicySummary {
+  provider_id: string;
+  publisher: string;
+  authorized_app: string;
+  authorization_reference: string;
+  commercial_use_authorized: boolean;
+  ai_processing_authorized: boolean;
+  ai_status: string;
+  capabilities: Record<string, boolean>;
+  retention_days: number;
+  attribution_required: string;
+  restrictions: string[];
+  missing_approval_note: string | null;
+}
+export interface IntentCapabilities {stage:string;growth_enabled?:boolean;can_write:boolean;can_manage:boolean;sources:{id?:SourceId;name:string;state:string;availability_label?:string;coverage:string;documentation:string;filters?:string[];request_limit_per_check?:number;configured_sites?:string[];oauth_configured?:boolean;webhooks_configured?:boolean;ai_analytics_authorized?:boolean;jetstream_enabled?:boolean;configured_feeds_count?:number;enabled_feeds_count?:number;policy?:SourcePolicySummary;permission?:string;missing?:string[]}[];usage:{searches_today:number;daily_search_limit:number;monitor_limit:number;automatic_schedules_enabled?:boolean;minimum_schedule_hours?:number}}
 export interface IntentPage<T>{items:T[];total:number;page:number;page_size:number;has_more?:boolean;view_counts?:SignalViewCounts}
 export interface IntentOverview {new_signals:number;reviewed_signals:number;high_relevance:number;active_monitors:number;saved_opportunities:number;unread_alerts:number;trends:{day:string;volume:number}[];recent_signals:IntentSignal[];monitors:IntentMonitor[];opportunities:IntentOpportunity[];alerts:IntentAlert[]}
 

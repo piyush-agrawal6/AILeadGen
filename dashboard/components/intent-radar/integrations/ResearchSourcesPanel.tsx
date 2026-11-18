@@ -8,22 +8,27 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Loader2,
   Plug,
   Radio,
   RefreshCw,
   Rss,
   Settings2,
   ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRadarCapabilities, useRadarMutation, useRadarRead } from "../provider";
 import { ProviderLogo } from "../provider-logo";
-import { Modal } from "../ui";
+import { SlideOverDrawer } from "./SlideOverDrawer";
 import {
   deriveOperationalHealth,
   deriveSourceAvailability,
   type FeedConfig,
   type GitHubStatus,
+  type ProviderTestResult,
   type SourceAvailabilityStatus,
   type SourceHealthItem,
   type SourceOperationalHealth,
@@ -32,6 +37,7 @@ import {
 const AVAILABILITY_STYLES: Record<SourceAvailabilityStatus, string> = {
   Connected: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25",
   Available: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/25",
+  "No custom feeds": "bg-muted text-muted-foreground border-border",
   "Setup required": "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",
   "Permission required": "bg-muted text-muted-foreground border-border",
   Disabled: "bg-muted text-muted-foreground border-border",
@@ -59,6 +65,47 @@ function formatRelativeOrTime(iso: string | null | undefined): string {
   }
 }
 
+function aiBadgeMeta(
+  id: string,
+  policy?: {
+    ai_processing_authorized?: boolean;
+    ai_status?: string;
+  },
+  aiAnalyticsAuthorized?: boolean
+): { label: string; tone: "authorized" | "per_feed" | "restricted" } {
+  const statusLower = (policy?.ai_status || "").toLowerCase();
+  if (statusLower.includes("per-feed")) {
+    return { label: "Per-feed AI policy", tone: "per_feed" };
+  }
+  if (policy?.ai_processing_authorized === true) {
+    return { label: "AI Authorized", tone: "authorized" };
+  }
+  if (policy?.ai_processing_authorized === false) {
+    return { label: "AI Restricted", tone: "restricted" };
+  }
+  if (id === "youtube") {
+    return aiAnalyticsAuthorized
+      ? { label: "AI Authorized", tone: "authorized" }
+      : { label: "AI Restricted", tone: "restricted" };
+  }
+  if (id === "discourse") return { label: "AI Restricted", tone: "restricted" };
+  if (id === "atom" || id === "rss") return { label: "Per-feed AI policy", tone: "per_feed" };
+  return { label: "AI Authorized", tone: "authorized" };
+}
+
+const CAPABILITY_LABELS: Record<string, string> = {
+  fetch: "Fetch",
+  search: "Discovery search",
+  store: "Signal storage",
+  display: "UI display",
+  classify: "AI classification",
+  summarize: "AI summary",
+  analyze_intent: "Buyer intent AI",
+  derived_metrics: "Derived metrics",
+  monitor: "Monitoring",
+  export: "Export",
+};
+
 export function ResearchSourcesPanel({
   onOpenFeedsTab,
 }: {
@@ -74,6 +121,7 @@ export function ResearchSourcesPanel({
   const [repoSelection, setRepoSelection] = useState<number[] | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, ProviderTestResult>>({});
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
@@ -89,15 +137,43 @@ export function ResearchSourcesPanel({
         h.provider.replaceAll("_", "") === sourceId.replaceAll("_", "")
     );
 
-  // Real backend-computed overview indicators (never fabricated)
+  // Real backend-computed overview indicators
   const connectedCount = gh?.status === "CONNECTED" ? 1 : 0;
   const availableCount = sources.filter(
     (s) => s.state === "Available" || s.state === "Connected"
   ).length;
   const enabledFeedsCount = configs.filter((c) => c.enabled).length;
+  const aiReadyCount = sources.filter((s) => {
+    const id = s.id || "hacker_news";
+    const meta = aiBadgeMeta(id, s.policy, s.ai_analytics_authorized);
+    return meta.tone === "authorized" || (meta.tone === "per_feed" && configs.some((c) => c.family === id && c.enabled && c.ai_processing_authorized));
+  }).length;
   const attentionCount = healthItems.filter(
     (h) => (h.consecutive_failures ?? 0) > 0 || h.state === "FAILED"
   ).length;
+
+  async function testConnection(providerId: string) {
+    setBusyAction(`test:${providerId}`);
+    setError("");
+    setNotice("");
+    try {
+      const res = (await mutation.mutateAsync({
+        path: `/sources/${providerId}/test`,
+        method: "POST",
+        body: {},
+      })) as ProviderTestResult;
+      setTestResults((prev) => ({ ...prev, [providerId]: res }));
+      if (res.ok) {
+        setNotice(`${res.summary}${res.latency_ms != null ? ` (${res.latency_ms} ms)` : ""}`);
+      } else {
+        setError(res.error || res.summary || `Connection test failed for ${providerId}.`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not run source connection check.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
 
   async function connectGitHub(mode: "oauth" | "install") {
     setBusyAction(`gh-${mode}`);
@@ -178,6 +254,7 @@ export function ResearchSourcesPanel({
 
   const selectedSource = sources.find((s) => (s.id || "hacker_news") === selectedSourceId) || null;
   const selectedHealth = selectedSourceId ? findHealth(selectedSourceId) : null;
+  const selectedTest = selectedSourceId ? testResults[selectedSourceId] : null;
   const selectedRepoIds =
     repoSelection ?? (gh?.repositories?.filter((r) => r.selected).map((r) => r.id) || []);
 
@@ -230,12 +307,14 @@ export function ResearchSourcesPanel({
         </div>
 
         <div className="rounded-xl border border-border bg-card px-4 py-3">
-          <p className="text-[11px] font-medium text-muted-foreground">Available sources</p>
+          <p className="text-[11px] font-medium text-muted-foreground">Active sources</p>
           <p className="text-lg font-bold tracking-tight text-foreground mt-0.5 tabular-nums">
             {availableCount}
             <span className="text-xs font-normal text-muted-foreground"> / {sources.length}</span>
           </p>
-          <p className="text-[11px] text-muted-foreground">Ready for search &amp; monitoring</p>
+          <p className="text-[11px] text-muted-foreground">
+            {aiReadyCount} AI-authorized · {attentionCount > 0 ? `${attentionCount} degraded` : "0 errors"}
+          </p>
         </div>
 
         <div className="rounded-xl border border-border bg-card px-4 py-3">
@@ -243,21 +322,35 @@ export function ResearchSourcesPanel({
           <p className="text-lg font-bold tracking-tight text-foreground mt-0.5 tabular-nums">
             {enabledFeedsCount}
           </p>
-          <p className="text-[11px] text-muted-foreground">Discourse, Atom &amp; RSS feeds</p>
+          <p className="text-[11px] text-muted-foreground">
+            {onOpenFeedsTab ? (
+              <button
+                type="button"
+                onClick={onOpenFeedsTab}
+                className="text-left text-primary font-medium hover:underline cursor-pointer"
+              >
+                Manage custom feeds →
+              </button>
+            ) : (
+              "Discourse, Atom & RSS feeds"
+            )}
+          </p>
         </div>
 
         <div className="rounded-xl border border-border bg-card px-4 py-3">
-          <p className="text-[11px] font-medium text-muted-foreground">Needs attention</p>
+          <p className="text-[11px] font-medium text-muted-foreground">Operational health</p>
           <p
             className={
               "text-lg font-bold tracking-tight mt-0.5 tabular-nums " +
-              (attentionCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground")
+              (attentionCount > 0
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-emerald-600 dark:text-emerald-400")
             }
           >
-            {attentionCount}
+            {attentionCount > 0 ? `${attentionCount} Attention` : "Healthy"}
           </p>
           <p className="text-[11px] text-muted-foreground">
-            {attentionCount > 0 ? "Check source details" : "No active adapter errors"}
+            {attentionCount > 0 ? "Review failing adapter details" : "No active adapter errors"}
           </p>
         </div>
       </div>
@@ -265,50 +358,67 @@ export function ResearchSourcesPanel({
       {notice && (
         <div
           role="status"
-          className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+          className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 flex items-center gap-2"
         >
-          {notice}
+          <CheckCircle2 size={14} className="shrink-0" aria-hidden="true" />
+          <span>{notice}</span>
         </div>
       )}
       {error && (
         <div
           role="alert"
-          className="rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-2.5 text-xs font-medium text-destructive"
+          className="rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-2.5 text-xs font-medium text-destructive flex items-center gap-2"
         >
-          {error}
+          <AlertCircle size={14} className="shrink-0" aria-hidden="true" />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* Structured Research Sources Grid */}
+      {/* Structured Research Sources Directory */}
       <div className="grid gap-4 sm:grid-cols-2">
         {sources.map((src) => {
           const id = src.id || "hacker_news";
           const health = findHealth(id);
-          const availability = deriveSourceAvailability(src.state, gh, id);
-          const opHealth = deriveOperationalHealth(health);
+          const liveTest = testResults[id];
+          const availability = deriveSourceAvailability(
+            src.state,
+            gh,
+            id,
+            src.availability_label
+          );
+          const opHealth: SourceOperationalHealth = liveTest
+            ? liveTest.ok
+              ? "Healthy"
+              : "Failed"
+            : deriveOperationalHealth(health);
+          const aiMeta = aiBadgeMeta(id, src.policy, src.ai_analytics_authorized);
           const isFeedFamily = id === "discourse" || id === "atom" || id === "rss";
           const familyFeedCount = isFeedFamily
-            ? configs.filter((c) => c.family === id && c.enabled).length
+            ? src.enabled_feeds_count ?? configs.filter((c) => c.family === id && c.enabled).length
             : 0;
+          const isTesting = busyAction === `test:${id}`;
 
           return (
             <article
               key={id}
+              data-testid={`source-card-${id}`}
               className="flex flex-col justify-between rounded-2xl border border-border bg-card p-5 space-y-4 hover:border-primary/35 transition-colors"
             >
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-muted/30 shrink-0">
-                      <ProviderLogo provider={src.name} size={22} />
+                      <ProviderLogo provider={id} size={22} />
                     </div>
                     <div className="min-w-0">
                       <h3 className="text-sm font-semibold text-foreground truncate">{src.name}</h3>
-                      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <Activity size={11} className={HEALTH_STYLES[opHealth]} aria-hidden="true" />
                         <span className={HEALTH_STYLES[opHealth]}>{opHealth}</span>
-                        {health?.last_success && (
-                          <span>· Last active {formatRelativeOrTime(health.last_success)}</span>
+                        {(liveTest?.checked_at || health?.last_success) && (
+                          <span>
+                            · {formatRelativeOrTime(liveTest?.checked_at || health?.last_success)}
+                          </span>
                         )}
                       </p>
                     </div>
@@ -321,11 +431,49 @@ export function ResearchSourcesPanel({
                   </span>
                 </div>
 
+                {/* Centralized AI Permission & Source Capability Pill Row */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span
+                    className={
+                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold " +
+                      (aiMeta.tone === "authorized"
+                        ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                        : aiMeta.tone === "per_feed"
+                          ? "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                          : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300")
+                    }
+                  >
+                    {aiMeta.tone === "authorized" ? (
+                      <Sparkles size={10} aria-hidden="true" />
+                    ) : aiMeta.tone === "per_feed" ? (
+                      <ShieldCheck size={10} aria-hidden="true" />
+                    ) : (
+                      <ShieldAlert size={10} aria-hidden="true" />
+                    )}
+                    {aiMeta.label}
+                  </span>
+
+                  {liveTest && (
+                    <span
+                      className={
+                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium " +
+                        (liveTest.ok
+                          ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300"
+                          : "border-destructive/25 bg-destructive/5 text-destructive")
+                      }
+                    >
+                      {liveTest.ok
+                        ? `Verified${liveTest.latency_ms != null ? ` · ${liveTest.latency_ms}ms` : ""}`
+                        : `Check failed`}
+                    </span>
+                  )}
+                </div>
+
                 <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                   {src.coverage}
                 </p>
 
-                {/* Provider-specific concise status facts */}
+                {/* Provider-specific concise operational facts */}
                 <div className="space-y-1.5 text-xs">
                   {id === "github" && gh && (
                     <div className="rounded-xl bg-muted/30 px-3 py-2 space-y-1">
@@ -384,12 +532,14 @@ export function ResearchSourcesPanel({
                   {isFeedFamily && (
                     <p className="text-[11px] text-muted-foreground">
                       {familyFeedCount > 0
-                        ? `${familyFeedCount} enabled ${familyFeedCount === 1 ? "feed" : "feeds"} ready for discovery`
-                        : "No feeds enabled yet — enable presets or add an approved feed"}
+                        ? `${familyFeedCount} enabled ${familyFeedCount === 1 ? "feed" : "feeds"} active for discovery & monitoring`
+                        : id === "rss"
+                          ? "No custom RSS feeds added — Atom & Discourse presets are managed in Custom Feeds"
+                          : "No feeds enabled yet — enable presets or add an approved feed"}
                     </p>
                   )}
 
-                  {health?.last_error?.code && (
+                  {health?.last_error?.code && !liveTest?.ok && (
                     <p className="text-[11px] text-destructive flex items-center gap-1.5">
                       <AlertCircle size={12} aria-hidden="true" />
                       Last error: {health.last_error.code}
@@ -435,6 +585,22 @@ export function ResearchSourcesPanel({
                     <Settings2 size={13} />
                     {id === "github" && gh?.status === "CONNECTED" ? "Manage Connection" : "Details"}
                   </Button>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busyAction !== null}
+                    onClick={() => void testConnection(id)}
+                    className="h-8 px-2.5 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                    title="Run lightweight live connectivity check"
+                  >
+                    {isTesting ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Wifi size={12} />
+                    )}
+                    {isTesting ? "Testing…" : "Test"}
+                  </Button>
                 </div>
 
                 {src.documentation?.startsWith("https://") && (
@@ -453,35 +619,189 @@ export function ResearchSourcesPanel({
         })}
       </div>
 
-      {/* Focused Source Details & Management Drawer */}
-      <Modal
-        drawer
+      {/* Self-Contained Slide-Over Source Details & Management Drawer */}
+      <SlideOverDrawer
         open={!!selectedSource}
-        onOpenChange={(open) => {
-          if (!open) {
-            setSelectedSourceId(null);
-            setRepoSelection(null);
-          }
+        onClose={() => {
+          setSelectedSourceId(null);
+          setRepoSelection(null);
         }}
         title={selectedSource?.name || "Source details"}
-        description={selectedSource?.coverage || "Review source configuration and operational status."}
+        subtitle={selectedSource?.coverage || "Review source configuration, policy, and operational health."}
+        icon={
+          selectedSource ? (
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted/30">
+              <ProviderLogo provider={selectedSource.id || selectedSource.name} size={22} />
+            </div>
+          ) : undefined
+        }
       >
         {selectedSource && (() => {
           const id = selectedSource.id || "hacker_news";
-          const availability = deriveSourceAvailability(selectedSource.state, gh, id);
-          const opHealth = deriveOperationalHealth(selectedHealth);
+          const availability = deriveSourceAvailability(
+            selectedSource.state,
+            gh,
+            id,
+            selectedSource.availability_label
+          );
+          const opHealth: SourceOperationalHealth = selectedTest
+            ? selectedTest.ok
+              ? "Healthy"
+              : "Failed"
+            : deriveOperationalHealth(selectedHealth);
+          const aiMeta = aiBadgeMeta(id, selectedSource.policy, selectedSource.ai_analytics_authorized);
+          const isTesting = busyAction === `test:${id}`;
+          const isFeedFamily = id === "discourse" || id === "atom" || id === "rss";
+          const familyFeeds = isFeedFamily ? configs.filter((c) => c.family === id) : [];
 
           return (
-            <div className="space-y-5 pt-2 text-xs">
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${AVAILABILITY_STYLES[availability]}`}
-                >
-                  {availability}
-                </span>
-                <span className={`font-medium ${HEALTH_STYLES[opHealth]}`}>
-                  Health: {opHealth}
-                </span>
+            <div className="space-y-5 text-xs">
+              {/* Status Pills + Live Test Connection CTA */}
+              <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${AVAILABILITY_STYLES[availability]}`}
+                    >
+                      {availability}
+                    </span>
+                    <span className={`font-semibold ${HEALTH_STYLES[opHealth]}`}>
+                      Health: {opHealth}
+                    </span>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busyAction !== null}
+                    onClick={() => void testConnection(id)}
+                    className="h-8 text-xs gap-1.5"
+                  >
+                    {isTesting ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <Wifi size={13} />
+                    )}
+                    {isTesting ? "Testing…" : "Test Connection"}
+                  </Button>
+                </div>
+
+                {selectedTest && (
+                  <div
+                    role="status"
+                    className={
+                      "rounded-lg border px-3 py-2.5 space-y-1 " +
+                      (selectedTest.ok
+                        ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
+                        : "border-destructive/25 bg-destructive/5 text-destructive")
+                    }
+                  >
+                    <p className="font-semibold">{selectedTest.summary}</p>
+                    <p className="text-[11px] opacity-85">
+                      {selectedTest.http_status ? `HTTP ${selectedTest.http_status} · ` : ""}
+                      {selectedTest.latency_ms != null ? `${selectedTest.latency_ms} ms · ` : ""}
+                      {selectedTest.quota_remaining != null
+                        ? `Quota remaining: ${selectedTest.quota_remaining} · `
+                        : ""}
+                      Checked {formatRelativeOrTime(selectedTest.checked_at)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Centralized Permissions & AI Processing Policy */}
+              <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="font-semibold text-sm text-foreground flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-primary" /> Permissions &amp; AI Policy
+                  </h4>
+                  <span
+                    className={
+                      "rounded-full border px-2 py-0.5 text-[10px] font-semibold " +
+                      (aiMeta.tone === "authorized"
+                        ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                        : aiMeta.tone === "per_feed"
+                          ? "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                          : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300")
+                    }
+                  >
+                    {aiMeta.label}
+                  </span>
+                </div>
+
+                <dl className="grid grid-cols-2 gap-3">
+                  <div>
+                    <dt className="text-muted-foreground">Commercial use</dt>
+                    <dd className="font-medium text-foreground mt-0.5">
+                      {selectedSource.policy?.commercial_use_authorized !== false
+                        ? "Permitted"
+                        : "Restricted"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">AI processing</dt>
+                    <dd className="font-medium text-foreground mt-0.5">
+                      {selectedSource.policy?.ai_status || aiMeta.label}
+                    </dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className="text-muted-foreground">Retention &amp; attribution</dt>
+                    <dd className="text-foreground mt-0.5 leading-relaxed">
+                      {selectedSource.policy?.retention_days
+                        ? `Up to ${selectedSource.policy.retention_days} days retention`
+                        : "Workspace retention controls apply"}
+                      {selectedSource.policy?.attribution_required
+                        ? ` · ${selectedSource.policy.attribution_required}`
+                        : ""}
+                    </dd>
+                  </div>
+                </dl>
+
+                {selectedSource.policy?.capabilities && (
+                  <div className="space-y-1.5 border-t border-border/70 pt-3">
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      Supported capabilities
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(selectedSource.policy.capabilities).map(
+                        ([cap, enabled]) => (
+                          <span
+                            key={cap}
+                            className={
+                              "rounded-md border px-2 py-0.5 text-[10px] font-medium " +
+                              (enabled
+                                ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300"
+                                : "border-border bg-muted/40 text-muted-foreground line-through")
+                            }
+                          >
+                            {CAPABILITY_LABELS[cap] || cap}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {selectedSource.policy?.restrictions &&
+                  selectedSource.policy.restrictions.length > 0 && (
+                    <ul className="list-disc pl-4 space-y-1 text-[11px] text-muted-foreground border-t border-border/70 pt-3">
+                      {selectedSource.policy.restrictions.map((r) => (
+                        <li key={r}>{r}</li>
+                      ))}
+                    </ul>
+                  )}
+
+                {selectedSource.policy?.missing_approval_note && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                    <ShieldAlert size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
+                    <div>
+                      <p className="font-semibold">External approval required for AI processing</p>
+                      <p className="mt-0.5 leading-relaxed">
+                        {selectedSource.policy.missing_approval_note}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* GitHub Workspace Connection Controls */}
@@ -655,6 +975,36 @@ export function ResearchSourcesPanel({
                 </div>
               )}
 
+              {/* Feed Family Summary & Quick Jump */}
+              {isFeedFamily && (
+                <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-semibold text-sm text-foreground">Configured Feeds</h4>
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      {familyFeeds.filter((f) => f.enabled).length} enabled / {familyFeeds.length} configured
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {id === "rss" && familyFeeds.length === 0
+                      ? "No custom RSS feeds are currently configured. All 20 curated Atom & Discourse presets are managed in the Custom Feeds tab."
+                      : "Manage individual feed polling intervals, live endpoint checks, and enable/disable state in Custom Feeds."}
+                  </p>
+                  {onOpenFeedsTab && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedSourceId(null);
+                        onOpenFeedsTab();
+                      }}
+                      className="gap-1.5"
+                    >
+                      <Rss size={13} /> Open Custom Feeds
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* Collapsible Advanced Telemetry Details */}
               <div className="rounded-xl border border-border overflow-hidden">
                 <button
@@ -716,7 +1066,7 @@ export function ResearchSourcesPanel({
             </div>
           );
         })()}
-      </Modal>
+      </SlideOverDrawer>
     </div>
   );
 }

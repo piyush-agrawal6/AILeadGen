@@ -39,7 +39,7 @@ def invoke(headers,name,arguments,scopes):
                     elif name=='proposal_status':result=approvals.status(c,arguments['id'])
                     else:
                         from app.intent_radar import tools as radar_tools
-                        if name in radar_tools.READ or name in radar_tools.GROWTH_READ:
+                        if name in radar_tools.READ or name in radar_tools.EXTENDED_READ or name in radar_tools.GROWTH_READ:
                             keys.require('intent:read')
                             result=radar_tools.read(c,name,arguments)
                         else:result=tools.read(c,name,arguments)
@@ -103,15 +103,16 @@ def build():
             async def get_market_overview(ctx:Context)->dict[str,Any]:return await run(ctx,'get_market_overview',{},['intent:read'])
             @mcp.tool(structured_output=True,description='Read stored growth watchlists and schedule status. Requires intent:read. No collection starts.')
             async def list_growth_watchlists(ctx:Context)->dict[str,Any]:return await run(ctx,'list_growth_watchlists',{},['intent:read'])
-        @mcp.tool(structured_output=True,description='Search stored public intent evidence. Requires intent:read and workspace Intent Radar access. No discovery starts; scores are interpretations.')
-        async def search_intent_signals(ctx:Context,search:str='',page:int=1)->dict[str,Any]:return await run(ctx,'search_intent_signals',{'search':search,'page':page},['intent:read'])
+        @mcp.tool(structured_output=True,description='Search stored public intent evidence with optional source, category, status, view, minimum score, and sort filters. Requires intent:read and workspace Intent Radar access. No discovery starts; scores are interpretations.')
+        async def search_intent_signals(ctx:Context,search:str='',source:str='',category:str='',status:str='',view:Literal['','all','needs_review','high_intent','saved','qualified','dismissed']='',min_score:int=0,sort:Literal['newest','oldest','score','score_asc','title']='newest',page:int=1)->dict[str,Any]:
+            return await run(ctx,'search_intent_signals',{'search':search,'source':source,'category':category,'status':status,'view':view,'min_score':min_score,'sort':sort,'page':page},['intent:read'])
         @mcp.tool(structured_output=True,description='List workspace-owned intent monitors. Requires intent:read. Does not run checks.')
         async def list_intent_monitors(ctx:Context,search:str='',page:int=1)->dict[str,Any]:return await run(ctx,'list_intent_monitors',{'search':search,'page':page},['intent:read'])
         @mcp.tool(structured_output=True,description='Retrieve source-backed evidence for one authorized intent signal. Requires intent:read.')
         async def get_intent_signal(ctx:Context,id:str)->dict[str,Any]:return await run(ctx,'get_intent_signal',{'id':id},['intent:read'])
         @mcp.tool(structured_output=True,description='List selected workspace intent opportunities. Requires intent:read. Does not create contacts or send messages.')
         async def list_intent_opportunities(ctx:Context,search:str='',page:int=1)->dict[str,Any]:return await run(ctx,'list_intent_opportunities',{'search':search,'page':page},['intent:read'])
-        @mcp.tool(structured_output=True,description='List actual authorized source capabilities. Requires intent:read. Does not fetch sources or configure access.')
+        @mcp.tool(structured_output=True,description='List actual authorized source capabilities and policy status. Requires intent:read. Does not fetch sources or configure access.')
         async def list_intent_sources(ctx:Context)->dict[str,Any]:return await run(ctx,'list_intent_sources',{},['intent:read'])
         @mcp.tool(structured_output=True,description='Read the latest valid interpretation and workspace feedback for one owned signal. Requires intent:read. No AI call starts.')
         async def get_intent_analysis(ctx:Context,id:str)->dict[str,Any]:return await run(ctx,'get_intent_analysis',{'id':id},['intent:read'])
@@ -121,6 +122,38 @@ def build():
         async def get_intent_source_health(ctx:Context)->dict[str,Any]:return await run(ctx,'get_intent_source_health',{},['intent:read'])
         @mcp.tool(structured_output=True,description='Read reviewed business targeting context and default ICP identifier for the verified workspace. Requires intent:read. No credentials or full ICP records are returned.')
         async def get_intent_workspace_context(ctx:Context)->dict[str,Any]:return await run(ctx,'get_intent_workspace_context',{},['intent:read'])
+        @mcp.tool(structured_output=True,description='List historical discovery runs in this workspace. Requires intent:read. Does not start new discoveries.')
+        async def list_intent_discoveries(ctx:Context,search:str='',page:int=1)->dict[str,Any]:return await run(ctx,'list_intent_discoveries',{'search':search,'page':page},['intent:read'])
+        @mcp.tool(structured_output=True,description='Retrieve one owned discovery run and its collected results. Requires intent:read.')
+        async def get_intent_discovery(ctx:Context,id:str)->dict[str,Any]:return await run(ctx,'get_intent_discovery',{'id':id},['intent:read'])
+        @mcp.tool(structured_output=True,description='List saved discovery search configurations in this workspace. Requires intent:read.')
+        async def list_saved_searches(ctx:Context,search:str='',page:int=1)->dict[str,Any]:return await run(ctx,'list_saved_searches',{'search':search,'page':page},['intent:read'])
+        @mcp.tool(structured_output=True,description='List permitted workspace ICP summaries. Requires intent:read.')
+        async def list_intent_icps(ctx:Context)->dict[str,Any]:return await run(ctx,'list_intent_icps',{},['intent:read'])
+
+        def read_resource(name:str,arguments:dict):
+            grant=keys._grant.get()
+            if grant is None:raise ToolError('Authentication required.')
+            with db_session() as c:
+                with workspace_scope(c,grant.actor,grant.organization_id):
+                    keys.require('mcp:use');keys.require('intent:read')
+                    if name=='sources_policies':
+                        from app.intent_radar.source_policy import list_provider_policies
+                        return {'items':list_provider_policies()}
+                    from app.intent_radar import tools as radar_tools
+                    return radar_tools.read(c,name,arguments)
+
+        @mcp.resource('planebyte://workspace/context',name='Workspace research context',description='Reviewed business targeting context and default ICP identifier for the verified workspace.',mime_type='application/json')
+        async def res_workspace_context()->str:
+            return json.dumps(await asyncio.to_thread(read_resource,'get_intent_workspace_context',{}),default=str)
+
+        @mcp.resource('planebyte://sources/catalog',name='Research source catalog',description='Authorized research sources, capabilities, and connection status for the verified workspace.',mime_type='application/json')
+        async def res_sources_catalog()->str:
+            return json.dumps(await asyncio.to_thread(read_resource,'list_intent_sources',{}),default=str)
+
+        @mcp.resource('planebyte://sources/policies',name='Source permission policies',description='Auditable provider commercial-use, AI-processing, retention, and attribution policies.',mime_type='application/json')
+        async def res_sources_policies()->str:
+            return json.dumps(await asyncio.to_thread(read_resource,'sources_policies',{}),default=str)
     @lead_tool(structured_output=True,description='List active company/contact list names, without their members. Requires lists:read.')
     async def list_lists(ctx:Context)->dict[str,Any]:return await run(ctx,'list_lists',{},['lists:read'])
     @lead_tool(structured_output=True,description='Review workflow campaign status. Requires campaigns:read. No email or discovery starts.')

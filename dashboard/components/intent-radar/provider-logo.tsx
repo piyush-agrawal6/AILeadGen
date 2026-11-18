@@ -1,21 +1,60 @@
 "use client";
 
-import Image from 'next/image';
-import {Blocks, Code2, Video, Radio, MessageSquare, Rss, Atom} from 'lucide-react';
+import Image from "next/image";
+import { Atom, Blocks, BookOpen, Code2, MessageSquare, Radio, Rss, Video } from "lucide-react";
+import { resolveSourceBrand } from "@/lib/source-branding";
 
-const logos: Readonly<Record<string, {src: string; alt: string}>> = {
-  'hacker news': {src: '/integrations/hacker-news.svg', alt: 'Hacker News — Y Combinator Y logo'},
-  hn: {src: '/integrations/hacker-news.svg', alt: 'Hacker News — Y Combinator Y logo'},
-  'visual studio code': {src: '/integrations/vscode.png', alt: 'Visual Studio Code logo'},
-  vscode: {src: '/integrations/vscode.png', alt: 'Visual Studio Code logo'},
-};
+export function ProviderLogo({ provider, size = 32 }: { provider: string; size?: number }) {
+  const brand = resolveSourceBrand(provider);
+  const dimension = Number.isFinite(size) ? Math.min(128, Math.max(14, size)) : 32;
 
-export function ProviderLogo({provider, size = 32}: {provider: string; size?: number}) {
-  const key = provider.trim().toLowerCase();
-  const logo = Object.hasOwn(logos, key) ? logos[key] : undefined;
-  const dimension = Number.isFinite(size) ? Math.min(128, Math.max(16, size)) : 32;
-  if (logo) return <Image className="ir-provider-logo" src={logo.src} alt={logo.alt} width={dimension} height={dimension} unoptimized/>;
-  const iconSize = Math.max(16, Math.round(dimension * 0.72));
-  const Icon = key.includes('github') ? Code2 : key.includes('youtube') ? Video : key.includes('bluesky') ? Radio : key.includes('stack') || key.includes('discourse') ? MessageSquare : key.includes('atom') ? Atom : key.includes('rss') ? Rss : Blocks;
-  return <span className="ir-provider-fallback" role="img" aria-label={`${provider} — source icon`}><Icon size={iconSize} aria-hidden="true"/></span>;
+  if (brand.logoSrc) {
+    return (
+      <span
+        className={
+          "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md " +
+          (brand.needsLightBackingInDark ? "dark:bg-white dark:p-0.5" : "")
+        }
+        style={{ width: dimension, height: dimension }}
+      >
+        <Image
+          className="ir-provider-logo h-full w-full object-contain"
+          src={brand.logoSrc}
+          alt={brand.alt}
+          width={dimension}
+          height={dimension}
+          unoptimized
+        />
+      </span>
+    );
+  }
+
+  const iconSize = Math.max(14, Math.round(dimension * 0.72));
+  const Icon =
+    brand.fallbackKind === "github"
+      ? Code2
+      : brand.fallbackKind === "youtube"
+        ? Video
+        : brand.fallbackKind === "bluesky"
+          ? Radio
+          : brand.fallbackKind === "arxiv"
+            ? BookOpen
+            : brand.fallbackKind === "stackexchange" || brand.fallbackKind === "discourse"
+              ? MessageSquare
+              : brand.fallbackKind === "atom"
+                ? Atom
+                : brand.fallbackKind === "rss"
+                  ? Rss
+                  : Blocks;
+
+  return (
+    <span
+      className="ir-provider-fallback inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground"
+      style={{ width: dimension, height: dimension }}
+      role="img"
+      aria-label={brand.alt}
+    >
+      <Icon size={iconSize} aria-hidden="true" />
+    </span>
+  );
 }

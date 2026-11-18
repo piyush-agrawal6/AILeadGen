@@ -22,6 +22,46 @@ def capabilities(c=Depends(get_db,scope='function')):
 def source_configs(c=Depends(get_db,scope='function')):
     from app.intent_radar.connectors import configurations
     return {'items':configurations(c)}
+@router.get('/sources/policies')
+def source_policies(c=Depends(get_db,scope='function')):
+    context(c)
+    from app.intent_radar.source_policy import list_provider_policies
+    return {'items':list_provider_policies()}
+@router.post('/sources/{provider}/test')
+async def source_test_provider(provider:str,c=Depends(get_db,scope='function')):
+    from app.intent_radar.source_policy import test_provider_connection
+    return await test_provider_connection(c,provider)
+class FeedTestInput(BaseModel):
+    endpoint:str=Field(min_length=10,max_length=1000)
+    family:Literal['rss','discourse','atom']='rss'
+    name:str=Field('Feed test',max_length=120)
+    attribution:str=Field('Public publisher',max_length=300)
+    policy_reference:str=Field('Public RSS/Atom feed',max_length=1000)
+    retention_days:int=Field(7,ge=1,le=30)
+@router.post('/sources/feeds/test')
+async def source_test_feed_url(body:FeedTestInput,c=Depends(get_db,scope='function')):
+    context(c,True,True)
+    from app.intent_radar.source_policy import test_feed_endpoint
+    return await test_feed_endpoint(body.endpoint,body.family,name=body.name,attribution=body.attribution,policy_reference=body.policy_reference,retention_days=body.retention_days)
+@router.post('/sources/configurations/{key}/test')
+async def source_test_saved_feed(key:UUID,c=Depends(get_db,scope='function')):
+    context(c,True,True)
+    from app.intent_radar.connectors import configurations
+    from app.intent_radar.source_policy import test_feed_endpoint
+    cfg=next((x for x in configurations(c) if x['id']==str(key)),None)
+    if not cfg:raise HTTPException(404,'Source configuration not found.')
+    return await test_feed_endpoint(cfg['endpoint'],cfg['family'],name=cfg['name'],attribution=cfg['attribution'],policy_reference=cfg['policy_reference'],retention_days=cfg['retention_days'])
+@router.delete('/sources/configurations/{key}')
+def source_delete(key:UUID,c=Depends(get_db,scope='function')):
+    from app.intent_radar.connectors import delete_configuration
+    return delete_configuration(c,str(key))
+class BulkFeedToggle(BaseModel):
+    ids:list[UUID]=Field(min_length=1,max_length=50)
+    enabled:bool
+@router.post('/sources/configurations/bulk')
+def source_bulk_toggle(body:BulkFeedToggle,c=Depends(get_db,scope='function')):
+    from app.intent_radar.connectors import bulk_toggle_configurations
+    return bulk_toggle_configurations(c,body.ids,body.enabled)
 @router.get('/sources/health')
 def source_health(c=Depends(get_db,scope='function')):
     from app.intent_radar.operations import source_health

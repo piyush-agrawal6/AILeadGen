@@ -55,18 +55,56 @@ def approved_endpoint(url):
 
 def configurations(c):
     org=context(c).organization_id
-    return [{'id':r['id'],**json.loads(r['configuration_json'])} for r in c.execute('SELECT * FROM intent_source_configs WHERE organization_id=? ORDER BY id LIMIT 20',(org,)).fetchall()]
+    from app.intent_radar.source_policy import evaluate_feed_policy
+    rows=[]
+    for r in c.execute('SELECT * FROM intent_source_configs WHERE organization_id=? ORDER BY id LIMIT 100',(org,)).fetchall():
+        item={'id':r['id'],'updated_at':r['updated_at'],**json.loads(r['configuration_json'])}
+        pol=evaluate_feed_policy(item)
+        item['ai_processing_authorized']=pol['ai_processing_authorized']
+        item['policy']=pol
+        rows.append(item)
+    return rows
 
 def configure(c,body,key=None):
     ctx=context(c,True,True);endpoint=approved_endpoint(body.endpoint)
     if body.family=='discourse' and not urlsplit(endpoint).path.endswith(('.rss','.atom')):raise HTTPException(422,'This Discourse adapter supports explicitly permitted public RSS/Atom endpoints only.')
-    if key and not any(x['id']==key for x in configurations(c)):raise HTTPException(404,'Source configuration not found.')
-    if not key and len(configurations(c))>=20:raise HTTPException(429,'Approved feed limit reached.')
+    existing=configurations(c)
+    if key and not any(x['id']==key for x in existing):raise HTTPException(404,'Source configuration not found.')
+    # Prevent duplicate (family, canonical endpoint) configurations in the same workspace
+    dup=next((x for x in existing if x['endpoint']==endpoint and x['family']==body.family and x['id']!=key),None)
+    if dup:raise HTTPException(409,f"A feed configuration for {endpoint} already exists ({dup['name']}). Edit the existing feed instead.")
+    if not key and len(existing)>=50:raise HTTPException(429,'Approved feed limit reached.')
+    from app.intent_radar.source_policy import evaluate_feed_policy
+    pol=evaluate_feed_policy({'endpoint':endpoint,'family':body.family})
+    # Server-side policy lock: never allow client to self-approve restricted AI processing
+    enforced_body=body.model_copy(update={'endpoint':endpoint,'ai_processing_authorized':pol['ai_processing_authorized']})
     key=key or str(uuid.uuid4())
-    c.execute('INSERT INTO intent_source_configs(organization_id,id,configuration_json,updated_at) VALUES(?,?,?,?) ON CONFLICT(organization_id,id) DO UPDATE SET configuration_json=excluded.configuration_json,updated_at=excluded.updated_at',(ctx.organization_id,key,body.model_copy(update={'endpoint':endpoint}).model_dump_json(),now()))
+    c.execute('INSERT INTO intent_source_configs(organization_id,id,configuration_json,updated_at) VALUES(?,?,?,?) ON CONFLICT(organization_id,id) DO UPDATE SET configuration_json=excluded.configuration_json,updated_at=excluded.updated_at',(ctx.organization_id,key,enforced_body.model_dump_json(),now()))
     from app.intent_radar.service import audit
     audit(c,'SOURCE_CONFIGURED',key)
-    return {'id':key,**body.model_dump()}
+    return {'id':key,**enforced_body.model_dump(),'policy':pol}
+
+def delete_configuration(c,key):
+    ctx=context(c,True,True)
+    deleted=c.execute('DELETE FROM intent_source_configs WHERE organization_id=? AND id=?',(ctx.organization_id,key)).rowcount
+    if not deleted:raise HTTPException(404,'Source configuration not found.')
+    from app.intent_radar.service import audit
+    audit(c,'SOURCE_DELETED',key)
+    return {'deleted':True,'id':key}
+
+def bulk_toggle_configurations(c,ids,enabled:bool):
+    ctx=context(c,True,True)
+    updated=0
+    for key in list(dict.fromkeys(map(str,ids)))[:50]:
+        row=c.execute('SELECT configuration_json FROM intent_source_configs WHERE organization_id=? AND id=?',(ctx.organization_id,key)).fetchone()
+        if not row:continue
+        cfg=json.loads(row['configuration_json'])
+        cfg['enabled']=bool(enabled)
+        c.execute('UPDATE intent_source_configs SET configuration_json=?,updated_at=? WHERE organization_id=? AND id=?',(json.dumps(cfg),now(),ctx.organization_id,key))
+        updated+=1
+    from app.intent_radar.service import audit
+    audit(c,'SOURCE_BULK_TOGGLED',f'{updated}:{"enabled" if enabled else "disabled"}')
+    return {'updated':updated,'enabled':bool(enabled)}
 
 def enable_preset(c,preset_id,*,enabled=True):
     from app.intent_radar.feeds import CURATED_FEED_PRESETS
@@ -122,9 +160,24 @@ def catalog(c=None):
         retention='Metadata and permitted excerpts only; max 30 days (YouTube API policy)' if i=='youtube' else 'Metadata and permitted excerpts only; feed retention configured up to 30 days',
         freshness='Source snapshot, no global completeness claim',
         language='Unverified',geography='Unknown',request_cost='No purchased quota; monetary cost unmeasured') for i,n,state,access,doc,modes,filters,cap,coverage in definitions]
+    from app.intent_radar.source_policy import provider_policy
+    total_active_feeds = sum(1 for x in configs if x.get('enabled'))
     for source in result:
         key=source['id'];source['configured']=source['state'] in ('Available','Connected')
         source['capabilities']=source['discovery_modes']+source['filters']
+        source['policy']=provider_policy(key)
+        if key in ('rss','discourse','atom'):
+            fam_all=[x for x in configs if x.get('family')==key]
+            fam_en=[x for x in fam_all if x.get('enabled')]
+            source['configured_feeds_count']=len(fam_all)
+            source['enabled_feeds_count']=len(fam_en)
+            if key=='rss' and not fam_en:
+                source['availability_label']='No custom feeds'
+                source['coverage']=(
+                    f"Generic custom RSS/Atom connector ({total_active_feeds} Atom/Discourse preset feeds are already active under Atom Feeds and Approved Discourse). Add a custom RSS endpoint if needed."
+                    if total_active_feeds > 0
+                    else 'Approved publication/community feed windows only; no website crawling. Add a custom RSS feed to enable.'
+                )
         if key=='stack_exchange':
             source['configured_sites']=se_sites
             source['permission']='Owner-approved commercial API terms, site scope and CC BY-SA attribution; server application key.'

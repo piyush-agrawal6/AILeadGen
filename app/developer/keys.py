@@ -59,7 +59,65 @@ def scope_access(c, organization_id, scopes):
 
 
 def visible(row):
-    result=dict(row);result.pop('token_hash',None);result['scopes']=json.loads(result.pop('scopes_json'));return result
+    result=dict(row);result.pop('token_hash',None);result['scopes']=json.loads(result.pop('scopes_json'))
+    result['key_prefix']=f"pbk_{str(result['id'])[:8]}…"
+    current_ts=now()
+    result['status']='Revoked' if result.get('revoked_at') else 'Expired' if str(result.get('expires_at') or '')<=current_ts else 'Active'
+    return result
+
+
+def usage_telemetry(c):
+    context=manager(c)
+    org=context.organization_id
+    current_ts=now()
+    today_prefix=current_ts[:10]
+    month_prefix=current_ts[:7]
+    window=int(time.time())//60
+
+    all_keys=[visible(r) for r in c.execute('SELECT * FROM workspace_api_keys WHERE organization_id=? ORDER BY created_at DESC LIMIT 100',(org,)).fetchall()]
+    active_keys=sum(1 for k in all_keys if k['status']=='Active')
+    revoked_keys=sum(1 for k in all_keys if k['status']=='Revoked')
+    expired_keys=sum(1 for k in all_keys if k['status']=='Expired')
+    last_used=max((k['last_used_at'] for k in all_keys if k.get('last_used_at')),default=None)
+
+    cur_win=c.execute('SELECT requests FROM developer_request_windows WHERE owner_key=? AND window_start=?',('workspace:'+org,window)).fetchone()
+    requests_current_minute=int(cur_win[0]) if cur_win else 0
+
+    mcp_today=c.execute("SELECT COUNT(*) FROM audit_log WHERE organization_id=? AND action='MCP_TOOL' AND created_at>=?",(org,today_prefix)).fetchone()[0]
+    mcp_month=c.execute("SELECT COUNT(*) FROM audit_log WHERE organization_id=? AND action='MCP_TOOL' AND created_at>=?",(org,month_prefix)).fetchone()[0]
+    mcp_errors_month=c.execute("SELECT COUNT(*) FROM audit_log WHERE organization_id=? AND action='MCP_TOOL' AND result<>'SUCCESS' AND created_at>=?",(org,month_prefix)).fetchone()[0]
+
+    monthly_api_used=0
+    monthly_api_limit=None
+    try:
+        from app.billing.subscription_access import usage_overview
+        overview=usage_overview(c,org)
+        for item in overview.get('usage',[]):
+            if item.get('dimension') in ('api_requests','plan_api_requests'):
+                monthly_api_used=int(item.get('used') or 0)
+                monthly_api_limit=int(item.get('limit')) if item.get('limit') is not None else None
+                break
+    except Exception:
+        pass
+
+    recent_events=[]
+    for r in c.execute(
+        "SELECT id,actor,action,entity,result,details_json,created_at FROM audit_log WHERE organization_id=? AND action IN ('MCP_TOOL','API_KEY_CREATED','API_KEY_REVOKED') ORDER BY created_at DESC LIMIT 25",
+        (org,),
+    ).fetchall():
+        details={}
+        try:
+            if r['details_json']:details=json.loads(r['details_json'])
+        except Exception:
+            pass
+        recent_events.append({'id':r['id'],'actor':r['actor'],'action':r['action'],'entity':r['entity'],'result':r['result'],'tool':details.get('tool'),'created_at':r['created_at']})
+
+    return {
+        'keys':{'total':len(all_keys),'active':active_keys,'revoked':revoked_keys,'expired':expired_keys,'last_used_at':last_used},
+        'rate_limits':{'per_key_per_minute':get_settings().developer_key_requests_per_minute,'per_workspace_per_minute':get_settings().developer_workspace_requests_per_minute,'requests_current_minute':requests_current_minute},
+        'usage':{'mcp_calls_today':int(mcp_today),'mcp_calls_month':int(mcp_month),'mcp_errors_month':int(mcp_errors_month),'monthly_api_requests_used':monthly_api_used,'monthly_api_requests_limit':monthly_api_limit},
+        'recent_events':recent_events,
+    }
 
 
 def listing(c):
@@ -174,7 +232,9 @@ async def handle(request,call_next):
                     request.state.user_email=grant.actor;request.state.organization_id=grant.organization_id
                     response=await call_next(request)
         finally:_grant.reset(marker)
-        response.headers['Cache-Control']='private, no-store';return response
+        response.headers['Cache-Control']='private, no-store'
+        response.headers['X-RateLimit-Limit']=str(get_settings().developer_key_requests_per_minute)
+        return response
     except HTTPException as exc:
         headers={'Cache-Control':'no-store'}
         if exc.status_code==401:headers['WWW-Authenticate']='Bearer'

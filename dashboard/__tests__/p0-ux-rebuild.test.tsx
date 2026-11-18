@@ -242,24 +242,25 @@ describe('P0 Integrations & Custom Feeds Redesign', () => {
     expect(screen.queryByText(/Reddit Discussions/i)).not.toBeInTheDocument();
   });
 
-  it('renders Active Feeds first, categorized Preset Feed Catalog with search/filters, and intentional Add custom feed drawer', async () => {
+  it('renders My Feeds tab first, categorized Browse Feed Catalog with search/filters, and guided Add Custom Feed tab', async () => {
     mocks.mutateAsync.mockResolvedValue({ ok: true });
     render(wrap(<CustomFeedsPanel />));
 
-    expect(screen.getByText('Active Feeds (2)')).toBeVisible();
-    expect(screen.getAllByText('Next.js Releases').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('Postman Community').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByRole('heading', { name: /Research & Technology/i })).toBeVisible();
+    expect(screen.getByRole('tab', { name: /My Feeds \(2\)/i })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getAllByText('Next.js Releases').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Postman Community').length).toBeGreaterThanOrEqual(1);
 
-    // Filter presets by search
-    fireEvent.change(screen.getByLabelText('Search preset feeds'), { target: { value: 'arXiv' } });
+    // Switch to Browse Feed Catalog and filter presets by search
+    fireEvent.click(screen.getByRole('tab', { name: /Browse Feed Catalog/i }));
+    expect(screen.getByRole('heading', { name: /Research & Publications/i })).toBeVisible();
+    fireEvent.change(screen.getByLabelText('Search feeds'), { target: { value: 'arXiv' } });
     expect(screen.getByText('arXiv AI')).toBeVisible();
 
-    // Open Add custom feed drawer (form is NOT permanently expanded on page!)
+    // Switch to Add Custom Feed tab (form is NOT permanently expanded on My Feeds!)
     expect(screen.queryByLabelText('HTTPS feed URL')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Add custom feed/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /Add Custom Feed/i }));
     expect(await screen.findByLabelText('HTTPS feed URL')).toBeVisible();
-    expect(screen.getByText(/cannot be self-declared here/i)).toBeVisible();
+    expect(screen.getByRole('button', { name: /Test Feed URL/i })).toBeVisible();
   });
 });
 
