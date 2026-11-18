@@ -470,6 +470,7 @@ def listing(c,kind,**filters):
     elif kind=='opportunities':
         order="CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END,(SELECT "+rank_expression('s')+" FROM intent_signals s WHERE s.id=intent_opportunities.signal_id AND s.organization_id=intent_opportunities.organization_id) DESC,created_at DESC,id"
     else:
+        where.append("description NOT LIKE '__pb_notif__:%'")
         if filters.get('read_state')=='Unread':where.append('read_at IS NULL')
         if filters.get('read_state')=='Read':where.append('read_at IS NOT NULL')
         if filters.get('alert_kind')=='Source issues':where.append('event_key LIKE ?');args.append('source-failure:%')
@@ -540,11 +541,6 @@ def save_monitor(c, body, key=None):
             commercial_capacity(c,ctx.organization_id,'monitors',active_count)
         key = str(uuid.uuid4())
         c.execute('INSERT INTO intent_monitors(id,organization_id,created_by,name,description,goal,configuration_json,status,request_id,fingerprint,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(key,ctx.organization_id,ctx.actor,body.name,body.description,body.goal,encoded,body.status,str(body.request_id),fingerprint,now(),now()))
-        try:
-            from app.notifications import center
-            center.emit(c,ctx.organization_id,category='monitoring',event_type='MONITOR_CREATED',title=f"Monitor created: {body.name}",description=f"Status: {body.status}. Monitor saved and ready for scheduled checks.",priority='low',resource_url='/intent-radar/monitors',dedupe_key=f"monitor-created:{key}",monitor_id=key,recipient_email=ctx.actor)
-        except Exception:
-            pass
     audit(c,'MONITOR_SAVED',key)
     return get(c,'monitors',key)
 

@@ -901,8 +901,8 @@ def list_action_history(c, *, limit: int = 30) -> dict[str, Any]:
     ctx = analytics.access(c)
     rows = c.execute(
         "SELECT id,actor,action,entity,result,details_json,created_at FROM audit_log "
-        "WHERE organization_id=? AND action LIKE 'AI_AGENT_%' ORDER BY created_at DESC LIMIT ?",
-        (ctx.organization_id, max(1, min(100, limit))),
+        "WHERE organization_id=? AND action LIKE ? ORDER BY created_at DESC LIMIT ?",
+        (ctx.organization_id, "AI_AGENT_%", max(1, min(100, limit))),
     ).fetchall()
     items = []
     for r in rows:

@@ -988,9 +988,13 @@ export function SignalsWorkspace() {
       {/* Results Count Strip */}
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          {totalCount === 0
-            ? "0 matching signals"
-            : `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, totalCount)} of ${totalCount.toLocaleString()} signals`}
+          {query.error
+            ? "Could not load signals — retry below"
+            : !query.data
+              ? "Loading signals…"
+              : totalCount === 0
+                ? "0 matching signals"
+                : `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, totalCount)} of ${totalCount.toLocaleString()} signals`}
         </span>
         {filters.view === "high_intent" && (
           <span className="hidden sm:inline text-[11px] text-muted-foreground">

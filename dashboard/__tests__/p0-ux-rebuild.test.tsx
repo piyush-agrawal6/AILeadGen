@@ -234,12 +234,23 @@ describe('P0 Billing & Usage Redesign', () => {
 });
 
 describe('P0 Integrations & Custom Feeds Redesign', () => {
-  it('renders Research Sources with connected GitHub account planebytelabs, YouTube policy restriction, and Bluesky Jetstream', () => {
+  it('renders compact Research Sources cards and exposes full GitHub, YouTube policy, and Bluesky Jetstream details inside the drawer', () => {
     render(wrap(<ResearchSourcesPanel />));
-    expect(screen.getByText('planebytelabs')).toBeVisible();
-    expect(screen.getByText(/Derived AI analysis restricted by YouTube API policy/)).toBeVisible();
-    expect(screen.getByText(/Jetstream v2:/)).toBeVisible();
+    expect(screen.getAllByText(/planebytelabs/).length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/Reddit Discussions/i)).not.toBeInTheDocument();
+
+    // Compact cards hide verbose inline prose until Details/Manage is opened
+    const ytCard = screen.getByTestId('source-card-youtube');
+    expect(ytCard).toHaveTextContent('AI Restricted');
+    fireEvent.click(ytCard);
+    expect(screen.getByRole('dialog', { name: 'YouTube' })).toBeVisible();
+    expect(screen.getByText(/Permissions & AI Policy/i)).toBeVisible();
+    expect(screen.getByRole('button', { name: /Test Connection/i })).toBeVisible();
+
+    // Open Bluesky card drawer to inspect Jetstream v2 health & poll action
+    fireEvent.click(screen.getByTestId('source-card-bluesky'));
+    expect(screen.getByRole('dialog', { name: 'Bluesky' })).toBeVisible();
+    expect(screen.getAllByText(/Jetstream/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders My Feeds tab first, categorized Browse Feed Catalog with search/filters, and guided Add Custom Feed tab', async () => {

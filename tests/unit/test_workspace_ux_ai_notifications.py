@@ -398,3 +398,20 @@ def test_ai_assistant_streaming_read_tools_action_approval_and_isolation(test_db
 
             assistant_chat.delete_conversation(c, thread_id)
             assert assistant_chat.list_conversations(c)["items"] == []
+
+
+def test_postgres_sql_translation_escapes_literal_percent_for_signals_high_intent():
+    from app.database.postgres import PostgresConnection
+    from app.intent_radar.service import HIGH_INTENT_SQL
+
+    sql = (
+        "SELECT COUNT(*) FROM intent_signals WHERE organization_id=? AND "
+        + HIGH_INTENT_SQL
+    )
+    translated = PostgresConnection._translate_sql(sql)
+    # Exactly one %s placeholder for the single '?'
+    assert translated.count("%s") == 1
+    # Every literal '%' in LIKE patterns must be doubled to '%%' so psycopg never throws ProgrammingError
+    stripped = translated.replace("%s", "").replace("%%", "")
+    assert "%" not in stripped
+

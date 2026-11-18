@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   mutate: vi.fn(),
   searchParams: new URLSearchParams(),
   signals: [] as IntentSignal[],
+  signalsError: null as Error | null,
   analysisHistory: { items: [] as unknown[], feedback: { items: [], ranking_adjustment: 0 } },
 }));
 
@@ -48,6 +49,13 @@ vi.mock("@/components/intent-radar/provider", () => ({
       return { data: { items: [{ id: "icp-1", name: "B2B SaaS Founders" }] } };
     }
     if (path.startsWith("/signals?")) {
+      if (mocks.signalsError) {
+        return {
+          data: undefined,
+          error: mocks.signalsError,
+          refetch: vi.fn(),
+        };
+      }
       return {
         data: {
           items: mocks.signals,
@@ -284,5 +292,18 @@ describe("Signals 2.0 Workspace & Full Signal Details", () => {
       "href",
       "/intent-radar/opportunities/opp-existing-1"
     );
+  });
+
+  it("never displays 0 matching signals when the signals API request fails", () => {
+    mocks.signalsError = new Error("The engine could not complete this request. Please retry.");
+    try {
+      render(<SignalsWorkspace />);
+      expect(screen.queryByText("0 matching signals")).not.toBeInTheDocument();
+      expect(screen.getByText(/Could not load signals/i)).toBeInTheDocument();
+      expect(screen.getByText(/The engine could not complete this request/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Try again/i })).toBeInTheDocument();
+    } finally {
+      mocks.signalsError = null;
+    }
   });
 });

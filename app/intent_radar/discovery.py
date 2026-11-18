@@ -222,12 +222,13 @@ async def process(c,key,job_id=None,lease_owner=None):
         c.execute('UPDATE intent_source_runs SET result_json=?,updated_at=? WHERE organization_id=? AND discovery_id=? AND provider=?',(json.dumps(report),now(),ctx.organization_id,key,report['provider']))
     if discovery['monitor_id']:c.execute('UPDATE intent_monitors SET last_checked=? WHERE id=? AND organization_id=?',(now(),discovery['monitor_id'],ctx.organization_id))
     source_name=next(s['name'] for s in connectors.catalog(c) if s['id']==query.sources[0]) if len(query.sources)==1 else 'Multiple sources'
-    try:
-        from app.notifications import center
-        matched_count=len(found)
-        center.emit(c,ctx.organization_id,category='discovery',event_type='DISCOVERY_COMPLETED',title=f"Discovery completed ({matched_count} signal{'s' if matched_count!=1 else ''})",description=f"Searched {source_name}; scanned {scanned} item(s) with {matched_count} match(es).",priority='high' if matched_count>=10 else 'normal',resource_url=f"/intent-radar/discover/runs/{key}",dedupe_key=f"discovery-complete:{key}",monitor_id=discovery['monitor_id'],recipient_email=discovery['created_by'],send_email=matched_count>=10)
-    except Exception:
-        pass
+    if not discovery['monitor_id'] and len(found) > 0:
+        try:
+            from app.notifications import center
+            matched_count=len(found)
+            center.emit(c,ctx.organization_id,category='discovery',event_type='DISCOVERY_COMPLETED',title=f"Discovery completed ({matched_count} signal{'s' if matched_count!=1 else ''})",description=f"Searched {source_name}; scanned {scanned} item(s) with {matched_count} match(es).",priority='high' if matched_count>=10 else 'normal',resource_url=f"/intent-radar/discover/runs/{key}",dedupe_key=f"discovery-complete:{key}",recipient_email=discovery['created_by'],send_email=matched_count>=10)
+        except Exception:
+            pass
     return {'status':'COMPLETE','coverage_status':'PARTIAL' if any(r['status'] not in ('COMPLETE','NO_RESULTS') for r in reports) else 'COMPLETE','signals':found,'new_signals':len(new_ids.intersection(found)) if query.semantic else new,'new_candidate_signals':new,'matched':len(found),'source':source_name,'sources':reports,'requests':requests,'scanned':scanned,'coverage':'; '.join(r['coverage'] for r in reports),'next_offset':reports[0].get('next_offset'),'classification':'DETERMINISTIC_V3','synthetic':synthetic}
 
 def owned_job(c,key):

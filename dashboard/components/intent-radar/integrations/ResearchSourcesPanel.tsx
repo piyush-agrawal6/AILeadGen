@@ -9,7 +9,6 @@ import {
   ChevronUp,
   ExternalLink,
   Loader2,
-  Plug,
   Radio,
   RefreshCw,
   Rss,
@@ -374,8 +373,8 @@ export function ResearchSourcesPanel({
         </div>
       )}
 
-      {/* Structured Research Sources Directory */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* Compact Research Sources Directory */}
+      <div className="grid gap-3 sm:grid-cols-2">
         {sources.map((src) => {
           const id = src.id || "hacker_news";
           const health = findHealth(id);
@@ -396,223 +395,98 @@ export function ResearchSourcesPanel({
           const familyFeedCount = isFeedFamily
             ? src.enabled_feeds_count ?? configs.filter((c) => c.family === id && c.enabled).length
             : 0;
-          const isTesting = busyAction === `test:${id}`;
+          const lastChecked = liveTest?.checked_at || health?.last_success;
+          const actionLabel =
+            id === "github" && gh?.status === "CONNECTED" ? "Manage" : "Details";
+
+          const metaBits: string[] = [];
+          if (id === "github" && gh?.account_login) {
+            metaBits.push(gh.account_login);
+          } else if (isFeedFamily && familyFeedCount > 0) {
+            metaBits.push(`${familyFeedCount} ${familyFeedCount === 1 ? "feed" : "feeds"}`);
+          }
+          if (opHealth === "Failed" || opHealth === "Degraded") {
+            metaBits.push(opHealth);
+          } else if (lastChecked) {
+            metaBits.push(formatRelativeOrTime(lastChecked));
+          }
+
+          const openDrawer = () => {
+            setSelectedSourceId(id);
+            setShowAdvanced(false);
+          };
 
           return (
             <article
               key={id}
               data-testid={`source-card-${id}`}
-              className="flex flex-col justify-between rounded-2xl border border-border bg-card p-5 space-y-4 hover:border-primary/35 transition-colors"
+              onClick={openDrawer}
+              className="group flex flex-col justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3.5 transition-colors hover:border-primary/40 hover:bg-card/90 cursor-pointer"
             >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-muted/30 shrink-0">
-                      <ProviderLogo provider={id} size={22} />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-semibold text-foreground truncate">{src.name}</h3>
-                      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        <Activity size={11} className={HEALTH_STYLES[opHealth]} aria-hidden="true" />
-                        <span className={HEALTH_STYLES[opHealth]}>{opHealth}</span>
-                        {(liveTest?.checked_at || health?.last_success) && (
-                          <span>
-                            · {formatRelativeOrTime(liveTest?.checked_at || health?.last_success)}
-                          </span>
-                        )}
-                      </p>
-                    </div>
+              {/* Top Row: Icon + Name + Connection Status */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/80 bg-muted/30 shrink-0">
+                    <ProviderLogo provider={id} size={20} />
                   </div>
-
-                  <span
-                    className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold shrink-0 ${AVAILABILITY_STYLES[availability]}`}
-                  >
-                    {availability}
-                  </span>
-                </div>
-
-                {/* Centralized AI Permission & Source Capability Pill Row */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span
-                    className={
-                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold " +
-                      (aiMeta.tone === "authorized"
-                        ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                        : aiMeta.tone === "per_feed"
-                          ? "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300"
-                          : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300")
-                    }
-                  >
-                    {aiMeta.tone === "authorized" ? (
-                      <Sparkles size={10} aria-hidden="true" />
-                    ) : aiMeta.tone === "per_feed" ? (
-                      <ShieldCheck size={10} aria-hidden="true" />
-                    ) : (
-                      <ShieldAlert size={10} aria-hidden="true" />
-                    )}
-                    {aiMeta.label}
-                  </span>
-
-                  {liveTest && (
-                    <span
-                      className={
-                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium " +
-                        (liveTest.ok
-                          ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300"
-                          : "border-destructive/25 bg-destructive/5 text-destructive")
-                      }
-                    >
-                      {liveTest.ok
-                        ? `Verified${liveTest.latency_ms != null ? ` · ${liveTest.latency_ms}ms` : ""}`
-                        : `Check failed`}
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                  {src.coverage}
-                </p>
-
-                {/* Provider-specific concise operational facts */}
-                <div className="space-y-1.5 text-xs">
-                  {id === "github" && gh && (
-                    <div className="rounded-xl bg-muted/30 px-3 py-2 space-y-1">
-                      {gh.account_login ? (
-                        <p className="text-foreground font-medium">
-                          Connected account: <span className="font-semibold">{gh.account_login}</span>
-                          {gh.installation_id ? ` · Installation #${gh.installation_id}` : ""}
-                        </p>
-                      ) : (
-                        <p className="text-muted-foreground">
-                          Public search {gh.public_search_available ? "available" : "unavailable"} · No workspace account connected
-                        </p>
-                      )}
-                      <p className="text-[11px] text-muted-foreground">
-                        Webhooks: {gh.webhooks_configured ? "Active (HMAC-SHA256)" : "Not configured"}
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-foreground truncate leading-tight">
+                      {src.name}
+                    </h3>
+                    {metaBits.length > 0 && (
+                      <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground truncate">
+                        {(opHealth === "Failed" || opHealth === "Degraded") && (
+                          <Activity size={11} className={`${HEALTH_STYLES[opHealth]} shrink-0`} aria-hidden="true" />
+                        )}
+                        <span className={opHealth === "Failed" || opHealth === "Degraded" ? HEALTH_STYLES[opHealth] : undefined}>
+                          {metaBits.join(" · ")}
+                        </span>
                       </p>
-                    </div>
-                  )}
-
-                  {id === "youtube" && (
-                    <div className="rounded-xl bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground flex items-start gap-2">
-                      <ShieldAlert size={13} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
-                      <span>
-                        Public video &amp; comment search ready.{" "}
-                        {src.ai_analytics_authorized
-                          ? "Derived AI analysis authorized."
-                          : "Derived AI analysis restricted by YouTube API policy."}
-                      </span>
-                    </div>
-                  )}
-
-                  {id === "bluesky" && health?.stream_health && (
-                    <div className="rounded-xl bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground flex items-center justify-between gap-2">
-                      <span className="truncate">
-                        Jetstream v2: <strong className="text-foreground">{health.stream_health.state}</strong> · Cursor #{health.stream_health.sequence}
-                      </span>
-                      {access.data?.can_manage && health.stream_health.enabled && (
-                        <button
-                          type="button"
-                          disabled={busyAction !== null}
-                          onClick={() => void pollJetstream()}
-                          className="text-primary font-semibold hover:underline shrink-0 cursor-pointer disabled:opacity-50"
-                        >
-                          {busyAction === "bsky-poll" ? "Polling…" : "Poll stream"}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {id === "stack_exchange" && src.configured_sites && (
-                    <p className="text-[11px] text-muted-foreground">
-                      Official API v2.3 · {src.configured_sites.length} communities configured (up to 5 per search)
-                    </p>
-                  )}
-
-                  {isFeedFamily && (
-                    <p className="text-[11px] text-muted-foreground">
-                      {familyFeedCount > 0
-                        ? `${familyFeedCount} enabled ${familyFeedCount === 1 ? "feed" : "feeds"} active for discovery & monitoring`
-                        : id === "rss"
-                          ? "No custom RSS feeds added — Atom & Discourse presets are managed in Custom Feeds"
-                          : "No feeds enabled yet — enable presets or add an approved feed"}
-                    </p>
-                  )}
-
-                  {health?.last_error?.code && !liveTest?.ok && (
-                    <p className="text-[11px] text-destructive flex items-center gap-1.5">
-                      <AlertCircle size={12} aria-hidden="true" />
-                      Last error: {health.last_error.code}
-                    </p>
-                  )}
+                    )}
+                  </div>
                 </div>
+
+                <span
+                  className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium shrink-0 ${AVAILABILITY_STYLES[availability]}`}
+                >
+                  {availability}
+                </span>
               </div>
 
-              {/* Action Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  {id === "github" && access.data?.can_manage && gh && gh.status !== "CONNECTED" ? (
-                    <Button
-                      size="sm"
-                      disabled={busyAction !== null || !gh.oauth_configured}
-                      onClick={() => void connectGitHub("oauth")}
-                      className="h-8 text-xs gap-1.5"
-                    >
-                      <Plug size={13} />
-                      {busyAction === "gh-oauth" ? "Connecting…" : "Connect GitHub"}
-                    </Button>
-                  ) : isFeedFamily && onOpenFeedsTab ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={onOpenFeedsTab}
-                      className="h-8 text-xs gap-1.5"
-                    >
-                      <Rss size={13} />
-                      Manage Feeds
-                    </Button>
-                  ) : null}
+              {/* Bottom Row: Subtle AI Permission Indicator + Single Manage/Details Action */}
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                <span
+                  className={
+                    "inline-flex items-center gap-1 text-[11px] font-medium " +
+                    (aiMeta.tone === "authorized"
+                      ? "text-emerald-700 dark:text-emerald-400"
+                      : aiMeta.tone === "per_feed"
+                        ? "text-muted-foreground"
+                        : "text-amber-700 dark:text-amber-400")
+                  }
+                >
+                  {aiMeta.tone === "authorized" ? (
+                    <Sparkles size={11} aria-hidden="true" />
+                  ) : aiMeta.tone === "per_feed" ? (
+                    <ShieldCheck size={11} aria-hidden="true" />
+                  ) : (
+                    <ShieldAlert size={11} aria-hidden="true" />
+                  )}
+                  {aiMeta.label}
+                </span>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedSourceId(id);
-                      setShowAdvanced(false);
-                    }}
-                    className="h-8 text-xs gap-1.5"
-                  >
-                    <Settings2 size={13} />
-                    {id === "github" && gh?.status === "CONNECTED" ? "Manage Connection" : "Details"}
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busyAction !== null}
-                    onClick={() => void testConnection(id)}
-                    className="h-8 px-2.5 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                    title="Run lightweight live connectivity check"
-                  >
-                    {isTesting ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Wifi size={12} />
-                    )}
-                    {isTesting ? "Testing…" : "Test"}
-                  </Button>
-                </div>
-
-                {src.documentation?.startsWith("https://") && (
-                  <a
-                    href={src.documentation}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-primary"
-                  >
-                    Docs <ExternalLink size={11} />
-                  </a>
-                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openDrawer();
+                  }}
+                  className="h-7 px-2.5 text-xs gap-1.5 shrink-0"
+                >
+                  <Settings2 size={12} />
+                  {actionLabel}
+                </Button>
               </div>
             </article>
           );

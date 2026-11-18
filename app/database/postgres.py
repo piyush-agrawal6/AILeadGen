@@ -90,9 +90,14 @@ class PostgresConnection:
                 from app.platform.request_metrics import database
                 database(time.monotonic()-started)
 
+    @staticmethod
+    def _translate_sql(statement):
+        """Translate SQLite-style '?' placeholders to psycopg '%s' while preserving literal '%'."""
+        return statement.replace("%", "%%").replace("?", "%s")
+
     def execute(self, statement, parameters=()):
         # SQL is application-owned; parameters always remain driver-bound.
-        statement = statement.replace("?", "%s")
+        statement = self._translate_sql(statement)
         insert = re.match(r"\s*INSERT\s+INTO\s+([a-z_]+)", statement, re.I)
         returning = insert and insert.group(1).lower() in ID_TABLES and "RETURNING" not in statement.upper()
         if returning:
@@ -123,7 +128,7 @@ class PostgresConnection:
     def executemany(self,statement,parameters):
         self._prepare_transaction()
         cursor=self.raw.cursor()
-        cursor.executemany(statement.replace("?","%s"),parameters)
+        cursor.executemany(self._translate_sql(statement),parameters)
         return Cursor(cursor)
 
     def commit(self):
@@ -133,7 +138,7 @@ class PostgresConnection:
         """Pipeline inserts while preserving repository-assigned result IDs."""
         self._prepare_transaction()
         with self.raw.cursor() as cursor:
-            cursor.executemany(statement.replace('?','%s')+' RETURNING id',parameters,returning=True)
+            cursor.executemany(self._translate_sql(statement)+' RETURNING id',parameters,returning=True)
             result=[]
             if parameters:
                 while True:
