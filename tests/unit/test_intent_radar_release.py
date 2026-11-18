@@ -43,7 +43,7 @@ def test_source_reservations_survive_failure_and_are_workspace_scoped(radar,monk
         operations.reserve_source('hacker_news')
         with pytest.raises(HTTPException) as denied:operations.reserve_source('hacker_news')
         assert denied.value.status_code==429
-        assert operations.source_health(c)['items'][0]['daily_requests_reserved']==22
+        assert operations.source_health(c)['items'][0]['daily_requests_reserved']==operations.CAPS['hacker_news']
     assert c.execute('SELECT COUNT(*) FROM intent_source_usage WHERE organization_id=?',(other,)).fetchone()[0]==0
 
 def test_retention_rotates_past_nonexpiring_prefix_preserves_saved_notes_and_other_workspace(radar):

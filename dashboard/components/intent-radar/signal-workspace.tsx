@@ -175,7 +175,7 @@ export function SignalsWorkspace() {
   const [openedId, setOpenedId] = useState("");
   const [openedSnapshot, setOpenedSnapshot] = useState<IntentSignal | null>(null);
   const [opportunityTarget, setOpportunityTarget] = useState<IntentSignal | null>(null);
-  const [bulkConfirm, setBulkConfirm] = useState<null | "dismiss" | "qualify">(null);
+  const [bulkConfirm, setBulkConfirm] = useState<null | "dismiss" | "qualify" | "opportunity" | "needs_review">(null);
   const [bulkBusyAction, setBulkBusyAction] = useState<string | null>(null);
   const [notice, setNotice] = useState<{
     message: string;
@@ -487,7 +487,7 @@ export function SignalsWorkspace() {
     }
   }
 
-  async function runBulkAction(action: "save" | "unsave" | "review" | "qualify" | "dismiss" | "opportunity") {
+  async function runBulkAction(action: "save" | "unsave" | "review" | "qualify" | "dismiss" | "opportunity" | "needs_review") {
     if (!canWrite || selected.length === 0 || mutation.isPending) return;
     setBulkConfirm(null);
     setBulkBusyAction(action);
@@ -511,6 +511,7 @@ export function SignalsWorkspace() {
         qualify: "marked Qualified",
         dismiss: "dismissed",
         opportunity: "promoted to Opportunities",
+        needs_review: "reset to Needs Review",
       };
       const parts: string[] = [];
       if (updated > 0) parts.push(`${updated} signal${updated === 1 ? "" : "s"} ${actionVerb[action]}`);
@@ -1007,8 +1008,15 @@ export function SignalsWorkspace() {
           {bulkConfirm ? (
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <span className="font-medium text-foreground">
-                Confirm {bulkConfirm === "dismiss" ? "dismissing" : "qualifying"} {selected.length} signal
-                {selected.length === 1 ? "" : "s"}?
+                Confirm{" "}
+                {bulkConfirm === "dismiss"
+                  ? "dismissing"
+                  : bulkConfirm === "qualify"
+                    ? "qualifying"
+                    : bulkConfirm === "opportunity"
+                      ? "creating opportunities for"
+                      : "resetting to Needs Review for"}{" "}
+                {selected.length} signal{selected.length === 1 ? "" : "s"}?
               </span>
               <button
                 type="button"
@@ -1069,10 +1077,19 @@ export function SignalsWorkspace() {
                 type="button"
                 disabled={!canWrite || mutation.isPending}
                 title={!canWrite ? "Read-only workspace access" : undefined}
-                onClick={() => void runBulkAction("opportunity")}
+                onClick={() => setBulkConfirm("opportunity")}
                 className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-primary/50 hover:text-primary disabled:opacity-50 cursor-pointer"
               >
                 <Target size={13} /> Create Opportunities
+              </button>
+              <button
+                type="button"
+                disabled={!canWrite || mutation.isPending}
+                title={!canWrite ? "Read-only workspace access" : undefined}
+                onClick={() => setBulkConfirm("needs_review")}
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50 cursor-pointer"
+              >
+                <RotateCcw size={13} /> Reset to Needs Review
               </button>
               <button
                 type="button"
@@ -1187,14 +1204,14 @@ export function SignalsWorkspace() {
                       className="accent-primary cursor-pointer"
                     />
                   </th>
-                  <th className="min-w-[195px] px-2 py-2.5">Signal</th>
-                  <th className="whitespace-nowrap px-2 py-2.5">Source</th>
-                  {visibleCols.category && <th className="whitespace-nowrap px-2 py-2.5">Intent</th>}
-                  <th className="whitespace-nowrap px-2 py-2.5">Score</th>
-                  {visibleCols.buyingIntent && <th className="whitespace-nowrap px-2 py-2.5">Buying Intent</th>}
-                  {visibleCols.observed && <th className="whitespace-nowrap px-2 py-2.5">Observed</th>}
-                  <th className="whitespace-nowrap px-2 py-2.5">Status</th>
-                  <th className="whitespace-nowrap px-2 py-2.5 text-right">Actions</th>
+                  <th className="min-w-[195px] px-3 py-2.5">Signal</th>
+                  <th className="whitespace-nowrap px-3 py-2.5">Source</th>
+                  <th className="whitespace-nowrap px-3 py-2.5">Relevance</th>
+                  <th className="whitespace-nowrap px-3 py-2.5">Buying Intent</th>
+                  <th className="whitespace-nowrap px-3 py-2.5">Status</th>
+                  <th className="whitespace-nowrap px-3 py-2.5">Observed</th>
+                  {visibleCols.category && <th className="whitespace-nowrap px-3 py-2.5">Category</th>}
+                  <th className="whitespace-nowrap px-3 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
@@ -1270,52 +1287,30 @@ export function SignalsWorkspace() {
                         </div>
                       </td>
 
-                      <td className="px-2 py-2.5 align-top whitespace-nowrap">
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
                           <ProviderLogo provider={s.source} size={15} />
                           <span>{s.source}</span>
                         </span>
                       </td>
 
-                      {visibleCols.category && (
-                        <td className="px-2 py-2.5 align-top">
-                          <span
-                            title={s.category}
-                            className="inline-block max-w-[116px] truncate whitespace-nowrap rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground"
-                          >
-                            {s.category}
-                          </span>
-                        </td>
-                      )}
-
-                      <td className="px-2 py-2.5 align-top whitespace-nowrap">
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap">
                         <SignalScore score={s.score} />
                       </td>
 
-                      {visibleCols.buyingIntent && (
-                        <td className="px-2 py-2.5 align-top whitespace-nowrap">
-                          <span
-                            title={buying.label}
-                            className={
-                              "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium " +
-                              buying.tone
-                            }
-                          >
-                            {buying.shortLabel}
-                          </span>
-                        </td>
-                      )}
-
-                      {visibleCols.observed && (
-                        <td
-                          className="px-2 py-2.5 align-top whitespace-nowrap text-muted-foreground tabular-nums"
-                          title={obs.full}
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap">
+                        <span
+                          title={buying.label}
+                          className={
+                            "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium " +
+                            buying.tone
+                          }
                         >
-                          {obs.short}
-                        </td>
-                      )}
+                          {buying.shortLabel}
+                        </span>
+                      </td>
 
-                      <td className="px-2 py-2.5 align-top whitespace-nowrap">
+                      <td className="px-3 py-2.5 align-top whitespace-nowrap">
                         <span
                           className={
                             "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold " +
@@ -1325,6 +1320,24 @@ export function SignalsWorkspace() {
                           {s.status}
                         </span>
                       </td>
+
+                      <td
+                        className="px-3 py-2.5 align-top whitespace-nowrap text-muted-foreground tabular-nums text-[11px]"
+                        title={obs.full}
+                      >
+                        {obs.short}
+                      </td>
+
+                      {visibleCols.category && (
+                        <td className="px-3 py-2.5 align-top">
+                          <span
+                            title={s.category}
+                            className="inline-block max-w-[116px] truncate whitespace-nowrap rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground"
+                          >
+                            {s.category}
+                          </span>
+                        </td>
+                      )}
 
                       <td
                         className="px-2 py-2.5 align-top whitespace-nowrap text-right"
@@ -1374,6 +1387,13 @@ export function SignalsWorkspace() {
                                 className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-emerald-700 dark:text-emerald-300 hover:bg-muted disabled:opacity-50 cursor-pointer outline-none"
                               >
                                 <CheckCircle2 size={13} /> Qualify signal
+                              </Menu.Item>
+                              <Menu.Item
+                                disabled={!canWrite}
+                                onSelect={() => void runQuickStatus(s, "Needs Review")}
+                                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted disabled:opacity-50 cursor-pointer outline-none"
+                              >
+                                <RotateCcw size={13} /> Reset to Needs Review
                               </Menu.Item>
                               <Menu.Item
                                 disabled={!canWrite}

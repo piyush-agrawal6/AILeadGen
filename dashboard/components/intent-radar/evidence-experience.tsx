@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Activity,
   ArrowLeft,
   ArrowUpRight,
   Bookmark,
@@ -14,8 +15,8 @@ import {
   ChevronRight,
   ChevronUp,
   Clock,
+  ExternalLink,
   HelpCircle,
-  Loader2,
   RotateCcw,
   ShieldCheck,
   Sparkles,
@@ -33,6 +34,7 @@ import { SignalScore } from "./signals";
 import { ProviderLogo } from "./provider-logo";
 import { SignalIntelligencePanel } from "./signals/SignalIntelligencePanel";
 import { CreateOpportunityModal } from "./signals/CreateOpportunityModal";
+import { Button } from "@/components/ui/button";
 import {
   buyingIntentDisplay,
   formatObservedDate,
@@ -41,14 +43,26 @@ import {
   statusPillClasses,
 } from "./signals/signals-context";
 
+type DetailTab = "overview" | "evidence" | "intelligence" | "activity";
+
 export function EvidenceDetail({ id }: { id: string }) {
   const query = useRadarRead<IntentSignal>("/signals/" + id);
   const access = useRadarCapabilities();
   if (query.error) {
-    return <ErrorState message={query.error.message} retry={() => void query.refetch()} />;
+    return (
+      <div className="ir-page space-y-4">
+        <Link
+          href="/intent-radar/signals"
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground hover:border-primary/50"
+        >
+          <ArrowLeft size={14} /> Back to Signals
+        </Link>
+        <ErrorState message={query.error.message} retry={() => void query.refetch()} />
+      </div>
+    );
   }
   if (!query.data) return <LoadingSkeleton />;
-  return <EvidenceContent key={id} signal={query.data} canWrite={!!access.data?.can_write} />;
+  return <EvidenceContent key={id} signal={query.data} canWrite={Boolean(access.data?.can_write)} />;
 }
 
 function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWrite: boolean }) {
@@ -61,6 +75,7 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
     };
   }>(`/signals/${s.id}/analysis`);
 
+  const [activeTab, setActiveTab] = useState<DetailTab>("overview");
   const [notes, setNotes] = useState(s.notes || "");
   const [expandedExcerpt, setExpandedExcerpt] = useState(false);
   const [oppModalOpen, setOppModalOpen] = useState(false);
@@ -68,7 +83,6 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
   const [fbLabel, setFbLabel] = useState<string>(s.feedback_label || "");
   const [fbNote, setFbNote] = useState("");
   const [fbSavedMsg, setFbSavedMsg] = useState("");
-  const [showAllActivity, setShowAllActivity] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<{
     message: string;
@@ -114,7 +128,7 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
   const prov = provenanceSummary(s);
   const eligibility = s.opportunity_eligibility;
   const rawExcerpt = s.excerpt || s.title;
-  const isLongExcerpt = rawExcerpt.length > 600;
+  const isLongExcerpt = rawExcerpt.length > 500;
   const rankingAdj = feedbackHistory.data?.feedback?.ranking_adjustment ?? 0;
 
   async function updateReview(nextStatus: string, saveNotes = false) {
@@ -194,14 +208,14 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
   const recommendedNextStep = s.opportunity_id
     ? "Follow up in the linked Opportunity record."
     : eligibility?.eligible
-      ? "Review unknowns and create an Opportunity if this matches your offering."
+      ? "Review unknowns and promote to an Opportunity if this matches your offering."
       : s.has_analysis
-        ? "Review AI summary and original discussion before qualifying or dismissing."
-        : "Inspect the source excerpt or run Analyze Signal to verify commercial intent.";
+        ? "Review AI evaluation and original discussion before qualifying or dismissing."
+        : "Inspect the source excerpt or run Analyze Signal to evaluate commercial intent.";
 
   return (
     <div className="ir-page space-y-5">
-      {/* Top Navigation: Prominent Back to Signals + Prev / Next within active list context */}
+      {/* Top Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 pb-3">
         <Link
           href={returnCtx.returnUrl}
@@ -288,7 +302,7 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
         </div>
       </header>
 
-      {/* Notice / Undo Banner */}
+      {/* Notice Banner */}
       {notice && (
         <div
           role="status"
@@ -319,12 +333,12 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
 
       {error && <ErrorState message={error} />}
 
-      {/* 1. Decision Summary Card (Above the Fold — Fast Triage!) */}
+      {/* Decision Summary Card */}
       <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">Decision Summary</h2>
           <span className="text-[11px] text-muted-foreground">
-            Scores and labels reflect observed public text only, never verified buying authority.
+            Scores reflect observed public text only, never verified budget or buying authority.
           </span>
         </div>
 
@@ -333,7 +347,9 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
             <span className="text-[11px] font-medium text-muted-foreground">Topic Relevance</span>
             <div className="flex items-center gap-2">
               <SignalScore score={s.score} />
-              <span className="text-xs font-medium text-foreground truncate">{s.evidence?.confidence || s.category}</span>
+              <span className="text-xs font-medium text-foreground truncate">
+                {s.evidence?.confidence || s.category}
+              </span>
             </div>
           </div>
 
@@ -359,13 +375,13 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
           </div>
 
           <div className="rounded-xl border border-border/80 bg-background p-3 space-y-1">
-            <span className="text-[11px] font-medium text-muted-foreground">Opportunity Readiness</span>
+            <span className="text-[11px] font-medium text-muted-foreground">Opportunity Status</span>
             <p className="text-xs font-medium text-foreground">
               {s.opportunity_id
-                ? `Linked (${s.opportunity_status || "Saved"})`
+                ? `Linked (${s.opportunity_status || "Active"})`
                 : eligibility?.eligible
-                  ? "Evidence-backed candidate"
-                  : "Needs review first"}
+                  ? "Eligible candidate"
+                  : "Needs review"}
             </p>
           </div>
         </div>
@@ -456,212 +472,330 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
         </div>
       </section>
 
-      {/* Main Two-Column Content Grid */}
+      {/* Tab Bar for Supporting Details */}
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-border/80 pb-px">
+        {[
+          { id: "overview", label: "Overview" },
+          { id: "evidence", label: "Evidence" },
+          { id: "intelligence", label: "AI Intelligence" },
+          { id: "activity", label: "Activity & Notes" },
+        ].map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setActiveTab(t.id as DetailTab)}
+            className={`shrink-0 border-b-2 px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+              activeTab === t.id
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Main Two-Column Layout */}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] items-start">
-        {/* Left Main Column */}
+        {/* Left Main Tab Content */}
         <div className="space-y-5 min-w-0">
-          {/* 2. Evidence & Source Provenance */}
-          <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-semibold text-foreground">Original Conversation Evidence</h2>
-              <span className="rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                {prov.visibility || "Public source"}
-              </span>
-            </div>
-
-            <blockquote className="rounded-xl border-l-4 border-primary/45 bg-muted/25 p-4 text-sm leading-relaxed text-foreground whitespace-pre-line break-words">
-              {!expandedExcerpt && isLongExcerpt ? rawExcerpt.slice(0, 600) + "…" : rawExcerpt}
-            </blockquote>
-
-            {isLongExcerpt && (
-              <button
-                type="button"
-                onClick={() => setExpandedExcerpt((v) => !v)}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
-              >
-                {expandedExcerpt ? (
-                  <>
-                    Collapse full excerpt <ChevronUp size={14} />
-                  </>
-                ) : (
-                  <>
-                    Show full conversation excerpt ({rawExcerpt.length.toLocaleString()} chars) <ChevronDown size={14} />
-                  </>
-                )}
-              </button>
-            )}
-
-            {/* Match Breakdown */}
-            <div className="rounded-xl border border-border/80 bg-background p-4 space-y-3">
-              <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                <ShieldCheck size={15} className="text-primary" />
-                Why this signal matched
-              </div>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {s.evidence?.explanation || "Matched workspace discovery criteria."}
-              </p>
-
-              <div className="grid gap-3 sm:grid-cols-2 text-xs">
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Matched keywords
+          {/* Tab 1: Overview */}
+          {activeTab === "overview" && (
+            <div className="space-y-4">
+              <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <ShieldCheck size={15} className="text-primary" />
+                    Why this signal matched
+                  </h3>
+                  <span className="text-[11px] text-muted-foreground">
+                    Confidence: {s.evidence?.confidence || "Medium"}
                   </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {s.evidence?.matched_keywords?.length ? (
-                      s.evidence.matched_keywords.map((kw) => (
-                        <span
-                          key={kw}
-                          className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-foreground"
-                        >
-                          {kw}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-muted-foreground">None recorded</span>
-                    )}
+                </div>
+
+                <p className="text-xs leading-relaxed text-foreground">
+                  {s.evidence?.explanation || "Matched workspace discovery keywords and intent criteria."}
+                </p>
+
+                <div className="grid gap-3.5 sm:grid-cols-2 text-xs border-t border-border/70 pt-3.5">
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Matched keywords
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {s.evidence?.matched_keywords?.length ? (
+                        s.evidence.matched_keywords.map((kw) => (
+                          <span
+                            key={kw}
+                            className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-foreground"
+                          >
+                            {kw}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">None recorded</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Detected intent phrase
+                    </span>
+                    <p className="text-foreground font-medium">
+                      {s.evidence?.intent_phrase ? `“${s.evidence.intent_phrase}”` : "No explicit commercial phrase detected."}
+                    </p>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Detected intent phrase
-                  </span>
-                  <p className="text-foreground">
-                    {s.evidence?.intent_phrase ? `“${s.evidence.intent_phrase}”` : "No explicit commercial phrase detected."}
-                  </p>
+                <div className="rounded-xl border border-border/70 bg-muted/15 p-3.5 space-y-1.5 text-xs">
+                  <span className="font-semibold text-foreground">Uncertain or unverified information</span>
+                  <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+                    {(s.evidence?.unknown || ["Budget, buying authority, and timeline are unverified."]).map(
+                      (u, idx) => (
+                        <li key={idx}>{u}</li>
+                      ),
+                    )}
+                  </ul>
                 </div>
+              </section>
+
+              {/* Excerpt Snippet in Overview */}
+              <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-foreground">Conversation Excerpt</h3>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("evidence")}
+                    className="text-[11px] font-medium text-primary hover:underline cursor-pointer"
+                  >
+                    View full discussion details →
+                  </button>
+                </div>
+                <blockquote className="rounded-xl border-l-4 border-primary/45 bg-muted/20 p-3.5 text-xs leading-relaxed text-foreground whitespace-pre-line line-clamp-4">
+                  {rawExcerpt}
+                </blockquote>
+              </section>
+
+              {/* AI Intelligence Panel also directly accessible in Overview */}
+              <SignalIntelligencePanel id={s.id} available={s.available} />
+            </div>
+          )}
+
+          {/* Tab 2: Evidence */}
+          {activeTab === "evidence" && (
+            <section className="rounded-2xl border border-border bg-card p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Original Conversation Evidence
+                </h3>
+                {s.source_url?.startsWith("http") && (
+                  <a
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1 text-xs font-semibold text-foreground hover:border-primary/50 hover:text-primary transition-colors"
+                    href={s.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open original public discussion <ExternalLink size={12} />
+                  </a>
+                )}
               </div>
 
-              <details className="border-t border-border/60 pt-2.5 text-xs">
-                <summary className="cursor-pointer font-medium text-muted-foreground hover:text-foreground">
-                  Uncertain or unverified attributes
-                </summary>
-                <ul className="mt-2 list-disc pl-4 space-y-1 text-muted-foreground">
-                  {(s.evidence?.unknown || ["Budget, buying authority, and purchasing readiness are not verified."]).map(
-                    (u, idx) => (
-                      <li key={idx}>{u}</li>
-                    )
-                  )}
-                </ul>
-              </details>
-            </div>
-          </section>
+              <blockquote className="rounded-xl border-l-4 border-primary/45 bg-muted/20 p-4 text-xs leading-relaxed text-foreground whitespace-pre-line break-words">
+                {!expandedExcerpt && isLongExcerpt ? rawExcerpt.slice(0, 500) + "…" : rawExcerpt}
+              </blockquote>
 
-          {/* 3. AI Intelligence Panel */}
-          <SignalIntelligencePanel id={s.id} available={s.available} />
+              {isLongExcerpt && (
+                <button
+                  type="button"
+                  onClick={() => setExpandedExcerpt((v) => !v)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+                >
+                  {expandedExcerpt ? (
+                    <>
+                      Collapse full excerpt <ChevronUp size={14} />
+                    </>
+                  ) : (
+                    <>
+                      Show full conversation excerpt ({rawExcerpt.length.toLocaleString()} chars) <ChevronDown size={14} />
+                    </>
+                  )}
+                </button>
+              )}
+
+              <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 border-t border-border/70 pt-3.5 text-xs">
+                <div>
+                  <dt className="text-[11px] text-muted-foreground">Source Provider</dt>
+                  <dd className="font-medium text-foreground mt-0.5">{s.source}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-muted-foreground">Observed Timestamp</dt>
+                  <dd className="font-medium text-foreground mt-0.5">{observed.full}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-muted-foreground">Retrieved Timestamp</dt>
+                  <dd className="font-medium text-foreground mt-0.5">{retrieved.full}</dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-muted-foreground">Attribution</dt>
+                  <dd className="font-medium text-foreground mt-0.5 truncate">
+                    {prov.author ? (
+                      prov.authorUrl?.startsWith("http") ? (
+                        <a
+                          href={prov.authorUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {prov.author}
+                        </a>
+                      ) : (
+                        prov.author
+                      )
+                    ) : (
+                      "Public user"
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          )}
+
+          {/* Tab 3: AI Intelligence */}
+          {activeTab === "intelligence" && (
+            <div className="space-y-4">
+              <SignalIntelligencePanel id={s.id} available={s.available} />
+            </div>
+          )}
+
+          {/* Tab 4: Activity & Notes */}
+          {activeTab === "activity" && (
+            <div className="space-y-4">
+              {/* Review Notes Section */}
+              <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                  <StickyNote size={15} className="text-primary" />
+                  Review Notes
+                </h3>
+                <textarea
+                  rows={3}
+                  maxLength={4000}
+                  aria-label="Your review notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Capture context, qualification rationale, or follow-up questions…"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
+                />
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-[11px] text-muted-foreground">
+                    {notes !== (s.notes || "") ? "Unsaved changes" : "Notes saved"}
+                  </span>
+                  <Button
+                    size="sm"
+                    disabled={disabled || notes === (s.notes || "")}
+                    onClick={() => void updateReview(s.status, true)}
+                    className="h-7 text-xs"
+                  >
+                    Save Note
+                  </Button>
+                </div>
+              </section>
+
+              {/* Activity Timeline */}
+              <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                  <Clock size={15} className="text-primary" />
+                  Signal Activity &amp; Audit Trail
+                </h3>
+
+                <div className="space-y-2.5 text-xs">
+                  {(s.activity || []).map((ev, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-start gap-2.5 rounded-xl border border-border/70 bg-muted/15 p-3"
+                    >
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary mt-0.5">
+                        <Activity size={12} />
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <p className="font-semibold text-foreground">{ev.title}</p>
+                        {ev.detail && <p className="text-muted-foreground">{ev.detail}</p>}
+                        <span className="text-[11px] text-muted-foreground tabular-nums">
+                          {ev.actor ? `${ev.actor} · ` : ""}
+                          {ev.at ? new Date(ev.at).toLocaleString() : ""}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {(!s.activity || s.activity.length === 0) && (
+                    <p className="text-xs text-muted-foreground italic">
+                      No explicit activity recorded beyond collection.
+                    </p>
+                  )}
+                </div>
+              </section>
+            </div>
+          )}
         </div>
 
-        {/* Right Column: Provenance + Unified Notes, Feedback & Activity */}
-        <aside className="space-y-5 min-w-0">
-          {/* Source & Search Provenance */}
-          <section className="rounded-2xl border border-border bg-card p-5 space-y-3 text-xs">
-            <h2 className="text-sm font-semibold text-foreground">Source & Provenance</h2>
-            <dl className="space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-muted-foreground">Provider</dt>
-                <dd className="font-medium text-foreground text-right">{s.source}</dd>
+        {/* Right Sidebar: Provenance + Feedback + Opportunity */}
+        <aside className="space-y-4 min-w-0">
+          {/* Related Opportunity Card */}
+          <section className="rounded-2xl border border-border bg-card p-4 space-y-2.5 text-xs">
+            <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <Target size={14} className="text-primary" />
+              Opportunity Status
+            </h3>
+            {s.opportunity_id ? (
+              <div className="space-y-2">
+                <p className="text-muted-foreground">
+                  Linked to an active workspace opportunity.
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                    {s.opportunity_status || "Active"}
+                  </span>
+                  <Link
+                    href={`/intent-radar/opportunities/${s.opportunity_id}`}
+                    className="font-medium text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    Open Opportunity <ArrowUpRight size={11} />
+                  </Link>
+                </div>
               </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-muted-foreground">Collection method</dt>
-                <dd className="font-medium text-foreground text-right">{prov.fetchLabel}</dd>
-              </div>
-              {prov.repo && (
-                <div className="flex items-start justify-between gap-2">
-                  <dt className="text-muted-foreground">Repository</dt>
-                  <dd className="font-medium text-foreground text-right break-all">{prov.repo}</dd>
-                </div>
-              )}
-              {prov.contentKind && (
-                <div className="flex items-start justify-between gap-2">
-                  <dt className="text-muted-foreground">Content type</dt>
-                  <dd className="font-medium text-foreground capitalize text-right">{prov.contentKind}</dd>
-                </div>
-              )}
-              {prov.author && (
-                <div className="flex items-start justify-between gap-2">
-                  <dt className="text-muted-foreground">Public author</dt>
-                  <dd className="font-medium text-foreground text-right">
-                    {prov.authorUrl?.startsWith("http") ? (
-                      <a
-                        href={prov.authorUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline inline-flex items-center gap-1"
-                      >
-                        {prov.author} <ArrowUpRight size={11} />
-                      </a>
-                    ) : (
-                      prov.author
-                    )}
-                  </dd>
-                </div>
-              )}
-              {typeof s.evidence?.provenance?.attribution === "object" &&
-                s.evidence?.provenance?.attribution?.license && (
-                  <div className="flex items-start justify-between gap-2">
-                    <dt className="text-muted-foreground">License</dt>
-                    <dd className="font-medium text-foreground text-right">
-                      {s.evidence.provenance.attribution.license}
-                    </dd>
-                  </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-muted-foreground">
+                  {eligibility?.eligible
+                    ? "Qualified as an evidence-backed buyer opportunity candidate."
+                    : "Not yet promoted to an Opportunity."}
+                </p>
+                {canWrite && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setOppModalOpen(true)}
+                    className="w-full h-7 text-xs gap-1.5"
+                  >
+                    <Target size={12} />
+                    Promote to Opportunity
+                  </Button>
                 )}
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-muted-foreground">Observed</dt>
-                <dd className="text-foreground text-right whitespace-nowrap" title={observed.full}>
-                  {observed.short}
-                </dd>
               </div>
-              <div className="flex items-start justify-between gap-2">
-                <dt className="text-muted-foreground">Retrieved</dt>
-                <dd className="text-foreground text-right whitespace-nowrap" title={retrieved.full}>
-                  {retrieved.short}
-                </dd>
-              </div>
-              {s.discovery_id && (
-                <div className="flex items-start justify-between gap-2">
-                  <dt className="text-muted-foreground">Discovery run</dt>
-                  <dd className="text-right">
-                    <Link
-                      href={`/intent-radar/discover/runs/${s.discovery_id}`}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      {s.discovery_title || "View run"}
-                    </Link>
-                  </dd>
-                </div>
-              )}
-              {s.monitors && s.monitors.length > 0 && (
-                <div className="space-y-1 pt-1 border-t border-border/60">
-                  <dt className="text-muted-foreground">Matched monitors</dt>
-                  <dd className="flex flex-wrap gap-1.5">
-                    {s.monitors.map((m) => (
-                      <Link
-                        key={m.id}
-                        href={`/intent-radar/monitors/${m.id}`}
-                        className="rounded-md border border-border bg-muted/40 px-2 py-0.5 font-medium text-primary hover:underline"
-                      >
-                        {m.name}
-                      </Link>
-                    ))}
-                  </dd>
-                </div>
-              )}
-            </dl>
-            <p className="border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
-              Language and geography are not independently verified from public excerpts.
-            </p>
+            )}
           </section>
 
-          {/* Reviewer Relevance Feedback (Simple, Bounded, Reversible) */}
-          <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
+          {/* Reviewer Relevance Feedback */}
+          <section className="rounded-2xl border border-border bg-card p-4 space-y-3 text-xs">
             <div className="space-y-0.5">
-              <h2 className="text-sm font-semibold text-foreground">Was this signal relevant?</h2>
+              <h3 className="text-xs font-semibold text-foreground">Relevance Feedback</h3>
               <p className="text-[11px] text-muted-foreground">
-                Your feedback reversibly adjusts workspace ranking (current adjustment: {rankingAdj >= 0 ? `+${rankingAdj}` : rankingAdj}).
+                Reversibly adjusts workspace ranking (adjustment: {rankingAdj >= 0 ? `+${rankingAdj}` : rankingAdj}).
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               {(
                 [
                   { label: "Relevant", icon: ThumbsUp },
@@ -677,127 +811,69 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
                     disabled={disabled}
                     aria-pressed={active}
                     onClick={() => void submitFeedback(label, true)}
-                    className={
-                      "inline-flex flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2.5 text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50 " +
-                      (active
+                    className={`inline-flex flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-2 text-[10px] font-medium transition-colors cursor-pointer disabled:opacity-50 ${
+                      active
                         ? "border-primary bg-primary/10 text-primary font-semibold"
-                        : "border-border bg-background text-foreground hover:bg-muted/50")
-                    }
+                        : "border-border bg-background text-foreground hover:bg-muted/50"
+                    }`}
                   >
-                    <Icon size={14} />
+                    <Icon size={13} />
                     <span>{label}</span>
                   </button>
                 );
               })}
             </div>
 
-            <textarea
-              rows={2}
-              maxLength={1000}
-              aria-label="Optional feedback explanation"
-              value={fbNote}
-              onChange={(e) => setFbNote(e.target.value)}
-              placeholder="Optional note explaining why…"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground"
-            />
-
-            <div className="flex items-center justify-between gap-2 text-[11px]">
-              <span className="text-emerald-700 dark:text-emerald-300">{fbSavedMsg}</span>
-              <div className="flex items-center gap-2">
-                {fbLabel && fbNote.trim() && (
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => void submitFeedback(fbLabel, true)}
-                    className="rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 font-semibold text-primary hover:bg-primary/15 cursor-pointer"
-                  >
-                    Save feedback note
-                  </button>
-                )}
-                {fbLabel && (
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => void submitFeedback(fbLabel, false)}
-                    className="text-muted-foreground hover:text-foreground underline cursor-pointer"
-                  >
-                    Clear my feedback
-                  </button>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* Review Notes */}
-          <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-              <StickyNote size={15} className="text-primary" />
-              Review Notes
-            </h2>
-            <textarea
-              rows={3}
-              maxLength={4000}
-              aria-label="Your review notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Capture context, qualification rationale, or follow-up questions…"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground"
-            />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] text-muted-foreground">
-                {notes !== (s.notes || "") ? "Unsaved changes" : "Notes saved"}
+            {fbSavedMsg && (
+              <span className="text-[11px] text-emerald-700 dark:text-emerald-300 block">
+                {fbSavedMsg}
               </span>
-              <button
-                type="button"
-                disabled={disabled || notes === (s.notes || "")}
-                onClick={() => void updateReview(s.status, true)}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 cursor-pointer"
-              >
-                {mutation.isPending ? <Loader2 size={13} className="animate-spin" /> : null}
-                Save Note
-              </button>
-            </div>
+            )}
           </section>
 
-          {/* Activity Timeline */}
-          {s.activity && s.activity.length > 0 && (
-            <section className="rounded-2xl border border-border bg-card p-5 space-y-3">
-              <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                <Clock size={15} className="text-muted-foreground" />
-                Activity History
-              </h2>
-              <ol className="space-y-2.5 border-l border-border pl-3.5 text-xs">
-                {(showAllActivity ? s.activity : s.activity.slice(0, 10)).map((ev, idx) => (
-                  <li key={`${ev.kind}-${ev.at}-${idx}`} className="space-y-0.5">
-                    <p className="font-medium text-foreground">{ev.title}</p>
-                    {ev.detail && <p className="text-[11px] text-muted-foreground break-words">{ev.detail}</p>}
-                    <p className="text-[10px] text-muted-foreground" title={ev.at ? formatObservedDate(ev.at).full : ""}>
-                      {ev.at ? formatObservedDate(ev.at).full : ""}
-                      {ev.actor ? ` · ${ev.actor}` : ""}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-              {s.activity.length > 10 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllActivity((v) => !v)}
-                  className="text-xs font-medium text-primary hover:underline cursor-pointer"
-                >
-                  {showAllActivity ? "Show fewer events" : `Show all ${s.activity.length} events`}
-                </button>
+          {/* Source & Provenance */}
+          <section className="rounded-2xl border border-border bg-card p-4 space-y-2.5 text-xs">
+            <h3 className="text-xs font-semibold text-foreground">Source &amp; Provenance</h3>
+            <dl className="space-y-1.5 text-[11px]">
+              <div className="flex items-start justify-between gap-2">
+                <dt className="text-muted-foreground">Provider</dt>
+                <dd className="font-medium text-foreground text-right">{s.source}</dd>
+              </div>
+              <div className="flex items-start justify-between gap-2">
+                <dt className="text-muted-foreground">Collection</dt>
+                <dd className="font-medium text-foreground text-right">{prov.fetchLabel}</dd>
+              </div>
+              {prov.repo && (
+                <div className="flex items-start justify-between gap-2">
+                  <dt className="text-muted-foreground">Repo</dt>
+                  <dd className="font-medium text-foreground text-right break-all">{prov.repo}</dd>
+                </div>
               )}
-            </section>
-          )}
+              {prov.contentKind && (
+                <div className="flex items-start justify-between gap-2">
+                  <dt className="text-muted-foreground">Kind</dt>
+                  <dd className="font-medium text-foreground capitalize text-right">{prov.contentKind}</dd>
+                </div>
+              )}
+              <div className="flex items-start justify-between gap-2">
+                <dt className="text-muted-foreground">Observed</dt>
+                <dd className="text-foreground text-right" title={observed.full}>
+                  {observed.short}
+                </dd>
+              </div>
+            </dl>
+          </section>
         </aside>
       </div>
 
-      {/* Controlled Editable Create Opportunity Modal */}
+      {/* Create Opportunity Modal */}
       <CreateOpportunityModal
         signal={s}
         open={oppModalOpen}
         onClose={() => setOppModalOpen(false)}
-        onCreated={() => setNotice({ message: "Opportunity created and linked to this signal." })}
+        onCreated={() => {
+          setNotice({ message: "Opportunity created successfully." });
+        }}
       />
     </div>
   );

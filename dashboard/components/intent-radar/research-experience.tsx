@@ -21,7 +21,8 @@ function OpportunityItem({opportunity}:{opportunity:IntentOpportunity}){const [e
 function RecordPagination({page,total,size,onChange}:{page:number;total:number;size:number;onChange:(page:number)=>void}){
  return total>size?<nav className="ir-pagination" aria-label="Result pages"><span>Page {page} of {Math.ceil(total/size)}</span><div className="ir-actions"><button disabled={page<=1} onClick={()=>onChange(page-1)}>Previous</button><button disabled={page*size>=total} onClick={()=>onChange(page+1)}>Next</button></div></nav>:null;
 }
-export function OpportunitiesWorkspace({id}:{id?:string}={}){
+export {OpportunitiesWorkspace} from './opportunities/OpportunitiesWorkspace';
+export function OpportunitiesWorkspaceLegacy({id}:{id?:string}={}){
   const [status,setStatus]=useState(''),[page,setPage]=useState(1),query=useRadarRead<IntentPage<IntentOpportunity>>('/opportunities?status='+status+'&page_size=20&page='+page,!id),detail=useRadarRead<IntentOpportunity>('/opportunities/'+id,!!id);
   if(id)return <div className="ir-page"><PageHeading title="Opportunity detail" description="Review the selected signal, research status and evidence." actions={<Link className="ir-button" href="/intent-radar/opportunities">All opportunities</Link>}/>{detail.error?<ErrorState message={detail.error.message} retry={()=>void detail.refetch()}/>:!detail.data?<LoadingSkeleton/>:<OpportunityItem key={detail.data.id} opportunity={detail.data}/>}</div>;
   return <div className="ir-page">

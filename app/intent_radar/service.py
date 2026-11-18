@@ -316,7 +316,11 @@ def get(c, kind, key):
         attach_opportunity_policy(item)
         item['activity'] = _signal_activity(c, org, item)
     if kind=='opportunities':
-        signal=get(c,'signals',item['signal_id']);item['score']=signal['score'];item['ranking']=signal['ranking'];item['opportunity_eligibility']=signal['opportunity_eligibility']
+        signal=get(c,'signals',item['signal_id'])
+        item['score']=signal['score']
+        item['ranking']=signal.get('ranking')
+        item['opportunity_eligibility']=signal.get('opportunity_eligibility')
+        item['signal']=signal
     return item
 
 def expired(signal,retention_days=30):
@@ -419,7 +423,52 @@ def listing(c,kind,**filters):
     ctx=context(c);org=ctx.organization_id;page=filters.get('page',1);size=filters.get('size',25)
     if not 1<=page<=10000 or not 1<=size<=100:raise HTTPException(422,'Bounded pagination required.')
     where=['organization_id=?'];args=[org];sort=filters.get('sort','newest')
-    if filters.get('search'):
+    view_counts = None
+    status_counts = None
+    if kind == 'opportunities':
+        if filters.get('status') and filters['status'] not in ('', 'all', 'All'):
+            where.append('status=?'); args.append(filters['status'])
+        if filters.get('priority'):
+            where.append('priority=?'); args.append(filters['priority'])
+        if filters.get('assigned_to'):
+            if filters['assigned_to'] == 'unassigned':
+                where.append("(assigned_to IS NULL OR assigned_to='')")
+            else:
+                where.append('LOWER(assigned_to)=?'); args.append(filters['assigned_to'].strip().lower())
+        if filters.get('source'):
+            where.append('signal_id IN (SELECT id FROM intent_signals WHERE organization_id=? AND source=?)')
+            args.extend([org, filters['source']])
+        if filters.get('search'):
+            qtext = '%'+filters['search'].casefold()+'%'
+            where.append('(LOWER(notes) LIKE ? OR LOWER(next_action) LIKE ? OR LOWER(COALESCE(assigned_to,"")) LIKE ? OR signal_id IN (SELECT id FROM intent_signals WHERE organization_id=? AND (LOWER(title) LIKE ? OR LOWER(excerpt) LIKE ? OR LOWER(source) LIKE ?)))')
+            args.extend([qtext, qtext, qtext, org, qtext, qtext, qtext])
+        feedback_rank = "(SELECT " + rank_expression('s') + " FROM intent_signals s WHERE s.id=intent_opportunities.signal_id AND s.organization_id=intent_opportunities.organization_id) DESC"
+        order_map = {
+            'newest': f"CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, {feedback_rank}, created_at DESC, id DESC",
+            'oldest': 'created_at ASC, id ASC',
+            'updated': 'updated_at DESC, id DESC',
+            'priority': f"CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, {feedback_rank}, updated_at DESC, id DESC",
+        }
+        order = order_map.get(sort, f"CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, {feedback_rank}, created_at DESC, id DESC")
+        sc_row = c.execute(
+            "SELECT COUNT(*) AS all_count,"
+            "COALESCE(SUM(CASE WHEN status='New' THEN 1 ELSE 0 END),0) AS new_count,"
+            "COALESCE(SUM(CASE WHEN status='Reviewing' THEN 1 ELSE 0 END),0) AS reviewing_count,"
+            "COALESCE(SUM(CASE WHEN status='Qualified' THEN 1 ELSE 0 END),0) AS qualified_count,"
+            "COALESCE(SUM(CASE WHEN status='Saved' THEN 1 ELSE 0 END),0) AS saved_count,"
+            "COALESCE(SUM(CASE WHEN status='Dismissed' THEN 1 ELSE 0 END),0) AS dismissed_count "
+            "FROM intent_opportunities WHERE organization_id=?",
+            (org,),
+        ).fetchone()
+        status_counts = {
+            'all': int(sc_row['all_count'] or 0),
+            'new': int(sc_row['new_count'] or 0),
+            'reviewing': int(sc_row['reviewing_count'] or 0),
+            'qualified': int(sc_row['qualified_count'] or 0),
+            'saved': int(sc_row['saved_count'] or 0),
+            'dismissed': int(sc_row['dismissed_count'] or 0),
+        }
+    elif filters.get('search'):
         qtext = '%'+filters['search'].casefold()+'%'
         if kind == 'signals':
             where.append('(LOWER(title) LIKE ? OR LOWER(excerpt) LIKE ? OR LOWER(source) LIKE ?)')
@@ -427,8 +476,8 @@ def listing(c,kind,**filters):
         else:
             field='title' if kind=='alerts' else 'notes'
             where.append('LOWER('+field+') LIKE ?');args.append(qtext)
-    if filters.get('status') and kind!='alerts':where.append('status=?');args.append(filters['status'])
-    view_counts = None
+    if filters.get('status') and kind not in ('alerts', 'opportunities'):
+        where.append('status=?');args.append(filters['status'])
     if kind=='signals':
         retention_days = preferences(c)['source_retention_days']
         retention,retention_args=retention_sql(c,retention_days)
@@ -522,7 +571,7 @@ def listing(c,kind,**filters):
             'dismissed': int(vc_row['dismissed_count'] or 0),
         }
     elif kind=='opportunities':
-        order="CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END,(SELECT "+rank_expression('s')+" FROM intent_signals s WHERE s.id=intent_opportunities.signal_id AND s.organization_id=intent_opportunities.organization_id) DESC,created_at DESC,id"
+        pass
     else:
         where.append("(description NOT LIKE '__pb_notif__:%' OR monitor_id IS NOT NULL)")
         if filters.get('read_state')=='Unread':where.append('read_at IS NULL')
@@ -542,8 +591,9 @@ def listing(c,kind,**filters):
             signals={item['id']:item for item in ranked_signals(c,signal_items)}
         for item in items:
             signal=signals.get(item['signal_id'])
-            if not signal:raise HTTPException(404,'Signal not found in this workspace.')
-            item['score']=signal['score'];item['ranking']=signal['ranking'];item['signal']=signal;item['opportunity_eligibility']=signal['opportunity_eligibility']
+            if not signal:
+                signal={'id': item['signal_id'], 'title': 'Source item unavailable', 'source': 'Public source', 'score': 0, 'category': 'Uncertain', 'excerpt': '', 'evidence': {}, 'observed_at': item.get('created_at', now()), 'opportunity_eligibility': {'eligible': False, 'reasons': ['Source evidence unavailable.']}}
+            item['score']=signal['score'];item['ranking']=signal.get('ranking');item['signal']=signal;item['opportunity_eligibility']=signal.get('opportunity_eligibility')
     elif kind!='signals':
         from app.notifications.center import _decode_alert_row
         items=[]
@@ -567,6 +617,8 @@ def listing(c,kind,**filters):
     result = {'items':items,'total':total,'page':page,'page_size':size,'has_more':(page*size)<total}
     if view_counts is not None:
         result['view_counts'] = view_counts
+    if status_counts is not None:
+        result['status_counts'] = status_counts
     return result
 
 def save_monitor(c, body, key=None):
@@ -771,8 +823,14 @@ def bulk_action(c, body):
         audit(c, 'BOOKMARK_BULK', f'bulk:{len(keys)}', {'action': 'unsave', 'count': updated})
         return {'updated': updated, 'already_existed': 0, 'skipped': [], 'total_requested': len(keys), 'action': body.action}
 
-    if body.action in ('review', 'qualify', 'dismiss'):
-        status_map = {'review': 'Reviewed', 'qualify': 'Qualified', 'dismiss': 'Dismissed'}
+    if body.action in ('review', 'qualify', 'dismiss', 'unqualify', 'needs_review'):
+        status_map = {
+            'review': 'Reviewed',
+            'qualify': 'Qualified',
+            'dismiss': 'Dismissed',
+            'unqualify': 'Needs Review',
+            'needs_review': 'Needs Review',
+        }
         target_status = status_map[body.action]
         c.execute(
             f'UPDATE intent_signals SET status=?,revision=revision+1 WHERE organization_id=? AND id IN ({marks})',
@@ -880,6 +938,14 @@ def opportunity(c,key,body=None,create_body=None):
     if not body:
         res['already_existed'] = False
     return res
+
+def delete_opportunity(c, key):
+    ctx = context(c, True)
+    lock(c)
+    old = get(c, 'opportunities', key)
+    c.execute('DELETE FROM intent_opportunities WHERE id=? AND organization_id=?', (key, ctx.organization_id))
+    audit(c, 'OPPORTUNITY_DELETED', key, {'signal_id': old['signal_id'], 'priority': old['priority']})
+    return {'deleted': True, 'id': key}
 
 def mark_alert(c,key,read):
     org=context(c,True).organization_id; get(c,'alerts',key)

@@ -268,11 +268,35 @@ def unsave(key:UUID,c=Depends(get_db,scope='function')):return service.bookmark(
 @router.post('/opportunities/{signal_id}',status_code=201)
 def select(signal_id:UUID,body:models.OpportunityCreate|None=None,c=Depends(get_db,scope='function')):return service.opportunity(c,str(signal_id),create_body=body)
 @router.get('/opportunities')
-def opportunities(page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),status:str=Query('',max_length=30),c=Depends(get_db,scope='function')):return service.listing(c,'opportunities',page=page,size=page_size,status=status)
+def opportunities(
+    page:int=Query(1,ge=1,le=10000),
+    page_size:int=Query(25,ge=1,le=100),
+    status:str=Query('',max_length=30),
+    search:str=Query('',max_length=120),
+    priority:str=Query('',max_length=20),
+    source:str=Query('',max_length=40),
+    assigned_to:str=Query('',max_length=254),
+    sort:Literal['newest','oldest','updated','priority']='newest',
+    c=Depends(get_db,scope='function'),
+):
+    return service.listing(
+        c,
+        'opportunities',
+        page=page,
+        size=page_size,
+        status=status,
+        search=search,
+        priority=priority,
+        source=source,
+        assigned_to=assigned_to,
+        sort=sort,
+    )
 @router.get('/opportunities/{key}')
 def opportunity_detail(key:UUID,c=Depends(get_db,scope='function')):return service.get(c,'opportunities',str(key))
 @router.patch('/opportunities/{key}')
 def update_opportunity(key:UUID,body:models.OpportunityUpdate,c=Depends(get_db,scope='function')):return service.opportunity(c,str(key),body)
+@router.delete('/opportunities/{key}')
+def delete_opportunity(key:UUID,c=Depends(get_db,scope='function')):return service.delete_opportunity(c,str(key))
 @router.get('/alerts')
 def alerts(page:int=Query(1,ge=1,le=10000),read_state:Literal['All','Unread','Read']='All',alert_kind:Literal['All','Source issues','Monitor activity']='All',c=Depends(get_db,scope='function')):return service.listing(c,'alerts',page=page,read_state=read_state,alert_kind=alert_kind)
 class Read(BaseModel):read:bool

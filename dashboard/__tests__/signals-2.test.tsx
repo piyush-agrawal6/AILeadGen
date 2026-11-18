@@ -288,7 +288,7 @@ describe("Signals 2.0 Workspace & Full Signal Details", () => {
     render(<EvidenceDetail id="sig-2" />);
     fireEvent.click(screen.getByRole("button", { name: /View Opportunity/i }));
     expect(await screen.findByText(/An opportunity already exists for this signal/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open Opportunity/i })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /Open Opportunity/i })[0]).toHaveAttribute(
       "href",
       "/intent-radar/opportunities/opp-existing-1"
     );

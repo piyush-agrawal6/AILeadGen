@@ -202,7 +202,7 @@ class SignalUpdate(Strict):
 
 class Bulk(Strict):
     ids: list[UUID] = Field(min_length=1, max_length=50)
-    action: Literal['save', 'unsave', 'review', 'qualify', 'dismiss', 'opportunity']
+    action: Literal['save', 'unsave', 'review', 'qualify', 'dismiss', 'opportunity', 'unqualify', 'needs_review']
 
 class OpportunityCreate(Strict):
     priority: Literal['High', 'Medium', 'Low'] = 'Medium'

@@ -54,7 +54,30 @@ export interface IntentSignal {
   activity?: SignalActivityEvent[];
 }
 export interface IntentMonitor {id:string;name:string;description:string;goal:string;configuration:IntentSearch;status:'Draft'|'Active'|'Paused'|'Archived';revision:number;created_at:string;last_checked:string|null;last_job_id:string|null;schedule?:{frequency:string;timezone:string};next_run_at?:string|null;signals_count?:number}
-export interface IntentOpportunity {opportunity_eligibility?:OpportunityEligibility;signal?:IntentSignal;id:string;signal_id:string;status:string;priority:string;notes:string;next_action:string;assigned_to:string|null;revision:number}
+export interface IntentOpportunity {
+  opportunity_eligibility?: OpportunityEligibility;
+  signal?: IntentSignal;
+  id: string;
+  signal_id: string;
+  status: string;
+  priority: string;
+  notes: string;
+  next_action: string;
+  assigned_to: string | null;
+  revision: number;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+}
+
+export interface OpportunityStatusCounts {
+  all: number;
+  new: number;
+  reviewing: number;
+  qualified: number;
+  saved: number;
+  dismissed: number;
+}
 export interface IntentSaved {signal?:IntentSignal;signal_id:string;collection:string;tags:string[];notes:string;revision:number}
 export interface IntentAlert {id:string;monitor_id:string|null;signal_id:string|null;title:string;description:string;created_at:string;read_at:string|null}
 export interface IntentJob {id:string;discovery_id?:string;status:string;error_code:string|null;created_at:string;attempts:number;sources?:{provider:string;status:string;coverage:string;requests:number;scanned:number;retry_at?:string}[];items:{status:string;error_code:string|null;result:{signals?:string[];scanned?:number;matched?:number;requests?:number;coverage?:string}}[]}
@@ -88,7 +111,7 @@ export interface SourcePolicySummary {
   missing_approval_note: string | null;
 }
 export interface IntentCapabilities {stage:string;growth_enabled?:boolean;can_write:boolean;can_manage:boolean;sources:{id?:SourceId;name:string;state:string;availability_label?:string;coverage:string;documentation:string;filters?:string[];request_limit_per_check?:number;configured_sites?:string[];oauth_configured?:boolean;webhooks_configured?:boolean;ai_analytics_authorized?:boolean;jetstream_enabled?:boolean;configured_feeds_count?:number;enabled_feeds_count?:number;policy?:SourcePolicySummary;permission?:string;missing?:string[]}[];usage:{searches_today:number;daily_search_limit:number;monitor_limit:number;automatic_schedules_enabled?:boolean;minimum_schedule_hours?:number}}
-export interface IntentPage<T>{items:T[];total:number;page:number;page_size:number;has_more?:boolean;view_counts?:SignalViewCounts}
+export interface IntentPage<T>{items:T[];total:number;page:number;page_size:number;has_more?:boolean;view_counts?:SignalViewCounts;status_counts?:OpportunityStatusCounts}
 export interface IntentOverview {new_signals:number;reviewed_signals:number;high_relevance:number;active_monitors:number;saved_opportunities:number;unread_alerts:number;trends:{day:string;volume:number}[];recent_signals:IntentSignal[];monitors:IntentMonitor[];opportunities:IntentOpportunity[];alerts:IntentAlert[]}
 
 export interface SearchStrategy {
