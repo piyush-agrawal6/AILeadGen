@@ -64,23 +64,47 @@ export function OnboardingCompletion({
             <dt className="text-muted-foreground flex items-center gap-1.5">
               <ShieldCheck size={13} className="text-primary" aria-hidden="true" /> Plan status
             </dt>
-            <dd className="text-sm font-semibold text-foreground mt-1 capitalize">
-              {paymentActive && contract
-                ? `${contract.plan_code} · ${contract.status}`
-                : hasVerifiedAccess
-                  ? 'Active'
-                  : 'Saved context'}
-            </dd>
-            {contract?.trial_end && contract.status === 'trialing' && (
-              <span className="block text-[11px] text-muted-foreground mt-0.5">
-                Trial ends {formatUnixDate(contract.trial_end)}
-              </span>
-            )}
-            {contract?.next_charge_at && contract.status === 'active' && (
-              <span className="block text-[11px] text-muted-foreground mt-0.5">
-                Renews {formatUnixDate(contract.next_charge_at)}
-              </span>
-            )}
+            {(() => {
+              const isTrial = Boolean(
+                contract &&
+                  (contract.is_trial ??
+                    (contract.status === 'trialing' ||
+                      (contract.trial_start != null && contract.period_start === contract.trial_start)))
+              );
+              const tier = contract?.plan_code
+                ? contract.plan_code.charAt(0).toUpperCase() + contract.plan_code.slice(1)
+                : '';
+              const label =
+                contract?.entitlement_label ||
+                (contract ? (isTrial ? `${tier} Trial` : `Paid ${tier}`) : null);
+              return (
+                <>
+                  <dd className="text-sm font-semibold text-foreground mt-1">
+                    {paymentActive && label
+                      ? label
+                      : hasVerifiedAccess
+                        ? 'Active'
+                        : 'Saved context'}
+                  </dd>
+                  {contract && isTrial && (contract.trial_end ?? contract.period_end) && (
+                    <span className="block text-[11px] text-muted-foreground mt-0.5">
+                      {contract.cancel_confirmed_at ? 'Renewal canceled · ends ' : 'Trial ends '}
+                      {formatUnixDate(contract.trial_end ?? contract.period_end)}
+                    </span>
+                  )}
+                  {contract && !isTrial && contract.next_charge_at && !contract.cancel_confirmed_at && (
+                    <span className="block text-[11px] text-muted-foreground mt-0.5">
+                      Renews {formatUnixDate(contract.next_charge_at)}
+                    </span>
+                  )}
+                  {contract && !isTrial && contract.cancel_confirmed_at && contract.period_end && (
+                    <span className="block text-[11px] text-muted-foreground mt-0.5">
+                      Renewal canceled · ends {formatUnixDate(contract.period_end)}
+                    </span>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </dl>
 

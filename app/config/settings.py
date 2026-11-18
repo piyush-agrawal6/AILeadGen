@@ -213,6 +213,19 @@ class Settings(BaseSettings):
     subscription_onboarding_required:bool=Field(False,alias='SUBSCRIPTION_ONBOARDING_REQUIRED')
     subscription_terms_version:str=Field('',alias='SUBSCRIPTION_TERMS_VERSION')
     subscription_checkout_enabled:bool=Field(False,alias='SUBSCRIPTION_CHECKOUT_ENABLED')
+    # Temporary, server-only, auditable internal testing allowance for an explicitly
+    # allowlisted owner workspace that already holds a verified Creem contract.
+    # Disabled by default; auto-expires at INTERNAL_TESTING_EXPIRES_AT (UTC epoch).
+    internal_testing_workspace_id:str=Field('',alias='INTERNAL_TESTING_WORKSPACE_ID')
+    internal_testing_owner_email:str=Field('',alias='INTERNAL_TESTING_OWNER_EMAIL',repr=False,exclude=True)
+    internal_testing_expires_at:int=Field(0,ge=0,alias='INTERNAL_TESTING_EXPIRES_AT')
+    internal_testing_searches_limit:int=Field(100,ge=5,le=200,alias='INTERNAL_TESTING_SEARCHES_LIMIT')
+    internal_testing_ai_calls_limit:int=Field(40,ge=3,le=100,alias='INTERNAL_TESTING_AI_CALLS_LIMIT')
+    internal_testing_ai_tokens_limit:int=Field(1500000,ge=150000,le=3000000,alias='INTERNAL_TESTING_AI_TOKENS_LIMIT')
+    internal_testing_monitors_limit:int=Field(5,ge=1,le=20,alias='INTERNAL_TESTING_MONITORS_LIMIT')
+    internal_testing_monitor_executions_limit:int=Field(20,ge=0,le=100,alias='INTERNAL_TESTING_MONITOR_EXECUTIONS_LIMIT')
+    internal_testing_reports_limit:int=Field(10,ge=0,le=50,alias='INTERNAL_TESTING_REPORTS_LIMIT')
+    internal_testing_api_requests_limit:int=Field(200,ge=0,le=1000,alias='INTERNAL_TESTING_API_REQUESTS_LIMIT')
     payu_one_time_checkout_enabled:bool=Field(False,alias='PAYU_ONE_TIME_CHECKOUT_ENABLED')
     payu_charge_currency:str=Field('',pattern=r'^(|USD|INR)$',alias='PAYU_CHARGE_CURRENCY')
     payu_merchant_capabilities_json:str=Field('{}',alias='PAYU_MERCHANT_CAPABILITIES_JSON')

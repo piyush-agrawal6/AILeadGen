@@ -21,7 +21,24 @@ type Contract = {
   cancel_at: number | null;
   cancel_confirmed_at: string | null;
   recurring_authorized: number;
+  is_trial?: boolean;
+  entitlement_label?: string | null;
 };
+
+function isTrialContract(contract?: Contract | null): boolean {
+  if (!contract) return false;
+  if (typeof contract.is_trial === 'boolean') return contract.is_trial;
+  if (contract.trial_start != null && contract.period_start === contract.trial_start) return true;
+  return contract.status === 'trialing';
+}
+
+function formatEntitlementLabel(contract?: Contract | null): string {
+  if (!contract) return 'Subscription';
+  if (contract.entitlement_label) return contract.entitlement_label;
+  const code = (contract.plan_code || '').trim().toLowerCase();
+  const tier = code ? code.charAt(0).toUpperCase() + code.slice(1) : 'Subscription';
+  return isTrialContract(contract) ? `${tier} Trial` : `Paid ${tier}`;
+}
 
 export type SubscriptionState = {
   enabled: boolean;
@@ -210,22 +227,57 @@ export function SubscriptionPayment({ onActivated, embedded = false }: { onActiv
         </p>
       </header>
 
-      {data.active && (
+      {data.active && (() => {
+        const contractIsTrial = isTrialContract(data.contract);
+        const label = formatEntitlementLabel(data.contract);
+        const statusSummary = data.contract?.cancel_confirmed_at
+          ? contractIsTrial
+            ? 'Renewal canceled — trial access continues until expiration'
+            : 'Renewal canceled — paid access continues until period end'
+          : contractIsTrial
+            ? '3-day card trial active'
+            : 'Paid subscription active';
+        return (
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 flex flex-wrap items-center justify-between gap-4">
-          <div className="space-y-1">
-            <p className="flex items-center gap-2 font-semibold text-foreground">
-              <Check size={18} className="text-primary" />
-              Existing verified Creem plan recognized
-            </p>
-            <p className="text-sm text-muted-foreground capitalize">
-              {data.contract?.plan_code} plan · {data.contract?.status} · via {data.contract?.provider}
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                <Check size={18} className="text-primary" />
+                {label}
+              </span>
+              <span
+                className={
+                  'rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ' +
+                  (contractIsTrial
+                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                    : 'bg-primary/10 text-primary border-primary/25')
+                }
+              >
+                {contractIsTrial ? '3-Day Trial' : 'Paid Plan'}
+              </span>
+              {data.contract?.cancel_confirmed_at && (
+                <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground border border-border">
+                  Renewal canceled
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {statusSummary} · via <span className="capitalize">{data.contract?.provider}</span>
             </p>
             {data.contract && (
               <p className="text-xs text-muted-foreground">
-                Current period ends {formatDate(data.contract.period_end)}.{' '}
+                {contractIsTrial ? 'Trial started ' : 'Period started '}
+                {formatDate(data.contract.trial_start ?? data.contract.period_start)} ·{' '}
+                {contractIsTrial ? 'Trial expires ' : 'Period ends '}
+                {formatDate(data.contract.trial_end ?? data.contract.period_end)}.{' '}
                 {data.contract.cancel_confirmed_at
-                  ? 'Automatic renewal canceled — no new trial or charge will be created.'
+                  ? 'Automatic renewal canceled — no future charge will be made.'
                   : 'Next charge: ' + formatDate(data.contract.next_charge_at)}
+              </p>
+            )}
+            {contractIsTrial && (
+              <p className="text-xs text-muted-foreground">
+                Starter Trial includes 5 searches, 3 AI operations, 150,000 AI tokens, and 1 manual monitor. Paid Starter unlocks 100 monthly searches, 20 AI operations, 2 monitors, scheduled checks, reports, and API access.
               </p>
             )}
           </div>
@@ -243,7 +295,8 @@ export function SubscriptionPayment({ onActivated, embedded = false }: { onActiv
             </Link>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {!data.active && (
         <>
@@ -488,8 +541,9 @@ export function SubscriptionPayment({ onActivated, embedded = false }: { onActiv
       {data.contract && data.can_manage && (
         <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
           <h3 className="font-semibold text-sm text-foreground">Manage your subscription</h3>
-          <p className="text-xs text-muted-foreground capitalize">
-            {data.contract.provider} · {data.contract.environment} · {data.contract.status}
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{formatEntitlementLabel(data.contract)}</span> ·{' '}
+            <span className="capitalize">{data.contract.provider} · {data.contract.environment} · {data.contract.status}</span>
           </p>
           <p className="text-xs text-muted-foreground">
             {data.contract.cancel_confirmed_at

@@ -76,10 +76,14 @@ export type PaymentContract = {
   plan_code: string;
   status: string;
   provider: string;
+  period_start?: number | null;
   period_end?: number | null;
+  trial_start?: number | null;
   trial_end?: number | null;
   next_charge_at?: number | null;
   cancel_confirmed_at?: string | null;
+  is_trial?: boolean;
+  entitlement_label?: string | null;
 };
 
 export type State = {

@@ -43,7 +43,7 @@ def capacity_for_workspace(c,org,dimension,current_count):
     native=access_periods.require_current(c,org)
     # The approved trial includes one stored manual monitor; paid plans retain
     # their existing active-monitor accounting.
-    if dimension!='monitors' or native and native['source_kind']=='TRIAL':
+    if dimension!='monitors' or native and (native.get('source_kind')=='TRIAL' or (native.get('is_trial') and not native.get('internal_testing'))):
         if commercial_capacity(c,org,dimension,current_count):return
     lock(c,org);row=service.active(c,org)
     if row and current_count>=json.loads(row['plan_json'])['limits'][dimension]:raise HTTPException(429,'The current test plan '+dimension.replace('_',' ')+' capacity is exhausted.')

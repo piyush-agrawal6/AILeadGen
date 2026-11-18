@@ -65,12 +65,24 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
       {/* Plan Status Card */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border bg-card p-5">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary border border-primary/20">
               {data.access.kind}
             </span>
             <span className="text-xs text-muted-foreground">
-              {data.native_access?.managed?data.native_access.active?"Active access":"Access expired or unpaid":data.subscription?.mode === "test" ? "Test transaction" : "Approved access"}
+              {data.subscription?.is_trial
+                ? data.subscription.cancel_confirmed_at
+                  ? "3-day card trial · renewal canceled"
+                  : "3-day card trial"
+                : data.subscription && !data.subscription.is_trial
+                  ? data.subscription.mode === "test"
+                    ? "Test transaction"
+                    : "Verified paid subscription"
+                  : data.native_access?.managed
+                    ? data.native_access.active
+                      ? "Active access"
+                      : "Access expired or unpaid"
+                    : "Approved access"}
             </span>
           </div>
           <h3 className="text-base font-semibold">Intent Radar + Growth Intelligence</h3>
@@ -81,7 +93,11 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
 
         <div className="text-left sm:text-right space-y-1">
           <p className="text-xs text-muted-foreground">
-            {data.native_access?.managed&&data.native_access.expires_at ? <>Current period ends {new Date(data.native_access.expires_at*1000).toLocaleDateString()}{data.native_access.recurring?" · see renewal or cancellation above":" · renew manually"}</> : data.search_usage?.reset_at ? (
+            {data.subscription?.is_trial && (data.subscription.trial_end ?? data.subscription.period_end) ? (
+              <>Trial ends {new Date((data.subscription.trial_end ?? data.subscription.period_end) * 1000).toLocaleString()}</>
+            ) : data.native_access?.managed && data.native_access.expires_at ? (
+              <>Current period ends {new Date(data.native_access.expires_at * 1000).toLocaleDateString()}{data.native_access.recurring ? " · see renewal or cancellation above" : " · renewal canceled"}</>
+            ) : data.search_usage?.reset_at ? (
               <>Allowance resets {new Date(data.search_usage.reset_at).toLocaleDateString()}</>
             ) : (
               <>Review each allowance’s reset date below</>
@@ -96,11 +112,29 @@ export function BillingSection({ activeTab, onSwitchTab }: { activeTab: string; 
         </div>
       </div>
 
+      {data.internal_testing?.active && (
+        <div role="status" className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 text-xs space-y-1">
+          <p className="font-semibold text-foreground">
+            Temporary internal testing allowance active (owner testing workspace only)
+          </p>
+          <p className="text-muted-foreground">
+            Your underlying plan remains <strong>{data.internal_testing.base_entitlement || data.access.kind}</strong> and your original trial usage history is preserved untouched. These bounded testing limits expire automatically on{" "}
+            <strong>{new Date(data.internal_testing.expires_at * 1000).toLocaleString()}</strong>.
+          </p>
+        </div>
+      )}
+
       {!!data.commercial.fixed_term?.items.length&&<FixedTermPayments data={data.commercial.fixed_term} plans={data.commercial.catalog.plans}/>}
 
       {/* Usage Allowances */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold">Plan allowances & daily safety limits</h3>
+        <h3 className="text-sm font-semibold">
+          {data.internal_testing?.active
+            ? "Temporary internal testing allowances & daily safety limits"
+            : data.subscription?.is_trial
+              ? `${data.subscription.entitlement_label || data.access.kind} allowances & daily safety limits`
+              : "Plan allowances & daily safety limits"}
+        </h3>
         <div className="grid gap-4 sm:grid-cols-2">
           {data.usage.map((item) => {
             const percent = Math.min(100, Math.round((item.used / Math.max(1, item.limit)) * 100));

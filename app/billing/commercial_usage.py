@@ -26,23 +26,28 @@ def reserve(c,amounts,operation_id):
     # No approved monthly opportunity quota: preserve ordinary saved-record work.
     values={k:v for k,v in amounts.items() if k in contracts.METERED}
     usage_table,reservations_table=access_periods.ledgers(c,org)
+    usage_start=row.get('usage_period_start',row['paid_start'])
+    usage_end=row.get('usage_period_end',row['paid_end'])
     limits=contracts.snapshot(row)['limits'];pending=[]
     for dim,n in sorted(values.items()):
         previous=c.execute(f'SELECT * FROM {reservations_table} WHERE organization_id=? AND operation_id=? AND dimension=?',(org,operation_id,dim)).fetchone()
         if previous:
             if previous['amount']!=n:raise HTTPException(409,'Usage operation was reused with different capacity.')
             if previous['state']!='RELEASED':continue
-            if previous['contract_id']!=row['id'] or previous['period_start']!=row['paid_start']:
+            if previous['contract_id']!=row['id'] or previous['period_start']!=usage_start:
                 raise HTTPException(409,'Released work belongs to a previous subscription period.')
-        counter=c.execute(f'SELECT reserved,used FROM {usage_table} WHERE organization_id=? AND contract_id=? AND period_start=? AND dimension=?',(org,row['id'],row['paid_start'],dim)).fetchone()
+        counter=c.execute(f'SELECT reserved,used FROM {usage_table} WHERE organization_id=? AND contract_id=? AND period_start=? AND dimension=?',(org,row['id'],usage_start,dim)).fetchone()
         if (counter['reserved']+counter['used'] if counter else 0)+n>limits[dim]:
             raise HTTPException(429,'Monthly '+dim.replace('_',' ')+' allowance exhausted. Saved records remain available; review usage or upgrade.')
         pending.append((dim,n,bool(previous)))
     stamp=now()
     for dim,n,previous in pending:
-        c.execute(f'INSERT INTO {usage_table}(organization_id,contract_id,period_start,period_end,dimension,reserved) VALUES(?,?,?,?,?,?) ON CONFLICT(organization_id,contract_id,period_start,dimension) DO UPDATE SET reserved={usage_table}.reserved+excluded.reserved',(org,row['id'],row['paid_start'],row['paid_end'],dim,n))
+        c.execute(f'INSERT INTO {usage_table}(organization_id,contract_id,period_start,period_end,dimension,reserved) VALUES(?,?,?,?,?,?) ON CONFLICT(organization_id,contract_id,period_start,dimension) DO UPDATE SET reserved={usage_table}.reserved+excluded.reserved',(org,row['id'],usage_start,usage_end,dim,n))
         if previous:c.execute(f"UPDATE {reservations_table} SET state='RESERVED',actual_amount=NULL,updated_at=? WHERE organization_id=? AND operation_id=? AND dimension=?",(stamp,org,operation_id,dim))
-        else:c.execute(f"INSERT INTO {reservations_table}(organization_id,contract_id,period_start,operation_id,dimension,amount,state,created_at,updated_at) VALUES(?,?,?,?,?,?,'RESERVED',?,?)",(org,row['id'],row['paid_start'],operation_id,dim,n,stamp,stamp))
+        else:c.execute(f"INSERT INTO {reservations_table}(organization_id,contract_id,period_start,operation_id,dimension,amount,state,created_at,updated_at) VALUES(?,?,?,?,?,?,'RESERVED',?,?)",(org,row['id'],usage_start,operation_id,dim,n,stamp,stamp))
+    if pending and row.get('internal_testing'):
+        from app.billing.subscription_access import record_internal_testing_audit
+        record_internal_testing_audit(c,org,row['internal_testing'],contract_id=row['id'],operation_id=operation_id,dimensions=[dim for dim,_,_ in pending])
     return True
 
 def settle(c,operation_id,*,actual=None,release=False,dimensions=None):
@@ -72,6 +77,9 @@ def capacity(c,org,dimension,count):
     if dimension not in contracts.CAPACITY:raise ValueError('Unknown capacity dimension.')
     lock(c,org);access_periods.require_current(c,org);row=contracts.active(c,org)
     if row and count>=contracts.snapshot(row)['limits'][dimension]:raise HTTPException(429,'Monthly plan '+dimension.replace('_',' ')+' capacity exhausted.')
+    if row and row.get('internal_testing') and row.get('base_limits') and count>=row['base_limits'].get(dimension,0):
+        from app.billing.subscription_access import record_internal_testing_audit
+        record_internal_testing_audit(c,org,row['internal_testing'],contract_id=row['id'],operation_id=f'capacity:{dimension}:{count}',dimensions=[dimension])
     return bool(row)
 
 def interval(c,hours):

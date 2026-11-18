@@ -315,6 +315,6 @@ it('renders Workspace Ready completion screen with 3 next actions and no Copilot
   expect(screen.getByRole('link', { name: /Discover conversations/i })).toHaveAttribute('href', '/intent-radar/discover');
   expect(screen.getByRole('link', { name: /Create your first monitor/i })).toHaveAttribute('href', '/intent-radar/monitors/new');
   expect(screen.getByRole('link', { name: /Explore your Intelligence Graph/i })).toHaveAttribute('href', '/intent-radar');
-  expect(screen.getByText(/starter · trialing/i)).toBeVisible();
+  expect(screen.getByText('Starter Trial')).toBeVisible();
   expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
 });

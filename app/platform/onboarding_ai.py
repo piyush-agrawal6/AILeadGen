@@ -145,8 +145,12 @@ def state(c):
         contract=None
         if active:
             try:
-                row=c.execute('SELECT p.plan_code,p.status,p.provider,p.period_end,p.trial_end,p.next_charge_at,p.cancel_confirmed_at FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id WHERE p.organization_id=? AND p.environment=?',(organization(),settings.creem_environment)).fetchone()
-                if row:contract=dict(row)
+                from app.billing.subscription_access import is_trial_contract,entitlement_label
+                row=c.execute('SELECT p.plan_code,p.status,p.provider,p.period_start,p.period_end,p.trial_start,p.trial_end,p.next_charge_at,p.cancel_confirmed_at FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id WHERE p.organization_id=? AND p.environment=?',(organization(),settings.creem_environment)).fetchone()
+                if row:
+                    contract=dict(row)
+                    contract['is_trial']=is_trial_contract(row)
+                    contract['entitlement_label']=entitlement_label(row)
             except Exception:
                 contract=None
         result['payment']={'required':required(c,organization()),'active':active,'contract':contract}

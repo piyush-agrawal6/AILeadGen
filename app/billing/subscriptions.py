@@ -74,7 +74,10 @@ def blockers(c,org,variant):
 
 def public_contract(row):
  if not row:return None
- return {k:row[k] for k in ('id','provider','environment','plan_code','status','period_start','period_end','trial_start','trial_end','next_charge_at','cancel_at','cancel_confirmed_at','recurring_authorized','verified_at')}
+ data={k:row[k] for k in ('id','provider','environment','plan_code','status','period_start','period_end','trial_start','trial_end','next_charge_at','cancel_at','cancel_confirmed_at','recurring_authorized','verified_at')}
+ data['is_trial']=access.is_trial_contract(row)
+ data['entitlement_label']=access.entitlement_label(row)
+ return data
 
 def summary(c):
  ctx=current()
