@@ -56,3 +56,5 @@ deploy/*-validation.zip
 
 # Local checkout may reuse the verified environment through a symlink.
 /.venv
+.vercel
+.env*

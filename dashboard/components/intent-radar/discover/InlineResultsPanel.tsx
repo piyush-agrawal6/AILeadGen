@@ -6,6 +6,10 @@ import {
   ArrowUpDown,
   Bookmark,
   BookmarkCheck,
+  Briefcase,
+  ChevronLeft,
+  ChevronRight,
+  Download,
   ExternalLink,
   Eye,
   FileSearch,
@@ -32,21 +36,35 @@ const BUYER_INTENT_CATEGORIES = new Set([
 function classifySignal(sig: IntentSignal): { label: string; tone: "buyer" | "market" } {
   const kind = sig.evidence?.provenance?.content_kind || "";
   if (kind === "release_announcement" || kind === "release" || kind === "research_paper" || kind === "paper") {
-    return { label: "Market / Tech Intelligence", tone: "market" };
+    return { label: "Market Intelligence", tone: "market" };
   }
   if (BUYER_INTENT_CATEGORIES.has(sig.category)) {
-    return { label: "Buyer-Intent Signal", tone: "buyer" };
+    return { label: "Buyer Intent", tone: "buyer" };
   }
-  return { label: "Market / Tech Intelligence", tone: "market" };
+  return { label: "Market Intelligence", tone: "market" };
 }
 
-function formatDate(iso: string): { short: string; full: string } {
+function formatRelativeTime(iso: string): string {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return { short: iso, full: iso };
-  return {
-    short: d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
-    full: d.toLocaleString(),
-  };
+  const diff = Date.now() - d.getTime();
+  if (Number.isNaN(diff)) return iso;
+  if (diff < 60_000) return "just now";
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
+function formatExactDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString();
 }
 
 /** Hydrates a single signal by ID into the table row when only signalIds are available (inline post-run). */
@@ -57,6 +75,8 @@ function HydratedSignalRow({
   classFilter,
   onSelect,
   onToggleSave,
+  onConvertToOpportunity,
+  convertedIds,
   savedOverrides,
   canWrite,
 }: {
@@ -66,6 +86,8 @@ function HydratedSignalRow({
   classFilter: "all" | "buyer" | "market";
   onSelect: (sig: IntentSignal) => void;
   onToggleSave: (sig: IntentSignal) => void;
+  onConvertToOpportunity: (sig: IntentSignal) => void;
+  convertedIds: Set<string>;
   savedOverrides: Record<string, boolean>;
   canWrite: boolean;
 }) {
@@ -98,13 +120,17 @@ function HydratedSignalRow({
     if (!hay.includes(searchQuery.toLowerCase())) return null;
   }
   const isSaved = savedOverrides[sig.id] ?? sig.saved;
+  const isConverted = convertedIds.has(sig.id);
+
   return (
     <ResultTableRow
       signal={sig}
       isSaved={isSaved}
+      isConverted={isConverted}
       canWrite={canWrite}
       onSelect={() => onSelect(sig)}
       onToggleSave={() => onToggleSave(sig)}
+      onConvertToOpportunity={() => onConvertToOpportunity(sig)}
     />
   );
 }
@@ -112,18 +138,23 @@ function HydratedSignalRow({
 function ResultTableRow({
   signal,
   isSaved,
+  isConverted,
   canWrite,
   onSelect,
   onToggleSave,
+  onConvertToOpportunity,
 }: {
   signal: IntentSignal;
   isSaved: boolean;
+  isConverted: boolean;
   canWrite: boolean;
   onSelect: () => void;
   onToggleSave: () => void;
+  onConvertToOpportunity: () => void;
 }) {
   const kind = classifySignal(signal);
-  const obs = formatDate(signal.observed_at);
+  const relTime = formatRelativeTime(signal.observed_at);
+  const fullTime = formatExactDate(signal.observed_at);
 
   return (
     <tr
@@ -137,10 +168,24 @@ function ResultTableRow({
       }}
       className="group cursor-pointer hover:bg-muted/35 focus-visible:outline-none focus-visible:bg-primary/[0.06] transition-colors"
     >
-      {/* Discussion / Result */}
+      {/* 1. Conversation: Title, Excerpt, External Source Link */}
       <td className="py-3 pl-4 pr-3 max-w-md">
-        <div className="font-semibold text-[13px] text-foreground group-hover:text-primary transition-colors line-clamp-1">
-          {signal.title}
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-[13px] text-foreground group-hover:text-primary transition-colors line-clamp-1">
+            {signal.title}
+          </span>
+          {signal.source_url && (
+            <a
+              href={signal.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title="Open original thread"
+              className="text-muted-foreground hover:text-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <ExternalLink size={12} />
+            </a>
+          )}
         </div>
         {signal.excerpt && (
           <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-1">
@@ -149,7 +194,7 @@ function ResultTableRow({
         )}
       </td>
 
-      {/* Source */}
+      {/* 2. Source: Provider logo & name */}
       <td className="py-3 px-3 whitespace-nowrap">
         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
           <ProviderLogo provider={signal.source} size={14} />
@@ -157,25 +202,8 @@ function ResultTableRow({
         </span>
       </td>
 
-      {/* Classification */}
+      {/* 3. Relevance: Score pill with color coding */}
       <td className="py-3 px-3 whitespace-nowrap">
-        <div className="flex flex-col items-start gap-0.5">
-          <span
-            className={
-              "rounded-full px-2 py-0.5 text-[10px] font-semibold " +
-              (kind.tone === "buyer"
-                ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-                : "bg-sky-500/12 text-sky-700 dark:text-sky-300")
-            }
-          >
-            {kind.label}
-          </span>
-          <span className="text-[10px] text-muted-foreground pl-0.5">{signal.category}</span>
-        </div>
-      </td>
-
-      {/* Relevance */}
-      <td className="py-3 px-3 whitespace-nowrap text-right">
         <span
           className={
             "inline-block rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums " +
@@ -190,12 +218,29 @@ function ResultTableRow({
         </span>
       </td>
 
-      {/* Observed */}
-      <td className="py-3 px-3 whitespace-nowrap text-xs text-muted-foreground" title={obs.full}>
-        {obs.short}
+      {/* 4. Intent: Intent category badge + buyer/market classification */}
+      <td className="py-3 px-3 whitespace-nowrap">
+        <div className="flex flex-col items-start gap-0.5">
+          <span
+            className={
+              "rounded-full px-2 py-0.5 text-[10px] font-semibold " +
+              (kind.tone === "buyer"
+                ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                : "bg-sky-500/12 text-sky-700 dark:text-sky-300")
+            }
+          >
+            {signal.category || kind.label}
+          </span>
+          <span className="text-[10px] text-muted-foreground pl-0.5">{kind.label}</span>
+        </div>
       </td>
 
-      {/* Compact Actions */}
+      {/* 5. Observed: Relative timestamp with full date tooltip */}
+      <td className="py-3 px-3 whitespace-nowrap text-xs text-muted-foreground" title={fullTime}>
+        {relTime}
+      </td>
+
+      {/* 6. Actions: View Details, Save Signal, Convert to Opportunity */}
       <td
         className="py-3 pl-2 pr-4 whitespace-nowrap text-right"
         onClick={(e) => e.stopPropagation()}
@@ -208,37 +253,61 @@ function ResultTableRow({
             type="button"
             onClick={onSelect}
             aria-label={`View details for ${signal.title}`}
-            title="View Details"
+            title="View full evidence and details"
             className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-[11px] font-medium text-foreground hover:border-primary/50 hover:text-primary cursor-pointer"
           >
-            <Eye size={12} /> Details
+            <Eye size={12} />
+            <span className="hidden sm:inline">Details</span>
           </button>
+
           {canWrite && (
-            <button
-              type="button"
-              onClick={onToggleSave}
-              aria-label={isSaved ? `Unsave ${signal.title}` : `Save ${signal.title}`}
-              title={isSaved ? "Saved" : "Save signal"}
-              className={
-                "inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors cursor-pointer " +
-                (isSaved
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground")
-              }
-            >
-              {isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={onToggleSave}
+                aria-label={isSaved ? `Unsave ${signal.title}` : `Save ${signal.title}`}
+                title={isSaved ? "Saved" : "Save signal"}
+                className={
+                  "inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors cursor-pointer " +
+                  (isSaved
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground")
+                }
+              >
+                {isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
+              </button>
+
+              <button
+                type="button"
+                onClick={onConvertToOpportunity}
+                disabled={isConverted}
+                aria-label={`Convert ${signal.title} to opportunity`}
+                title={isConverted ? "Already converted to Opportunity" : "Convert to Opportunity / Add to Leads"}
+                className={
+                  "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] font-medium transition-colors cursor-pointer " +
+                  (isConverted
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 cursor-default"
+                    : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-primary")
+                }
+              >
+                <Briefcase size={12} />
+                <span className="hidden md:inline">{isConverted ? "Added" : "Convert"}</span>
+              </button>
+            </>
           )}
-          <a
-            href={signal.source_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Open original source for ${signal.title}`}
-            title="Open original source"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:text-foreground"
-          >
-            <ExternalLink size={12} />
-          </a>
+
+          {signal.source_url && (
+            <a
+              href={signal.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Open original source for ${signal.title}`}
+              title="Open original source"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:text-foreground"
+            >
+              <ExternalLink size={12} />
+            </a>
+          )}
         </div>
       </td>
     </tr>
@@ -248,14 +317,18 @@ function ResultTableRow({
 function SignalDetailDrawer({
   signal,
   isSaved,
+  isConverted,
   canWrite,
   onToggleSave,
+  onConvertToOpportunity,
   onClose,
 }: {
   signal: IntentSignal | null;
   isSaved: boolean;
+  isConverted: boolean;
   canWrite: boolean;
   onToggleSave: () => void;
+  onConvertToOpportunity: () => void;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -269,7 +342,7 @@ function SignalDetailDrawer({
 
   if (!signal) return null;
   const kind = classifySignal(signal);
-  const obs = formatDate(signal.observed_at);
+  const fullTime = formatExactDate(signal.observed_at);
 
   return (
     <div
@@ -303,7 +376,7 @@ function SignalDetailDrawer({
               {signal.title}
             </h3>
             <p className="text-xs text-muted-foreground">
-              {signal.source} · Observed {obs.full}
+              {signal.source} · Observed {fullTime}
             </p>
           </div>
           <button
@@ -363,19 +436,33 @@ function SignalDetailDrawer({
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/20 px-5 py-3.5">
           <div className="flex items-center gap-2">
             {canWrite && (
-              <Button size="sm" variant={isSaved ? "default" : "outline"} onClick={onToggleSave} className="gap-1.5 text-xs">
-                {isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
-                {isSaved ? "Saved" : "Save Signal"}
-              </Button>
+              <>
+                <Button size="sm" variant={isSaved ? "default" : "outline"} onClick={onToggleSave} className="gap-1.5 text-xs">
+                  {isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
+                  {isSaved ? "Saved" : "Save Signal"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={isConverted ? "secondary" : "outline"}
+                  disabled={isConverted}
+                  onClick={onConvertToOpportunity}
+                  className="gap-1.5 text-xs"
+                >
+                  <Briefcase size={13} />
+                  {isConverted ? "Added to Opportunities" : "Convert to Opportunity"}
+                </Button>
+              </>
             )}
-            <a
-              href={signal.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground hover:border-primary/50"
-            >
-              Open Source <ExternalLink size={12} />
-            </a>
+            {signal.source_url && (
+              <a
+                href={signal.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground hover:border-primary/50"
+              >
+                Open Source <ExternalLink size={12} />
+              </a>
+            )}
           </div>
           <Link
             href={`/intent-radar/signals/${signal.id}`}
@@ -419,6 +506,10 @@ export function InlineResultsPanel({
   const [sortBy, setSortBy] = useState<"relevance" | "recency">("relevance");
   const [selectedSignal, setSelectedSignal] = useState<IntentSignal | null>(null);
   const [savedOverrides, setSavedOverrides] = useState<Record<string, boolean>>({});
+  const [convertedIds, setConvertedIds] = useState<Set<string>>(new Set());
+  const [actionFeedback, setActionFeedback] = useState<string>("");
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
 
   const availableSources = useMemo(() => {
     if (!signals) return [];
@@ -455,9 +546,60 @@ export function InlineResultsPanel({
         path: `/saved/${sig.id}`,
         method: currentlySaved ? "DELETE" : "POST",
       });
+      setActionFeedback(currentlySaved ? "Removed from saved signals." : "Saved signal to research.");
     } catch {
       setSavedOverrides((prev) => ({ ...prev, [sig.id]: currentlySaved }));
+      setActionFeedback("Could not update saved status.");
     }
+  }
+
+  async function convertToOpportunity(sig: IntentSignal) {
+    if (convertedIds.has(sig.id)) return;
+    try {
+      await mutation.mutateAsync({
+        path: `/opportunities/${sig.id}`,
+        method: "POST",
+        body: { notes: "Created from Discover Results" },
+      });
+      setConvertedIds((prev) => new Set([...prev, sig.id]));
+      setActionFeedback(`Promoted "${sig.title.slice(0, 40)}…" into an Opportunity.`);
+    } catch (e) {
+      setActionFeedback(e instanceof Error ? e.message : "Could not create opportunity.");
+    }
+  }
+
+  function exportData(format: "csv" | "json") {
+    const target = filteredSignals || signals || [];
+    if (!target.length) return;
+
+    if (format === "json") {
+      const blob = new Blob([JSON.stringify(target, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `discover-results-${discoveryId || "run"}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const headers = ["Title", "Source", "Relevance", "Category", "Observed At", "Source URL"];
+      const rows = target.map((s) => [
+        JSON.stringify(s.title || ""),
+        JSON.stringify(s.source || ""),
+        s.score,
+        JSON.stringify(s.category || ""),
+        JSON.stringify(s.observed_at || ""),
+        JSON.stringify(s.source_url || ""),
+      ]);
+      const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `discover-results-${discoveryId || "run"}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    setActionFeedback(`Exported ${target.length} results as ${format.toUpperCase()}.`);
   }
 
   const totalCount = matchedCount ?? (signals ? signals.length : signalIds?.length || 0);
@@ -466,6 +608,15 @@ export function InlineResultsPanel({
     : null;
   const marketCount = signals && buyerCount !== null ? signals.length - buyerCount : null;
   const canWrite = Boolean(access.data?.can_write);
+
+  // Pagination slice for filtered signals
+  const paginatedSignals = useMemo(() => {
+    if (!filteredSignals) return null;
+    const start = (page - 1) * pageSize;
+    return filteredSignals.slice(start, start + pageSize);
+  }, [filteredSignals, page]);
+
+  const totalPages = filteredSignals ? Math.ceil(filteredSignals.length / pageSize) : 1;
 
   return (
     <section
@@ -482,12 +633,34 @@ export function InlineResultsPanel({
             <p className="text-xs text-muted-foreground mt-0.5">
               {scannedCount !== undefined ? `${scannedCount} scanned · ` : ""}
               {buyerCount !== null && marketCount !== null
-                ? `${buyerCount} buyer-intent · ${marketCount} market/tech intelligence`
-                : "Retained matches from checked sources."}
+                ? `${buyerCount} buyer intent · ${marketCount} market intelligence`
+                : "Live matches from checked sources."}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {(filteredSignals?.length || 0) > 0 && (
+              <div className="inline-flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => exportData("csv")}
+                  className="h-8 gap-1 text-xs"
+                  title="Export results as CSV"
+                >
+                  <Download size={12} /> CSV
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => exportData("json")}
+                  className="h-8 gap-1 text-xs"
+                  title="Export results as JSON"
+                >
+                  JSON
+                </Button>
+              </div>
+            )}
             {onRefineWithCopilot && (
               <Button size="sm" variant="outline" onClick={onRefineWithCopilot} className="h-8 gap-1.5 text-xs">
                 <Sparkles size={13} /> Refine with Copilot
@@ -504,6 +677,19 @@ export function InlineResultsPanel({
           </div>
         </div>
 
+        {actionFeedback && (
+          <div role="status" className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary flex items-center justify-between gap-2">
+            <span>{actionFeedback}</span>
+            <button
+              type="button"
+              onClick={() => setActionFeedback("")}
+              className="rounded p-0.5 hover:bg-primary/20 text-primary cursor-pointer"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
         {partialWarning && (
           <div role="status" className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
             {partialWarning}
@@ -518,10 +704,13 @@ export function InlineResultsPanel({
               type="search"
               aria-label="Search results"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
               placeholder="Filter results…"
               style={{ paddingLeft: "2rem" }}
-              className="h-8 w-full rounded-lg border border-border bg-background pr-2.5 text-xs text-foreground"
+              className="h-8 w-full rounded-lg border border-border bg-background pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -530,13 +719,16 @@ export function InlineResultsPanel({
               [
                 ["all", "All"],
                 ["buyer", "Buyer Intent"],
-                ["market", "Market / Tech"],
+                ["market", "Market Intelligence"],
               ] as const
             ).map(([val, label]) => (
               <button
                 key={val}
                 type="button"
-                onClick={() => setClassFilter(val)}
+                onClick={() => {
+                  setClassFilter(val);
+                  setPage(1);
+                }}
                 className={
                   "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer " +
                   (classFilter === val
@@ -553,9 +745,12 @@ export function InlineResultsPanel({
             <select
               aria-label="Filter results by source"
               value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
+              onChange={(e) => {
+                setSourceFilter(e.target.value);
+                setPage(1);
+              }}
               style={{ width: "auto" }}
-              className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground shrink-0"
+              className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground shrink-0 focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">All sources</option>
               {availableSources.map((src) => (
@@ -572,9 +767,9 @@ export function InlineResultsPanel({
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as "relevance" | "recency")}
                 style={{ width: "auto" }}
-                className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground"
+                className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                <option value="relevance">Relevance</option>
+                <option value="relevance">Relevance score</option>
                 <option value="recency">Most recent</option>
               </select>
             </div>
@@ -582,34 +777,71 @@ export function InlineResultsPanel({
         </div>
       </div>
 
-      {/* Results Table */}
-      {filteredSignals ? (
-        filteredSignals.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-xs">
-              <thead>
-                <tr className="border-b border-border bg-muted/25 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  <th scope="col" className="py-2.5 pl-4 pr-3 min-w-[260px]">Discussion / Result</th>
-                  <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Source</th>
-                  <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Classification</th>
-                  <th scope="col" className="py-2.5 px-3 whitespace-nowrap text-right">Relevance</th>
-                  <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Observed</th>
-                  <th scope="col" className="py-2.5 pl-2 pr-4 whitespace-nowrap text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/80">
-                {filteredSignals.map((sig) => (
-                  <ResultTableRow
-                    key={sig.id}
-                    signal={sig}
-                    isSaved={savedOverrides[sig.id] ?? sig.saved}
-                    canWrite={canWrite}
-                    onSelect={() => setSelectedSignal(sig)}
-                    onToggleSave={() => void toggleSave(sig)}
-                  />
-                ))}
-              </tbody>
-            </table>
+      {/* Results Table matching requested schema: | Conversation | Source | Relevance | Intent | Observed | Actions | */}
+      {paginatedSignals ? (
+        paginatedSignals.length > 0 ? (
+          <div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/25 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <th scope="col" className="py-2.5 pl-4 pr-3 min-w-[260px]">Conversation</th>
+                    <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Source</th>
+                    <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Relevance</th>
+                    <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Intent</th>
+                    <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Observed</th>
+                    <th scope="col" className="py-2.5 pl-2 pr-4 whitespace-nowrap text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/80">
+                  {paginatedSignals.map((sig) => (
+                    <ResultTableRow
+                      key={sig.id}
+                      signal={sig}
+                      isSaved={savedOverrides[sig.id] ?? sig.saved}
+                      isConverted={convertedIds.has(sig.id)}
+                      canWrite={canWrite}
+                      onSelect={() => setSelectedSignal(sig)}
+                      onToggleSave={() => void toggleSave(sig)}
+                      onConvertToOpportunity={() => void convertToOpportunity(sig)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && filteredSignals && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/15 px-4 py-2.5 text-xs text-muted-foreground">
+                <span>
+                  Showing <strong className="text-foreground">{(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredSignals.length)}</strong> of{" "}
+                  <strong className="text-foreground">{filteredSignals.length}</strong> results
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="h-7 px-2.5 text-xs gap-1"
+                  >
+                    <ChevronLeft size={13} /> Prev
+                  </Button>
+                  <span className="px-2 text-xs font-medium text-foreground">
+                    {page} / {totalPages}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    className="h-7 px-2.5 text-xs gap-1"
+                  >
+                    Next <ChevronRight size={13} />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-6">
@@ -618,7 +850,7 @@ export function InlineResultsPanel({
               description={
                 signals && signals.length > 0
                   ? "No results match your current filter. Clear the search or classification filter above."
-                  : coverage || "No recent discussions matched your criteria on the checked sources. Use Discovery Copilot to broaden keywords or enable additional sources."
+                  : coverage || "No recent discussions matched your criteria on the checked sources. Use AI Discovery to broaden keywords or enable additional sources."
               }
             />
           </div>
@@ -628,10 +860,10 @@ export function InlineResultsPanel({
           <table className="w-full border-collapse text-left text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/25 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                <th scope="col" className="py-2.5 pl-4 pr-3 min-w-[260px]">Discussion / Result</th>
+                <th scope="col" className="py-2.5 pl-4 pr-3 min-w-[260px]">Conversation</th>
                 <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Source</th>
-                <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Classification</th>
-                <th scope="col" className="py-2.5 px-3 whitespace-nowrap text-right">Relevance</th>
+                <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Relevance</th>
+                <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Intent</th>
                 <th scope="col" className="py-2.5 px-3 whitespace-nowrap">Observed</th>
                 <th scope="col" className="py-2.5 pl-2 pr-4 whitespace-nowrap text-right">Actions</th>
               </tr>
@@ -646,6 +878,8 @@ export function InlineResultsPanel({
                   classFilter={classFilter}
                   onSelect={setSelectedSignal}
                   onToggleSave={(sig) => void toggleSave(sig)}
+                  onConvertToOpportunity={(sig) => void convertToOpportunity(sig)}
+                  convertedIds={convertedIds}
                   savedOverrides={savedOverrides}
                   canWrite={canWrite}
                 />
@@ -657,7 +891,7 @@ export function InlineResultsPanel({
         <div className="p-6">
           <EmptyState
             title="No matching discussions found"
-            description="No discussions matched the reviewed criteria on the checked sources. Use Discovery Copilot to broaden keywords, remove exclusions, or enable additional sources."
+            description="No discussions matched the reviewed criteria on the checked sources. Broaden keywords, remove exclusions, or enable additional sources."
           />
         </div>
       )}
@@ -666,8 +900,10 @@ export function InlineResultsPanel({
       <SignalDetailDrawer
         signal={selectedSignal}
         isSaved={selectedSignal ? (savedOverrides[selectedSignal.id] ?? selectedSignal.saved) : false}
+        isConverted={selectedSignal ? convertedIds.has(selectedSignal.id) : false}
         canWrite={canWrite}
         onToggleSave={() => selectedSignal && void toggleSave(selectedSignal)}
+        onConvertToOpportunity={() => selectedSignal && void convertToOpportunity(selectedSignal)}
         onClose={() => setSelectedSignal(null)}
       />
     </section>

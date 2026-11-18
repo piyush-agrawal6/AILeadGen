@@ -2,16 +2,12 @@
 
 import type { RefObject } from "react";
 import Link from "next/link";
-import { Bookmark, Compass, History, Sparkles } from "lucide-react";
+import { Bookmark, Compass, History } from "lucide-react";
 
 export type DiscoverTab = "new" | "history" | "saved";
 
 export function DiscoverNav({
   activeTab,
-  copilotOpen = false,
-  onToggleCopilot,
-  copilotButtonRef,
-  showCopilotButton = false,
 }: {
   activeTab: DiscoverTab;
   copilotOpen?: boolean;
@@ -49,26 +45,6 @@ export function DiscoverNav({
           );
         })}
       </nav>
-
-      {showCopilotButton && onToggleCopilot && (
-        <button
-          ref={copilotButtonRef}
-          type="button"
-          onClick={onToggleCopilot}
-          aria-expanded={copilotOpen}
-          aria-controls="discovery-copilot-panel"
-          aria-label={copilotOpen ? "Hide Discovery Copilot" : "Open Discovery Copilot"}
-          className={
-            "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary " +
-            (copilotOpen
-              ? "border-primary/45 bg-primary/10 text-primary hover:bg-primary/15"
-              : "border-border bg-card text-foreground hover:border-primary/50 hover:text-primary")
-          }
-        >
-          <Sparkles size={14} aria-hidden="true" />
-          <span>Discovery Copilot</span>
-        </button>
-      )}
     </div>
   );
 }

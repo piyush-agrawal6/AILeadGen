@@ -149,6 +149,7 @@ export function DiscoveryHistoryView() {
   const [renamingRun, setRenamingRun] = useState<DiscoveryRun | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [deletingRun, setDeletingRun] = useState<DiscoveryRun | null>(null);
+  const [viewingConfigRun, setViewingConfigRun] = useState<DiscoveryRun | null>(null);
   const [feedback, setFeedback] = useState("");
 
   // Debounce search input (250ms)
@@ -766,63 +767,82 @@ export function DiscoveryHistoryView() {
                           if (e.key === "Enter" || e.key === " ") e.stopPropagation();
                         }}
                       >
-                        <Menu.Root>
-                          <Menu.Trigger asChild>
-                            <button
-                              type="button"
-                              aria-label={`Actions for ${run.title}`}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                            >
-                              <MoreHorizontal size={15} aria-hidden="true" />
-                            </button>
-                          </Menu.Trigger>
-                          <MenuContent align="end" className="w-48 p-1 text-xs">
-                            <Menu.Item
-                              onSelect={() => openRun(run.id)}
-                              className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
-                            >
-                              <Eye size={13} /> Open Results &amp; Details
-                            </Menu.Item>
-                            <Menu.Item
-                              onSelect={() => reuseInBuilder(run)}
-                              className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
-                            >
-                              <RotateCcw size={13} /> Reuse Criteria
-                            </Menu.Item>
-                            {access.data?.can_write && (
-                              <>
-                                <Menu.Item
-                                  onSelect={() => void rerunAsNew(run)}
-                                  className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
-                                >
-                                  <Play size={13} /> Rerun as New Discovery
-                                </Menu.Item>
-                                <Menu.Item
-                                  onSelect={() => void saveAsSearch(run)}
-                                  className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
-                                >
-                                  <Bookmark size={13} /> Save as Search
-                                </Menu.Item>
-                                <Menu.Item
-                                  onSelect={() => {
-                                    setRenamingRun(run);
-                                    setRenameValue(run.title);
-                                  }}
-                                  className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
-                                >
-                                  <Edit3 size={13} /> Rename
-                                </Menu.Item>
-                                <Menu.Separator className="my-1 h-px bg-border" />
-                                <Menu.Item
-                                  onSelect={() => setDeletingRun(run)}
-                                  className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer text-destructive hover:bg-destructive/10 outline-none"
-                                >
-                                  <Trash2 size={13} /> Delete
-                                </Menu.Item>
-                              </>
-                            )}
-                          </MenuContent>
-                        </Menu.Root>
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openRun(run.id)}
+                            className="h-7 px-2.5 text-xs gap-1"
+                            title="Open run results and evidence"
+                          >
+                            <Eye size={12} />
+                            <span className="hidden sm:inline">Results</span>
+                          </Button>
+
+                          <Menu.Root>
+                            <Menu.Trigger asChild>
+                              <button
+                                type="button"
+                                aria-label={`Actions for ${run.title}`}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              >
+                                <MoreHorizontal size={14} aria-hidden="true" />
+                              </button>
+                            </Menu.Trigger>
+                            <MenuContent align="end" className="w-52 p-1 text-xs">
+                              <Menu.Item
+                                onSelect={() => openRun(run.id)}
+                                className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
+                              >
+                                <Eye size={13} /> Open Results
+                              </Menu.Item>
+                              <Menu.Item
+                                onSelect={() => setViewingConfigRun(run)}
+                                className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
+                              >
+                                <SlidersHorizontal size={13} /> View Search Configuration
+                              </Menu.Item>
+                              <Menu.Item
+                                onSelect={() => reuseInBuilder(run)}
+                                className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
+                              >
+                                <RotateCcw size={13} /> Open in Builder
+                              </Menu.Item>
+                              {access.data?.can_write && (
+                                <>
+                                  <Menu.Item
+                                    onSelect={() => void rerunAsNew(run)}
+                                    className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
+                                  >
+                                    <Play size={13} /> Rerun Discovery
+                                  </Menu.Item>
+                                  <Menu.Item
+                                    onSelect={() => void saveAsSearch(run)}
+                                    className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
+                                  >
+                                    <Bookmark size={13} /> Save as Search
+                                  </Menu.Item>
+                                  <Menu.Item
+                                    onSelect={() => {
+                                      setRenamingRun(run);
+                                      setRenameValue(run.title);
+                                    }}
+                                    className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
+                                  >
+                                    <Edit3 size={13} /> Rename
+                                  </Menu.Item>
+                                  <Menu.Separator className="my-1 h-px bg-border" />
+                                  <Menu.Item
+                                    onSelect={() => setDeletingRun(run)}
+                                    className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer text-destructive hover:bg-destructive/10 outline-none"
+                                  >
+                                    <Trash2 size={13} /> Delete
+                                  </Menu.Item>
+                                </>
+                              )}
+                            </MenuContent>
+                          </Menu.Root>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -930,6 +950,122 @@ export function DiscoveryHistoryView() {
               </Button>
               <Button size="sm" variant="destructive" disabled={mutation.isPending} onClick={() => void confirmDelete()}>
                 Remove Entry
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Search Configuration Modal */}
+      {viewingConfigRun && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[1px]"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Search Configuration"
+          onClick={() => setViewingConfigRun(null)}
+        >
+          <div
+            className="w-full max-w-xl rounded-2xl border border-border bg-card p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-border pb-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Search Configuration</h3>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-md">
+                  {viewingConfigRun.title}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingConfigRun(null)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              {viewingConfigRun.original_prompt && (
+                <div className="rounded-xl border border-border bg-muted/20 p-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Original Search Prompt</span>
+                  <p className="mt-1 text-foreground leading-relaxed italic">
+                    “{viewingConfigRun.original_prompt}”
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Keywords</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {viewingConfigRun.keywords.map((kw) => (
+                    <span key={kw} className="rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Sources Queried</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {viewingConfigRun.sources.map((src) => (
+                    <span key={src} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-foreground">
+                      <ProviderLogo provider={src} size={14} />
+                      {SOURCE_LABELS[src] || src}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {viewingConfigRun.configuration.excluded?.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Negative Exclusions</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {viewingConfigRun.configuration.excluded.map((ex) => (
+                      <span key={ex} className="rounded-md bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+                        {ex}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <dl className="grid grid-cols-2 gap-3 pt-1 border-t border-border">
+                <div className="rounded-lg border border-border/70 p-2.5">
+                  <dt className="text-[10px] uppercase font-semibold text-muted-foreground">Min Relevance</dt>
+                  <dd className="text-sm font-semibold text-foreground mt-0.5">{viewingConfigRun.configuration.min_relevance || 0}/100</dd>
+                </div>
+                <div className="rounded-lg border border-border/70 p-2.5">
+                  <dt className="text-[10px] uppercase font-semibold text-muted-foreground">Result Limit</dt>
+                  <dd className="text-sm font-semibold text-foreground mt-0.5">{viewingConfigRun.configuration.result_limit || 20}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const run = viewingConfigRun;
+                  setViewingConfigRun(null);
+                  reuseInBuilder(run);
+                }}
+                className="gap-1.5 text-xs"
+              >
+                <RotateCcw size={13} /> Open in Builder
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  const id = viewingConfigRun.id;
+                  setViewingConfigRun(null);
+                  openRun(id);
+                }}
+                className="gap-1.5 text-xs"
+              >
+                <Eye size={13} /> Open Results
               </Button>
             </div>
           </div>

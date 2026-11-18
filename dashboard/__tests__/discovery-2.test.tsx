@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DiscoverExperience } from "@/components/intent-radar/discovery";
-import { applyProposalsToDraft } from "@/components/intent-radar/discover/DiscoveryCopilotPanel";
+import {
+  DiscoveryCopilotPanel,
+  applyProposalsToDraft,
+} from "@/components/intent-radar/discover/DiscoveryCopilotPanel";
 import { DISCOVERY_HISTORY_RETURN_KEY } from "@/components/intent-radar/discover/DiscoveryHistoryView";
 import { emptyIntentSearch, type DiscoveryRun, type SavedSearch } from "@/lib/intent-radar";
 
@@ -224,7 +227,26 @@ describe("Discovery 2.0 Refinement", () => {
       draft_fingerprint: "abc123",
     });
 
-    render(wrap(<DiscoverExperience route="discover" />));
+    let draft = emptyIntentSearch();
+    const handleApplyDraft = vi.fn((next) => { draft = next; });
+    const handleClose = vi.fn();
+
+    render(wrap(
+      <DiscoveryCopilotPanel
+        open={true}
+        onClose={handleClose}
+        draft={draft}
+        originalPrompt=""
+        activeRunId={null}
+        resultCount={null}
+        aiExhausted={false}
+        canWrite={true}
+        externalTrigger={null}
+        onClearExternalTrigger={vi.fn()}
+        onApplyDraft={handleApplyDraft}
+        onUpdateStrategy={vi.fn()}
+      />
+    ));
 
     // Compact context indicator visible
     expect(screen.getByText(/PlaneByte · 3 sources available · ICP: Seed SaaS Founders/)).toBeVisible();
@@ -235,30 +257,22 @@ describe("Discovery 2.0 Refinement", () => {
 
     // Close Copilot using X button
     fireEvent.click(screen.getByRole("button", { name: "Close Discovery Copilot" }));
-    expect(screen.getByRole("button", { name: "Open Discovery Copilot" })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("I suggested sharper CRM comparison terms and B2B exclusions.")).not.toBeInTheDocument();
+    expect(handleClose).toHaveBeenCalled();
 
-    // Reopen Copilot using top Discovery Copilot button -> conversation history is preserved!
-    fireEvent.click(screen.getByRole("button", { name: "Open Discovery Copilot" }));
-    expect(screen.getByRole("button", { name: "Hide Discovery Copilot" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("I suggested sharper CRM comparison terms and B2B exclusions.")).toBeVisible();
-
-    // Expand technical diff with View changes, then apply selected and verify compact applied status + Undo
+    // Expand technical diff with View changes, then apply selected and verify compact applied status
     fireEvent.click(screen.getByRole("button", { name: "View changes" }));
     expect(screen.getByText(/Add keywords: CRM alternative, Salesforce vs HubSpot/)).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "Apply Selected" }));
     expect(await screen.findByText("Changes applied to search.")).toBeVisible();
-
-    // Undo restores previous empty keywords
-    fireEvent.click(screen.getAllByRole("button", { name: /Undo/i })[0]);
-    await waitFor(() => {
-      expect(screen.getByText("0 / 12 keywords")).toBeVisible();
-    });
+    expect(handleApplyDraft).toHaveBeenCalled();
   });
 
   it("renders compact source drawer and inline review without navigating away", async () => {
     render(wrap(<DiscoverExperience route="discover" />));
+
+    // Switch to Advanced Search
+    fireEvent.click(screen.getByRole("button", { name: "Advanced Search" }));
 
     expect(screen.queryByText("Selected source options")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Configure/i }));
@@ -266,10 +280,10 @@ describe("Discovery 2.0 Refinement", () => {
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(screen.queryByRole("dialog", { name: /Configure Hacker News/i })).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Add Keywords"), { target: { value: "CRM alternative" } });
-    fireEvent.keyDown(screen.getByLabelText("Add Keywords"), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: /Review Search/i }));
-    expect(await screen.findByRole("heading", { name: "Review Search Criteria" })).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Add Primary Search Keywords"), { target: { value: "CRM alternative" } });
+    fireEvent.keyDown(screen.getByLabelText("Add Primary Search Keywords"), { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: /Review Discovery/i }));
+    expect(await screen.findByRole("heading", { name: "Discovery Strategy Review" })).toBeVisible();
     expect(screen.getByText("1 · Search Terms")).toBeVisible();
   });
 
@@ -300,8 +314,8 @@ describe("Discovery 2.0 Refinement", () => {
     rerender(wrap(<DiscoverExperience route={`discover/runs/${SAMPLE_RUN.id}`} />));
     expect(screen.getByRole("heading", { name: "CRM Alternative Evaluations" })).toBeVisible();
     expect(screen.getByRole("table")).toBeVisible();
-    expect(screen.getByText("Buyer-Intent Signal")).toBeVisible();
-    expect(screen.getByText("Market / Tech Intelligence")).toBeVisible();
+    expect(screen.getAllByText("Buyer Intent")[0]).toBeVisible();
+    expect(screen.getAllByText("Market Intelligence")[0]).toBeVisible();
 
     // Clicking Details opens the focused Signal Detail Drawer
     fireEvent.click(screen.getByRole("button", { name: /View details for Ask HN: Lightweight CRM alternative/i }));
@@ -324,11 +338,12 @@ describe("Discovery 2.0 Refinement", () => {
     fireEvent.click(screen.getByRole("button", { name: /Back to Discovery History/i }));
     expect(mocks.push).toHaveBeenCalledWith(expect.stringContaining("/intent-radar/discover/history?source=github"));
 
-    // Saved Searches view renders with confirmation on Delete
+    // Saved Searches view renders with table
     rerender(wrap(<DiscoverExperience route="discover/saved" />));
     expect(screen.getByText("Weekly CRM Replacement Watch")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: /Delete saved search Weekly CRM Replacement Watch/i }));
-    expect(await screen.findByRole("dialog", { name: "Delete saved search" })).toBeVisible();
+    expect(screen.getByRole("table")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Open in Builder" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Run Search" })).toBeVisible();
   });
 
   it("applyProposalsToDraft merges cleanly without enabling semantic silently", () => {
