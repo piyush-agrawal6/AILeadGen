@@ -261,11 +261,12 @@ describe('P0 Integrations & Custom Feeds Redesign', () => {
     expect(screen.getAllByText('Next.js Releases').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Postman Community').length).toBeGreaterThanOrEqual(1);
 
-    // Switch to Browse Feed Catalog and filter presets by search
+    // Switch to Browse Feed Catalog and verify unified table + search filter
     fireEvent.click(screen.getByRole('tab', { name: /Browse Feed Catalog/i }));
-    expect(screen.getByRole('heading', { name: /Research & Publications/i })).toBeVisible();
+    expect(screen.getByRole('table', { name: /Browse feed catalog/i })).toBeVisible();
+    expect(screen.getAllByText('Research & Publications').length).toBeGreaterThanOrEqual(1);
     fireEvent.change(screen.getByLabelText('Search feeds'), { target: { value: 'arXiv' } });
-    expect(screen.getByText('arXiv AI')).toBeVisible();
+    expect(screen.getAllByText('arXiv AI').length).toBeGreaterThanOrEqual(1);
 
     // Switch to Add Custom Feed tab (form is NOT permanently expanded on My Feeds!)
     expect(screen.queryByLabelText('HTTPS feed URL')).not.toBeInTheDocument();

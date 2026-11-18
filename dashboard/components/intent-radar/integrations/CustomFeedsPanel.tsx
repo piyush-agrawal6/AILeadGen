@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   AlertCircle,
+  ArrowUpDown,
   Check,
   CheckCircle2,
   ChevronLeft,
@@ -51,6 +52,393 @@ const EMPTY_FORM: FeedConfig = {
 const PAGE_SIZE = 10;
 
 type FeedsTabKey = "my_feeds" | "catalog" | "add";
+type SortColumn = "name" | "category" | "status" | "ai";
+type SortDirection = "asc" | "desc";
+
+interface UnifiedFeedRow {
+  rowKey: string;
+  id?: string;
+  name: string;
+  endpoint: string;
+  attribution: string;
+  family: FeedFamily;
+  category: FeedCategoryKey;
+  content_kind?: string | null;
+  polling_minutes: number;
+  enabled: boolean;
+  configured: boolean;
+  host_approved: boolean;
+  ai_processing_authorized: boolean;
+  isToggling: boolean;
+  isTesting: boolean;
+  testResult?: FeedTestResult;
+  errorMessage?: string;
+  onManage: () => void;
+  onToggle: () => void;
+  onTest?: () => void;
+}
+
+function FeedsDataTable({
+  rows,
+  totalCount,
+  page,
+  totalPages,
+  onPageChange,
+  sortCol,
+  sortDir,
+  onSort,
+  selectable = false,
+  selectedIds = [],
+  allOnPageSelected = false,
+  onToggleAll,
+  onToggleSelect,
+  canManage,
+  tableLabel,
+}: {
+  rows: UnifiedFeedRow[];
+  totalCount: number;
+  page: number;
+  totalPages: number;
+  onPageChange: (nextPage: number) => void;
+  sortCol: SortColumn | null;
+  sortDir: SortDirection;
+  onSort: (col: SortColumn) => void;
+  selectable?: boolean;
+  selectedIds?: string[];
+  allOnPageSelected?: boolean;
+  onToggleAll?: () => void;
+  onToggleSelect?: (id: string, checked: boolean) => void;
+  canManage: boolean;
+  tableLabel: string;
+}) {
+  const statusPill = (row: UnifiedFeedRow) => {
+    if (!row.host_approved) {
+      return {
+        label: "Host approval required",
+        cls: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+      };
+    }
+    if (row.enabled) {
+      return {
+        label: "Enabled",
+        cls: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+      };
+    }
+    if (!row.configured) {
+      return {
+        label: "Available",
+        cls: "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+      };
+    }
+    return {
+      label: "Disabled",
+      cls: "border-border bg-muted text-muted-foreground",
+    };
+  };
+
+  const renderSortHeader = (col: SortColumn, label: string) => (
+    <button
+      type="button"
+      onClick={() => onSort(col)}
+      className={
+        "inline-flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer " +
+        (sortCol === col ? "text-foreground" : "text-muted-foreground")
+      }
+      aria-label={`Sort by ${label}`}
+    >
+      <span>{label}</span>
+      <ArrowUpDown size={11} className={sortCol === col ? "opacity-100" : "opacity-45"} aria-hidden="true" />
+      {sortCol === col && (
+        <span className="sr-only">{sortDir === "asc" ? "ascending" : "descending"}</span>
+      )}
+    </button>
+  );
+
+  return (
+    <>
+      {/* Desktop Scalable Table */}
+      <div className="hidden md:block overflow-x-auto rounded-2xl border border-border bg-card">
+        <table aria-label={tableLabel} className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-border bg-muted/35 text-[11px] font-semibold text-muted-foreground">
+              {selectable && canManage && (
+                <th className="w-9 px-2.5 py-2.5">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all feeds on page"
+                    checked={allOnPageSelected}
+                    onChange={onToggleAll}
+                    className="accent-primary"
+                  />
+                </th>
+              )}
+              <th className="px-2.5 py-2.5">{renderSortHeader("name", "Feed")}</th>
+              <th className="px-2.5 py-2.5">{renderSortHeader("category", "Category & Type")}</th>
+              <th className="px-2.5 py-2.5">{renderSortHeader("status", "Status")}</th>
+              <th className="px-2.5 py-2.5">{renderSortHeader("ai", "AI Policy")}</th>
+              <th className="px-2.5 py-2.5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((row) => {
+              const badge = statusPill(row);
+              const isSelected = Boolean(row.id && selectedIds.includes(row.id));
+
+              return (
+                <tr key={row.rowKey} className="hover:bg-muted/20 transition-colors">
+                  {selectable && canManage && (
+                    <td className="px-2.5 py-2.5 align-middle">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${row.name}`}
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (row.id && onToggleSelect) onToggleSelect(row.id, e.target.checked);
+                        }}
+                        className="accent-primary"
+                      />
+                    </td>
+                  )}
+                  <td className="px-2.5 py-2.5 align-middle max-w-[240px]">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-muted/30 shrink-0">
+                        <ProviderLogo provider={resolveLogoHint(row)} size={15} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground truncate">{row.name}</p>
+                        <p
+                          className="text-[11px] text-muted-foreground font-mono truncate"
+                          title={row.endpoint}
+                        >
+                          {extractHostname(row.endpoint)} · {row.polling_minutes}m
+                        </p>
+                        {row.testResult && (
+                          <p
+                            className={
+                              "text-[10px] mt-0.5 " +
+                              (row.testResult.ok
+                                ? "text-emerald-700 dark:text-emerald-300"
+                                : "text-destructive")
+                            }
+                          >
+                            {row.testResult.ok
+                              ? `HTTP ${row.testResult.http_status} · ${row.testResult.entry_count} entries · ${row.testResult.latency_ms}ms`
+                              : row.testResult.error || "Feed test failed"}
+                          </p>
+                        )}
+                        {row.errorMessage && (
+                          <p role="alert" className="text-[10px] text-destructive mt-0.5">
+                            {row.errorMessage}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-2.5 py-2.5 align-middle whitespace-nowrap">
+                    <p className="text-foreground font-medium">{categoryLabel(row.category)}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {familyLabel(row.family)}
+                      {isMarketIntelligence(row.content_kind, row.family) ? " · Market / Tech" : ""}
+                    </p>
+                  </td>
+                  <td className="px-2.5 py-2.5 align-middle whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badge.cls}`}
+                    >
+                      {badge.label}
+                    </span>
+                  </td>
+                  <td className="px-2.5 py-2.5 align-middle whitespace-nowrap">
+                    {row.ai_processing_authorized ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                        <Sparkles size={10} aria-hidden="true" /> AI Authorized
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                        <ShieldAlert size={10} aria-hidden="true" /> AI Restricted
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-2.5 py-2.5 align-middle text-right whitespace-nowrap">
+                    <div className="inline-flex items-center justify-end gap-1">
+                      {row.onTest && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={row.isTesting || row.isToggling}
+                          onClick={row.onTest}
+                          className="h-7 px-2 text-[11px] gap-1"
+                        >
+                          {row.isTesting ? (
+                            <Loader2 size={11} className="animate-spin" />
+                          ) : (
+                            <Wifi size={11} />
+                          )}
+                          Test
+                        </Button>
+                      )}
+                      {canManage && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={row.onManage}
+                            className="h-7 px-2 text-[11px] gap-1"
+                          >
+                            <Settings2 size={11} /> Manage
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={row.enabled ? "outline" : "default"}
+                            disabled={row.isToggling || !row.host_approved}
+                            onClick={row.onToggle}
+                            className="h-7 px-2.5 text-[11px] min-w-[62px]"
+                          >
+                            {row.isToggling ? (
+                              <Loader2 size={11} className="animate-spin" />
+                            ) : row.enabled ? (
+                              "Disable"
+                            ) : (
+                              "Enable"
+                            )}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile Compact Cards */}
+      <div className="md:hidden divide-y divide-border rounded-2xl border border-border bg-card overflow-hidden">
+        {rows.map((row) => {
+          const badge = statusPill(row);
+          return (
+            <div key={row.rowKey} className="p-4 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <ProviderLogo provider={resolveLogoHint(row)} size={18} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{row.name}</p>
+                    <p className="text-[11px] font-mono text-muted-foreground truncate">
+                      {extractHostname(row.endpoint)} · {row.polling_minutes}m
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold shrink-0 ${badge.cls}`}
+                >
+                  {badge.label}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                <span>{categoryLabel(row.category)}</span>
+                <span>·</span>
+                <span>{familyLabel(row.family)}</span>
+                <span>·</span>
+                <span>{row.ai_processing_authorized ? "AI Authorized" : "AI Restricted"}</span>
+              </div>
+
+              {row.testResult && (
+                <p
+                  className={
+                    "text-[11px] " +
+                    (row.testResult.ok
+                      ? "text-emerald-700 dark:text-emerald-300"
+                      : "text-destructive")
+                  }
+                >
+                  {row.testResult.ok
+                    ? `HTTP ${row.testResult.http_status} · ${row.testResult.entry_count} entries (${row.testResult.latency_ms} ms)`
+                    : row.testResult.error || "Feed test failed"}
+                </p>
+              )}
+
+              {row.errorMessage && (
+                <p role="alert" className="text-[11px] text-destructive">
+                  {row.errorMessage}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                {row.onTest && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={row.isTesting || row.isToggling}
+                    onClick={row.onTest}
+                    className="h-7 px-2 text-xs gap-1"
+                  >
+                    <Wifi size={12} /> {row.isTesting ? "Testing…" : "Test"}
+                  </Button>
+                )}
+                {canManage && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={row.onManage}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <Settings2 size={12} /> Manage
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={row.enabled ? "outline" : "default"}
+                      disabled={row.isToggling || !row.host_approved}
+                      onClick={row.onToggle}
+                      className="h-7 text-xs"
+                    >
+                      {row.isToggling ? "…" : row.enabled ? "Disable" : "Enable"}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+          <span>
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of{" "}
+            {totalCount} feeds
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page <= 1}
+              onClick={() => onPageChange(Math.max(1, page - 1))}
+              className="h-7 px-2 text-xs gap-1"
+            >
+              <ChevronLeft size={13} /> Prev
+            </Button>
+            <span className="px-2 tabular-nums">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={page >= totalPages}
+              onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+              className="h-7 px-2 text-xs gap-1"
+            >
+              Next <ChevronRight size={13} />
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 function familyLabel(family: FeedFamily | string): string {
   if (family === "discourse") return "Discourse";
@@ -119,7 +507,19 @@ export function CustomFeedsPanel() {
   const [permissionFilter, setPermissionFilter] = useState<
     "all" | "ai_authorized" | "ai_restricted"
   >("all");
+  const [sortCol, setSortCol] = useState<SortColumn | null>(null);
+  const [sortDir, setSortDir] = useState<SortDirection>("asc");
   const [page, setPage] = useState(1);
+
+  function handleSort(col: SortColumn) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+    setPage(1);
+  }
 
   // Bulk selection state for My Feeds
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -161,10 +561,43 @@ export function CustomFeedsPanel() {
     [configs]
   );
 
-  // Filtered My Feeds
+  // Lookup map so Browse Feed Catalog stays strictly synchronized with workspace configs
+  const configByKey = useMemo(() => {
+    const map = new Map<string, FeedConfig>();
+    for (const c of configs) {
+      map.set(`${c.family}:${c.endpoint}`, c);
+    }
+    return map;
+  }, [configs]);
+
+  function sortItems<T>(
+    items: T[],
+    getKey: (item: T) => { name: string; category: FeedCategoryKey; enabled: boolean; configured: boolean; ai: boolean }
+  ): T[] {
+    if (!sortCol) return items;
+    const mult = sortDir === "asc" ? 1 : -1;
+    return [...items].sort((a, b) => {
+      const ka = getKey(a);
+      const kb = getKey(b);
+      if (sortCol === "category") {
+        const cmp = categoryLabel(ka.category).localeCompare(categoryLabel(kb.category));
+        if (cmp !== 0) return cmp * mult;
+      } else if (sortCol === "status") {
+        const rank = (x: typeof ka) => (x.enabled ? 0 : x.configured ? 1 : 2);
+        const cmp = rank(ka) - rank(kb);
+        if (cmp !== 0) return cmp * mult;
+      } else if (sortCol === "ai") {
+        const cmp = Number(kb.ai) - Number(ka.ai);
+        if (cmp !== 0) return cmp * mult;
+      }
+      return ka.name.localeCompare(kb.name) * mult;
+    });
+  }
+
+  // Filtered & Sorted My Feeds
   const filteredConfigs = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return configs.filter((c) => {
+    const matched = configs.filter((c) => {
       if (q && !`${c.name} ${c.endpoint} ${c.attribution} ${c.family}`.toLowerCase().includes(q)) {
         return false;
       }
@@ -176,7 +609,15 @@ export function CustomFeedsPanel() {
       if (permissionFilter === "ai_restricted" && c.ai_processing_authorized) return false;
       return true;
     });
-  }, [configs, search, categoryFilter, statusFilter, familyFilter, permissionFilter]);
+    return sortItems(matched, (c) => ({
+      name: c.name,
+      category: categorizeFeed(c),
+      enabled: c.enabled,
+      configured: true,
+      ai: Boolean(c.ai_processing_authorized),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configs, search, categoryFilter, statusFilter, familyFilter, permissionFilter, sortCol, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filteredConfigs.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -185,29 +626,43 @@ export function CustomFeedsPanel() {
     [filteredConfigs, safePage]
   );
 
-  // Filtered Catalog Presets
+  // Filtered & Sorted Catalog Presets (deduplicated & synced with live workspace configs)
   const filteredPresets = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return presets.filter((p) => {
+    const matched = presets.filter((p) => {
+      const linked = configByKey.get(`${p.family}:${p.endpoint}`);
+      const isEnabled = linked ? linked.enabled : p.enabled;
+      const aiAllowed = linked ? linked.ai_processing_authorized : p.ai_processing_authorized;
       if (q && !`${p.name} ${p.endpoint} ${p.attribution} ${p.family}`.toLowerCase().includes(q)) {
         return false;
       }
       if (categoryFilter !== "all" && categorizePreset(p) !== categoryFilter) return false;
-      if (statusFilter === "enabled" && !p.enabled) return false;
-      if (statusFilter === "disabled" && p.enabled) return false;
+      if (statusFilter === "enabled" && !isEnabled) return false;
+      if (statusFilter === "disabled" && isEnabled) return false;
       if (familyFilter !== "all" && p.family !== familyFilter) return false;
-      if (permissionFilter === "ai_authorized" && !p.ai_processing_authorized) return false;
-      if (permissionFilter === "ai_restricted" && p.ai_processing_authorized) return false;
+      if (permissionFilter === "ai_authorized" && !aiAllowed) return false;
+      if (permissionFilter === "ai_restricted" && aiAllowed) return false;
       return true;
     });
-  }, [presets, search, categoryFilter, statusFilter, familyFilter, permissionFilter]);
+    return sortItems(matched, (p) => {
+      const linked = configByKey.get(`${p.family}:${p.endpoint}`);
+      return {
+        name: p.name,
+        category: categorizePreset(p),
+        enabled: linked ? linked.enabled : p.enabled,
+        configured: Boolean(linked || p.configured),
+        ai: Boolean(linked ? linked.ai_processing_authorized : p.ai_processing_authorized),
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presets, configByKey, search, categoryFilter, statusFilter, familyFilter, permissionFilter, sortCol, sortDir]);
 
-  const groupedPresets = useMemo(() => {
-    return FEED_CATEGORIES.map((cat) => ({
-      ...cat,
-      items: filteredPresets.filter((p) => categorizePreset(p) === cat.key),
-    })).filter((group) => group.items.length > 0);
-  }, [filteredPresets]);
+  const catalogTotalPages = Math.max(1, Math.ceil(filteredPresets.length / PAGE_SIZE));
+  const catalogSafePage = Math.min(page, catalogTotalPages);
+  const paginatedPresets = useMemo(
+    () => filteredPresets.slice((catalogSafePage - 1) * PAGE_SIZE, catalogSafePage * PAGE_SIZE),
+    [filteredPresets, catalogSafePage]
+  );
 
   const hasActiveFilters =
     Boolean(search.trim()) ||
@@ -291,6 +746,8 @@ export function CustomFeedsPanel() {
   async function togglePreset(preset: FeedPreset) {
     const key = `preset:${preset.preset_id}`;
     if (pendingKey === key) return;
+    const currentEnabled =
+      configByKey.get(`${preset.family}:${preset.endpoint}`)?.enabled ?? preset.enabled;
     setPendingKey(key);
     setRowError(null);
     setNotice("");
@@ -298,9 +755,9 @@ export function CustomFeedsPanel() {
       await mutation.mutateAsync({
         path: `/sources/presets/${preset.preset_id}/enable`,
         method: "POST",
-        body: { enabled: !preset.enabled },
+        body: { enabled: !currentEnabled },
       });
-      setNotice(`${preset.name} ${preset.enabled ? "disabled" : "enabled"}.`);
+      setNotice(`${preset.name} ${currentEnabled ? "disabled" : "enabled"}.`);
     } catch (e) {
       setRowError({
         key,
@@ -583,7 +1040,10 @@ export function CustomFeedsPanel() {
             type="button"
             role="tab"
             aria-selected={activeTab === "catalog"}
-            onClick={() => setSelectedTab("catalog")}
+            onClick={() => {
+              setSelectedTab("catalog");
+              setPage(1);
+            }}
             className={
               "rounded-lg px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-all cursor-pointer " +
               (activeTab === "catalog"
@@ -679,7 +1139,8 @@ export function CustomFeedsPanel() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="w-full rounded-lg border border-border bg-card pl-8 pr-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/25"
+                style={{ paddingLeft: "2.25rem" }}
+                className="w-full rounded-lg border border-border bg-card pr-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/25"
               />
             </div>
 
@@ -835,6 +1296,14 @@ export function CustomFeedsPanel() {
 
           {configsQuery.isPending ? (
             <div className="h-36 rounded-2xl border border-border bg-muted/30 animate-pulse" />
+          ) : configsQuery.isError ? (
+            <div role="alert" className="rounded-2xl border border-destructive/25 bg-destructive/5 p-5 space-y-2.5 text-xs">
+              <p className="font-semibold text-destructive">Configured feeds could not be loaded</p>
+              <p className="text-muted-foreground">{configsQuery.error?.message || "Please retry."}</p>
+              <Button size="sm" variant="outline" onClick={() => void configsQuery.refetch()}>
+                Retry
+              </Button>
+            </div>
           ) : configs.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-muted/15 p-8 text-center space-y-2.5">
               <Rss size={22} className="mx-auto text-muted-foreground" aria-hidden="true" />
@@ -843,7 +1312,7 @@ export function CustomFeedsPanel() {
                 Browse the curated feed catalog to enable verified Discourse, release, and research feeds, or add your own approved HTTPS feed.
               </p>
               <div className="flex justify-center gap-2 pt-1">
-                <Button size="sm" onClick={() => setSelectedTab("catalog")}>
+                <Button size="sm" onClick={() => { setSelectedTab("catalog"); setPage(1); }}>
                   Browse Feed Catalog
                 </Button>
                 {canManage && (
@@ -858,436 +1327,115 @@ export function CustomFeedsPanel() {
               No configured feeds match your search or filter criteria.
             </div>
           ) : (
-            <>
-              {/* Desktop Scalable Table */}
-              <div className="hidden md:block overflow-x-auto rounded-2xl border border-border bg-card">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/35 text-[11px] font-semibold text-muted-foreground">
-                      {canManage && (
-                        <th className="w-9 px-2.5 py-2.5">
-                          <input
-                            type="checkbox"
-                            aria-label="Select all feeds on page"
-                            checked={allOnPageSelected}
-                            onChange={togglePageSelection}
-                            className="accent-primary"
-                          />
-                        </th>
-                      )}
-                      <th className="px-2.5 py-2.5">Feed</th>
-                      <th className="px-2.5 py-2.5">Category &amp; Type</th>
-                      <th className="px-2.5 py-2.5">Status</th>
-                      <th className="px-2.5 py-2.5">AI Policy</th>
-                      <th className="px-2.5 py-2.5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {paginatedConfigs.map((cfg) => {
-                      const rowKey = `config:${cfg.id}`;
-                      const isToggling = pendingKey === rowKey;
-                      const isTesting = pendingKey === `test:${cfg.id}`;
-                      const testRes = cfg.id ? feedTestResults[cfg.id] : undefined;
-                      const cat = categorizeFeed(cfg);
-                      const isSelected = Boolean(cfg.id && selectedIds.includes(cfg.id));
-
-                      return (
-                        <tr
-                          key={cfg.id || cfg.endpoint}
-                          className="hover:bg-muted/20 transition-colors"
-                        >
-                          {canManage && (
-                            <td className="px-2.5 py-2.5 align-middle">
-                              <input
-                                type="checkbox"
-                                aria-label={`Select ${cfg.name}`}
-                                checked={isSelected}
-                                onChange={(e) => {
-                                  if (!cfg.id) return;
-                                  setSelectedIds((prev) =>
-                                    e.target.checked
-                                      ? [...prev, cfg.id!]
-                                      : prev.filter((id) => id !== cfg.id)
-                                  );
-                                }}
-                                className="accent-primary"
-                              />
-                            </td>
-                          )}
-                          <td className="px-2.5 py-2.5 align-middle max-w-[230px]">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-muted/30 shrink-0">
-                                <ProviderLogo provider={resolveLogoHint(cfg)} size={15} />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-semibold text-foreground truncate">{cfg.name}</p>
-                                <p
-                                  className="text-[11px] text-muted-foreground font-mono truncate"
-                                  title={cfg.endpoint}
-                                >
-                                  {extractHostname(cfg.endpoint)} · {cfg.polling_minutes}m
-                                </p>
-                                {testRes && (
-                                  <p
-                                    className={
-                                      "text-[10px] mt-0.5 " +
-                                      (testRes.ok
-                                        ? "text-emerald-700 dark:text-emerald-300"
-                                        : "text-destructive")
-                                    }
-                                  >
-                                    {testRes.ok
-                                      ? `HTTP ${testRes.http_status} · ${testRes.entry_count} entries · ${testRes.latency_ms}ms`
-                                      : testRes.error || "Feed test failed"}
-                                  </p>
-                                )}
-                                {rowError?.key === rowKey && (
-                                  <p role="alert" className="text-[10px] text-destructive mt-0.5">
-                                    {rowError.message}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-2.5 py-2.5 align-middle whitespace-nowrap">
-                            <p className="text-foreground font-medium">{categoryLabel(cat)}</p>
-                            <p className="text-[11px] text-muted-foreground">
-                              {familyLabel(cfg.family)}
-                              {isMarketIntelligence(cfg.content_kind, cfg.family)
-                                ? " · Market / Tech"
-                                : ""}
-                            </p>
-                          </td>
-                          <td className="px-2.5 py-2.5 align-middle whitespace-nowrap">
-                            <span
-                              className={
-                                "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold " +
-                                (cfg.enabled
-                                  ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                                  : "border-border bg-muted text-muted-foreground")
-                              }
-                            >
-                              {cfg.enabled ? "Enabled" : "Disabled"}
-                            </span>
-                          </td>
-                          <td className="px-2.5 py-2.5 align-middle whitespace-nowrap">
-                            {cfg.ai_processing_authorized ? (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-                                <Sparkles size={10} /> AI Authorized
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                                <ShieldAlert size={10} /> AI Restricted
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-2.5 py-2.5 align-middle text-right whitespace-nowrap">
-                            <div className="inline-flex items-center justify-end gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={isTesting || isToggling}
-                                onClick={() => void testConfigRow(cfg)}
-                                className="h-7 px-2 text-[11px] gap-1"
-                              >
-                                {isTesting ? (
-                                  <Loader2 size={11} className="animate-spin" />
-                                ) : (
-                                  <Wifi size={11} />
-                                )}
-                                Test
-                              </Button>
-                              {canManage && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => openManageDrawer(cfg)}
-                                    className="h-7 px-2 text-[11px] gap-1"
-                                  >
-                                    <Settings2 size={11} /> Manage
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={isToggling}
-                                    onClick={() => void toggleConfigEnabled(cfg)}
-                                    className="h-7 px-2 text-[11px]"
-                                  >
-                                    {isToggling ? "…" : cfg.enabled ? "Disable" : "Enable"}
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile Compact Cards */}
-              <div className="md:hidden divide-y divide-border rounded-2xl border border-border bg-card overflow-hidden">
-                {paginatedConfigs.map((cfg) => {
-                  const rowKey = `config:${cfg.id}`;
-                  const isToggling = pendingKey === rowKey;
-                  const isTesting = pendingKey === `test:${cfg.id}`;
-                  const testRes = cfg.id ? feedTestResults[cfg.id] : undefined;
-
-                  return (
-                    <div key={cfg.id || cfg.endpoint} className="p-4 space-y-2.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <ProviderLogo provider={resolveLogoHint(cfg)} size={18} />
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-foreground truncate">
-                              {cfg.name}
-                            </p>
-                            <p className="text-[11px] font-mono text-muted-foreground truncate">
-                              {extractHostname(cfg.endpoint)}
-                            </p>
-                          </div>
-                        </div>
-                        <span
-                          className={
-                            "rounded-full border px-2 py-0.5 text-[10px] font-semibold shrink-0 " +
-                            (cfg.enabled
-                              ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                              : "border-border bg-muted text-muted-foreground")
-                          }
-                        >
-                          {cfg.enabled ? "Enabled" : "Disabled"}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                        <span>{familyLabel(cfg.family)}</span>
-                        <span>·</span>
-                        <span>
-                          {cfg.ai_processing_authorized ? "AI Authorized" : "AI Restricted"}
-                        </span>
-                        <span>·</span>
-                        <span>Every {cfg.polling_minutes}m</span>
-                      </div>
-
-                      {testRes && (
-                        <p
-                          className={
-                            "text-[11px] " +
-                            (testRes.ok
-                              ? "text-emerald-700 dark:text-emerald-300"
-                              : "text-destructive")
-                          }
-                        >
-                          {testRes.ok
-                            ? `HTTP ${testRes.http_status} · ${testRes.entry_count} entries (${testRes.latency_ms} ms)`
-                            : testRes.error || "Feed test failed"}
-                        </p>
-                      )}
-
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={isTesting}
-                          onClick={() => void testConfigRow(cfg)}
-                          className="h-7 px-2 text-xs gap-1"
-                        >
-                          <Wifi size={12} /> {isTesting ? "Testing…" : "Test"}
-                        </Button>
-                        {canManage && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openManageDrawer(cfg)}
-                              className="h-7 text-xs gap-1"
-                            >
-                              <Settings2 size={12} /> Manage
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={isToggling}
-                              onClick={() => void toggleConfigEnabled(cfg)}
-                              className="h-7 text-xs"
-                            >
-                              {isToggling ? "…" : cfg.enabled ? "Disable" : "Enable"}
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-                  <span>
-                    Showing {(safePage - 1) * PAGE_SIZE + 1}–
-                    {Math.min(safePage * PAGE_SIZE, filteredConfigs.length)} of{" "}
-                    {filteredConfigs.length} feeds
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={safePage <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      className="h-7 px-2 text-xs gap-1"
-                    >
-                      <ChevronLeft size={13} /> Prev
-                    </Button>
-                    <span className="px-2 tabular-nums">
-                      Page {safePage} of {totalPages}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={safePage >= totalPages}
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      className="h-7 px-2 text-xs gap-1"
-                    >
-                      Next <ChevronRight size={13} />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
+            <FeedsDataTable
+              tableLabel="My feeds"
+              rows={paginatedConfigs.map((cfg) => {
+                const rowKey = `config:${cfg.id || cfg.endpoint}`;
+                return {
+                  rowKey,
+                  id: cfg.id,
+                  name: cfg.name,
+                  endpoint: cfg.endpoint,
+                  attribution: cfg.attribution,
+                  family: cfg.family,
+                  category: categorizeFeed(cfg),
+                  content_kind: cfg.content_kind,
+                  polling_minutes: cfg.polling_minutes,
+                  enabled: cfg.enabled,
+                  configured: true,
+                  host_approved: true,
+                  ai_processing_authorized: Boolean(cfg.ai_processing_authorized),
+                  isToggling: pendingKey === rowKey,
+                  isTesting: pendingKey === `test:${cfg.id}`,
+                  testResult: cfg.id ? feedTestResults[cfg.id] : undefined,
+                  errorMessage: rowError?.key === rowKey ? rowError.message : undefined,
+                  onManage: () => openManageDrawer(cfg),
+                  onToggle: () => void toggleConfigEnabled(cfg),
+                  onTest: cfg.id ? () => void testConfigRow(cfg) : undefined,
+                };
+              })}
+              totalCount={filteredConfigs.length}
+              page={safePage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              sortCol={sortCol}
+              sortDir={sortDir}
+              onSort={handleSort}
+              selectable
+              selectedIds={selectedIds}
+              allOnPageSelected={allOnPageSelected}
+              onToggleAll={togglePageSelection}
+              onToggleSelect={(id, checked) =>
+                setSelectedIds((prev) =>
+                  checked ? [...prev, id] : prev.filter((item) => item !== id)
+                )
+              }
+              canManage={canManage}
+            />
           )}
         </section>
       )}
 
       {/* =================================================================
-          TAB 2: BROWSE FEED CATALOG (Organized by Category, Zero Duplication)
+          TAB 2: BROWSE FEED CATALOG (Unified Scalable Table Matching My Feeds)
       ================================================================== */}
       {activeTab === "catalog" && (
-        <section aria-label="Preset feed catalog" className="space-y-5">
+        <section aria-label="Preset feed catalog" className="space-y-3">
           {presetsQuery.isPending ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((n) => (
-                <div key={n} className="h-16 rounded-xl border border-border bg-muted/30 animate-pulse" />
-              ))}
+            <div className="h-36 rounded-2xl border border-border bg-muted/30 animate-pulse" />
+          ) : presetsQuery.isError ? (
+            <div role="alert" className="rounded-2xl border border-destructive/25 bg-destructive/5 p-5 space-y-2.5 text-xs">
+              <p className="font-semibold text-destructive">Feed catalog could not be loaded</p>
+              <p className="text-muted-foreground">{presetsQuery.error?.message || "Please retry."}</p>
+              <Button size="sm" variant="outline" onClick={() => void presetsQuery.refetch()}>
+                Retry
+              </Button>
             </div>
-          ) : groupedPresets.length === 0 ? (
+          ) : filteredPresets.length === 0 ? (
             <div className="rounded-xl border border-border bg-card p-6 text-center text-xs text-muted-foreground">
               No catalog feeds match your current search or filter criteria.
             </div>
           ) : (
-            groupedPresets.map((group) => (
-              <div key={group.key} className="space-y-2.5">
-                <div>
-                  <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {group.label} ({group.items.length})
-                  </h5>
-                  <p className="text-[11px] text-muted-foreground">{group.description}</p>
-                </div>
-
-                <div className="divide-y divide-border rounded-2xl border border-border bg-card overflow-hidden">
-                  {group.items.map((preset) => {
-                    const rowKey = `preset:${preset.preset_id}`;
-                    const isBusy = pendingKey === rowKey;
-                    const marketTech = isMarketIntelligence(preset.content_kind, preset.family);
-
-                    return (
-                      <div
-                        key={preset.preset_id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 hover:bg-muted/20 transition-colors"
-                      >
-                        <div className="flex items-start gap-3 min-w-0">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-muted/30 shrink-0 mt-0.5">
-                            <ProviderLogo provider={resolveLogoHint(preset)} size={16} />
-                          </div>
-                          <div className="min-w-0 space-y-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-semibold text-foreground">
-                                {preset.name}
-                              </span>
-                              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                {familyLabel(preset.family)}
-                              </span>
-                              {preset.enabled ? (
-                                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-                                  Enabled
-                                </span>
-                              ) : !preset.host_approved ? (
-                                <span className="rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                                  Host approval required
-                                </span>
-                              ) : null}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-muted-foreground">
-                              <span
-                                className="truncate max-w-[260px] font-mono text-[11px]"
-                                title={preset.endpoint}
-                              >
-                                {extractHostname(preset.endpoint)}
-                              </span>
-                              <span>·</span>
-                              {preset.ai_processing_authorized ? (
-                                <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-medium">
-                                  <Sparkles size={11} aria-hidden="true" />
-                                  AI Authorized
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
-                                  <ShieldAlert size={11} aria-hidden="true" />
-                                  AI Restricted
-                                </span>
-                              )}
-                              {marketTech && (
-                                <>
-                                  <span>·</span>
-                                  <span>Market / Tech Intelligence</span>
-                                </>
-                              )}
-                            </div>
-
-                            {rowError?.key === rowKey && (
-                              <p role="alert" className="text-xs text-destructive pt-1">
-                                {rowError.message}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {canManage && (
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Button
-                              size="sm"
-                              variant={preset.enabled ? "outline" : "default"}
-                              disabled={isBusy || !preset.host_approved}
-                              onClick={() => void togglePreset(preset)}
-                              className="h-8 text-xs min-w-[78px]"
-                            >
-                              {isBusy ? (
-                                <Loader2 size={13} className="animate-spin" />
-                              ) : preset.enabled ? (
-                                "Disable"
-                              ) : (
-                                "Enable"
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openPresetManage(preset)}
-                              className="h-8 text-xs"
-                            >
-                              Manage
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))
+            <FeedsDataTable
+              tableLabel="Browse feed catalog"
+              rows={paginatedPresets.map((preset) => {
+                const rowKey = `preset:${preset.preset_id}`;
+                const linked = configByKey.get(`${preset.family}:${preset.endpoint}`);
+                const isEnabled = linked ? linked.enabled : preset.enabled;
+                const aiAllowed = linked
+                  ? linked.ai_processing_authorized
+                  : preset.ai_processing_authorized;
+                return {
+                  rowKey,
+                  id: linked?.id,
+                  name: preset.name,
+                  endpoint: preset.endpoint,
+                  attribution: preset.attribution,
+                  family: preset.family,
+                  category: categorizePreset(preset),
+                  content_kind: preset.content_kind,
+                  polling_minutes: linked?.polling_minutes ?? 60,
+                  enabled: isEnabled,
+                  configured: Boolean(linked || preset.configured),
+                  host_approved: preset.host_approved,
+                  ai_processing_authorized: Boolean(aiAllowed),
+                  isToggling: pendingKey === rowKey,
+                  isTesting: Boolean(linked?.id && pendingKey === `test:${linked.id}`),
+                  testResult: linked?.id ? feedTestResults[linked.id] : undefined,
+                  errorMessage: rowError?.key === rowKey ? rowError.message : undefined,
+                  onManage: () => openPresetManage(preset),
+                  onToggle: () => void togglePreset(preset),
+                };
+              })}
+              totalCount={filteredPresets.length}
+              page={catalogSafePage}
+              totalPages={catalogTotalPages}
+              onPageChange={setPage}
+              sortCol={sortCol}
+              sortDir={sortDir}
+              onSort={handleSort}
+              canManage={canManage}
+            />
           )}
         </section>
       )}
