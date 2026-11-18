@@ -142,7 +142,8 @@ export function SignalQuickDrawer({
               onClick={onPrev}
               disabled={!hasPrev}
               aria-label="Previous signal"
-              className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              style={{ minHeight: "32px", padding: "4px 10px" }}
+              className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background text-xs font-medium text-foreground hover:bg-muted disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
             >
               <ChevronLeft size={14} /> Prev
             </button>
@@ -151,7 +152,8 @@ export function SignalQuickDrawer({
               onClick={onNext}
               disabled={!hasNext}
               aria-label="Next signal"
-              className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              style={{ minHeight: "32px", padding: "4px 10px" }}
+              className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background text-xs font-medium text-foreground hover:bg-muted disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
             >
               Next <ChevronRight size={14} />
             </button>
@@ -169,6 +171,7 @@ export function SignalQuickDrawer({
               type="button"
               onClick={onClose}
               aria-label="Close quick review drawer"
+              style={{ minHeight: "32px", width: "32px", padding: 0 }}
               className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
             >
               <X size={16} />
@@ -419,16 +422,28 @@ export function SignalQuickDrawer({
               {signal.saved ? "Saved" : "Save"}
             </button>
 
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => onOpenOpportunityModal(signal)}
-              style={{ padding: "6px 10px" }}
-              className="ir-primary inline-flex items-center gap-1 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
-            >
-              <Target size={13} />
-              {signal.opportunity_id ? "View Opportunity" : "Opportunity"}
-            </button>
+            {signal.opportunity_id ? (
+              <Link
+                href={`/intent-radar/opportunities/${signal.opportunity_id}`}
+                style={{ padding: "6px 10px" }}
+                className="ir-primary inline-flex items-center gap-1 rounded-lg text-xs font-semibold hover:opacity-90"
+              >
+                <Target size={13} />
+                View Opportunity
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onOpenOpportunityModal(signal)}
+                style={{ padding: "6px 10px" }}
+                title={!canWrite ? "Read-only workspace access" : "Create Opportunity"}
+                className="ir-primary inline-flex items-center gap-1 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
+              >
+                <Target size={13} />
+                Create Opportunity
+              </button>
+            )}
 
             <button
               type="button"

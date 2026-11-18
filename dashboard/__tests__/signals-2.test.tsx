@@ -203,8 +203,8 @@ describe("Signals 2.0 Workspace & Full Signal Details", () => {
     expect(screen.getByRole("tab", { name: /High Intent/i })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Qualified/i })).toBeInTheDocument();
 
-    // Unanalyzed signal shows truthful "Not assessed"; analyzed shows "Non-commercial"
-    expect(screen.getByText("Not assessed")).toBeInTheDocument();
+    // Unanalyzed signal with matched rule phrase shows "Rule indicator"; analyzed shows "Non-commercial"
+    expect(screen.getByText("Rule indicator")).toBeInTheDocument();
     expect(screen.getByText("Non-commercial")).toBeInTheDocument();
 
     // Open Filters popover and select a source -> renders active filter chip + Clear all

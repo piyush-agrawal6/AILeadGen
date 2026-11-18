@@ -144,7 +144,10 @@ def notification_list(
     category:str|None=None,
     status:str='all',
     priority:str|None=None,
+    severity:str|None=None,
     search:str='',
+    from_date:str|None=None,
+    to_date:str|None=None,
     page:int=1,
     page_size:int=20,
     c=Depends(get_db,scope='function'),
@@ -156,7 +159,10 @@ def notification_list(
         category=category,
         status=status,
         priority=priority,
+        severity=severity,
         search=search,
+        from_date=from_date,
+        to_date=to_date,
         page=max(1,min(page,500)),
         page_size=max(1,min(page_size,100)),
     )
@@ -167,11 +173,24 @@ def notification_mark_read(notification_id:UUID,c=Depends(get_db,scope='function
     from app.notifications import center
     return center.mark_read(c,str(notification_id))
 
-@router.post('/notifications/read-all')
-def notification_mark_all_read(c=Depends(get_db,scope='function')):
+@router.post('/notifications/{notification_id}/unread')
+def notification_mark_unread(notification_id:UUID,c=Depends(get_db,scope='function')):
     require_enabled()
     from app.notifications import center
-    return center.mark_all_read(c)
+    return center.mark_unread(c,str(notification_id))
+
+from app.notifications.center import BulkNotificationAction
+@router.post('/notifications/bulk')
+def notification_bulk(body:BulkNotificationAction,c=Depends(get_db,scope='function')):
+    require_enabled()
+    from app.notifications import center
+    return center.bulk_update(c,body)
+
+@router.post('/notifications/read-all')
+def notification_mark_all_read(category:str|None=None,c=Depends(get_db,scope='function')):
+    require_enabled()
+    from app.notifications import center
+    return center.mark_all_read(c,category=category)
 
 @router.get('/notifications/preferences')
 def notification_preferences_get(c=Depends(get_db,scope='function')):

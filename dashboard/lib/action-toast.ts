@@ -43,10 +43,21 @@ export function resolveRadarToast(
     }
     return "Monitor created and ready.";
   }
-  if (/^\/signals\/[^/]+\/save$/.test(cleanPath) || /^\/signals\/[^/]+\/bookmark$/.test(cleanPath)) {
+  if (cleanPath === "/signals/actions") {
+    return "";
+  }
+  if (
+    /^\/saved\/[^/]+$/.test(cleanPath) ||
+    /^\/signals\/[^/]+\/save$/.test(cleanPath) ||
+    /^\/signals\/[^/]+\/bookmark$/.test(cleanPath)
+  ) {
     if (m === "DELETE") return "Signal removed from Research Library.";
     if (m === "PUT" || m === "PATCH") return "Bookmark notes and tags updated.";
     return "Signal saved to Research Library.";
+  }
+  if (/^\/signals\/[^/]+$/.test(cleanPath) && m === "PATCH") {
+    const status = typeof data.status === "string" ? data.status : "";
+    return status ? `Signal marked as ${status}.` : "Signal review saved.";
   }
   if (/^\/signals\/[^/]+\/review$/.test(cleanPath)) {
     const status = typeof data.status === "string" ? data.status : "";
@@ -56,7 +67,10 @@ export function resolveRadarToast(
     return "Signal relevance feedback recorded.";
   }
   if (/^\/signals\/[^/]+\/analysis$/.test(cleanPath)) {
-    return "Signal AI analysis completed.";
+    if (!data.interpretation) {
+      return "";
+    }
+    return data.cached ? "Loaded cached AI signal analysis." : "Signal AI analysis completed.";
   }
   if (/^\/signals\/[^/]+\/withdraw$/.test(cleanPath)) {
     return "Source excerpt withdrawn while preserving your notes.";

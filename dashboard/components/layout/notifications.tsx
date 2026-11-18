@@ -5,8 +5,11 @@ import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
+  AlertCircle,
+  AlertTriangle,
   Bell,
   CheckCheck,
+  CheckCircle2,
   CreditCard,
   Radio,
   Search,
@@ -14,6 +17,7 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Menu, MenuContent } from "@/components/ui/menu";
 import { request } from "@/lib/intelligence";
 import { useWorkspace } from "@/components/workspaces/use-workspace";
@@ -23,6 +27,7 @@ export type WorkspaceNotification = {
   kind: string;
   category?: string;
   priority?: "low" | "normal" | "high" | "urgent" | string;
+  severity?: "error" | "warning" | "success" | "info" | string;
   title?: string;
   description?: string;
   url?: string;
@@ -33,13 +38,18 @@ export type WorkspaceNotification = {
 export type NotificationListResponse = {
   items: WorkspaceNotification[];
   unread_count?: number;
+  category_counts?: Record<string, number>;
+  unread_by_category?: Record<string, number>;
   total?: number;
   page?: number;
   page_size?: number;
   has_more?: boolean;
 };
 
-function categoryIcon(cat?: string) {
+function categoryIcon(cat?: string, severity?: string) {
+  if (severity === "error") return AlertCircle;
+  if (severity === "warning") return AlertTriangle;
+  if (severity === "success" && (cat === "discovery" || cat === "opportunities")) return CheckCircle2;
   switch (cat) {
     case "discovery":
       return Search;
@@ -60,6 +70,19 @@ function categoryIcon(cat?: string) {
   }
 }
 
+function severityBadgeClass(severity?: string, priority?: string) {
+  if (severity === "error" || priority === "urgent") {
+    return "border-destructive/35 bg-destructive/10 text-destructive";
+  }
+  if (severity === "warning" || priority === "high") {
+    return "border-amber-500/35 bg-amber-500/10 text-amber-600 dark:text-amber-400";
+  }
+  if (severity === "success") {
+    return "border-emerald-500/35 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+  }
+  return "border-border bg-muted/40 text-muted-foreground";
+}
+
 function relativeTime(iso: string): string {
   try {
     const diff = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
@@ -77,12 +100,16 @@ export function Notifications() {
   const workspace = useWorkspace();
   const orgId = workspace.data?.active_organization_id || "";
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"all" | "unread">("all");
   const [busy, setBusy] = useState(false);
 
   const query = useQuery({
-    queryKey: ["workspace-notifications", orgId],
+    queryKey: ["workspace-notifications", orgId, tab],
     queryFn: ({ signal }) =>
-      request<NotificationListResponse>("/organization/notifications?page=1&page_size=12", { signal }),
+      request<NotificationListResponse>(
+        `/organization/notifications?page=1&page_size=12&status=${tab}`,
+        { signal }
+      ),
     enabled: Boolean(orgId),
     retry: false,
     refetchInterval: 45000,
@@ -93,20 +120,34 @@ export function Notifications() {
   const unreadCount =
     query.data?.unread_count ?? items.filter((i) => !i.read_at).length;
 
+  async function syncCaches() {
+    await Promise.all([
+      client.invalidateQueries({ queryKey: ["workspace-notifications"] }),
+      client.invalidateQueries({ queryKey: ["notifications-page"] }),
+    ]);
+  }
+
   async function markRead(id: string) {
     try {
       await request(`/organization/notifications/${id}/read`, { method: "POST" });
-      await client.invalidateQueries({ queryKey: ["workspace-notifications"] });
-    } catch {
-      /* non-fatal */
+      await syncCaches();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not mark notification as read.");
     }
   }
 
   async function markAllRead() {
     setBusy(true);
     try {
-      await request("/organization/notifications/read-all", { method: "POST" });
-      await client.invalidateQueries({ queryKey: ["workspace-notifications"] });
+      const res = await request<{ marked_read: number }>("/organization/notifications/read-all", {
+        method: "POST",
+      });
+      await syncCaches();
+      if (res.marked_read > 0) {
+        toast.success(`Marked ${res.marked_read} notification${res.marked_read === 1 ? "" : "s"} as read.`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not mark all notifications as read.");
     } finally {
       setBusy(false);
     }
@@ -142,7 +183,7 @@ export function Notifications() {
             <span className="text-sm font-semibold text-foreground">Notifications</span>
             {unreadCount > 0 && (
               <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary tabular-nums">
-                {unreadCount} new
+                {unreadCount} unread
               </span>
             )}
           </div>
@@ -156,6 +197,26 @@ export function Notifications() {
               <CheckCheck size={12} /> Mark all read
             </button>
           )}
+        </div>
+
+        <div className="flex items-center gap-1 border-b border-border/70 bg-muted/20 px-3 py-1.5" role="tablist" aria-label="Notification filter">
+          {(["all", "unread"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              role="tab"
+              aria-selected={tab === mode}
+              onClick={() => setTab(mode)}
+              className={
+                "rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer " +
+                (tab === mode
+                  ? "bg-card text-foreground shadow-xs border border-border/80 font-semibold"
+                  : "text-muted-foreground hover:text-foreground")
+              }
+            >
+              {mode === "all" ? "All" : `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}`}
+            </button>
+          ))}
         </div>
 
         {query.isPending ? (
@@ -178,17 +239,18 @@ export function Notifications() {
         ) : items.length === 0 ? (
           <div className="p-6 text-center space-y-1">
             <Bell size={18} className="mx-auto text-muted-foreground" aria-hidden="true" />
-            <p className="text-xs font-medium text-foreground">You&apos;re all caught up</p>
+            <p className="text-xs font-medium text-foreground">
+              {tab === "unread" ? "No unread notifications" : "You're all caught up"}
+            </p>
             <p className="text-[11px] text-muted-foreground">
-              Discovery completions, monitor findings, billing updates, and security events appear here.
+              Discovery completions, monitor findings, AI actions, billing, and security events appear here.
             </p>
           </div>
         ) : (
           <div className="max-h-96 overflow-y-auto divide-y divide-border/70">
             {items.map((item) => {
-              const Icon = categoryIcon(item.category);
+              const Icon = categoryIcon(item.category, item.severity);
               const isUnread = !item.read_at;
-              const isHigh = item.priority === "high" || item.priority === "urgent";
               const href = item.url || "/notifications";
               const fallbackTitle =
                 item.title ||
@@ -197,23 +259,21 @@ export function Notifications() {
                   : item.kind === "INVITATION_REJECTED"
                     ? "A teammate declined an invitation"
                     : item.kind === "INTENT_RADAR"
-                      ? "Intent Radar monitor activity"
+                      ? "Intent Radar activity recorded"
                       : "Workspace activity recorded");
 
               return (
                 <div
                   key={item.id}
                   className={
-                    "flex items-start gap-2.5 px-3.5 py-3 transition-colors hover:bg-muted/35 " +
+                    "flex items-start gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-muted/35 " +
                     (isUnread ? "bg-primary/[0.03]" : "")
                   }
                 >
                   <div
                     className={
                       "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border " +
-                      (isHigh
-                        ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                        : "border-border bg-muted/40 text-muted-foreground")
+                      severityBadgeClass(item.severity, item.priority)
                     }
                   >
                     <Icon size={13} aria-hidden="true" />
@@ -243,7 +303,12 @@ export function Notifications() {
                       </p>
                     )}
                     <div className="flex items-center justify-between pt-0.5 text-[10px] text-muted-foreground">
-                      <span>{relativeTime(item.created_at)}</span>
+                      <span className="flex items-center gap-1.5">
+                        <span>{relativeTime(item.created_at)}</span>
+                        {item.category && (
+                          <span className="capitalize text-muted-foreground/80">· {item.category}</span>
+                        )}
+                      </span>
                       {isUnread && (
                         <button
                           type="button"

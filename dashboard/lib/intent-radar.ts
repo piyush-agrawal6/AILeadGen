@@ -24,6 +24,9 @@ export interface SignalAnalysisStructured {
   summary: string | null;
   problem: string | null;
   topic_relevance: string | null;
+  translated_summary?: string | null;
+  translated_problem?: string | null;
+  translated_relevance?: string | null;
   buying_intent: 'Explicit commercial intent' | 'Possible commercial intent' | 'No demonstrated commercial intent' | 'Insufficient evidence';
   icp_fit: string;
   recommended_next_step: string;
@@ -50,7 +53,7 @@ export interface IntentSignal {
   feedback_label?: string | null;
   activity?: SignalActivityEvent[];
 }
-export interface IntentMonitor {id:string;name:string;description:string;goal:string;configuration:IntentSearch;status:'Draft'|'Active'|'Paused'|'Archived';revision:number;created_at:string;last_checked:string|null;last_job_id:string|null;schedule?:{frequency:string;timezone:string};next_run_at?:string|null}
+export interface IntentMonitor {id:string;name:string;description:string;goal:string;configuration:IntentSearch;status:'Draft'|'Active'|'Paused'|'Archived';revision:number;created_at:string;last_checked:string|null;last_job_id:string|null;schedule?:{frequency:string;timezone:string};next_run_at?:string|null;signals_count?:number}
 export interface IntentOpportunity {opportunity_eligibility?:OpportunityEligibility;signal?:IntentSignal;id:string;signal_id:string;status:string;priority:string;notes:string;next_action:string;assigned_to:string|null;revision:number}
 export interface IntentSaved {signal?:IntentSignal;signal_id:string;collection:string;tags:string[];notes:string;revision:number}
 export interface IntentAlert {id:string;monitor_id:string|null;signal_id:string|null;title:string;description:string;created_at:string;read_at:string|null}

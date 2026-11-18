@@ -55,12 +55,21 @@ export function CreateOpportunityModal({
   const eligibility = signal.opportunity_eligibility;
   const eligible = eligibility ? eligibility.eligible : true;
   const alreadyLinked = Boolean(signal.opportunity_id);
+  const canQualifyAndCreate = !alreadyLinked && !eligible && signal.available !== 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!signal || !eligible || alreadyLinked) return;
+    if (!signal || alreadyLinked) return;
+    if (!eligible && !canQualifyAndCreate) return;
     setError("");
     try {
+      if (!eligible && canQualifyAndCreate) {
+        await mutation.mutateAsync({
+          path: `/signals/${signal.id}`,
+          method: "PATCH",
+          body: { revision: signal.revision, status: "Qualified" },
+        });
+      }
       const res = (await mutation.mutateAsync({
         path: `/opportunities/${signal.id}`,
         method: "POST",
@@ -181,7 +190,7 @@ export function CreateOpportunityModal({
                 </p>
               </div>
 
-              {eligible && (
+              {(eligible || canQualifyAndCreate) && (
                 <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3.5">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="block space-y-1">
@@ -242,13 +251,13 @@ export function CreateOpportunityModal({
                       className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50 cursor-pointer"
                     >
                       {mutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Target size={14} />}
-                      Confirm & Create Opportunity
+                      {eligible ? "Confirm & Create Opportunity" : "Qualify & Create Opportunity"}
                     </button>
                   </div>
                 </form>
               )}
 
-              {!eligible && (
+              {!eligible && !canQualifyAndCreate && (
                 <div className="flex items-center justify-end gap-2">
                   <button
                     type="button"

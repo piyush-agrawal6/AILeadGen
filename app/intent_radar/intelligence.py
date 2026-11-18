@@ -192,6 +192,9 @@ def structured_summary(signal, output, scoring, icp):
         'summary': output.summary.interpretation if output.summary else (model_inferences[0] if model_inferences else None),
         'problem': output.buyer_problem.interpretation if output.buyer_problem else None,
         'topic_relevance': output.business_relevance.interpretation if output.business_relevance else None,
+        'translated_summary': output.summary.translation if output.summary else None,
+        'translated_problem': output.buyer_problem.translation if output.buyer_problem else None,
+        'translated_relevance': output.business_relevance.translation if output.business_relevance else None,
         'buying_intent': buying_intent,
         'icp_fit': icp_fit,
         'recommended_next_step': output.recommended_research or 'Read original discussion',
@@ -248,7 +251,9 @@ async def analyze(c,key,body,*,candidate_monitor=False,persistence_fence=None):
         if not owned_candidate:raise HTTPException(409,'Signal is not matched to the selected monitor.')
     query=query_context(c,monitor['configuration'] if monitor else signal['evidence'].get('search_configuration',{}),body.summary_language)
     preferences=service.preferences(c)
-    icp_id=str(body.icp_id or query.get('icp_id') or preferences['default_icp_id'] or '')
+    ignore_default = bool(getattr(body, 'ignore_default_icp', False))
+    force_refresh = bool(getattr(body, 'force', False))
+    icp_id=str(body.icp_id or ('' if ignore_default else (query.get('icp_id') or preferences['default_icp_id'] or '')))
     icp=None
     if icp_id:
         from app.icp.service import get
@@ -256,7 +261,7 @@ async def analyze(c,key,body,*,candidate_monitor=False,persistence_fence=None):
     exclusions=list(dict.fromkeys([*query.get('semantic_exclusions',[]),*(icp['criteria']['intent']['exclusions'] if icp else [])]))[:20]
     signal['_exclusions']=exclusions;signal['_summary_language']=query['_summary_language'];signal['_icp_criteria']=icp_criteria(icp)
     digest=input_hash(signal,query,icp)
-    row=c.execute('SELECT analysis_json FROM intent_analyses WHERE organization_id=? AND signal_id=? AND input_hash=?',(ctx.organization_id,key,digest)).fetchone()
+    row=None if force_refresh else c.execute('SELECT analysis_json FROM intent_analyses WHERE organization_id=? AND signal_id=? AND input_hash=?',(ctx.organization_id,key,digest)).fetchone()
     reviewed=feedback_state(c,key)
     targets=targets_for(query,icp)
     if row:
@@ -274,12 +279,16 @@ async def analyze(c,key,body,*,candidate_monitor=False,persistence_fence=None):
         policy_gated_reason = None
     excluded=[t for t in exclusions if t.casefold() in (signal['title']+' '+signal['excerpt']).casefold()]
     value={'source':{'title':signal['title'],'excerpt':signal['excerpt'],'source_family':signal.get('source'),'content_kind':provenance.get('content_kind')},'targets':targets,'exclusions':exclusions,'workspace_business':profile_context(c),'summary_language':query['_summary_language'],'icp_criteria':signal['_icp_criteria'],'criterion_rules':'Assess provided criterion keys only. MATCH/MISMATCH require exact original evidence; absent company/market/role data is UNKNOWN, never inferred. All source context is unverified, not verified buyer identity or authority. Technical releases and research papers are market/technology intelligence, not buying requests.'}
+    # Gracefully bound excerpt size if company profile + 12 ICP criteria push payload past 5,000 chars
+    if len(json.dumps(value,ensure_ascii=False))>5000 and len(value['source']['excerpt'])>400:
+        excess = len(json.dumps(value,ensure_ascii=False)) - 4800
+        value['source']['excerpt'] = value['source']['excerpt'][:max(300, len(value['source']['excerpt']) - excess)]
     output=None;mode='Policy gated' if policy_gated_reason else 'Deterministic / manual review';reason=policy_gated_reason or 'AI assistance disabled.';gateway=None
     if get_settings().intent_radar_ai_enabled and preferences['ai_assistance'] and not excluded and not policy_gated_reason:
         try:
-            if len(json.dumps(value,ensure_ascii=False))>5000:raise ai.AiOutputError('Analysis context exceeds bounded input size.')
+            if len(json.dumps(value,ensure_ascii=False))>6000:raise ai.AiOutputError('Analysis context exceeds bounded input size.')
             request_bytes=len(json.dumps(value,ensure_ascii=False).encode())+len(INSTRUCTION.encode())+len(json.dumps(Interpretation.model_json_schema()).encode())
-            c.commit();operation_id=reserve(max(6000,(request_bytes+2048+512)*2),operation_id='signal:'+key+':'+digest);gateway=ai.provider(c)
+            c.commit();operation_id=reserve(max(6000,(request_bytes+2048+512)*2),operation_id='signal:'+key+':'+digest+(f':{uuid.uuid4().hex[:6]}' if force_refresh else ''));gateway=ai.provider(c)
             from app.platform.provider_usage import operation
             with operation('INTENT_ANALYSIS',operation_id=operation_id):
                 output=validated(await asyncio.wait_for(gateway.structured(INSTRUCTION,value,Interpretation,max_output_tokens=2048,timeout_seconds=20,attempts_per_provider=1),timeout=25),signal,targets)
@@ -310,7 +319,7 @@ async def analyze(c,key,body,*,candidate_monitor=False,persistence_fence=None):
         if not c.execute('UPDATE intent_signals SET available=available WHERE organization_id=? AND id=? AND available=1 AND title=? AND excerpt=?',(ctx.organization_id,key,signal['title'],signal['excerpt'])).rowcount:raise HTTPException(409,'Source evidence changed before analysis persistence.')
         if icp and not c.execute('UPDATE ideal_customer_profiles SET revision=revision WHERE organization_id=? AND id=? AND revision=?',(ctx.organization_id,icp_id,icp['revision'])).rowcount:raise HTTPException(409,'ICP changed before analysis persistence.')
         if monitor and not c.execute('UPDATE intent_monitors SET revision=revision WHERE organization_id=? AND id=? AND revision=?',(ctx.organization_id,monitor['id'],monitor['revision'])).rowcount:raise HTTPException(409,'Monitor changed before analysis persistence.')
-        c.execute('INSERT INTO intent_analyses(id,organization_id,signal_id,input_hash,icp_id,icp_revision,analysis_json,created_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(organization_id,signal_id,input_hash) DO NOTHING',(str(uuid.uuid4()),ctx.organization_id,key,digest,icp_id or None,icp['revision'] if icp else None,json.dumps(result),now()))
+        c.execute('INSERT INTO intent_analyses(id,organization_id,signal_id,input_hash,icp_id,icp_revision,analysis_json,created_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(organization_id,signal_id,input_hash) DO UPDATE SET analysis_json=excluded.analysis_json,created_at=excluded.created_at',(str(uuid.uuid4()),ctx.organization_id,key,digest,icp_id or None,icp['revision'] if icp else None,json.dumps(result),now()))
         base_score=score(signal,output,{'ranking_adjustment':0,'explanation':''})['overall']
         c.execute('INSERT INTO intent_rankings(organization_id,signal_id,score,input_hash,icp_id,icp_revision,explanation_json,updated_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(organization_id,signal_id) DO UPDATE SET score=excluded.score,input_hash=excluded.input_hash,icp_id=excluded.icp_id,icp_revision=excluded.icp_revision,explanation_json=excluded.explanation_json,updated_at=excluded.updated_at',
             (ctx.organization_id,key,0 if excluded else base_score,digest,icp_id or None,icp['revision'] if icp else None,json.dumps({'scoring':score(signal,output,{'ranking_adjustment':0,'explanation':''}),'icp':result['icp'],'excluded':excluded,'language':output.detected_language,'version':VERSION}),now()))
@@ -336,7 +345,7 @@ def history(c,key):
             output=Interpretation.model_validate(result['interpretation'])
             query=query_context(c,service.get(c,'monitors',result['monitor_id'])['configuration'] if result.get('monitor_id') else signal['evidence'].get('search_configuration',{}),result.get('summary_language'))
             if input_hash(signal,query,icp)!=row['input_hash']:continue
-            signal['_exclusions']=[*query.get('semantic_exclusions',[]),*(icp['criteria']['intent']['exclusions'] if icp else [])];signal['_summary_language']=query['_summary_language']
+            signal['_exclusions']=[*query.get('semantic_exclusions',[]),*(icp['criteria']['intent']['exclusions'] if icp else [])];signal['_summary_language']=query['_summary_language'];signal['_icp_criteria']=icp_criteria(icp)
             validated(output,signal,targets_for(query,icp))
             computed=score(signal,output,feedback_state(c,key))
             result['scoring']=computed

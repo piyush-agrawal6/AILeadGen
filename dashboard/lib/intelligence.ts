@@ -33,27 +33,59 @@ export interface LeadPage { items: IntelligenceLead[]; page: number; page_size: 
 
 export interface Overview { total_leads: number; assessed_leads: number; unassessed_leads: number; new_leads: number; high_intent: number; website: number; seo: number; security: number; uncontacted: number; running_campaigns: number; statuses: { lead_status: string; count: number }[]; markets: { city: string; vertical: string; count: number }[] }
 
-async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
 
-  const timeout=AbortSignal.timeout(60000);
-  const signal=options?.signal?AbortSignal.any([options.signal,timeout]):timeout;
+async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
+  const timeout = AbortSignal.timeout(60000);
+  const signal = options?.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
   const response = await fetch(`/api${path}`, { ...options, signal, headers: { "Content-Type": "application/json", ...options?.headers } });
 
   if (!response.ok) {
-
     const data = await response.json().catch(() => ({}));
-
-    const fields:Record<string,string>={max_hour:"Hourly limit",max_day:"Daily limit",daily_email_target:"Daily email target",daily_qualified_lead_target:"Qualified lead target",campaign_id:"Campaign",start_at:"Start time",spacing_minutes:"Send spacing"};
-    const validation=Array.isArray(data.detail)?data.detail.map((issue:{loc?:unknown[];msg?:unknown})=>{
-      const key=String(issue.loc?.filter(x=>x!=="body").join(".")||"Selection");
-      return `${fields[key]||key.replaceAll("_"," ")}: ${typeof issue.msg==="string"?issue.msg.replace(/^Value error, /,""):"Check this value."}`;
-    }).join(" "):null;
-    throw new Error(typeof data.detail === "string" ? data.detail : typeof data.detail?.message === "string" ? data.detail.message : validation || (response.status === 401 ? "Sign in to continue." : response.status>=500 ? "The engine could not complete this request. Please retry; if it persists, check System Health." : "Check the selected values and retry."));
-
+    const fields: Record<string, string> = { max_hour: "Hourly limit", max_day: "Daily limit", daily_email_target: "Daily email target", daily_qualified_lead_target: "Qualified lead target", campaign_id: "Campaign", start_at: "Start time", spacing_minutes: "Send spacing" };
+    const validation = Array.isArray(data.detail)
+      ? data.detail
+          .map((issue: { loc?: unknown[]; msg?: unknown }) => {
+            const key = String(issue.loc?.filter((x) => x !== "body").join(".") || "Selection");
+            return `${fields[key] || key.replaceAll("_", " ")}: ${typeof issue.msg === "string" ? issue.msg.replace(/^Value error, /, "") : "Check this value."}`;
+          })
+          .join(" ")
+      : null;
+    const code = typeof data.detail === "object" && data.detail && typeof data.detail.code === "string" ? data.detail.code : undefined;
+    const msg =
+      typeof data.detail === "string"
+        ? data.detail
+        : typeof data.detail?.message === "string"
+          ? data.detail.message
+          : validation ||
+            (response.status === 401
+              ? "Sign in to continue."
+              : response.status === 403
+                ? "You do not have permission for this action in the current workspace."
+                : response.status === 404
+                  ? "The requested record was not found."
+                  : response.status === 409
+                    ? "This record was modified or cannot transition to that state. Reload and retry."
+                    : response.status === 429
+                      ? "Rate or quota limit reached. Please try again later."
+                      : response.status === 504
+                        ? "The request timed out before completing. Please retry."
+                        : response.status >= 500
+                          ? `API error (${response.status}): could not complete this request. Please retry.`
+                          : "Check the selected values and retry.");
+    throw new ApiError(msg, response.status, code);
   }
 
   return response.json() as Promise<T>;
-
 }
 
 // Share identical reads in flight. Completed values remain owned by React Query.

@@ -129,6 +129,8 @@ class AnalysisRequest(Strict):
     icp_id: UUID | None = None
     monitor_id: UUID | None = None
     summary_language: Language | None = None
+    force: bool = False
+    ignore_default_icp: bool = False
 
 class Feedback(Strict):
     label: Literal['Relevant','Not relevant','Unsure','Wrong intent category','Not a target customer','Too old','Duplicate','Helpful recommendation','Incorrect AI summary']

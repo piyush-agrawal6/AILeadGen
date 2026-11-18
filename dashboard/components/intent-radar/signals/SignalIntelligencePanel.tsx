@@ -89,9 +89,11 @@ function buyingIntentBadge(value: string): string {
 export function SignalIntelligencePanel({
   id,
   monitorId,
+  available = 1,
 }: {
   id: string;
   monitorId?: string;
+  available?: number;
 }) {
   const history = useRadarRead<{
     items: SignalAnalysisRecord[];
@@ -114,9 +116,10 @@ export function SignalIntelligencePanel({
     : undefined;
   const current = refreshed || localResult || history.data?.items?.find((i) => !!i.scoring) || null;
   const canManage = !!access.data?.can_manage;
+  const isAvailable = available !== 0;
 
-  async function runAnalysis(summaryLanguage: string | null = null) {
-    if (!canManage || submitting || mutation.isPending) return;
+  async function runAnalysis(summaryLanguage: string | null = null, force = false) {
+    if (!canManage || !isAvailable || submitting || mutation.isPending) return;
     setError("");
     setSubmitting(true);
     try {
@@ -124,7 +127,9 @@ export function SignalIntelligencePanel({
         path: `/signals/${id}/analysis`,
         body: {
           icp_id: selectedIcp || null,
+          ignore_default_icp: !selectedIcp,
           monitor_id: monitorId || null,
+          force,
           ...(summaryLanguage ? { summary_language: summaryLanguage } : {}),
         },
       })) as SignalAnalysisRecord;
@@ -202,8 +207,15 @@ export function SignalIntelligencePanel({
 
         <button
           type="button"
-          disabled={!canManage || submitting || mutation.isPending}
-          onClick={() => void runAnalysis(null)}
+          disabled={!canManage || !isAvailable || submitting || mutation.isPending}
+          title={
+            !isAvailable
+              ? "Original source content is unavailable or expired."
+              : !canManage
+                ? "Workspace Admin or Owner role is required to run AI analysis."
+                : undefined
+          }
+          onClick={() => void runAnalysis(null, Boolean(current))}
           className="ir-primary inline-flex h-9 items-center gap-1.5 rounded-lg px-4 text-xs font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
         >
           {submitting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
@@ -212,8 +224,9 @@ export function SignalIntelligencePanel({
 
         <button
           type="button"
+          disabled={!isAvailable}
           onClick={() => setShowTranslate((v) => !v)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 cursor-pointer"
         >
           <Globe size={13} />
           Translate
@@ -221,8 +234,14 @@ export function SignalIntelligencePanel({
         </button>
       </div>
 
+      {!isAvailable && (
+        <p className="text-xs text-muted-foreground">
+          AI analysis is unavailable because the original source excerpt has expired or been withdrawn.
+        </p>
+      )}
+
       {/* Secondary Collapsible Translation Control */}
-      {showTranslate && (
+      {showTranslate && isAvailable && (
         <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-border/70 bg-background px-3.5 py-2.5">
           <span className="text-xs text-muted-foreground">Optional translated summary (preserves original quotes):</span>
           <select
@@ -241,7 +260,7 @@ export function SignalIntelligencePanel({
           <button
             type="button"
             disabled={!canManage || submitting || mutation.isPending}
-            onClick={() => void runAnalysis(translateLang)}
+            onClick={() => void runAnalysis(translateLang, true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:border-primary/50 hover:text-primary disabled:opacity-50 cursor-pointer"
           >
             Run with translation
@@ -270,15 +289,16 @@ export function SignalIntelligencePanel({
             <AlertTriangle size={15} className="shrink-0 mt-0.5" />
             <div className="space-y-0.5">
               <p className="font-semibold">
-                {isQuotaExhausted ? "AI analysis quota reached" : "Analysis notice"}
+                {isQuotaExhausted ? "AI analysis quota reached" : "AI analysis could not complete"}
               </p>
               <p>{error || current?.fallback_reason}</p>
             </div>
           </div>
-          {error && !isQuotaExhausted && (
+          {!isQuotaExhausted && canManage && isAvailable && (
             <button
               type="button"
-              onClick={() => void runAnalysis(null)}
+              disabled={submitting}
+              onClick={() => void runAnalysis(showTranslate ? translateLang : null, true)}
               className="inline-flex items-center gap-1 rounded-lg border border-destructive/40 bg-background px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted cursor-pointer shrink-0"
             >
               <RefreshCw size={12} /> Retry
@@ -318,6 +338,53 @@ export function SignalIntelligencePanel({
               </p>
             </div>
           </div>
+
+          {/* Translated Evidence & Summary (when requested) */}
+          {(structured.translated_summary ||
+            structured.translated_problem ||
+            structured.translated_relevance ||
+            current.interpretation?.summary?.translation ||
+            current.interpretation?.buyer_problem?.translation ||
+            current.interpretation?.claims?.some((c) => c.translation)) && (
+            <div className="rounded-xl border border-primary/25 bg-primary/[0.04] p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                  <Globe size={12} />
+                  Translated summary{current.summary_language ? ` (${current.summary_language.toUpperCase()})` : ""}
+                </h3>
+                {current.interpretation?.detected_language && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Source language: {current.interpretation.detected_language}
+                  </span>
+                )}
+              </div>
+              {(structured.translated_summary || current.interpretation?.summary?.translation) && (
+                <p className="text-xs leading-relaxed text-foreground">
+                  {structured.translated_summary || current.interpretation?.summary?.translation}
+                </p>
+              )}
+              {(structured.translated_problem || current.interpretation?.buyer_problem?.translation) && (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  <strong className="text-foreground">Problem: </strong>
+                  {structured.translated_problem || current.interpretation?.buyer_problem?.translation}
+                </p>
+              )}
+              {(structured.translated_relevance || current.interpretation?.business_relevance?.translation) && (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  <strong className="text-foreground">Relevance: </strong>
+                  {structured.translated_relevance || current.interpretation?.business_relevance?.translation}
+                </p>
+              )}
+              {current.interpretation?.claims
+                ?.filter((c) => c.translation)
+                .slice(0, 3)
+                .map((c, idx) => (
+                  <p key={idx} className="text-xs italic text-foreground/90 border-l-2 border-primary/40 pl-2.5">
+                    {c.translation}
+                  </p>
+                ))}
+            </div>
+          )}
 
           {/* Concise Summary / Problem / Business Relevance */}
           <div className="space-y-2.5 rounded-xl border border-border/80 bg-muted/15 p-4">

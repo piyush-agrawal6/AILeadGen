@@ -17,6 +17,7 @@ import {
   Filter,
   LayoutGrid,
   List,
+  Loader2,
   MoreHorizontal,
   RotateCcw,
   Search,
@@ -41,6 +42,7 @@ import { SignalQuickDrawer } from "./signals/SignalQuickDrawer";
 import { CreateOpportunityModal } from "./signals/CreateOpportunityModal";
 import {
   buyingIntentDisplay,
+  clearSignalsReturnContext,
   formatObservedDate,
   readSignalsReturnContext,
   saveSignalsReturnContext,
@@ -142,20 +144,42 @@ export function SignalsWorkspace() {
 
   const [searchInput, setSearchInput] = useState(filters.search);
   const [page, setPage] = useState<number>(() => Math.max(1, Number(params.get("page") || "1") || 1));
-  const [displayMode, setDisplayMode] = useState<"table" | "cards" | null>(null);
+  const [displayMode, setDisplayMode] = useState<"table" | "cards" | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const saved = window.localStorage.getItem("planebyte:signals-view-mode");
+      return saved === "table" || saved === "cards" ? saved : null;
+    } catch {
+      return null;
+    }
+  });
   const [selected, setSelected] = useState<string[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
-  const [visibleCols, setVisibleCols] = useState({
-    category: true,
-    buyingIntent: true,
-    observed: true,
+  const [visibleCols, setVisibleCols] = useState(() => {
+    const fallback = { category: true, buyingIntent: true, observed: true };
+    if (typeof window === "undefined") return fallback;
+    try {
+      const raw = window.localStorage.getItem("planebyte:signals-visible-cols");
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw) as Partial<typeof fallback>;
+      return {
+        category: parsed.category ?? true,
+        buyingIntent: parsed.buyingIntent ?? true,
+        observed: parsed.observed ?? true,
+      };
+    } catch {
+      return fallback;
+    }
   });
   const [openedId, setOpenedId] = useState("");
+  const [openedSnapshot, setOpenedSnapshot] = useState<IntentSignal | null>(null);
   const [opportunityTarget, setOpportunityTarget] = useState<IntentSignal | null>(null);
   const [bulkConfirm, setBulkConfirm] = useState<null | "dismiss" | "qualify">(null);
+  const [bulkBusyAction, setBulkBusyAction] = useState<string | null>(null);
   const [notice, setNotice] = useState<{
     message: string;
+    isError?: boolean;
     undo?: { signalId: string; revision: number; previousStatus: string };
   } | null>(null);
 
@@ -230,16 +254,23 @@ export function SignalsWorkspace() {
     }
   }, [currentUrl]);
 
-  // Restore scroll when returning from Full Signal Details
   useEffect(() => {
-    const saved = readSignalsReturnContext();
-    if (saved && saved.scrollY > 0 && Date.now() - saved.savedAt < 300_000) {
-      const id = window.requestAnimationFrame(() => {
-        window.scrollTo({ top: saved.scrollY, behavior: "auto" });
-      });
-      return () => window.cancelAnimationFrame(id);
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("planebyte:signals-visible-cols", JSON.stringify(visibleCols));
+    } catch {
+      // ignore
     }
-  }, []);
+  }, [visibleCols]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !displayMode) return;
+    try {
+      window.localStorage.setItem("planebyte:signals-view-mode", displayMode);
+    } catch {
+      // ignore
+    }
+  }, [displayMode]);
 
   const preferences = useRadarRead<IntentPreferences>("/settings");
   const monitors = useRadarRead<IntentPage<IntentMonitor>>("/monitors?page_size=100");
@@ -276,10 +307,42 @@ export function SignalsWorkspace() {
   const display = displayMode || preferences.data?.default_view || "table";
   const canWrite = !!access.data?.can_write;
 
-  const openedSignal = useMemo(
+  // Restore scroll AFTER table data actually renders (not during loading skeleton)
+  const scrollRestoredRef = useRef(false);
+  useEffect(() => {
+    if (scrollRestoredRef.current || !query.data) return;
+    scrollRestoredRef.current = true;
+    const saved = readSignalsReturnContext();
+    if (saved && saved.scrollY > 0) {
+      const id = window.requestAnimationFrame(() => {
+        window.scrollTo({ top: saved.scrollY, behavior: "auto" });
+        clearSignalsReturnContext();
+      });
+      return () => window.cancelAnimationFrame(id);
+    }
+  }, [query.data]);
+
+  // Clamp page cleanly if bulk actions or status transitions empty the last page
+  useEffect(() => {
+    if (query.data && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [query.data, page, totalPages]);
+
+  const liveOpenedSignal = useMemo(
     () => (openedId ? rows.find((r) => r.id === openedId) || null : null),
     [openedId, rows]
   );
+
+  useEffect(() => {
+    if (!openedId) {
+      setOpenedSnapshot(null);
+    } else if (liveOpenedSignal) {
+      setOpenedSnapshot(liveOpenedSignal);
+    }
+  }, [openedId, liveOpenedSignal]);
+
+  const openedSignal = liveOpenedSignal || (openedId && openedSnapshot?.id === openedId ? openedSnapshot : null);
   const openedIndex = openedId ? rows.findIndex((r) => r.id === openedId) : -1;
 
   function updateFilters(patch: Partial<SignalFilterState>) {
@@ -388,62 +451,82 @@ export function SignalsWorkspace() {
     if (!canWrite || mutation.isPending) return;
     const prevStatus = signal.status;
     try {
-      await mutation.mutateAsync({
+      const updated = (await mutation.mutateAsync({
         path: `/signals/${signal.id}`,
         method: "PATCH",
         body: { revision: signal.revision, status: nextStatus },
-      });
+      })) as IntentSignal | undefined;
+      const nextRev = typeof updated?.revision === "number" ? updated.revision : signal.revision + 1;
+      if (openedId === signal.id && updated) {
+        setOpenedSnapshot(updated);
+      }
       setNotice({
         message: `Marked “${signal.title.slice(0, 48)}${signal.title.length > 48 ? "…" : ""}” as ${nextStatus}.`,
-        undo: { signalId: signal.id, revision: signal.revision + 1, previousStatus: prevStatus },
+        undo: { signalId: signal.id, revision: nextRev, previousStatus: prevStatus },
       });
     } catch (e) {
-      setNotice({ message: (e as Error).message || "Could not update signal." });
+      setNotice({ message: (e as Error).message || "Could not update signal.", isError: true });
     }
   }
 
   async function runQuickSave(signal: IntentSignal) {
     if (!canWrite || mutation.isPending) return;
     try {
-      await mutation.mutateAsync({
+      const updated = (await mutation.mutateAsync({
         path: `/saved/${signal.id}`,
         method: signal.saved ? "DELETE" : "POST",
-      });
+      })) as IntentSignal | undefined;
+      if (openedId === signal.id && updated) {
+        setOpenedSnapshot(updated);
+      }
       setNotice({
         message: signal.saved ? "Removed signal from Saved bookmarks." : "Saved signal to bookmarks (review status preserved).",
       });
     } catch (e) {
-      setNotice({ message: (e as Error).message || "Could not update bookmark." });
+      setNotice({ message: (e as Error).message || "Could not update bookmark.", isError: true });
     }
   }
 
   async function runBulkAction(action: "save" | "unsave" | "review" | "qualify" | "dismiss" | "opportunity") {
     if (!canWrite || selected.length === 0 || mutation.isPending) return;
     setBulkConfirm(null);
+    setBulkBusyAction(action);
     try {
       const res = (await mutation.mutateAsync({
         path: "/signals/actions",
         body: { ids: selected, action },
-      })) as { updated?: number; skipped?: { id: string; reason: string }[] };
-      const updated = res?.updated ?? selected.length;
-      const skippedCount = res?.skipped?.length ?? 0;
+      })) as {
+        updated?: number;
+        already_existed?: number;
+        skipped?: { id: string; title?: string; reason: string }[];
+      };
+      const updated = res?.updated ?? 0;
+      const existed = res?.already_existed ?? 0;
+      const skipped = res?.skipped || [];
       setSelected([]);
       const actionVerb: Record<string, string> = {
         save: "saved",
-        unsave: "unsaved",
+        unsave: "removed from saved bookmarks",
         review: "marked Reviewed",
         qualify: "marked Qualified",
         dismiss: "dismissed",
         opportunity: "promoted to Opportunities",
       };
+      const parts: string[] = [];
+      if (updated > 0) parts.push(`${updated} signal${updated === 1 ? "" : "s"} ${actionVerb[action]}`);
+      if (existed > 0) parts.push(`${existed} already linked to an Opportunity`);
+      if (skipped.length > 0) {
+        const sampleReason = skipped[0]?.reason ? ` (${skipped[0].reason})` : "";
+        parts.push(`${skipped.length} skipped${sampleReason}`);
+      }
       setNotice({
-        message:
-          skippedCount > 0
-            ? `${updated} signal${updated === 1 ? "" : "s"} ${actionVerb[action]}; ${skippedCount} skipped (insufficient commercial evidence).`
-            : `${updated} signal${updated === 1 ? "" : "s"} ${actionVerb[action]}.`,
+        message: parts.length ? `${parts.join("; ")}.` : "No changes were required for the selected signals.",
+        isError: updated === 0 && existed === 0 && skipped.length > 0,
       });
     } catch (e) {
-      setNotice({ message: (e as Error).message || "Bulk action failed." });
+      setNotice({ message: (e as Error).message || "Bulk action failed.", isError: true });
+    } finally {
+      setBulkBusyAction(null);
     }
   }
 
@@ -457,8 +540,8 @@ export function SignalsWorkspace() {
         method: "PATCH",
         body: { revision, status: previousStatus },
       });
-    } catch {
-      // Refresh will sync latest revision
+    } catch (e) {
+      setNotice({ message: (e as Error).message || "Could not undo — reload to sync latest signal status.", isError: true });
     }
   }
 
@@ -642,7 +725,7 @@ export function SignalsWorkspace() {
                     className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs text-foreground"
                   >
                     <option value="">All statuses</option>
-                    {["New", "In Review", "Needs Review", "Reviewed", "Qualified", "Dismissed"].map((s) => (
+                    {["New", "In Review", "Needs Review", "Reviewed", "Saved", "Qualified", "Dismissed"].map((s) => (
                       <option key={s} value={s}>
                         {s}
                       </option>
@@ -868,8 +951,13 @@ export function SignalsWorkspace() {
       {/* Undo / Status Notice Banner */}
       {notice && (
         <div
-          role="status"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs text-foreground shadow-sm"
+          role={notice.isError ? "alert" : "status"}
+          className={
+            "flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-xs shadow-sm " +
+            (notice.isError
+              ? "border-destructive/30 bg-destructive/10 text-destructive"
+              : "border-border bg-card text-foreground")
+          }
         >
           <span>{notice.message}</span>
           <div className="flex items-center gap-2">
@@ -894,14 +982,24 @@ export function SignalsWorkspace() {
         </div>
       )}
 
-      {/* Bulk Selection Bar (explicit page-scope clarity!) */}
+      {/* Bulk Selection Bar (explicit page-scope clarity, loading state & role explanation) */}
       {selected.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/[0.05] px-4 py-2.5">
-          <div className="text-xs font-semibold text-foreground">
-            {selected.length} selected on this page
-            {totalCount > rows.length && (
-              <span className="ml-1.5 font-normal text-muted-foreground">
+          <div className="text-xs font-semibold text-foreground flex items-center gap-2">
+            {bulkBusyAction && <Loader2 size={13} className="animate-spin text-primary" />}
+            <span>
+              {bulkBusyAction
+                ? `Applying bulk action to ${selected.length} signal${selected.length === 1 ? "" : "s"}…`
+                : `${selected.length} selected on this page`}
+            </span>
+            {!bulkBusyAction && totalCount > rows.length && (
+              <span className="font-normal text-muted-foreground">
                 (of {totalCount.toLocaleString()} matching signals)
+              </span>
+            )}
+            {!canWrite && (
+              <span className="font-normal text-amber-700 dark:text-amber-300">
+                · Read-only access (actions disabled)
               </span>
             )}
           </div>
@@ -916,17 +1014,24 @@ export function SignalsWorkspace() {
                 type="button"
                 disabled={!canWrite || mutation.isPending}
                 onClick={() => void runBulkAction(bulkConfirm)}
-                className={
-                  "inline-flex items-center rounded-lg px-3 py-1 text-xs font-semibold text-white cursor-pointer " +
-                  (bulkConfirm === "dismiss" ? "bg-destructive hover:opacity-90" : "bg-emerald-600 hover:bg-emerald-700")
-                }
+                style={{
+                  background: bulkConfirm === "dismiss" ? "#dc2626" : "#059669",
+                  borderColor: bulkConfirm === "dismiss" ? "#dc2626" : "#059669",
+                  color: "#ffffff",
+                  padding: "5px 12px",
+                  minHeight: "30px",
+                }}
+                className="inline-flex items-center gap-1 rounded-lg text-xs font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
               >
+                {bulkBusyAction ? <Loader2 size={12} className="animate-spin" /> : null}
                 Confirm
               </button>
               <button
                 type="button"
+                disabled={mutation.isPending}
                 onClick={() => setBulkConfirm(null)}
-                className="inline-flex items-center rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground cursor-pointer"
+                style={{ padding: "5px 10px", minHeight: "30px" }}
+                className="inline-flex items-center rounded-lg border border-border bg-background text-xs font-medium text-foreground cursor-pointer"
               >
                 Cancel
               </button>
@@ -936,6 +1041,7 @@ export function SignalsWorkspace() {
               <button
                 type="button"
                 disabled={!canWrite || mutation.isPending}
+                title={!canWrite ? "Read-only workspace access" : undefined}
                 onClick={() => void runBulkAction("review")}
                 className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50 cursor-pointer"
               >
@@ -944,6 +1050,7 @@ export function SignalsWorkspace() {
               <button
                 type="button"
                 disabled={!canWrite || mutation.isPending}
+                title={!canWrite ? "Read-only workspace access" : undefined}
                 onClick={() => setBulkConfirm("qualify")}
                 className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-50 cursor-pointer"
               >
@@ -952,14 +1059,16 @@ export function SignalsWorkspace() {
               <button
                 type="button"
                 disabled={!canWrite || mutation.isPending}
-                onClick={() => void runBulkAction("save")}
+                title={!canWrite ? "Read-only workspace access" : undefined}
+                onClick={() => void runBulkAction(filters.view === "saved" ? "unsave" : "save")}
                 className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50 cursor-pointer"
               >
-                <Bookmark size={13} /> Save
+                <Bookmark size={13} /> {filters.view === "saved" ? "Unsave" : "Save"}
               </button>
               <button
                 type="button"
                 disabled={!canWrite || mutation.isPending}
+                title={!canWrite ? "Read-only workspace access" : undefined}
                 onClick={() => void runBulkAction("opportunity")}
                 className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-primary/50 hover:text-primary disabled:opacity-50 cursor-pointer"
               >
@@ -968,6 +1077,7 @@ export function SignalsWorkspace() {
               <button
                 type="button"
                 disabled={!canWrite || mutation.isPending}
+                title={!canWrite ? "Read-only workspace access" : undefined}
                 onClick={() => setBulkConfirm("dismiss")}
                 className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:border-destructive/40 hover:text-destructive disabled:opacity-50 cursor-pointer"
               >
@@ -975,6 +1085,7 @@ export function SignalsWorkspace() {
               </button>
               <button
                 type="button"
+                disabled={mutation.isPending}
                 onClick={() => setSelected([])}
                 className="ml-1 text-xs font-medium text-muted-foreground hover:text-foreground cursor-pointer"
               >
@@ -998,7 +1109,7 @@ export function SignalsWorkspace() {
         </span>
         {filters.view === "high_intent" && (
           <span className="hidden sm:inline text-[11px] text-muted-foreground">
-            Only signals with explicit commercial-intent evidence
+            AI-verified explicit intent or rule-based commercial indicators (excludes dismissed &amp; technical releases)
           </span>
         )}
       </div>
@@ -1043,7 +1154,20 @@ export function SignalsWorkspace() {
       ) : display === "cards" ? (
         <div className="grid gap-4 md:grid-cols-2">
           {rows.map((s) => (
-            <SignalCard key={s.id} signal={s} onOpen={(id) => setOpenedId(id)} />
+            <SignalCard
+              key={s.id}
+              signal={s}
+              onOpen={(id) => setOpenedId(id)}
+              selected={selected.includes(s.id)}
+              onToggleSelect={(id) =>
+                setSelected((prev) =>
+                  prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                )
+              }
+              onQualify={(sig) => void runQuickStatus(sig, "Qualified")}
+              onDismiss={(sig) => void runQuickStatus(sig, "Dismissed")}
+              onOpenOpportunity={(sig) => setOpportunityTarget(sig)}
+            />
           ))}
         </div>
       ) : (

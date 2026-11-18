@@ -95,13 +95,6 @@ WRITE_TOOLS: dict[str, dict[str, Any]] = {
         "required_roles": ("OWNER", "ADMIN"),
         "quota_note": "No search or AI quota consumed.",
     },
-    "update_icp": {
-        "label": "Update Ideal Customer Profile",
-        "kind": "write",
-        "requires_confirmation": True,
-        "required_roles": ("OWNER", "ADMIN"),
-        "quota_note": "No search or AI quota consumed.",
-    },
     "set_primary_icp": {
         "label": "Set Primary ICP",
         "kind": "write",
@@ -247,10 +240,10 @@ class CreateOpportunityParams(BaseModel):
 class UpdateOpportunityParams(BaseModel):
     model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
     opportunity_id: str = Field(min_length=10, max_length=64)
-    status: Literal["Saved", "Reviewing", "Qualified", "Closed"] = "Reviewing"
-    priority: Literal["Low", "Medium", "High"] = "Medium"
-    notes: str = Field("", max_length=1000)
-    next_action: str = Field("Follow up on signal research", max_length=200)
+    status: Literal["New", "Reviewing", "Qualified", "Saved", "Dismissed"] | None = None
+    priority: Literal["Low", "Medium", "High"] | None = None
+    notes: str | None = Field(None, max_length=1000)
+    next_action: str | None = Field(None, max_length=200)
 
 
 # ---------------------------------------------------------------------------
@@ -259,7 +252,27 @@ class UpdateOpportunityParams(BaseModel):
 
 def _allowed_sources(c) -> set[str]:
     from app.intent_radar import connectors
-    return {s["id"] for s in connectors.catalog(c) if s.get("selectable") or s.get("state") in ("READY", "CONFIGURED", "CONNECTED")}
+    return {
+        s["id"]
+        for s in connectors.catalog(c)
+        if s.get("selectable")
+        or s.get("configured")
+        or str(s.get("state") or "") in ("Available", "Connected", "READY", "CONFIGURED", "CONNECTED")
+    }
+
+
+SOURCE_NAME_ALIASES = {
+    "hacker_news": "Hacker News",
+    "hn": "Hacker News",
+    "stack_exchange": "Stack Exchange",
+    "stackoverflow": "Stack Exchange",
+    "github": "GitHub",
+    "youtube": "YouTube",
+    "bluesky": "Bluesky",
+    "discourse": "Discourse",
+    "rss": "RSS",
+    "atom": "Atom",
+}
 
 
 def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -276,7 +289,7 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
         total_opps = int(c.execute("SELECT COUNT(*) FROM intent_opportunities WHERE organization_id=?", (org,)).fetchone()[0])
         from app.icp.service import listing as list_icps_svc
         icp_list = list_icps_svc(c).get("items", [])
-        active_icps = [i for i in icp_list if i.get("status") != "Archived"]
+        active_icps = [i for i in icp_list if str(i.get("status") or "").upper() != "ARCHIVED"]
         primary_icp = next((i for i in active_icps if i.get("is_primary")), None)
         from app.notifications import center
         notif_data = center.list_notifications(c, page=1, page_size=1)
@@ -300,7 +313,8 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
 
     if tool_name == "search_signals":
         query = str(p.get("query") or "")[:120]
-        source = str(p.get("source") or "")[:40]
+        raw_source = str(p.get("source") or "")[:40]
+        source = SOURCE_NAME_ALIASES.get(raw_source.casefold(), raw_source)
         status = str(p.get("status") or "")[:30]
         min_score = max(0, min(100, int(p.get("min_score") or 0)))
         limit = max(1, min(15, int(p.get("limit") or 8)))
@@ -320,6 +334,8 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
         )
         items = []
         for s in res.get("items", []):
+            ev = s.get("evidence") or {}
+            elig = s.get("opportunity_eligibility") or {}
             items.append({
                 "id": s["id"],
                 "title": s["title"],
@@ -330,7 +346,14 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
                 "status": s.get("status"),
                 "category": s.get("category"),
                 "buying_intent": s.get("buying_intent"),
+                "buying_intent_basis": s.get("buying_intent_basis") or "unassessed",
                 "icp_fit": s.get("icp_fit"),
+                "icp_fit_detail": s.get("icp_fit_detail"),
+                "intent_phrase": ev.get("intent_phrase"),
+                "matched_keywords": (ev.get("matched_keywords") or [])[:5],
+                "opportunity_eligible": bool(elig.get("eligible")),
+                "opportunity_reasons": (elig.get("reasons") or [])[:2],
+                "opportunity_id": s.get("opportunity_id"),
                 "observed_at": s.get("observed_at"),
                 "saved": bool(s.get("saved")),
                 "href": f"/intent-radar/signals/{s['id']}",
@@ -402,8 +425,16 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
         res = list_icps_svc(c)
         items = []
         for icp in res.get("items", []):
+            if str(icp.get("status") or "").upper() == "ARCHIVED":
+                continue
             comp = (icp.get("criteria") or {}).get("company") or {}
             intent = (icp.get("criteria") or {}).get("intent") or {}
+            combined_kws = (
+                (intent.get("search_terms") or [])
+                + (intent.get("business_needs") or [])
+                + (intent.get("buying_signals") or [])
+                + (intent.get("relevant_services") or [])
+            )
             items.append({
                 "id": icp["id"],
                 "name": icp["name"],
@@ -412,7 +443,7 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
                 "description": (icp.get("description") or "")[:240],
                 "industries": comp.get("industries") or [],
                 "pain_points": intent.get("pain_points") or [],
-                "keywords": intent.get("search_terms") or intent.get("business_needs") or [],
+                "keywords": list(dict.fromkeys(combined_kws))[:8],
                 "competitors": intent.get("competitors") or [],
                 "related_counts": icp.get("related_counts") or {},
                 "href": "/intent-radar/ideal-customers",
@@ -435,7 +466,8 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
         }
 
     if tool_name == "list_monitors":
-        res = radar.listing(c, "monitors", page=1, size=15)
+        status = str(p.get("status") or "Current")[:20]
+        res = radar.listing(c, "monitors", page=1, size=15, status=status)
         items = [
             {
                 "id": m["id"],
@@ -445,7 +477,8 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
                 "keywords": (m.get("configuration") or {}).get("keywords") or [],
                 "sources": (m.get("configuration") or {}).get("sources") or [],
                 "last_checked": m.get("last_checked"),
-                "href": "/intent-radar/monitors",
+                "signals_count": m.get("signals_count", 0),
+                "href": f"/intent-radar/monitors/{m['id']}",
             }
             for m in res.get("items", [])
         ]
@@ -485,13 +518,10 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
         feeds_count = 0
         try:
             row = c.execute(
-                "SELECT configuration_json FROM intent_source_configs WHERE organization_id=? AND id='custom_feeds'",
+                "SELECT COUNT(*) AS cnt FROM intent_source_configs WHERE organization_id=? AND enabled=1",
                 (org,),
             ).fetchone()
-            if row and row["configuration_json"]:
-                cfg = json.loads(row["configuration_json"])
-                feeds_list = cfg.get("items") if isinstance(cfg, dict) else cfg if isinstance(cfg, list) else []
-                feeds_count = sum(1 for f in feeds_list if isinstance(f, dict) and f.get("enabled", True))
+            feeds_count = int(row["cnt"] if row else 0)
         except Exception:
             feeds_count = 0
         return {
@@ -504,7 +534,11 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
                         "id": s["id"],
                         "name": s["name"],
                         "state": s["state"],
-                        "selectable": bool(s.get("selectable")),
+                        "selectable": bool(
+                            s.get("selectable")
+                            or s.get("configured")
+                            or str(s.get("state") or "") in ("Available", "Connected", "READY", "CONFIGURED", "CONNECTED")
+                        ),
                         "ai_policy": "Blocked by YouTube policy" if s["id"] == "youtube" and not get_settings().intent_radar_youtube_ai_analytics_enabled else "Per-publisher opt-in required" if s["id"] == "discourse" else "Eligible",
                     }
                     for s in sources
@@ -518,6 +552,7 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
         from app.billing.overview import overview as billing_overview
         ov = billing_overview(c)
         access = ov.get("access") or {}
+        sub = ov.get("subscription") or {}
         usage = [
             {
                 "dimension": u.get("dimension"),
@@ -525,6 +560,8 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
                 "used": u.get("used"),
                 "limit": u.get("limit"),
                 "remaining": u.get("remaining"),
+                "resets_at": u.get("resets_at"),
+                "basis": u.get("basis"),
             }
             for u in (ov.get("usage") or [])
         ]
@@ -533,11 +570,11 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
             "label": READ_TOOLS[tool_name]["label"],
             "as_of": now(),
             "data": {
-                "plan_name": access.get("plan_name") or access.get("kind") or "Workspace access",
+                "plan_name": access.get("plan_name") or access.get("entitlement_label") or access.get("kind") or "Workspace access",
                 "access_kind": access.get("kind"),
                 "is_trial": bool(access.get("is_trial")),
-                "cancel_at_period_end": bool(access.get("cancel_at_period_end")),
-                "period_end": access.get("period_end"),
+                "cancel_at_period_end": bool(sub.get("cancel_confirmed_at") or access.get("cancel_at_period_end")),
+                "period_end": sub.get("period_end") or access.get("period_end"),
                 "usage": usage,
                 "href": "/settings?category=billing&tab=overview",
             },
@@ -596,6 +633,25 @@ def execute_read_tool(c, tool_name: str, params: dict[str, Any] | None = None) -
 # ---------------------------------------------------------------------------
 
 def _record_ai_audit(c, org: str, actor: str, tool_name: str, entity: str, result: str, details: dict) -> None:
+    safe_details = dict(details)
+    raw = json.dumps(safe_details, default=str)
+    if len(raw) > 3800:
+        exec_res = safe_details.get("execution_result")
+        safe_details = {
+            "action_id": safe_details.get("action_id"),
+            "tool": safe_details.get("tool"),
+            "error": str(safe_details.get("error") or "")[:300] or None,
+            "execution_result": {
+                "tool": exec_res.get("tool"),
+                "summary": str(exec_res.get("summary") or "")[:240],
+                "entity_type": exec_res.get("entity_type"),
+                "entity_id": exec_res.get("entity_id"),
+                "resource_url": exec_res.get("resource_url"),
+            }
+            if isinstance(exec_res, dict)
+            else None,
+        }
+        raw = json.dumps(safe_details, default=str)
     c.execute(
         "INSERT INTO audit_log(id,actor,action,entity,result,details_json,organization_id,created_at) VALUES(?,?,?,?,?,?,?,?)",
         (
@@ -604,7 +660,7 @@ def _record_ai_audit(c, org: str, actor: str, tool_name: str, entity: str, resul
             f"AI_AGENT_{tool_name.upper()}",
             entity[:160],
             result,
-            json.dumps(details, default=str)[:4000],
+            raw,
             org,
             now(),
         ),
@@ -613,6 +669,8 @@ def _record_ai_audit(c, org: str, actor: str, tool_name: str, entity: str, resul
 
 def execute_write_tool(c, tool_name: str, params: dict[str, Any], *, action_id: str) -> dict[str, Any]:
     """Execute a previously proposed write action after explicit user approval."""
+    from pydantic import ValidationError
+
     if tool_name not in WRITE_TOOLS:
         raise HTTPException(400, f"Unsupported action tool: {tool_name}")
 
@@ -639,232 +697,243 @@ def execute_write_tool(c, tool_name: str, params: dict[str, Any], *, action_id: 
     result: dict[str, Any]
     launch_job_id: str | None = None
 
-    if tool_name == "create_icp":
-        body = CreateIcpParams.model_validate(params)
-        from app.icp.models import CompanyCriteria, Criteria, IntentCriteria, Create as IcpCreate
-        from app.icp import service as icp_svc
+    try:
+        if tool_name == "create_icp":
+            body = CreateIcpParams.model_validate(params)
+            if not any([body.industries, body.pain_points, body.business_needs, body.keywords, body.competitors]):
+                raise HTTPException(422, "Provide at least one target industry, pain point, or keyword before creating an ICP.")
+            from app.icp.models import CompanyCriteria, Criteria, IntentCriteria, Create as IcpCreate
+            from app.icp import service as icp_svc
 
-        profile_payload = IcpCreate(
-            name=body.name,
-            description=body.description or f"Created via PlaneByte AI Assistant for {body.name}",
-            status="ACTIVE",
-            request_id=uuid.uuid5(uuid.NAMESPACE_URL, f"{org}:ai-icp:{action_id}"),
-            criteria=Criteria(
-                company=CompanyCriteria(industries=body.industries),
-                intent=IntentCriteria(
-                    pain_points=body.pain_points,
-                    business_needs=body.business_needs,
-                    search_terms=body.keywords,
-                    competitors=body.competitors,
-                    exclusions=body.exclusions,
-                ),
-            ),
-        )
-        created = icp_svc.create(c, profile_payload)
-        if body.set_as_primary:
-            created = icp_svc.set_primary(c, created["id"])
-        result = {
-            "tool": tool_name,
-            "summary": f"Created Ideal Customer Profile '{created['name']}'.",
-            "entity_type": "icp",
-            "entity_id": created["id"],
-            "resource_url": "/intent-radar/ideal-customers",
-            "data": {"id": created["id"], "name": created["name"], "is_primary": bool(created.get("is_primary"))},
-        }
-
-    elif tool_name == "set_primary_icp":
-        body = SetPrimaryIcpParams.model_validate(params)
-        from app.icp import service as icp_svc
-        updated = icp_svc.set_primary(c, body.icp_id)
-        result = {
-            "tool": tool_name,
-            "summary": f"Set '{updated['name']}' as the primary workspace ICP.",
-            "entity_type": "icp",
-            "entity_id": updated["id"],
-            "resource_url": "/intent-radar/ideal-customers",
-            "data": {"id": updated["id"], "name": updated["name"]},
-        }
-
-    elif tool_name == "save_search":
-        body = SaveSearchParams.model_validate(params)
-        from app.intent_radar import discovery_workspace
-        allowed = _allowed_sources(c)
-        chosen_sources = [s for s in body.sources if s in allowed] or [next(iter(allowed), "hacker_news")]
-        saved = discovery_workspace.save_search(
-            c,
-            discovery_workspace.SavedSearchInput(
+            profile_payload = IcpCreate(
                 name=body.name,
-                description=body.description,
-                original_prompt=f"AI Assistant saved search: {', '.join(body.keywords)}",
+                description=body.description or f"Created via PlaneByte AI Assistant for {body.name}",
+                status="ACTIVE",
+                request_id=uuid.uuid5(uuid.NAMESPACE_URL, f"{org}:ai-icp:{action_id}"),
+                criteria=Criteria(
+                    company=CompanyCriteria(industries=body.industries),
+                    intent=IntentCriteria(
+                        pain_points=body.pain_points,
+                        business_needs=body.business_needs,
+                        search_terms=body.keywords,
+                        competitors=body.competitors,
+                        exclusions=body.exclusions,
+                    ),
+                ),
+            )
+            created = icp_svc.create(c, profile_payload)
+            if body.set_as_primary:
+                created = icp_svc.set_primary(c, created["id"])
+            result = {
+                "tool": tool_name,
+                "summary": f"Created Ideal Customer Profile '{created['name']}'.",
+                "entity_type": "icp",
+                "entity_id": created["id"],
+                "resource_url": "/intent-radar/ideal-customers",
+                "data": {"id": created["id"], "name": created["name"], "is_primary": bool(created.get("is_primary"))},
+            }
+
+        elif tool_name == "set_primary_icp":
+            body = SetPrimaryIcpParams.model_validate(params)
+            from app.icp import service as icp_svc
+            updated = icp_svc.set_primary(c, body.icp_id)
+            result = {
+                "tool": tool_name,
+                "summary": f"Set '{updated['name']}' as the primary workspace ICP.",
+                "entity_type": "icp",
+                "entity_id": updated["id"],
+                "resource_url": "/intent-radar/ideal-customers",
+                "data": {"id": updated["id"], "name": updated["name"]},
+            }
+
+        elif tool_name == "save_search":
+            body = SaveSearchParams.model_validate(params)
+            from app.intent_radar import discovery_workspace
+            allowed = _allowed_sources(c)
+            chosen_sources = [s for s in body.sources if s in allowed] or [next(iter(allowed), "hacker_news")]
+            saved = discovery_workspace.save_search(
+                c,
+                discovery_workspace.SavedSearchInput(
+                    name=body.name,
+                    description=body.description,
+                    original_prompt=f"AI Assistant saved search: {', '.join(body.keywords)}",
+                    configuration=radar_models.Search(
+                        sources=chosen_sources,
+                        keywords=body.keywords,
+                        min_relevance=body.min_relevance,
+                    ),
+                ),
+            )
+            result = {
+                "tool": tool_name,
+                "summary": f"Saved search template '{saved['name']}'.",
+                "entity_type": "saved_search",
+                "entity_id": saved["id"],
+                "resource_url": "/intent-radar/discover/saved",
+                "data": {"id": saved["id"], "name": saved["name"]},
+            }
+
+        elif tool_name == "run_discovery":
+            body = RunDiscoveryParams.model_validate(params)
+            from app.intent_radar import discovery
+            allowed = _allowed_sources(c)
+            chosen_sources = [s for s in body.sources if s in allowed] or [next(iter(allowed), "hacker_news")]
+            parsed_icp_id = uuid.UUID(body.icp_id) if body.icp_id else None
+            req_id = uuid.uuid5(uuid.NAMESPACE_URL, f"{org}:ai-discovery:{action_id}")
+            disc_payload = radar_models.Discovery(
                 configuration=radar_models.Search(
                     sources=chosen_sources,
                     keywords=body.keywords,
                     min_relevance=body.min_relevance,
+                    icp_id=parsed_icp_id,
                 ),
-            ),
-        )
-        result = {
-            "tool": tool_name,
-            "summary": f"Saved search template '{saved['name']}'.",
-            "entity_type": "saved_search",
-            "entity_id": saved["id"],
-            "resource_url": "/intent-radar/discover/saved",
-            "data": {"id": saved["id"], "name": saved["name"]},
-        }
-
-    elif tool_name == "run_discovery":
-        body = RunDiscoveryParams.model_validate(params)
-        from app.intent_radar import discovery
-        allowed = _allowed_sources(c)
-        chosen_sources = [s for s in body.sources if s in allowed] or [next(iter(allowed), "hacker_news")]
-        req_id = uuid.uuid5(uuid.NAMESPACE_URL, f"{org}:ai-discovery:{action_id}")
-        disc_payload = radar_models.Discovery(
-            configuration=radar_models.Search(
-                sources=chosen_sources,
-                keywords=body.keywords,
-                min_relevance=body.min_relevance,
-                icp_id=uuid.UUID(body.icp_id) if body.icp_id else None,
-            ),
-            request_id=req_id,
-            title=body.title or f"AI Discovery: {', '.join(body.keywords[:3])}"[:120],
-            original_prompt=f"AI Assistant discovery for {', '.join(body.keywords)}",
-        )
-        job = discovery.create(c, disc_payload)
-        launch_job_id = job["id"]
-        disc_id = job.get("discovery_id")
-        result = {
-            "tool": tool_name,
-            "summary": f"Started discovery search across {', '.join(chosen_sources)}.",
-            "entity_type": "discovery",
-            "entity_id": disc_id or job["id"],
-            "job_id": job["id"],
-            "resource_url": f"/intent-radar/discover/runs/{disc_id}" if disc_id else "/intent-radar/discover/history",
-            "data": {"job_id": job["id"], "discovery_id": disc_id, "sources": chosen_sources},
-        }
-
-    elif tool_name == "create_monitor":
-        body = CreateMonitorParams.model_validate(params)
-        allowed = _allowed_sources(c)
-        chosen_sources = [s for s in body.sources if s in allowed] or [next(iter(allowed), "hacker_news")]
-        req_id = uuid.uuid5(uuid.NAMESPACE_URL, f"{org}:ai-monitor:{action_id}")
-        created = radar.save_monitor(
-            c,
-            radar_models.Monitor(
-                name=body.name,
-                description=body.description or f"Created via AI Assistant tracking {', '.join(body.keywords[:4])}",
-                goal=body.goal,
-                status=body.status,
-                configuration=radar_models.Search(sources=chosen_sources, keywords=body.keywords),
                 request_id=req_id,
-            ),
-        )
-        result = {
-            "tool": tool_name,
-            "summary": f"Created {created['status'].lower()} monitor '{created['name']}'.",
-            "entity_type": "monitor",
-            "entity_id": created["id"],
-            "resource_url": "/intent-radar/monitors",
-            "data": {"id": created["id"], "name": created["name"], "status": created["status"]},
-        }
+                title=body.title or f"AI Discovery: {', '.join(body.keywords[:3])}"[:120],
+                original_prompt=f"AI Assistant discovery for {', '.join(body.keywords)}",
+            )
+            job = discovery.create(c, disc_payload)
+            launch_job_id = job["id"]
+            disc_id = job.get("discovery_id")
+            result = {
+                "tool": tool_name,
+                "summary": f"Started discovery search across {', '.join(chosen_sources)} for {', '.join(body.keywords[:4])}.",
+                "entity_type": "discovery",
+                "entity_id": disc_id or job["id"],
+                "job_id": job["id"],
+                "resource_url": f"/intent-radar/discover/runs/{disc_id}" if disc_id else "/intent-radar/discover/history",
+                "data": {"job_id": job["id"], "discovery_id": disc_id, "sources": chosen_sources},
+            }
 
-    elif tool_name == "toggle_monitor":
-        body = ToggleMonitorParams.model_validate(params)
-        old = radar.get(c, "monitors", body.monitor_id)
-        updated = radar.save_monitor(
-            c,
-            radar_models.Monitor(
-                name=old["name"],
-                description=old.get("description") or "",
-                goal=old.get("goal") or "",
-                status=body.status,
-                configuration=radar_models.Search.model_validate(old["configuration"]),
-                revision=old["revision"],
-            ),
-            body.monitor_id,
-        )
-        result = {
-            "tool": tool_name,
-            "summary": f"Updated monitor '{updated['name']}' to {updated['status']}.",
-            "entity_type": "monitor",
-            "entity_id": updated["id"],
-            "resource_url": "/intent-radar/monitors",
-            "data": {"id": updated["id"], "name": updated["name"], "status": updated["status"]},
-        }
+        elif tool_name == "create_monitor":
+            body = CreateMonitorParams.model_validate(params)
+            allowed = _allowed_sources(c)
+            chosen_sources = [s for s in body.sources if s in allowed] or [next(iter(allowed), "hacker_news")]
+            req_id = uuid.uuid5(uuid.NAMESPACE_URL, f"{org}:ai-monitor:{action_id}")
+            created = radar.save_monitor(
+                c,
+                radar_models.Monitor(
+                    name=body.name,
+                    description=body.description or f"Created via AI Assistant tracking {', '.join(body.keywords[:4])}",
+                    goal=body.goal,
+                    status=body.status,
+                    configuration=radar_models.Search(sources=chosen_sources, keywords=body.keywords),
+                    request_id=req_id,
+                ),
+            )
+            result = {
+                "tool": tool_name,
+                "summary": f"Created {created['status'].lower()} monitor '{created['name']}'.",
+                "entity_type": "monitor",
+                "entity_id": created["id"],
+                "resource_url": f"/intent-radar/monitors/{created['id']}",
+                "data": {"id": created["id"], "name": created["name"], "status": created["status"]},
+            }
 
-    elif tool_name == "save_signal":
-        body = SaveSignalParams.model_validate(params)
-        sig = radar.bookmark(c, body.signal_id)
-        result = {
-            "tool": tool_name,
-            "summary": f"Saved '{sig['title'][:80]}' to Research Library.",
-            "entity_type": "signal",
-            "entity_id": sig["id"],
-            "resource_url": f"/intent-radar/signals/{sig['id']}",
-            "data": {"id": sig["id"], "title": sig["title"]},
-        }
+        elif tool_name == "toggle_monitor":
+            body = ToggleMonitorParams.model_validate(params)
+            old = radar.get(c, "monitors", body.monitor_id)
+            updated = radar.save_monitor(
+                c,
+                radar_models.Monitor(
+                    name=old["name"],
+                    description=old.get("description") or "",
+                    goal=old.get("goal") or "",
+                    status=body.status,
+                    configuration=radar_models.Search.model_validate(old["configuration"]),
+                    revision=old["revision"],
+                ),
+                body.monitor_id,
+            )
+            result = {
+                "tool": tool_name,
+                "summary": f"Updated monitor '{updated['name']}' to {updated['status']}.",
+                "entity_type": "monitor",
+                "entity_id": updated["id"],
+                "resource_url": f"/intent-radar/monitors/{updated['id']}",
+                "data": {"id": updated["id"], "name": updated["name"], "status": updated["status"]},
+            }
 
-    elif tool_name == "update_signal_status":
-        body = UpdateSignalStatusParams.model_validate(params)
-        old = radar.get(c, "signals", body.signal_id)
-        sig = radar.review(
-            c,
-            body.signal_id,
-            radar_models.Review(status=body.status, notes=body.notes, revision=old["revision"]),
-        )
-        result = {
-            "tool": tool_name,
-            "summary": f"Updated signal status to {sig['status']}.",
-            "entity_type": "signal",
-            "entity_id": sig["id"],
-            "resource_url": f"/intent-radar/signals/{sig['id']}",
-            "data": {"id": sig["id"], "status": sig["status"]},
-        }
+        elif tool_name == "save_signal":
+            body = SaveSignalParams.model_validate(params)
+            sig = radar.bookmark(c, body.signal_id)
+            result = {
+                "tool": tool_name,
+                "summary": f"Saved '{sig['title'][:80]}' to Research Library.",
+                "entity_type": "signal",
+                "entity_id": sig["id"],
+                "resource_url": f"/intent-radar/signals/{sig['id']}",
+                "data": {"id": sig["id"], "title": sig["title"]},
+            }
 
-    elif tool_name == "create_opportunity":
-        body = CreateOpportunityParams.model_validate(params)
-        opp = radar.opportunity(
-            c,
-            body.signal_id,
-            create_body=radar_models.OpportunityCreate(
-                priority=body.priority,
-                notes=body.notes,
-                next_action=body.next_action,
-            ),
-        )
-        result = {
-            "tool": tool_name,
-            "summary": "Linked opportunity created from signal." if not opp.get("already_existed") else "Opportunity already existed for this signal.",
-            "entity_type": "opportunity",
-            "entity_id": opp["id"],
-            "resource_url": "/intent-radar/opportunities",
-            "data": {"id": opp["id"], "status": opp["status"], "priority": opp["priority"]},
-        }
+        elif tool_name == "update_signal_status":
+            body = UpdateSignalStatusParams.model_validate(params)
+            old = radar.get(c, "signals", body.signal_id)
+            sig = radar.review(
+                c,
+                body.signal_id,
+                radar_models.SignalUpdate(
+                    status=body.status,
+                    notes=body.notes if body.notes is not None else old.get("notes", ""),
+                    revision=old["revision"],
+                ),
+            )
+            result = {
+                "tool": tool_name,
+                "summary": f"Updated signal status to {sig['status']}.",
+                "entity_type": "signal",
+                "entity_id": sig["id"],
+                "resource_url": f"/intent-radar/signals/{sig['id']}",
+                "data": {"id": sig["id"], "status": sig["status"]},
+            }
 
-    elif tool_name == "update_opportunity":
-        body = UpdateOpportunityParams.model_validate(params)
-        old = radar.get(c, "opportunities", body.opportunity_id)
-        opp = radar.opportunity(
-            c,
-            body.opportunity_id,
-            body=radar_models.OpportunityUpdate(
-                status=body.status,
-                priority=body.priority,
-                notes=body.notes,
-                next_action=body.next_action,
-                revision=old["revision"],
-            ),
-        )
-        result = {
-            "tool": tool_name,
-            "summary": f"Updated opportunity to {opp['status']} ({opp['priority']} priority).",
-            "entity_type": "opportunity",
-            "entity_id": opp["id"],
-            "resource_url": "/intent-radar/opportunities",
-            "data": {"id": opp["id"], "status": opp["status"], "priority": opp["priority"]},
-        }
+        elif tool_name == "create_opportunity":
+            body = CreateOpportunityParams.model_validate(params)
+            opp = radar.opportunity(
+                c,
+                body.signal_id,
+                create_body=radar_models.OpportunityCreate(
+                    priority=body.priority,
+                    notes=body.notes,
+                    next_action=body.next_action,
+                ),
+            )
+            result = {
+                "tool": tool_name,
+                "summary": "Linked opportunity created from signal." if not opp.get("already_existed") else "Opportunity already existed for this signal.",
+                "entity_type": "opportunity",
+                "entity_id": opp["id"],
+                "resource_url": "/intent-radar/opportunities",
+                "data": {"id": opp["id"], "status": opp["status"], "priority": opp["priority"]},
+            }
 
-    else:
-        raise HTTPException(400, f"Action tool {tool_name} is not implemented.")
+        elif tool_name == "update_opportunity":
+            body = UpdateOpportunityParams.model_validate(params)
+            old = radar.get(c, "opportunities", body.opportunity_id)
+            opp = radar.opportunity(
+                c,
+                body.opportunity_id,
+                body=radar_models.OpportunityUpdate(
+                    status=body.status or old["status"],
+                    priority=body.priority or old["priority"],
+                    notes=body.notes if body.notes is not None else (old.get("notes") or ""),
+                    next_action=body.next_action if body.next_action is not None else (old.get("next_action") or "Review context"),
+                    assigned_to=old.get("assigned_to"),
+                    revision=old["revision"],
+                ),
+            )
+            result = {
+                "tool": tool_name,
+                "summary": f"Updated opportunity to {opp['status']} ({opp['priority']} priority).",
+                "entity_type": "opportunity",
+                "entity_id": opp["id"],
+                "resource_url": "/intent-radar/opportunities",
+                "data": {"id": opp["id"], "status": opp["status"], "priority": opp["priority"]},
+            }
+
+        else:
+            raise HTTPException(400, f"Action tool {tool_name} is not implemented.")
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(422, f"Invalid parameters for {spec['label']}: {str(exc)[:220]}") from None
 
     _record_ai_audit(
         c,
@@ -877,20 +946,33 @@ def execute_write_tool(c, tool_name: str, params: dict[str, Any], *, action_id: 
     )
     try:
         from app.notifications import center
+        is_async_start = bool(launch_job_id)
+        if getattr(c, "backend", None) == "postgres":
+            c.execute("SAVEPOINT ai_action_notif")
         center.emit(
             c,
             org,
             category="ai",
-            event_type=f"AI_AGENT_{tool_name.upper()}",
-            title=f"AI Assistant completed: {spec['label']}",
+            event_type=f"AI_AGENT_{tool_name.upper()}_STARTED" if is_async_start else f"AI_AGENT_{tool_name.upper()}",
+            title=(
+                f"AI Assistant started: {spec['label']}"
+                if is_async_start
+                else f"AI Assistant completed: {spec['label']}"
+            ),
             description=result["summary"],
             priority="normal",
             resource_url=result["resource_url"],
             dedupe_key=f"ai-action:{action_id}",
             recipient_email=ctx.actor,
         )
+        if getattr(c, "backend", None) == "postgres":
+            c.execute("RELEASE SAVEPOINT ai_action_notif")
     except Exception:
-        pass
+        if getattr(c, "backend", None) == "postgres":
+            try:
+                c.execute("ROLLBACK TO SAVEPOINT ai_action_notif")
+            except Exception:
+                pass
 
     if launch_job_id:
         result["_launch_job_id"] = launch_job_id
@@ -919,7 +1001,9 @@ def list_action_history(c, *, limit: int = 30) -> dict[str, Any]:
             "action": r["action"],
             "tool": details.get("tool") or r["action"].replace("AI_AGENT_", "").lower(),
             "result": r["result"],
-            "summary": exec_res.get("summary") or details.get("summary") or r["action"],
+            "summary": exec_res.get("summary") or details.get("error") or details.get("summary") or r["action"],
+            "error": details.get("error"),
+            "entity_id": exec_res.get("entity_id"),
             "resource_url": exec_res.get("resource_url") or "/intelligence/assistant",
             "created_at": r["created_at"],
         })

@@ -21,7 +21,7 @@ export function saveSignalsReturnContext(ctx: Omit<SignalsReturnContext, "savedA
   }
 }
 
-export function readSignalsReturnContext(): SignalsReturnContext | null {
+export function readSignalsReturnContext(maxAgeMs = 300_000): SignalsReturnContext | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.sessionStorage.getItem(SIGNALS_RETURN_KEY);
@@ -30,14 +30,28 @@ export function readSignalsReturnContext(): SignalsReturnContext | null {
     if (!parsed || typeof parsed.returnUrl !== "string" || !parsed.returnUrl.startsWith("/intent-radar/signals")) {
       return null;
     }
+    const savedAt = typeof parsed.savedAt === "number" ? parsed.savedAt : 0;
+    if (!savedAt || Date.now() - savedAt > maxAgeMs) {
+      window.sessionStorage.removeItem(SIGNALS_RETURN_KEY);
+      return null;
+    }
     return {
       returnUrl: parsed.returnUrl,
       scrollY: typeof parsed.scrollY === "number" ? parsed.scrollY : 0,
       orderedIds: Array.isArray(parsed.orderedIds) ? parsed.orderedIds.filter((x): x is string => typeof x === "string") : [],
-      savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : 0,
+      savedAt,
     };
   } catch {
     return null;
+  }
+}
+
+export function clearSignalsReturnContext() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(SIGNALS_RETURN_KEY);
+  } catch {
+    // ignore
   }
 }
 
@@ -99,8 +113,25 @@ export function buyingIntentDisplay(signal: IntentSignal): { label: string; shor
         };
     }
   }
+  const hasRulePhrase = Boolean(
+    signal.evidence?.intent_phrase &&
+      [
+        "Recommendation request",
+        "Product comparison",
+        "Alternative search",
+        "Tool / service evaluation",
+        "Purchase consideration",
+      ].includes(signal.category)
+  );
+  if (hasRulePhrase) {
+    return {
+      label: `Rule-based indicator (“${signal.evidence.intent_phrase}”) — not yet AI-assessed`,
+      shortLabel: "Rule indicator",
+      tone: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    };
+  }
   return {
-    label: "Not assessed",
+    label: "Not yet AI-assessed",
     shortLabel: "Not assessed",
     tone: "border-border/70 bg-transparent text-muted-foreground",
   };

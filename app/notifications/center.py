@@ -185,6 +185,28 @@ def update_preferences(c, body: NotificationPreferencesUpdate) -> dict:
     return get_preferences(c, actor=actor, org=org)
 
 
+def _severity_for(event_type: str, priority: str, title: str = "") -> str:
+    ev = (event_type or "").upper()
+    t = (title or "").casefold()
+    if any(tok in ev for tok in ("FAILED", "FAILURE", "ERROR", "REVOKED", "SUSPENDED")) or any(
+        tok in t for tok in ("failed", "error", "could not complete")
+    ):
+        return "error"
+    if priority == "urgent":
+        return "error"
+    if (
+        priority == "high"
+        or any(tok in ev for tok in ("UNAVAILABLE", "QUOTA", "LIMIT", "WARNING", "EXPIR", "DECLINED"))
+        or any(tok in t for tok in ("unavailable", "warning", "limit", "quota"))
+    ):
+        return "warning"
+    if any(tok in ev for tok in ("COMPLETED", "CREATED", "ACCEPTED", "VERIFIED", "APPROVED", "ACTIVATED")) or any(
+        tok in t for tok in ("completed", "created", "joined", "verified")
+    ):
+        return "success"
+    return "info"
+
+
 def _encode_description(text: str, meta: dict) -> str:
     payload = {
         "text": text[:600],
@@ -193,33 +215,116 @@ def _encode_description(text: str, meta: dict) -> str:
         "url": meta.get("url") or "/intent-radar",
         "event_type": meta.get("event_type") or "WORKSPACE_EVENT",
         "recipient": meta.get("recipient"),
+        "severity": meta.get("severity") or _severity_for(meta.get("event_type") or "", meta.get("priority", "normal")),
     }
     return META_PREFIX + json.dumps(payload, separators=(",", ":"))
 
 
+def redact_signal_alerts(c, organization_id: str, signal_id: str) -> None:
+    """Redact withdrawn/expired public source text on signal alerts while preserving notification metadata."""
+    rows = c.execute(
+        "SELECT id, description FROM intent_alerts WHERE organization_id=? AND signal_id=?",
+        (organization_id, signal_id),
+    ).fetchall()
+    for row in rows:
+        raw_desc = str(row["description"] or "")
+        if raw_desc.startswith(META_PREFIX):
+            try:
+                parsed = json.loads(raw_desc[len(META_PREFIX) :])
+                if isinstance(parsed, dict):
+                    parsed["text"] = "Source content unavailable"
+                    c.execute(
+                        "UPDATE intent_alerts SET description=? WHERE organization_id=? AND id=?",
+                        (META_PREFIX + json.dumps(parsed, separators=(",", ":")), organization_id, row["id"]),
+                    )
+                    continue
+            except Exception:
+                pass
+        c.execute(
+            "UPDATE intent_alerts SET description='Source content unavailable' WHERE organization_id=? AND id=?",
+            (organization_id, row["id"]),
+        )
+
+
 def _decode_alert_row(row: dict) -> dict:
     raw_desc = str(row.get("description") or "")
-    meta = {
-        "text": raw_desc,
-        "category": "monitoring" if row.get("monitor_id") else "signals",
-        "priority": "normal",
-        "url": f"/intent-radar/signals/{row['signal_id']}" if row.get("signal_id") else "/intent-radar/monitors" if row.get("monitor_id") else "/intent-radar",
-        "event_type": "MONITOR_ALERT",
-        "recipient": None,
-    }
+    event_key = str(row.get("event_key") or "")
+    title = str(row.get("title") or "")
+    monitor_id = row.get("monitor_id")
+    signal_id = row.get("signal_id")
+
     if raw_desc.startswith(META_PREFIX):
+        meta = {
+            "text": "",
+            "category": "monitoring" if monitor_id else "signals",
+            "priority": "normal",
+            "url": (
+                f"/intent-radar/signals/{signal_id}"
+                if signal_id
+                else f"/intent-radar/monitors/{monitor_id}"
+                if monitor_id
+                else "/intent-radar"
+            ),
+            "event_type": "WORKSPACE_EVENT",
+            "recipient": None,
+            "severity": None,
+        }
         try:
             parsed = json.loads(raw_desc[len(META_PREFIX) :])
             if isinstance(parsed, dict):
                 meta.update({k: v for k, v in parsed.items() if v is not None})
         except Exception:
             pass
+    else:
+        # Legacy / plain-text intent_alerts classification (never misclassify ad-hoc discovery failures as Signals or Monitors)
+        is_job_failure = event_key.startswith("job-failure:")
+        is_source_failure = event_key.startswith("source-failure:")
+        if is_job_failure or is_source_failure:
+            if monitor_id:
+                category = "monitoring"
+                event_type = "MONITOR_CHECK_FAILED" if is_job_failure else "MONITOR_SOURCE_FAILED"
+                url = f"/intent-radar/monitors/{monitor_id}"
+            else:
+                category = "discovery"
+                event_type = "DISCOVERY_FAILED" if is_job_failure else "DISCOVERY_SOURCE_FAILED"
+                url = "/intent-radar/discover/history"
+                if title == "Intent monitor check failed":
+                    title = "Discovery search failed"
+            priority = "high"
+        elif monitor_id:
+            category = "monitoring"
+            event_type = "MONITOR_MATCH"
+            priority = "high" if "high-relevance" in title.casefold() else "normal"
+            url = f"/intent-radar/signals/{signal_id}" if signal_id else f"/intent-radar/monitors/{monitor_id}"
+        elif signal_id:
+            category = "signals"
+            event_type = "SIGNAL_ALERT"
+            priority = "normal"
+            url = f"/intent-radar/signals/{signal_id}"
+        else:
+            category = "discovery"
+            event_type = "DISCOVERY_EVENT"
+            priority = "normal"
+            url = "/intent-radar/discover/history"
+        meta = {
+            "text": raw_desc,
+            "category": category,
+            "priority": priority,
+            "url": url,
+            "event_type": event_type,
+            "recipient": None,
+            "severity": None,
+        }
+
+    severity = meta.get("severity") or _severity_for(meta["event_type"], meta["priority"], title)
     return {
         "id": row["id"],
+        "entity_id": row["id"],
         "kind": meta["event_type"],
         "category": meta["category"],
         "priority": meta["priority"],
-        "title": row["title"],
+        "severity": severity,
+        "title": title,
         "description": meta["text"],
         "url": meta["url"],
         "read_at": row.get("read_at"),
@@ -232,19 +337,42 @@ def _decode_alert_row(row: dict) -> dict:
 def _decode_workspace_notif(row: dict) -> dict:
     kind = str(row.get("kind") or "WORKSPACE_UPDATE")
     mapping = {
-        "INVITATION_ACCEPTED": ("Teammate joined workspace", "A team member accepted their workspace invitation.", "security", "normal", "/settings?category=team&tab=members"),
-        "INVITATION_REJECTED": ("Invitation declined", "A pending workspace invitation was declined.", "security", "low", "/settings?category=team&tab=invitations"),
-        "INTENT_RADAR": ("Monitor activity detected", "Scheduled Intent Radar monitoring recorded new activity.", "monitoring", "normal", "/intent-radar/monitors"),
+        "INVITATION_ACCEPTED": (
+            "Teammate joined workspace",
+            "A team member accepted their workspace invitation.",
+            "security",
+            "normal",
+            "success",
+            "/settings?category=team&tab=members",
+        ),
+        "INVITATION_REJECTED": (
+            "Invitation declined",
+            "A pending workspace invitation was declined.",
+            "security",
+            "low",
+            "warning",
+            "/settings?category=team&tab=invitations",
+        ),
+        "INTENT_RADAR": (
+            "Intent Radar activity recorded",
+            "Intent Radar recorded new workspace activity.",
+            "discovery",
+            "normal",
+            "info",
+            "/intent-radar",
+        ),
     }
-    title, desc, cat, prio, url = mapping.get(
+    title, desc, cat, prio, sev, url = mapping.get(
         kind,
-        ("Workspace update", "A workspace event was recorded.", "security", "low", "/intent-radar"),
+        ("Workspace update", "A workspace event was recorded.", "security", "low", "info", "/intent-radar"),
     )
     return {
         "id": row["id"],
+        "entity_id": row.get("entity_id"),
         "kind": kind,
         "category": cat,
         "priority": prio,
+        "severity": sev,
         "title": title,
         "description": desc,
         "url": url,
@@ -364,13 +492,76 @@ def _maybe_queue_email(
         return None
 
 
+def _collect_visible_notifications(c, org: str, actor: str) -> list[dict]:
+    """Return deduplicated, actor-visible notifications across intent_alerts and workspace_notifications."""
+    ws_rows = [
+        dict(r)
+        for r in c.execute(
+            "SELECT id,kind,entity_id,created_at,read_at,user_id FROM workspace_notifications "
+            "WHERE organization_id=? AND user_id=? ORDER BY created_at DESC LIMIT 200",
+            (org, actor),
+        ).fetchall()
+    ]
+    alert_rows = [
+        dict(r)
+        for r in c.execute(
+            "SELECT id,monitor_id,signal_id,event_key,title,description,read_at,created_at FROM intent_alerts "
+            "WHERE organization_id=? ORDER BY created_at DESC LIMIT 300",
+            (org,),
+        ).fetchall()
+    ]
+
+    # Map workspace_notifications(INTENT_RADAR) by entity_id so we NEVER double-list or double-count
+    ws_radar_by_entity: dict[str, dict] = {}
+    items: list[dict] = []
+    for r in ws_rows:
+        if r.get("kind") == "INTENT_RADAR" and r.get("entity_id"):
+            ws_radar_by_entity[str(r["entity_id"])] = r
+        else:
+            items.append(_decode_workspace_notif(r))
+
+    seen_alert_ids: set[str] = set()
+    for r in alert_rows:
+        decoded = _decode_alert_row(r)
+        if decoded.get("recipient") and decoded["recipient"] != actor:
+            continue
+        aid = str(decoded["id"])
+        seen_alert_ids.add(aid)
+        paired_ws = ws_radar_by_entity.get(aid)
+        if paired_ws and paired_ws.get("read_at") and not decoded.get("read_at"):
+            decoded["read_at"] = paired_ws["read_at"]
+        items.append(decoded)
+
+    # For any legacy workspace_notifications(INTENT_RADAR) whose entity_id was outside the 300-row window,
+    # check if it exists in intent_alerts; skip duplicates and only keep genuine orphan records.
+    orphan_entities = [eid for eid in ws_radar_by_entity if eid not in seen_alert_ids]
+    if orphan_entities:
+        placeholders = ",".join("?" for _ in orphan_entities)
+        existing_ids = {
+            str(r["id"])
+            for r in c.execute(
+                f"SELECT id FROM intent_alerts WHERE organization_id=? AND id IN ({placeholders})",
+                [org, *orphan_entities],
+            ).fetchall()
+        }
+        for eid in orphan_entities:
+            if eid not in existing_ids:
+                items.append(_decode_workspace_notif(ws_radar_by_entity[eid]))
+
+    items.sort(key=lambda x: x["created_at"], reverse=True)
+    return items
+
+
 def list_notifications(
     c,
     *,
     category: str | None = None,
     status: str = "all",
     priority: str | None = None,
+    severity: str | None = None,
     search: str = "",
+    from_date: str | None = None,
+    to_date: str | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> dict:
@@ -378,26 +569,17 @@ def list_notifications(
     org = ctx.organization_id
     actor = ctx.actor
 
-    items: list[dict] = []
-    # 1. Workspace notifications targeted to this user
-    for r in c.execute(
-        "SELECT id,kind,entity_id,created_at,read_at,user_id FROM workspace_notifications WHERE organization_id=? AND user_id=? ORDER BY created_at DESC LIMIT 100",
-        (org, actor),
-    ).fetchall():
-        items.append(_decode_workspace_notif(dict(r)))
-
-    # 2. Rich workspace intent alerts (broadcast or targeted to this user)
-    for r in c.execute(
-        "SELECT id,monitor_id,signal_id,event_key,title,description,read_at,created_at FROM intent_alerts WHERE organization_id=? ORDER BY created_at DESC LIMIT 200",
-        (org,),
-    ).fetchall():
-        decoded = _decode_alert_row(dict(r))
-        if decoded.get("recipient") and decoded["recipient"] != actor:
-            continue
-        items.append(decoded)
-
-    items.sort(key=lambda x: x["created_at"], reverse=True)
+    items = _collect_visible_notifications(c, org, actor)
     unread_count = sum(1 for i in items if not i.get("read_at"))
+
+    category_counts: dict[str, int] = {"all": len(items), **{cat: 0 for cat in CATEGORIES}}
+    unread_by_category: dict[str, int] = {"all": unread_count, **{cat: 0 for cat in CATEGORIES}}
+    for item in items:
+        cat = item.get("category") or "signals"
+        if cat in category_counts:
+            category_counts[cat] += 1
+            if not item.get("read_at"):
+                unread_by_category[cat] += 1
 
     q = search.strip().casefold()
     filtered = []
@@ -410,19 +592,27 @@ def list_notifications(
             continue
         if priority and priority != "all" and item["priority"] != priority:
             continue
-        if q and q not in f"{item['title']} {item['description']} {item['category']}".casefold():
+        if severity and severity != "all" and item.get("severity") != severity:
+            continue
+        if from_date and str(item["created_at"])[:10] < from_date[:10]:
+            continue
+        if to_date and str(item["created_at"])[:10] > to_date[:10]:
+            continue
+        if q and q not in f"{item['title']} {item['description']} {item['category']} {item['kind']}".casefold():
             continue
         filtered.append(item)
 
     total = len(filtered)
     start = max(0, (page - 1) * page_size)
     page_items = [
-        {k: v for k, v in item.items() if k not in ("source_table", "recipient")}
+        {k: v for k, v in item.items() if k not in ("source_table", "recipient", "entity_id")}
         for item in filtered[start : start + page_size]
     ]
     return {
         "items": page_items,
         "unread_count": unread_count,
+        "category_counts": category_counts,
+        "unread_by_category": unread_by_category,
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -430,38 +620,103 @@ def list_notifications(
     }
 
 
+def _set_read_state(c, org: str, actor: str, notification_id: str, read: bool) -> bool:
+    stamp = now() if read else None
+    updated = False
+    row = c.execute(
+        "SELECT id,monitor_id,signal_id,event_key,title,description,read_at,created_at FROM intent_alerts WHERE organization_id=? AND id=?",
+        (org, notification_id),
+    ).fetchone()
+    if row:
+        decoded = _decode_alert_row(dict(row))
+        if decoded.get("recipient") and decoded["recipient"] != actor:
+            return False
+        c.execute(
+            "UPDATE intent_alerts SET read_at=? WHERE organization_id=? AND id=?",
+            (stamp, org, notification_id),
+        )
+        c.execute(
+            "UPDATE workspace_notifications SET read_at=? WHERE organization_id=? AND user_id=? AND entity_id=?",
+            (stamp, org, actor, notification_id),
+        )
+        updated = True
+
+    ws = c.execute(
+        "SELECT id,entity_id FROM workspace_notifications WHERE organization_id=? AND user_id=? AND id=?",
+        (org, actor, notification_id),
+    ).fetchone()
+    if ws:
+        c.execute(
+            "UPDATE workspace_notifications SET read_at=? WHERE organization_id=? AND user_id=? AND id=?",
+            (stamp, org, actor, notification_id),
+        )
+        if ws["entity_id"]:
+            linked = c.execute(
+                "SELECT id,monitor_id,signal_id,event_key,title,description,read_at,created_at FROM intent_alerts WHERE organization_id=? AND id=?",
+                (org, ws["entity_id"]),
+            ).fetchone()
+            if linked:
+                dec = _decode_alert_row(dict(linked))
+                if not dec.get("recipient") or dec["recipient"] == actor:
+                    c.execute(
+                        "UPDATE intent_alerts SET read_at=? WHERE organization_id=? AND id=?",
+                        (stamp, org, ws["entity_id"]),
+                    )
+        updated = True
+    return updated
+
+
 def mark_read(c, notification_id: str) -> dict:
     ctx, _ = _require_member(c)
+    if not _set_read_state(c, ctx.organization_id, ctx.actor, notification_id, True):
+        raise HTTPException(404, "Notification not found.")
+    return {"id": notification_id, "read_at": now()}
+
+
+def mark_unread(c, notification_id: str) -> dict:
+    ctx, _ = _require_member(c)
+    if not _set_read_state(c, ctx.organization_id, ctx.actor, notification_id, False):
+        raise HTTPException(404, "Notification not found.")
+    return {"id": notification_id, "read_at": None}
+
+
+class BulkNotificationAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ids: list[str] = Field(min_length=1, max_length=100)
+    action: Literal["read", "unread"] = "read"
+
+
+def bulk_update(c, body: BulkNotificationAction) -> dict:
+    ctx, _ = _require_member(c)
     org = ctx.organization_id
     actor = ctx.actor
-    stamp = now()
-    n1 = c.execute(
-        "UPDATE intent_alerts SET read_at=COALESCE(read_at,?) WHERE organization_id=? AND id=?",
-        (stamp, org, notification_id),
-    ).rowcount
-    n2 = c.execute(
-        "UPDATE workspace_notifications SET read_at=COALESCE(read_at,?) WHERE organization_id=? AND user_id=? AND id=?",
-        (stamp, org, actor, notification_id),
-    ).rowcount
-    if not (n1 or n2):
-        raise HTTPException(404, "Notification not found.")
-    return {"id": notification_id, "read_at": stamp}
+    want_read = body.action == "read"
+    succeeded = 0
+    failed: list[str] = []
+    for nid in dict.fromkeys(body.ids):
+        if _set_read_state(c, org, actor, nid, want_read):
+            succeeded += 1
+        else:
+            failed.append(nid)
+    return {"updated": succeeded, "failed": failed, "action": body.action}
 
 
-def mark_all_read(c) -> dict:
+def mark_all_read(c, *, category: str | None = None) -> dict:
     ctx, _ = _require_member(c)
     org = ctx.organization_id
     actor = ctx.actor
     stamp = now()
-    n1 = c.execute(
-        "UPDATE intent_alerts SET read_at=? WHERE organization_id=? AND read_at IS NULL",
-        (stamp, org),
-    ).rowcount
-    n2 = c.execute(
-        "UPDATE workspace_notifications SET read_at=? WHERE organization_id=? AND user_id=? AND read_at IS NULL",
-        (stamp, org, actor),
-    ).rowcount
-    return {"marked_read": int(n1) + int(n2), "read_at": stamp}
+    visible = _collect_visible_notifications(c, org, actor)
+    targets = [
+        item
+        for item in visible
+        if not item.get("read_at") and (not category or category == "all" or item.get("category") == category)
+    ]
+    marked = 0
+    for item in targets:
+        if _set_read_state(c, org, actor, item["id"], True):
+            marked += 1
+    return {"marked_read": marked, "read_at": stamp}
 
 
 def send_test_email(c) -> dict:

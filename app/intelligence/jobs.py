@@ -235,7 +235,37 @@ async def _execute(key,db_path):
                         if cancelled:c.execute("UPDATE intelligence_job_items SET status='CANCELLED',error_code='DISCOVERY_INVALIDATED',updated_at=? WHERE id=?",(now(),item['id']))
                         c.commit();return
                     descriptor=radar.get(c,'discoveries',item['resource_id'])
-                    if radar.preferences(c)['alerts_enabled']:radar.alert(c,'job-failure:'+key,'Intent monitor check failed','The source check did not complete. Review its job history before retrying.',descriptor['monitor_id'],actor=row['created_by'])
+                    if radar.preferences(c)['alerts_enabled']:
+                        from app.notifications import center
+                        mon_id = descriptor.get('monitor_id')
+                        err_label = type(exc).__name__
+                        if mon_id:
+                            center.emit(
+                                c,
+                                row['organization_id'],
+                                category='monitoring',
+                                event_type='MONITOR_CHECK_FAILED',
+                                title='Monitor check failed',
+                                description=f'The monitor source check did not complete ({err_label}). Review run history before retrying.',
+                                priority='high',
+                                resource_url=f'/intent-radar/monitors/{mon_id}',
+                                dedupe_key='job-failure:' + key,
+                                monitor_id=mon_id,
+                                recipient_email=row['created_by'],
+                            )
+                        else:
+                            center.emit(
+                                c,
+                                row['organization_id'],
+                                category='discovery',
+                                event_type='DISCOVERY_FAILED',
+                                title='Discovery search failed',
+                                description=f'The discovery run did not complete ({err_label}). Open run details to inspect source status and retry.',
+                                priority='high',
+                                resource_url=f"/intent-radar/discover/runs/{item['resource_id']}",
+                                dedupe_key='job-failure:' + key,
+                                recipient_email=row['created_by'],
+                            )
                 c.execute("UPDATE intelligence_job_items SET status='FAILED',error_code=?,updated_at=? WHERE id=?",(type(exc).__name__,now(),item['id']));c.commit()
         pending=c.execute("SELECT COUNT(*) FROM intelligence_job_items WHERE job_id=? AND status IN ('FAILED','QUEUED','PROCESSING')",(key,)).fetchone()[0]
         c.execute("UPDATE intelligence_jobs SET status=?,lease_owner=NULL,lease_until=NULL,completed_at=?,updated_at=? WHERE id=? AND organization_id=? AND status='RUNNING' AND lease_owner=? AND lease_until>?",('PARTIAL' if pending else 'COMPLETED',now(),now(),key,row['organization_id'],lease,now()))

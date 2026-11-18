@@ -68,6 +68,7 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
   const [fbLabel, setFbLabel] = useState<string>(s.feedback_label || "");
   const [fbNote, setFbNote] = useState("");
   const [fbSavedMsg, setFbSavedMsg] = useState("");
+  const [showAllActivity, setShowAllActivity] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<{
     message: string;
@@ -84,6 +85,13 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
     setNotes(s.notes || "");
     setFbLabel(s.feedback_label || "");
   }, [s.id, s.notes, s.feedback_label]);
+
+  useEffect(() => {
+    const activeFb = feedbackHistory.data?.feedback?.items?.find((f) => f.active);
+    if (activeFb?.note) {
+      setFbNote((prev) => (prev ? prev : activeFb.note || ""));
+    }
+  }, [feedbackHistory.data?.feedback?.items]);
 
   useEffect(() => {
     const ctx = readSignalsReturnContext();
@@ -113,16 +121,17 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
     setError("");
     const prevStatus = s.status;
     try {
-      await mutation.mutateAsync({
+      const updated = (await mutation.mutateAsync({
         path: `/signals/${s.id}`,
         method: "PATCH",
         body: { revision: s.revision, status: nextStatus, ...(saveNotes ? { notes } : {}) },
-      });
+      })) as IntentSignal | undefined;
+      const nextRev = typeof updated?.revision === "number" ? updated.revision : s.revision + 1;
       setDismissConfirm(false);
       if (!saveNotes && nextStatus !== prevStatus) {
         setNotice({
           message: `Signal status updated to ${nextStatus}.`,
-          undo: { revision: s.revision + 1, previousStatus: prevStatus },
+          undo: { revision: nextRev, previousStatus: prevStatus },
         });
       } else if (saveNotes) {
         setNotice({ message: "Review notes saved." });
@@ -419,13 +428,15 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
                   type="button"
                   disabled={disabled}
                   onClick={() => void updateReview("Dismissed")}
-                  className="inline-flex h-8 items-center rounded-lg bg-destructive px-3 text-xs font-semibold text-white cursor-pointer"
+                  style={{ background: "#dc2626", borderColor: "#dc2626", color: "#ffffff", minHeight: "32px" }}
+                  className="inline-flex h-8 items-center rounded-lg px-3 text-xs font-semibold cursor-pointer"
                 >
                   Confirm Dismiss
                 </button>
                 <button
                   type="button"
                   onClick={() => setDismissConfirm(false)}
+                  style={{ minHeight: "32px" }}
                   className="inline-flex h-8 items-center rounded-lg border border-border bg-card px-2.5 text-xs text-foreground cursor-pointer"
                 >
                   Cancel
@@ -537,7 +548,7 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
           </section>
 
           {/* 3. AI Intelligence Panel */}
-          <SignalIntelligencePanel id={s.id} />
+          <SignalIntelligencePanel id={s.id} available={s.available} />
         </div>
 
         {/* Right Column: Provenance + Unified Notes, Feedback & Activity */}
@@ -569,9 +580,31 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
               {prov.author && (
                 <div className="flex items-start justify-between gap-2">
                   <dt className="text-muted-foreground">Public author</dt>
-                  <dd className="font-medium text-foreground text-right">{prov.author}</dd>
+                  <dd className="font-medium text-foreground text-right">
+                    {prov.authorUrl?.startsWith("http") ? (
+                      <a
+                        href={prov.authorUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        {prov.author} <ArrowUpRight size={11} />
+                      </a>
+                    ) : (
+                      prov.author
+                    )}
+                  </dd>
                 </div>
               )}
+              {typeof s.evidence?.provenance?.attribution === "object" &&
+                s.evidence?.provenance?.attribution?.license && (
+                  <div className="flex items-start justify-between gap-2">
+                    <dt className="text-muted-foreground">License</dt>
+                    <dd className="font-medium text-foreground text-right">
+                      {s.evidence.provenance.attribution.license}
+                    </dd>
+                  </div>
+                )}
               <div className="flex items-start justify-between gap-2">
                 <dt className="text-muted-foreground">Observed</dt>
                 <dd className="text-foreground text-right whitespace-nowrap" title={observed.full}>
@@ -670,16 +703,28 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
 
             <div className="flex items-center justify-between gap-2 text-[11px]">
               <span className="text-emerald-700 dark:text-emerald-300">{fbSavedMsg}</span>
-              {fbLabel && (
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => void submitFeedback(fbLabel, false)}
-                  className="text-muted-foreground hover:text-foreground underline cursor-pointer"
-                >
-                  Clear my feedback
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {fbLabel && fbNote.trim() && (
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => void submitFeedback(fbLabel, true)}
+                    className="rounded-md border border-primary/40 bg-primary/10 px-2 py-0.5 font-semibold text-primary hover:bg-primary/15 cursor-pointer"
+                  >
+                    Save feedback note
+                  </button>
+                )}
+                {fbLabel && (
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => void submitFeedback(fbLabel, false)}
+                    className="text-muted-foreground hover:text-foreground underline cursor-pointer"
+                  >
+                    Clear my feedback
+                  </button>
+                )}
+              </div>
             </div>
           </section>
 
@@ -722,17 +767,26 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
                 Activity History
               </h2>
               <ol className="space-y-2.5 border-l border-border pl-3.5 text-xs">
-                {s.activity.slice(0, 10).map((ev, idx) => (
+                {(showAllActivity ? s.activity : s.activity.slice(0, 10)).map((ev, idx) => (
                   <li key={`${ev.kind}-${ev.at}-${idx}`} className="space-y-0.5">
                     <p className="font-medium text-foreground">{ev.title}</p>
                     {ev.detail && <p className="text-[11px] text-muted-foreground break-words">{ev.detail}</p>}
-                    <p className="text-[10px] text-muted-foreground">
-                      {ev.at ? formatObservedDate(ev.at).short : ""}
+                    <p className="text-[10px] text-muted-foreground" title={ev.at ? formatObservedDate(ev.at).full : ""}>
+                      {ev.at ? formatObservedDate(ev.at).full : ""}
                       {ev.actor ? ` · ${ev.actor}` : ""}
                     </p>
                   </li>
                 ))}
               </ol>
+              {s.activity.length > 10 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllActivity((v) => !v)}
+                  className="text-xs font-medium text-primary hover:underline cursor-pointer"
+                >
+                  {showAllActivity ? "Show fewer events" : `Show all ${s.activity.length} events`}
+                </button>
+              )}
             </section>
           )}
         </aside>

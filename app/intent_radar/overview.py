@@ -32,7 +32,7 @@ def previews(c,organization_id):
         '''+array('SELECT * FROM opportunities',OPPORTUNITY_COLUMNS)+''' opportunities,
         '''+array('SELECT s.*,'+rank_expression('s')+' adjusted_score,'+explanation+' rank_explanation FROM intent_signals s WHERE s.organization_id=? AND s.id IN (SELECT id FROM needed)',[*SIGNAL_COLUMNS,'adjusted_score','rank_explanation'])+''' signals,
         '''+array('SELECT * FROM intent_monitors WHERE organization_id=? ORDER BY created_at DESC,id LIMIT 5',MONITOR_COLUMNS)+''' monitors,
-        '''+array('SELECT * FROM intent_alerts WHERE organization_id=? ORDER BY created_at DESC,id LIMIT 5',ALERT_COLUMNS)+''' alerts,
+        '''+array("SELECT * FROM intent_alerts WHERE organization_id=? AND (description NOT LIKE '__pb_notif__:%' OR monitor_id IS NOT NULL OR signal_id IS NOT NULL) ORDER BY created_at DESC,id LIMIT 5",ALERT_COLUMNS)+''' alerts,
         '''+array('SELECT x.signal_id,m.id,m.name FROM intent_monitor_signals x JOIN intent_monitors m ON m.id=x.monitor_id AND m.organization_id=x.organization_id WHERE x.organization_id=? AND x.signal_id IN (SELECT id FROM needed)',('signal_id','id','name'))+''' links,
         '''+array('SELECT signal_id FROM intent_saved_signals WHERE organization_id=? AND signal_id IN (SELECT id FROM needed)',('signal_id',))+''' saved''',
         (org,org,now(),org,org,org,org,org,org)).fetchone())
@@ -62,4 +62,12 @@ def previews(c,organization_id):
         item=decode(row);signal=signals.get(item['signal_id'])
         if signal is None:raise HTTPException(404,'Signal not found in this workspace.')
         item.update(score=signal['score'],ranking=signal['ranking'],signal=signal,opportunity_eligibility=signal['opportunity_eligibility']);opportunities.append(item)
-    return {'recent_signals':recent,'monitors':[decode(r) for r in result['monitors']],'opportunities':opportunities,'alerts':[decode(r) for r in result['alerts']]}
+    from app.notifications.center import _decode_alert_row
+    decoded_alerts = []
+    for r in result['alerts']:
+        item = decode(r)
+        if str(item.get('description') or '').startswith('__pb_notif__:'):
+            dec = _decode_alert_row(item)
+            item['description'] = dec['description']
+        decoded_alerts.append(item)
+    return {'recent_signals':recent,'monitors':[decode(r) for r in result['monitors']],'opportunities':opportunities,'alerts':decoded_alerts}

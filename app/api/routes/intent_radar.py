@@ -1,3 +1,4 @@
+import asyncio
 from uuid import UUID
 from typing import Literal
 from datetime import date
@@ -255,30 +256,7 @@ def signal(key:UUID,c=Depends(get_db,scope='function')):return service.get(c,'si
 def review(key:UUID,body:models.SignalUpdate,c=Depends(get_db,scope='function')):return service.review(c,str(key),body)
 @router.post('/signals/actions')
 def bulk(body:models.Bulk,c=Depends(get_db,scope='function')):
-    context(c,True)
-    keys=list(dict.fromkeys(map(str,body.ids)))
-    for key in keys:service.get(c,'signals',key)
-    updated=0
-    skipped:list[dict]=[]
-    for key in keys:
-        if body.action=='save':
-            service.bookmark(c,key);updated+=1
-        elif body.action=='unsave':
-            service.bookmark(c,key,remove=True);updated+=1
-        elif body.action=='opportunity':
-            try:
-                service.opportunity(c,key);updated+=1
-            except HTTPException as exc:
-                if exc.status_code==409:
-                    skipped.append({'id':key,'reason':str(exc.detail)})
-                else:
-                    raise
-        else:
-            status_map={'review':'Reviewed','qualify':'Qualified','dismiss':'Dismissed'}
-            old=service.get(c,'signals',key)
-            service.review(c,key,models.SignalUpdate(revision=old['revision'],status=status_map[body.action]))
-            updated+=1
-    return {'updated':updated,'skipped':skipped}
+    return service.bulk_action(c,body)
 @router.get('/saved')
 def saved(page:int=Query(1,ge=1,le=10000),page_size:int=Query(25,ge=1,le=100),search:str=Query('',max_length=120),collection:str=Query('',max_length=100),sort:Literal['newest','oldest','collection']='newest',c=Depends(get_db,scope='function')):return service.saved(c,page=page,size=page_size,search=search,collection=collection,sort=sort)
 @router.post('/saved/{key}')
@@ -453,16 +431,22 @@ async def assistant_chat_stream(body:assistant_chat.ChatRequest,c=Depends(get_db
     )
 
 @router.post('/assistant/actions/{action_id}/execute')
-async def assistant_action_execute(action_id:UUID,c=Depends(get_db,scope='function')):
+async def assistant_action_execute(action_id:UUID):
+    from app.database.connection import db_session
     def prepare():
-        res=assistant_chat.execute_proposal(c,str(action_id))
-        c.commit()
-        return res
+        with db_session() as c:
+            res=assistant_chat.execute_proposal(c,str(action_id))
+            c.commit()
+            return res
     res=await run_in_threadpool(prepare)
     launch_job_id=res.pop('_launch_job_id',None)
     if launch_job_id:
         from app.intelligence.dispatch import launch
-        await launch(launch_job_id)
+        try:
+            await asyncio.wait_for(launch(launch_job_id),timeout=12)
+        except Exception:
+            # Job is already persisted and queued; scheduler/worker will pick it up safely
+            res.setdefault('result',{}).setdefault('dispatch_note','Discovery queued for background execution.')
     return res
 
 @router.post('/assistant/actions/{action_id}/decline')

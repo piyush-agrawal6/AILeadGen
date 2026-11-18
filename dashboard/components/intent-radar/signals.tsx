@@ -24,6 +24,8 @@ function isMarketIntelligenceSignal(signal: IntentSignal): boolean {
   const kind = signal.evidence?.provenance?.content_kind || "";
   return (
     signal.category === "Market / technology intelligence" ||
+    kind === "release" ||
+    kind === "paper" ||
     kind === "release_announcement" ||
     kind === "research_paper"
   );
@@ -32,9 +34,19 @@ function isMarketIntelligenceSignal(signal: IntentSignal): boolean {
 export function SignalCard({
   signal: s,
   onOpen,
+  selected,
+  onToggleSelect,
+  onQualify,
+  onDismiss,
+  onOpenOpportunity,
 }: {
   signal: IntentSignal;
   onOpen?: (id: string) => void;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
+  onQualify?: (signal: IntentSignal) => void;
+  onDismiss?: (signal: IntentSignal) => void;
+  onOpenOpportunity?: (signal: IntentSignal) => void;
 }) {
   const mutation = useRadarMutation();
   const access = useRadarCapabilities();
@@ -64,6 +76,16 @@ export function SignalCard({
       <div className="space-y-2.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2 min-w-0">
+            {onToggleSelect && (
+              <input
+                type="checkbox"
+                checked={Boolean(selected)}
+                onChange={() => onToggleSelect(s.id)}
+                aria-label={`Select ${s.title}`}
+                style={{ width: "15px", height: "15px", minWidth: "15px", padding: 0 }}
+                className="accent-primary cursor-pointer shrink-0"
+              />
+            )}
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <ProviderLogo provider={s.source} size={18} />
               <span className="truncate">{s.source}</span>
@@ -145,11 +167,12 @@ export function SignalCard({
             {s.saved ? "Saved" : "Save signal"}
           </button>
 
-          {s.status === "New" && (
+          {(s.status === "New" || s.status === "Needs Review" || s.status === "In Review") && (
             <button
               type="button"
               disabled={disabled}
               aria-label={"Mark reviewed: " + s.title}
+              title="Mark Reviewed"
               onClick={() =>
                 mutation.mutate({
                   path: "/signals/" + s.id,
@@ -160,6 +183,48 @@ export function SignalCard({
               className="inline-flex items-center justify-center rounded-lg border border-border bg-card p-1.5 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
             >
               <CheckCheck size={15} />
+            </button>
+          )}
+
+          {onQualify && s.status !== "Qualified" && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onQualify(s)}
+              className="inline-flex items-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-50 cursor-pointer"
+            >
+              Qualify
+            </button>
+          )}
+
+          {onOpenOpportunity && (
+            s.opportunity_id ? (
+              <Link
+                href={`/intent-radar/opportunities/${s.opportunity_id}`}
+                className="inline-flex items-center rounded-lg border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-primary/15"
+              >
+                View Opportunity
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onOpenOpportunity(s)}
+                className="inline-flex items-center rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-medium text-foreground hover:border-primary/50 hover:text-primary disabled:opacity-50 cursor-pointer"
+              >
+                Opportunity
+              </button>
+            )
+          )}
+
+          {onDismiss && s.status !== "Dismissed" && (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onDismiss(s)}
+              className="inline-flex items-center rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-medium text-muted-foreground hover:border-destructive/40 hover:text-destructive disabled:opacity-50 cursor-pointer"
+            >
+              Dismiss
             </button>
           )}
 

@@ -75,30 +75,46 @@ function OverviewContent({d}:{d:IntentOverview&Summary}){
         <Radio size={15} className="text-muted-foreground"/>
         <h3>Background monitoring</h3>
        </div>
-       {d.operations?.scheduler_heartbeat_fresh?(
+       {d.active_monitors>0&&d.operations?.scheduler_heartbeat_fresh?(
         <span className="pb-status-badge is-active"><span className="pb-status-dot pulse"/>Active</span>
+       ):d.active_monitors>0?(
+        <span className="pb-status-badge is-idle"><span className="pb-status-dot"/>Scheduled</span>
        ):(
-        <span className="pb-status-badge is-idle"><span className="pb-status-dot"/>Idle</span>
+        <span className="pb-status-badge is-idle"><span className="pb-status-dot"/>Not configured</span>
        )}
       </div>
       <div className="pb-dash-stat-grid">
        <div className="pb-dash-stat-tile">
-        <span className="pb-dash-stat-val">{d.operations?.backlog??0}</span>
-        <span className="pb-dash-stat-lbl">Queued checks</span>
+        <span className="pb-dash-stat-val">{d.active_monitors}</span>
+        <span className="pb-dash-stat-lbl">Active monitors</span>
        </div>
        <div className="pb-dash-stat-tile">
-        <span className="pb-dash-stat-val text-sm font-semibold truncate">{d.operations?.scheduler_heartbeat_fresh?'Healthy':'Standby'}</span>
-        <span className="pb-dash-stat-lbl truncate">{d.operations?.scheduler_heartbeat_at?new Date(d.operations.scheduler_heartbeat_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'No check-in'}</span>
+        <span className="pb-dash-stat-val text-sm font-semibold truncate">
+         {d.active_monitors===0?'None running':d.operations?.scheduler_heartbeat_fresh?'Healthy':'Standby'}
+        </span>
+        <span className="pb-dash-stat-lbl truncate">
+         {d.active_monitors===0
+          ?'0 queued checks'
+          :d.operations?.backlog
+           ?`${d.operations.backlog} queued check${d.operations.backlog===1?'':'s'}`
+           :d.operations?.scheduler_heartbeat_at
+            ?`Heartbeat ${new Date(d.operations.scheduler_heartbeat_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`
+            :'Ready for schedule'}
+        </span>
        </div>
       </div>
       <p className="pb-dash-card-desc">
-       {d.operations?.scheduler_heartbeat_fresh
-        ?'Scheduler active. Checks run on scheduled cadence.'
-        :'Checks run automatically based on monitor configuration.'}
+       {d.active_monitors===0
+        ?'No active monitors in this workspace yet. Create a monitor to automate recurring checks.'
+        :d.operations?.scheduler_heartbeat_fresh
+         ?'Scheduler healthy. Active monitors run on their configured cadence.'
+         :'Active monitors can be checked on demand or on their configured schedule.'}
       </p>
      </div>
      <div className="pb-dash-card-footer">
-      <Link className="ir-link" href="/intent-radar/monitors">Monitor history & runs <ArrowRight size={13}/></Link>
+      <Link className="ir-link" href={d.active_monitors===0?'/intent-radar/monitors/new':'/intent-radar/monitors'}>
+       {d.active_monitors===0?'Create your first monitor':'Manage monitors & runs'} <ArrowRight size={13}/>
+      </Link>
      </div>
     </section>
 

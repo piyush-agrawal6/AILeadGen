@@ -43,6 +43,21 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
     for (const key of ["content-type", "content-disposition", "x-accel-buffering", "x-le-cache", "server-timing", "retry-after", "www-authenticate", "mcp-protocol-version", "mcp-session-id", "x-ratelimit-limit", "x-ratelimit-remaining"]) { const value = upstream.headers.get(key); if (value) responseHeaders.set(key, value); }
     if (upstream.headers.get("content-type")?.includes("text/html")) responseHeaders.set("content-security-policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:");
     return new Response(upstream.body, { status: upstream.status, headers: responseHeaders });
-  } catch { return Response.json({ detail: "The engine is temporarily unavailable. Please retry." }, { status: 502 }); }
+  } catch (err) {
+    const isTimeout =
+      err instanceof Error &&
+      (err.name === "TimeoutError" || err.name === "AbortError" || err.message.toLowerCase().includes("timeout"));
+    console.error("[api-proxy] Upstream request failed:", request.method, apiPath, err instanceof Error ? `${err.name}: ${err.message}` : err);
+    if (isTimeout) {
+      return Response.json(
+        { detail: "Request timed out while waiting for the PlaneByte API. Please retry." },
+        { status: 504 },
+      );
+    }
+    return Response.json(
+      { detail: "Could not reach the PlaneByte API service. Please retry in a moment." },
+      { status: 502 },
+    );
+  }
 }
 export { forward as DELETE,forward as GET,forward as PATCH,forward as POST,forward as PUT };

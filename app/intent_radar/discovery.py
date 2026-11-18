@@ -132,7 +132,8 @@ async def process(c,key,job_id=None,lease_owner=None):
                     if removed:
                         c.execute('DELETE FROM intent_analyses WHERE organization_id=? AND signal_id=?',(ctx.organization_id,removed['id']))
                         c.execute('DELETE FROM intent_rankings WHERE organization_id=? AND signal_id=?',(ctx.organization_id,removed['id']))
-                        c.execute("UPDATE intent_alerts SET description='Source content unavailable' WHERE organization_id=? AND signal_id=?",(ctx.organization_id,removed['id']))
+                        from app.notifications import center
+                        center.redact_signal_alerts(c, ctx.organization_id, removed['id'])
                     continue
                 item=classify(raw,query)
                 if not item or len(found)>=query.result_limit or len(found)-provider_start>=provider_limit:continue
@@ -162,7 +163,36 @@ async def process(c,key,job_id=None,lease_owner=None):
             if len(query.sources)==1:
                 c.execute('INSERT INTO intent_source_runs(organization_id,discovery_id,provider,status,result_json,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(organization_id,discovery_id,provider) DO UPDATE SET status=excluded.status,result_json=excluded.result_json,updated_at=excluded.updated_at',(ctx.organization_id,key,provider,report['status'],json.dumps(report),now()))
                 c.commit();raise
-            if service.preferences(c)['alerts_enabled']:service.alert(c,'source-failure:'+key+':'+provider,'Intent source unavailable',provider+': '+report['status'],discovery['monitor_id'],actor=discovery['created_by'])
+            if service.preferences(c)['alerts_enabled']:
+                from app.notifications import center
+                mon_id = discovery.get('monitor_id')
+                if mon_id:
+                    center.emit(
+                        c,
+                        ctx.organization_id,
+                        category='monitoring',
+                        event_type='MONITOR_SOURCE_FAILED',
+                        title=f'Monitor source unavailable ({provider})',
+                        description=f'{provider}: {report["status"]}. Remaining configured sources continued.',
+                        priority='high',
+                        resource_url=f'/intent-radar/monitors/{mon_id}',
+                        dedupe_key='source-failure:' + key + ':' + provider,
+                        monitor_id=mon_id,
+                        recipient_email=discovery['created_by'],
+                    )
+                else:
+                    center.emit(
+                        c,
+                        ctx.organization_id,
+                        category='discovery',
+                        event_type='DISCOVERY_SOURCE_FAILED',
+                        title=f'Discovery source unavailable ({provider})',
+                        description=f'{provider}: {report["status"]}. Remaining selected sources continued.',
+                        priority='high',
+                        resource_url=f'/intent-radar/discover/runs/{key}',
+                        dedupe_key='source-failure:' + key + ':' + provider,
+                        recipient_email=discovery['created_by'],
+                    )
         report['new_signal_ids']=[signal_id for signal_id in report.get('signals',[]) if signal_id in new_ids]
         if query.semantic:report['candidates_retained']=len(report.get('signals',[]));report['matched']=0
         reports.append(report)
