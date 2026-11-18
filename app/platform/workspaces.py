@@ -123,46 +123,108 @@ def leave_workspace(c,actor,organization_id:str):
 
 
 def enrich_memberships(c,rows):
+    import json
     from app.intent_radar.permissions import availability
-    from app.billing.subscription_access import product_grant,enabled as sub_enabled
+    from app.billing import contracts
+    from app.billing.subscription_access import product_grant,enabled as sub_enabled,entitlement_label
     from app.config.settings import get_settings
-    step_map={'OBJECTIVES':0,'COMPANY':1,'SERVICES':2,'ICP':2,'PREFERENCES':3,'REVIEW':4}
     enriched=[]
-    env=get_settings().creem_environment
+    settings_obj=get_settings()
+    env=settings_obj.creem_environment
     for r in rows:
         org=r['organization_id']
         avail=availability(c,org)
-        grant=product_grant(c,org) if sub_enabled() else None
+        paid=contracts.active(c,org)
+        grant=paid or (product_grant(c,org) if sub_enabled() else None)
+        manual_row=c.execute("SELECT enabled FROM organization_products WHERE organization_id=? AND product='INTENT_RADAR'",(org,)).fetchone()
+        manual_granted=bool(manual_row and manual_row[0])
         plan_label=None
-        if grant and grant.get('entitlement_label'):
-            plan_label=grant['entitlement_label']
-        elif avail.get('enabled'):
-            plan_label='Active Access'
+        plan_status=None
+        if grant:
+            plan_label=grant.get('entitlement_label') or ('Seven-day trial' if grant.get('source_kind')=='TRIAL' else 'Fixed-term access' if grant.get('source_kind')=='PAYMENT' else 'Active subscription')
+            p_status=grant.get('provider_status') or avail.get('contract_status')
+            if grant.get('is_trial'):
+                plan_status='Canceled · Access remaining' if p_status in ('canceled','scheduled_cancel') else 'Trial active'
+            elif p_status in ('canceled','scheduled_cancel'):
+                plan_status='Canceled · Access remaining'
+            else:
+                plan_status='Active'
+        elif manual_granted and avail.get('enabled'):
+            plan_label='Approved Beta'
+            plan_status='Active'
         else:
             c_row=c.execute(
                 'SELECT p.plan_code,p.status,p.trial_start,p.period_start FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.organization_id=p.organization_id AND w.contract_id=p.id AND w.environment=p.environment WHERE p.organization_id=? AND p.environment=?',
                 (org,env),
             ).fetchone() if sub_enabled() else None
             if c_row:
-                from app.billing.subscription_access import entitlement_label
-                plan_label=entitlement_label(c_row)
+                plan_label=entitlement_label(c_row) or 'Previous plan'
+                raw_st=(c_row['status'] or '').lower()
+                plan_status='Expired' if raw_st in ('expired','canceled','past_due','unpaid','refunded','disputed') else raw_st.replace('_',' ').title() or 'Inactive'
+            elif avail.get('enabled'):
+                plan_label='Active Access'
+                plan_status='Active'
             else:
                 plan_label='No active plan'
-        onb_status=avail.get('onboarding_status') or 'IN_PROGRESS'
+                plan_status='Not activated'
+
+        # Compute setup progress from actual persisted workspace evidence (never defaulting to 0/5 for configured workspaces)
+        onb_row=c.execute(
+            'SELECT status,current_step,profile_completed,services_completed,audience_completed,preferences_completed FROM organization_onboarding WHERE organization_id=?',
+            (org,),
+        ).fetchone()
+        setup_row=c.execute(
+            'SELECT current_step,objectives_json,default_icp_id,preferences_json,completed_revision FROM organization_setup WHERE organization_id=?',
+            (org,),
+        ).fetchone()
+        prof_row=c.execute(
+            'SELECT website_url,short_description,industry FROM organization_profiles WHERE organization_id=?',
+            (org,),
+        ).fetchone()
+        svc_count=c.execute('SELECT COUNT(*) FROM organization_services WHERE organization_id=? AND active=1',(org,)).fetchone()[0]
+        icp_count=c.execute("SELECT COUNT(*) FROM ideal_customer_profiles WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0]
+        pref_row=c.execute('SELECT 1 FROM intent_preferences WHERE organization_id=?',(org,)).fetchone()
+
+        onb_status=(onb_row['status'] if onb_row and onb_row['status'] else None) or avail.get('onboarding_status') or 'NOT_STARTED'
+        try:
+            objectives=json.loads(setup_row['objectives_json']) if setup_row and setup_row['objectives_json'] else []
+        except Exception:
+            objectives=[]
+        try:
+            setup_prefs=json.loads(setup_row['preferences_json']) if setup_row and setup_row['preferences_json'] else {}
+        except Exception:
+            setup_prefs={}
+
+        has_business=bool(objectives or (prof_row and (prof_row['website_url'] or prof_row['short_description'] or prof_row['industry'])) or (onb_row and onb_row['profile_completed']))
+        has_profile=bool((prof_row and (prof_row['short_description'] or prof_row['industry'])) or svc_count>0 or (onb_row and (onb_row['profile_completed'] and onb_row['services_completed'])))
+        has_icp=bool((setup_row and setup_row['default_icp_id'] and icp_count>0) or icp_count>0 or (onb_row and onb_row['audience_completed']))
+        has_research=bool((onb_row and onb_row['preferences_completed']) or setup_prefs.get('geography_confirmed') or setup_prefs.get('research_keywords') or pref_row)
+        has_plan=bool(avail.get('enabled') or not avail.get('subscription_required') or grant or manual_granted)
+
         if onb_status=='COMPLETED':
-            completed_steps=5 if avail.get('enabled') or not avail.get('subscription_required') else 4
+            step_checks=[True,True,True,True,has_plan]
         else:
-            setup_row=c.execute('SELECT current_step FROM organization_setup WHERE organization_id=?',(org,)).fetchone()
-            cur_step=(setup_row['current_step'] if setup_row else None) or 'OBJECTIVES'
-            completed_steps=step_map.get(cur_step,0)
+            step_checks=[has_business,has_profile,has_icp,has_research,has_plan]
+        completed_steps=sum(1 for done in step_checks if done)
+        step_keys=('welcome','company','icp','research','plan')
+        next_setup_step=None
+        for key,done in zip(step_keys,step_checks):
+            if not done:
+                next_setup_step=key
+                break
+        if onb_status!='COMPLETED' and next_setup_step is None:
+            next_setup_step='plan' if avail.get('subscription_required') and not has_plan else 'research'
+
         member_count=c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0]
         enriched.append({
             **r,
             'plan_label':plan_label,
+            'plan_status':plan_status,
             'access_state':avail.get('access_state'),
             'onboarding_status':onb_status,
             'onboarding_completed_steps':completed_steps,
             'onboarding_total_steps':5,
+            'next_setup_step':next_setup_step,
             'member_count':member_count,
         })
     return enriched

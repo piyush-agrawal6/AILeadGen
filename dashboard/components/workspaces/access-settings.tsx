@@ -94,13 +94,33 @@ function humanizeAction(code: string): string {
     .replace(/^\w/, (c) => c.toUpperCase());
 }
 
-function formatTarget(entity: string): string {
+function formatTarget(ev: AuditRecord): string {
+  const details = ev.details || {};
+  if (typeof details.domain === "string" && details.domain) return details.domain;
+  if (typeof details.name === "string" && details.name) return details.name;
+  if (typeof details.email === "string" && details.email) return details.email;
+  const entity = ev.entity || "";
   if (!entity) return "—";
   const parts = entity.split(":");
   if (parts.length === 2) {
     const [kind, id] = parts;
-    const shortId = id.length > 14 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;
-    return `${kind} · ${shortId}`;
+    const friendlyKind: Record<string, string> = {
+      organization: "Workspace",
+      membership: "Member",
+      domain: "Business domain",
+      invitation: "Invitation",
+      monitor: "Monitor",
+      signal: "Signal",
+      opportunity: "Opportunity",
+      icp: "Ideal Customer",
+      api_key: "API key",
+      "internal-testing": "Workspace",
+    };
+    const label = friendlyKind[kind.toLowerCase()] || kind.replace(/_/g, " ");
+    if (id.includes("@") || (id.length <= 20 && !/^[a-f0-9-]{16,}$/i.test(id))) {
+      return `${label} · ${id}`;
+    }
+    return label;
   }
   return entity.length > 26 ? `${entity.slice(0, 24)}…` : entity;
 }
@@ -310,13 +330,25 @@ export function AccessSettings() {
 
         {/* Clean Audit Table (No Overlap, Proper Column Widths) */}
         {auditQuery.isPending ? (
-          <div className="h-56 rounded-xl border border-border bg-muted/30 animate-pulse" />
+          <div role="status" className="rounded-xl border border-border bg-card p-6 text-xs text-muted-foreground">
+            Loading audit log…
+          </div>
         ) : auditQuery.isError ? (
-          <div role="alert" className="rounded-xl border border-border bg-card p-5 text-xs space-y-1.5">
-            <p className="font-semibold text-foreground">Audit history requires Owner or Administrator access</p>
-            <p className="text-muted-foreground">
-              {auditQuery.error instanceof Error ? auditQuery.error.message : "Could not load audit history."}
-            </p>
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5 text-xs">
+            <div className="space-y-1">
+              <p className="font-semibold text-foreground">
+                {auditQuery.error instanceof Error &&
+                auditQuery.error.message.toLowerCase().includes("administrator")
+                  ? "Audit history requires Owner or Administrator access"
+                  : "Could not load workspace audit log"}
+              </p>
+              <p className="text-muted-foreground">
+                {auditQuery.error instanceof Error ? auditQuery.error.message : "Could not load audit history."}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => void auditQuery.refetch()}>
+              Retry
+            </Button>
           </div>
         ) : (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -324,10 +356,10 @@ export function AccessSettings() {
               <table className="w-full min-w-[680px] text-left text-xs border-collapse" aria-label="Workspace audit log">
                 <thead className="bg-muted/40 text-[11px] font-semibold text-muted-foreground border-b border-border">
                   <tr>
-                    <th scope="col" className="px-3.5 py-2.5 w-36 whitespace-nowrap">Time</th>
+                    <th scope="col" className="px-3.5 py-2.5 w-36 whitespace-nowrap">Timestamp</th>
                     <th scope="col" className="px-3.5 py-2.5 w-44">Actor</th>
-                    <th scope="col" className="px-3.5 py-2.5">Activity</th>
-                    <th scope="col" className="px-3.5 py-2.5 w-40">Target</th>
+                    <th scope="col" className="px-3.5 py-2.5">Action</th>
+                    <th scope="col" className="px-3.5 py-2.5 w-44">Target</th>
                     <th scope="col" className="px-3.5 py-2.5 w-24 whitespace-nowrap">Result</th>
                     <th scope="col" className="px-3.5 py-2.5 w-20 text-right">Details</th>
                   </tr>
@@ -350,16 +382,13 @@ export function AccessSettings() {
                           </span>
                         </td>
                         <td className="px-3.5 py-2.5 font-medium text-foreground">
-                          <span className="block truncate max-w-[260px]" title={ev.action}>
+                          <span className="block truncate max-w-[260px]">
                             {humanizeAction(ev.action)}
                           </span>
                         </td>
-                        <td className="px-3.5 py-2.5 max-w-[160px]">
-                          <span
-                            className="block truncate font-mono text-[11px] text-muted-foreground"
-                            title={ev.entity}
-                          >
-                            {formatTarget(ev.entity)}
+                        <td className="px-3.5 py-2.5 max-w-[176px]">
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {formatTarget(ev)}
                           </span>
                         </td>
                         <td className="px-3.5 py-2.5 whitespace-nowrap">
@@ -461,44 +490,56 @@ export function AccessSettings() {
                   </div>
                   <div>
                     <dt className="text-[11px] text-muted-foreground">Result</dt>
-                    <dd className="font-semibold text-foreground mt-0.5">{selectedEvent.result}</dd>
-                  </div>
-                  <div className="col-span-2">
-                    <dt className="text-[11px] text-muted-foreground">Raw event code</dt>
-                    <dd className="font-mono text-[11px] text-foreground break-all mt-0.5">
-                      {selectedEvent.action}
+                    <dd className="font-semibold text-foreground mt-0.5">
+                      {selectedEvent.result === "SUCCESS" ? "Success" : "Failed"}
                     </dd>
                   </div>
                   <div className="col-span-2">
-                    <dt className="text-[11px] text-muted-foreground">Target identifier</dt>
-                    <dd className="font-mono text-[11px] text-foreground break-all mt-0.5">
-                      {selectedEvent.entity}
+                    <dt className="text-[11px] text-muted-foreground">Target</dt>
+                    <dd className="font-medium text-foreground mt-0.5">
+                      {formatTarget(selectedEvent)}
                     </dd>
                   </div>
                   <div className="col-span-2">
-                    <dt className="text-[11px] text-muted-foreground">Audit record ID</dt>
-                    <dd className="font-mono text-[11px] text-muted-foreground break-all mt-0.5">
-                      {selectedEvent.id}
-                    </dd>
+                    <dt className="text-[11px] text-muted-foreground">Timestamp</dt>
+                    <dd className="text-foreground mt-0.5">{formatTime(selectedEvent.created_at)}</dd>
                   </div>
                 </dl>
 
-                {selectedEvent.details && Object.keys(selectedEvent.details).length > 0 && (
-                  <div className="space-y-1.5">
-                    <h4 className="text-xs font-semibold text-foreground">Event metadata</h4>
-                    <pre className="overflow-x-auto rounded-xl border border-border bg-muted/30 p-3 font-mono text-[11px] text-foreground leading-relaxed">
-                      {JSON.stringify(selectedEvent.details, null, 2)}
-                    </pre>
-                  </div>
-                )}
-
-                <details className="rounded-xl border border-border bg-muted/10 p-3">
+                <details className="rounded-xl border border-border bg-muted/10 p-3.5">
                   <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
-                    Full raw audit record
+                    Technical diagnostics
                   </summary>
-                  <pre className="mt-2 overflow-x-auto font-mono text-[11px] text-foreground leading-relaxed">
-                    {JSON.stringify(selectedEvent, null, 2)}
-                  </pre>
+                  <div className="mt-3 space-y-3 border-t border-border/60 pt-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Event code</p>
+                      <p className="font-mono text-[11px] text-foreground break-all mt-0.5">
+                        {selectedEvent.action}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Resource identifier</p>
+                      <p className="font-mono text-[11px] text-foreground break-all mt-0.5">
+                        {selectedEvent.entity}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Audit record ID</p>
+                      <p className="font-mono text-[11px] text-muted-foreground break-all mt-0.5">
+                        {selectedEvent.id}
+                      </p>
+                    </div>
+                    {selectedEvent.details && Object.keys(selectedEvent.details).length > 0 && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                          Redacted metadata
+                        </p>
+                        <pre className="overflow-x-auto rounded-lg border border-border bg-card p-2.5 font-mono text-[11px] text-foreground leading-relaxed">
+                          {JSON.stringify(selectedEvent.details, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
                 </details>
               </div>
             )}

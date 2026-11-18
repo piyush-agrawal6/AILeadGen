@@ -29,20 +29,33 @@ function OverviewContent({d}:{d:IntentOverview&Summary}){
  if(fresh){
   return (
    <>
+    <div className="pb-dash-metrics-section">
+     <div className="ir-section-heading pb-metrics-heading">
+      <h2>Workspace overview</h2>
+      <Link className="ir-link" href="/intent-radar/discover">Start discovery <ArrowRight size={14}/></Link>
+     </div>
+     <div className="pb-dash-metrics">
+      {metrics.map(([name,count,Icon,href])=>(
+       <Link className="pb-dash-metric-card" key={name} href={'/intent-radar'+href}>
+        <div className="pb-dash-metric-header"><span>{name}</span><Icon size={14}/></div>
+        <strong className="pb-dash-metric-value">{count}</strong>
+       </Link>
+      ))}
+     </div>
+    </div>
     <section className="ir-panel ir-onboarding">
      <div>
-      <p className="ir-eyebrow">YOUR FIRST SIGNAL STARTS HERE</p>
-      <h2>Start finding relevant conversations</h2>
-      <p>Turn public discussions into useful research for your business.</p>
-      <div className="ir-onboarding-steps">{['Describe what your customers are looking for.','Discover public discussions.','Review and save useful opportunities.'].map((s,i)=><div key={s}><span className="ir-step-dot">{i+1}</span><span>{s}</span></div>)}</div>
-      <Link className="ir-button ir-primary" href="/intent-radar/monitors/new">Create Your First Monitor <ArrowRight size={16}/></Link>
+      <p className="ir-eyebrow">GET STARTED</p>
+      <h2>No signals collected yet</h2>
+      <p>Run a discovery across your connected sources or create a monitor to start tracking buying intent automatically.</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+       <Link className="ir-button ir-primary" href="/intent-radar/discover"><Search size={15}/>Discover Intent</Link>
+       <Link className="ir-button" href="/intent-radar/monitors/new"><Radio size={15}/>Create Monitor</Link>
+       <Link className="ir-button" href="/settings?category=integrations&tab=sources">Configure Sources</Link>
+      </div>
      </div>
      <div className="ir-radar-mini" aria-hidden="true"><Radar size={36}/></div>
     </section>
-    <div className="ir-split">
-     <section className="ir-panel"><div className="ir-section-heading"><h2>A focused public source</h2><Badge>Available</Badge></div><p>Hacker News · recent Ask HN discussions. Each check reviews a small, bounded set of public stories matching your keywords.</p><Link className="ir-link" href="/intent-radar/integrations">Understand source coverage <ArrowRight size={14}/></Link></section>
-     <section className="ir-panel"><h2>You choose when to check</h2><p>Save a monitor, then run checks when you need fresh research. Review the original evidence before deciding what to pursue.</p><Link className="ir-link" href="/intent-radar/monitors/new">Set up a monitor <ArrowRight size={14}/></Link></section>
-    </div>
    </>
   );
  }

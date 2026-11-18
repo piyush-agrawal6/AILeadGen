@@ -910,7 +910,7 @@ def overview(c,*,include_previews=True):
         (SELECT COUNT(*) FROM intent_signals WHERE organization_id=? AND status='Reviewed') reviewed_signals,
         (SELECT COUNT(*) FROM intent_signals WHERE organization_id=? AND """+rank_expression()+""">=85 AND available=1 AND """+retention+""") high_relevance,
         (SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status='Active') active_monitors,
-        (SELECT COUNT(*) FROM intent_opportunities WHERE organization_id=? AND status='Saved') saved_opportunities,
+        (SELECT COUNT(*) FROM intent_opportunities WHERE organization_id=? AND status NOT IN ('Archived','Dismissed')) saved_opportunities,
         (SELECT COUNT(*) FROM intent_alerts WHERE organization_id=? AND read_at IS NULL AND (description NOT LIKE '__pb_notif__:%' OR monitor_id IS NOT NULL OR signal_id IS NOT NULL)) unread_alerts,
         """+trends+' trends,'+jobs+" jobs,(SELECT MAX(last_tick_at) FROM intent_worker_health WHERE state='READY') heartbeat FROM policy",
         (org,org,stamp,org,org,stamp,org,org,org,org,org)).fetchone())

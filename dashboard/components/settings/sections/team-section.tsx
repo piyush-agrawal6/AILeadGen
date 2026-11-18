@@ -113,6 +113,7 @@ function TeamMembersTab({ onSwitchTab }: { onSwitchTab?: (tab: string) => void }
       await Promise.all([
         membersQuery.refetch(),
         client.invalidateQueries({ queryKey: ["audit"] }),
+        client.invalidateQueries({ queryKey: ["account-workspaces"] }),
       ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update member role.");
@@ -135,6 +136,7 @@ function TeamMembersTab({ onSwitchTab }: { onSwitchTab?: (tab: string) => void }
       await Promise.all([
         membersQuery.refetch(),
         client.invalidateQueries({ queryKey: ["audit"] }),
+        client.invalidateQueries({ queryKey: ["account-workspaces"] }),
       ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not remove workspace member.");
@@ -144,13 +146,24 @@ function TeamMembersTab({ onSwitchTab }: { onSwitchTab?: (tab: string) => void }
   }
 
   if (membersQuery.isPending) {
-    return <div className="h-48 rounded-xl border border-border bg-muted/30 animate-pulse" />;
+    return (
+      <div role="status" className="rounded-xl border border-border bg-card p-6 text-xs text-muted-foreground">
+        Loading team members…
+      </div>
+    );
   }
 
   if (membersQuery.isError) {
     return (
-      <div role="alert" className="rounded-xl border border-destructive/25 bg-destructive/5 p-4 text-xs text-destructive space-y-2">
-        <p>Could not load team members.</p>
+      <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/5 p-4 text-xs text-destructive">
+        <div className="space-y-0.5">
+          <p className="font-semibold">Could not load team members.</p>
+          <p className="text-[11px] opacity-90">
+            {membersQuery.error instanceof Error
+              ? membersQuery.error.message
+              : "Please check your connection and try again."}
+          </p>
+        </div>
         <Button size="sm" variant="outline" onClick={() => void membersQuery.refetch()}>
           Retry
         </Button>

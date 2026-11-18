@@ -27,35 +27,63 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-function statusMeta(item: Membership): { label: string; tone: string } {
+function setupMeta(item: Membership): { label: string; tone: string } {
+  const done = item.onboarding_completed_steps ?? 0;
+  const total = item.onboarding_total_steps ?? 5;
+  if (item.onboarding_status === "COMPLETED" && done >= total) {
+    return {
+      label: `Complete · ${total}/${total}`,
+      tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
+    };
+  }
   switch (item.access_state) {
     case "ACTIVE":
-      return { label: "Active", tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20" };
     case "TRIAL_ACTIVE":
-      return { label: "Trial active", tone: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20" };
+      return {
+        label: `Complete · ${done}/${total}`,
+        tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
+      };
     case "CANCELED_REMAINING":
-      return { label: "Access remaining", tone: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20" };
+      return {
+        label: done >= total ? `Complete · ${total}/${total}` : `Setup · ${done}/${total}`,
+        tone: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20",
+      };
     case "SETUP_REQUIRED":
       return {
-        label: `Setup · ${item.onboarding_completed_steps ?? 0}/${item.onboarding_total_steps ?? 5}`,
+        label: `Setup · ${done}/${total}`,
         tone: "bg-primary/10 text-primary border-primary/20",
       };
     case "TRIAL_AVAILABLE":
     case "SUBSCRIPTION_REQUIRED":
-      return { label: "Activation needed", tone: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20" };
+      return {
+        label: `Activation needed · ${done}/${total}`,
+        tone: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20",
+      };
     case "PAYMENT_PENDING":
-      return { label: "Payment pending", tone: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20" };
+      return {
+        label: "Payment pending",
+        tone: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
+      };
     case "EXPIRED":
-      return { label: "Expired", tone: "bg-destructive/10 text-destructive border-destructive/20" };
+      return {
+        label: "Expired",
+        tone: "bg-destructive/10 text-destructive border-destructive/20",
+      };
     default:
       return {
         label:
           item.onboarding_status === "COMPLETED"
-            ? "Configured"
-            : `Setup · ${item.onboarding_completed_steps ?? 0}/${item.onboarding_total_steps ?? 5}`,
+            ? `Complete · ${done}/${total}`
+            : `Setup · ${done}/${total}`,
         tone: "bg-muted text-muted-foreground border-border",
       };
   }
+}
+
+function onboardingHref(item: Membership): string {
+  return item.next_setup_step
+    ? `/onboarding?step=${encodeURIComponent(item.next_setup_step)}`
+    : "/onboarding";
 }
 
 export function WorkspacesManager() {
@@ -122,7 +150,7 @@ export function WorkspacesManager() {
       client.clear();
       const targetUrl =
         dest ||
-        (item.access_state === "SETUP_REQUIRED" ? "/onboarding" : "/intent-radar");
+        (item.access_state === "SETUP_REQUIRED" ? onboardingHref(item) : "/intent-radar");
       window.location.assign(targetUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not switch workspace.");
@@ -217,7 +245,18 @@ export function WorkspacesManager() {
       )}
 
       {ws.isPending ? (
-        <div className="h-44 rounded-2xl border border-border bg-muted/30 animate-pulse" />
+        <div role="status" className="rounded-2xl border border-border bg-card p-6 text-xs text-muted-foreground">
+          Loading your workspaces…
+        </div>
+      ) : ws.isError ? (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/25 bg-destructive/5 p-5 text-xs text-destructive">
+          <span>
+            {ws.error instanceof Error ? ws.error.message : "Could not load your workspaces."}
+          </span>
+          <Button size="sm" variant="outline" onClick={() => void ws.refetch()}>
+            Retry
+          </Button>
+        </div>
       ) : (
         <section className="rounded-2xl border border-border bg-card overflow-hidden">
           <div className="overflow-x-auto">
@@ -225,17 +264,20 @@ export function WorkspacesManager() {
               <thead className="bg-muted/40 text-[11px] font-semibold text-muted-foreground border-b border-border">
                 <tr>
                   <th scope="col" className="px-4 py-2.5">Workspace</th>
-                  <th scope="col" className="px-4 py-2.5">Your Role</th>
+                  <th scope="col" className="px-4 py-2.5">Role</th>
                   <th scope="col" className="px-4 py-2.5">Plan</th>
-                  <th scope="col" className="px-4 py-2.5">Setup &amp; Access</th>
+                  <th scope="col" className="px-4 py-2.5">Setup</th>
                   <th scope="col" className="px-4 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
                 {items.map((item) => {
                   const isActive = item.organization_id === activeId;
-                  const meta = statusMeta(item);
-                  const needsSetup = item.access_state === "SETUP_REQUIRED" || item.onboarding_status !== "COMPLETED";
+                  const meta = setupMeta(item);
+                  const needsSetup =
+                    item.access_state === "SETUP_REQUIRED" ||
+                    item.onboarding_status !== "COMPLETED" ||
+                    (item.onboarding_completed_steps ?? 0) < (item.onboarding_total_steps ?? 5);
                   return (
                     <tr key={item.organization_id} className={isActive ? "bg-primary/[0.03]" : "hover:bg-muted/20"}>
                       <td className="px-4 py-3">
@@ -264,8 +306,15 @@ export function WorkspacesManager() {
                           {item.role.toLowerCase()}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-foreground font-medium">
-                        {item.plan_label || "No active plan"}
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-foreground">
+                          {item.plan_label || "No active plan"}
+                        </div>
+                        {item.plan_status && item.plan_status !== "Not activated" && (
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {item.plan_status}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${meta.tone}`}>
@@ -283,7 +332,7 @@ export function WorkspacesManager() {
                               className="h-7 px-2.5 text-[11px] gap-1"
                             >
                               <ArrowRightLeft size={12} />
-                              {switchingId === item.organization_id ? "Switching…" : "Switch"}
+                              {switchingId === item.organization_id ? "Switching workspace…" : "Switch"}
                             </Button>
                           )}
                           {needsSetup && (
@@ -291,7 +340,7 @@ export function WorkspacesManager() {
                               size="sm"
                               variant="outline"
                               disabled={switchingId !== null}
-                              onClick={() => void handleSwitch(item, "/onboarding")}
+                              onClick={() => void handleSwitch(item, onboardingHref(item))}
                               className="h-7 px-2.5 text-[11px] gap-1 text-primary border-primary/30"
                             >
                               <Sparkles size={12} />
@@ -322,24 +371,28 @@ export function WorkspacesManager() {
                             <Button
                               size="sm"
                               variant="ghost"
+                              disabled={switchingId !== null}
                               onClick={() => {
                                 setRenameTarget(item);
                                 setRenameValue(item.name);
                               }}
                               aria-label={`Rename ${item.name}`}
-                              className="h-7 px-2 text-[11px]"
+                              className="h-7 px-2 text-[11px] gap-1"
                             >
                               <Edit3 size={12} />
+                              Rename
                             </Button>
                           )}
                           <Button
                             size="sm"
                             variant="ghost"
+                            disabled={switchingId !== null}
                             onClick={() => setLeaveTarget(item)}
                             aria-label={`Leave ${item.name}`}
-                            className="h-7 px-2 text-[11px] text-muted-foreground hover:text-destructive"
+                            className="h-7 px-2 text-[11px] text-muted-foreground hover:text-destructive gap-1"
                           >
                             <LogOut size={12} />
+                            Leave
                           </Button>
                         </div>
                       </td>

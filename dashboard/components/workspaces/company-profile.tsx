@@ -52,6 +52,46 @@ const COMPANY_SIZES = [
   "1,000+",
 ];
 
+const COMMON_INDUSTRIES = [
+  "B2B SaaS",
+  "Developer Tools",
+  "Artificial Intelligence & Machine Learning",
+  "Cloud & Infrastructure",
+  "Cybersecurity",
+  "Data & Analytics",
+  "E-commerce & Retail",
+  "FinTech & Financial Services",
+  "Healthcare & HealthTech",
+  "Marketing & Sales Technology",
+  "IT Services & Consulting",
+  "Education & EdTech",
+  "Logistics & Supply Chain",
+  "Real Estate & PropTech",
+  "Hospitality & Travel",
+  "Manufacturing & Industrial",
+  "Media & Entertainment",
+  "Professional Services",
+];
+
+const COMMON_COUNTRIES = [
+  "United States",
+  "United Kingdom",
+  "India",
+  "Canada",
+  "Germany",
+  "Australia",
+  "Singapore",
+  "France",
+  "Netherlands",
+  "United Arab Emirates",
+  "Ireland",
+  "Sweden",
+  "Switzerland",
+  "Japan",
+  "Brazil",
+  "Global",
+];
+
 function ListTagEditor({
   id,
   label,
@@ -542,13 +582,19 @@ function ProfileWorkspace({
                 </label>
                 <Input
                   id="company-industry"
-                  placeholder="e.g. B2B SaaS, Developer Tools"
+                  list="pb-common-industries"
+                  placeholder="Select or enter industry (e.g. B2B SaaS)"
                   maxLength={100}
                   value={values.industry}
                   disabled={pending}
                   onChange={(e) => edit({ industry: e.target.value })}
                   className="h-8 text-xs"
                 />
+                <datalist id="pb-common-industries">
+                  {COMMON_INDUSTRIES.map((ind) => (
+                    <option key={ind} value={ind} />
+                  ))}
+                </datalist>
               </div>
               <div className="space-y-1">
                 <label htmlFor="company-size" className="text-xs font-medium text-foreground">
@@ -588,12 +634,19 @@ function ProfileWorkspace({
                 </label>
                 <Input
                   id="company-country"
+                  list="pb-common-countries"
+                  placeholder="Select or enter country"
                   maxLength={100}
                   value={values.country}
                   disabled={pending}
                   onChange={(e) => edit({ country: e.target.value })}
                   className="h-8 text-xs"
                 />
+                <datalist id="pb-common-countries">
+                  {COMMON_COUNTRIES.map((country) => (
+                    <option key={country} value={country} />
+                  ))}
+                </datalist>
               </div>
               <div className="space-y-1">
                 <label htmlFor="company-timezone" className="text-xs font-medium text-foreground">
@@ -882,9 +935,10 @@ export function CompanyProfileSettings({
               void profile.refetch();
             }}
             onSaved={(value) => {
-              client.setQueryData(["organization-profile", orgId], value);
+              client.setQueryData(["organization-profile", orgId || "default"], value);
               void client.invalidateQueries({ queryKey: ["account-workspaces"] });
               void client.invalidateQueries({ queryKey: ["onboarding-progress"] });
+              void client.invalidateQueries({ queryKey: ["intelligence-graph"] });
               setSavedNotice(true);
               onSaved?.(value);
             }}

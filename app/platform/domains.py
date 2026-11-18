@@ -20,11 +20,18 @@ class DomainCreate(BaseModel):
     @field_validator('domain')
     @classmethod
     def normalize(cls,value):
-        import re
+        import ipaddress,re
         from app.utils.urls import _tld_extractor
-        if '://' in value or '/' in value or ':' in value or '@' in value:raise ValueError('Enter a public domain name, without a URL path or port.')
+        if '://' in value or '/' in value or ':' in value or '@' in value or ' ' in value:raise ValueError('Enter a public domain name, without a URL path, spaces, or port.')
         try:value=value.rstrip('.').encode('idna').decode('ascii').lower()
         except UnicodeError:raise ValueError('Enter a valid domain name.') from None
+        try:
+            ipaddress.ip_address(value)
+            raise ValueError('IP addresses cannot be verified as business domains.')
+        except ValueError as err:
+            if 'IP addresses' in str(err):raise
+        if value=='localhost' or value.endswith(('.localhost','.local','.internal','.arpa','.invalid')):
+            raise ValueError('Enter a public, routable domain name.')
         if not _tld_extractor(value).suffix or any(not re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?',part) for part in value.split('.')):raise ValueError('Enter a registrable public domain name.')
         extracted=_tld_extractor(value)
         if not extracted.domain:raise ValueError('A public suffix alone cannot be verified.')
@@ -45,12 +52,14 @@ def _owned(c,key):
     if not row:raise HTTPException(404,'Domain not found.')
     return dict(row)
 
-def _audit(c,key,action):
-    c.execute('INSERT INTO audit_log(id,actor,action,entity,result,organization_id,created_at) VALUES(?,?,?,?,?,?,?)',(str(uuid.uuid4()),current().actor,action,'domain:'+key,'SUCCESS',organization(),now()))
+def _audit(c,key,action,domain_name:str|None=None):
+    import json
+    details=json.dumps({'domain':domain_name}) if domain_name else '{}'
+    c.execute('INSERT INTO audit_log(id,actor,action,entity,result,details_json,organization_id,created_at) VALUES(?,?,?,?,?,?,?,?)',(str(uuid.uuid4()),current().actor,action,'domain:'+key,'SUCCESS',details,organization(),now()))
 
 def listing(c):
     org=organization()
-    rows=c.execute('SELECT id,domain,status,challenge_expires_at,verified_at,checked_at,attempts FROM organization_domains WHERE organization_id=? ORDER BY domain LIMIT 100',(org,)).fetchall()
+    rows=c.execute('SELECT id,domain,status,challenge_expires_at,verified_at,checked_at,attempts,created_at FROM organization_domains WHERE organization_id=? ORDER BY domain LIMIT 100',(org,)).fetchall()
     return {'items':[{**dict(row),'record_type':'TXT','record_name':'_heysow-verify.'+row['domain'],'status':'EXPIRED' if row['status']=='PENDING' and row['challenge_expires_at']<=now() else row['status']} for row in rows],'can_edit':membership_role(c,current().actor,org) in ('OWNER','ADMIN')}
 
 def challenge(c,body:DomainCreate):
@@ -65,7 +74,7 @@ def challenge(c,body:DomainCreate):
     c.execute('''INSERT INTO organization_domains(id,organization_id,domain,status,challenge_hash,challenge_expires_at,created_at,updated_at)
         VALUES(?,?,?,'PENDING',?,?,?,?) ON CONFLICT(organization_id,domain) DO UPDATE SET status='PENDING',challenge_hash=excluded.challenge_hash,
         challenge_expires_at=excluded.challenge_expires_at,updated_at=excluded.updated_at,attempts=0,checked_at=NULL''',(key,org,body.domain,digest,expiry,stamp,stamp))
-    _audit(c,key,'DOMAIN_CHALLENGE_CREATED')
+    _audit(c,key,'DOMAIN_CHALLENGE_CREATED',body.domain)
     return {'id':key,'domain':body.domain,'record_type':'TXT','record_name':'_heysow-verify.'+body.domain,'record_value':PREFIX+token,'expires_at':expiry}
 
 def _resolve(name):
@@ -88,7 +97,8 @@ async def verify(c,key):
     changed=c.execute("UPDATE organization_domains SET checked_at=?,attempts=attempts+1 WHERE id=? AND organization_id=? AND status='PENDING' AND challenge_hash=? AND attempts<20 AND (checked_at IS NULL OR checked_at<=?)",(stamp,key,organization(),row['challenge_hash'],cutoff)).rowcount
     if changed!=1:raise HTTPException(429,'A verification check is already in progress. Retry later.')
     c.commit()
-    try:records=await asyncio.wait_for(asyncio.to_thread(_resolve,'_heysow-verify.'+row['domain']),timeout=7)
+    record_name='_heysow-verify.'+row['domain']
+    try:records=await asyncio.wait_for(asyncio.to_thread(_resolve,record_name),timeout=7)
     except Exception:raise HTTPException(503,'DNS could not be checked. Retry later; ownership has not been verified.') from None
     org=_manager(c);_lock(c,org);latest=_owned(c,key)
     if latest['challenge_hash']!=row['challenge_hash'] or latest['status']!='PENDING' or latest['challenge_expires_at']<=now():raise HTTPException(409,'The domain challenge changed. Reload it before verifying.')
@@ -96,11 +106,18 @@ async def verify(c,key):
     stamp=now()
     c.execute('UPDATE organization_domains SET checked_at=?,status=?,verified_at=?,updated_at=? WHERE id=? AND organization_id=?',
         (stamp,'VERIFIED' if matched else 'PENDING',stamp if matched else latest['verified_at'],stamp,key,org))
-    if matched:_audit(c,key,'DOMAIN_OWNERSHIP_VERIFIED')
-    return {'status':'VERIFIED' if matched else 'PENDING','verified_at':stamp if matched else None}
+    if matched:
+        _audit(c,key,'DOMAIN_OWNERSHIP_VERIFIED',row['domain'])
+        return {'status':'VERIFIED','verified_at':stamp}
+    msg=(
+        f'No TXT record found yet at {record_name}. DNS changes typically propagate within 5–30 minutes.'
+        if not records
+        else f'Found {len(records)} TXT record(s) at {record_name}, but none matched the active verification token.'
+    )
+    return {'status':'PENDING','verified_at':None,'found_records_count':len(records),'message':msg}
 
 def revoke(c,key):
-    org=_manager(c);_lock(c,org);_owned(c,key)
+    org=_manager(c);_lock(c,org);row=_owned(c,key)
     c.execute("UPDATE organization_domains SET status='REVOKED',updated_at=? WHERE id=? AND organization_id=?",(now(),key,org))
-    _audit(c,key,'DOMAIN_VERIFICATION_REVOKED')
+    _audit(c,key,'DOMAIN_VERIFICATION_REVOKED',row['domain'])
     return {'status':'REVOKED'}

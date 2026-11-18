@@ -64,6 +64,7 @@ def search_workspace(
         "opportunities": [],
         "monitors": [],
         "icps": [],
+        "company": [],
         "sources": [],
         "intelligence": [],
         "help": [],
@@ -133,6 +134,58 @@ def search_workspace(
                 })
         except Exception:
             partial_errors.append("icps")
+
+    # Company Profile & Services (accessible even during setup/onboarding)
+    if cat in ("all", "company", "intelligence") and q_cf:
+        try:
+            prof = c.execute(
+                """SELECT p.display_name, p.website_url, p.industry, p.short_description, p.long_description,
+                          p.country, p.city, p.target_customer_types_json, p.target_industries_json, p.specialties_json,
+                          p.updated_at, o.name AS org_name
+                   FROM organizations o
+                   LEFT JOIN organization_profiles p ON p.organization_id=o.id
+                   WHERE o.id=?""",
+                (organization_id,),
+            ).fetchone()
+            if prof:
+                cname = prof["display_name"] or prof["org_name"] or "Company Profile"
+                extra = " ".join(
+                    str(prof[k] or "")
+                    for k in ("website_url", "industry", "short_description", "long_description", "country", "city", "target_customer_types_json", "target_industries_json", "specialties_json")
+                )
+                score = _rank_score(q_cf, cname, prof["industry"] or prof["short_description"] or "", extra)
+                if score > 0:
+                    results["company"].append({
+                        "id": f"company:{organization_id}",
+                        "type": "company",
+                        "title": cname,
+                        "subtitle": (prof["short_description"] or prof["industry"] or prof["website_url"] or "Organization Profile")[:140],
+                        "href": "/settings?category=company&tab=profile",
+                        "badge": "Company Profile",
+                        "updated_at": prof["updated_at"],
+                        "score": score,
+                    })
+            svc_rows = c.execute(
+                """SELECT id, name, category, description, updated_at
+                   FROM organization_services
+                   WHERE organization_id=? AND active=1
+                     AND (LOWER(name) LIKE ? OR LOWER(COALESCE(category,'')) LIKE ? OR LOWER(COALESCE(description,'')) LIKE ?)
+                   ORDER BY updated_at DESC LIMIT ?""",
+                (organization_id, like, like, like, min(3, bound)),
+            ).fetchall()
+            for sr in svc_rows:
+                results["company"].append({
+                    "id": f"service:{sr['id']}",
+                    "type": "company",
+                    "title": sr["name"],
+                    "subtitle": (sr["description"] or sr["category"] or "Product / Service")[:140],
+                    "href": "/settings?category=company&tab=profile",
+                    "badge": sr["category"] or "Offering",
+                    "updated_at": sr["updated_at"],
+                    "score": _rank_score(q_cf, sr["name"], sr["description"] or "", sr["category"] or ""),
+                })
+        except Exception:
+            partial_errors.append("company")
 
     if not radar_enabled:
         return {
@@ -224,12 +277,12 @@ def search_workspace(
         except Exception:
             partial_errors.append("saved_searches")
 
-    # 3. Intent Signals (strictly enforcing available=1 AND retention_predicate)
+    # 3. Intent Signals (strictly enforcing available=1 AND retention_sql)
     if cat in ("all", "discoveries", "signals"):
         try:
             from app.intent_radar import service as radar_service
             prefs = radar_service.preferences(c)
-            ret_sql, ret_args = radar_service.retention_predicate(c, int(prefs.get("source_retention_days", 30)))
+            ret_sql, ret_args = radar_service.retention_sql(c, int(prefs.get("source_retention_days", 30)))
             if q_cf:
                 rows = c.execute(
                     f"""SELECT id, title, excerpt, source, category, score, status, observed_at
@@ -408,8 +461,8 @@ def search_workspace(
                         "score": _rank_score(q_cf, r["signal_title"] or "", r["notes"] or "", r["collection"] or ""),
                     })
             if growth_enabled:
-                from app.growth_intelligence import service as growth_service
-                t_expr = growth_service.thread_expression(c)
+                from app.intent_radar.assistant import thread_expression
+                t_expr = thread_expression(c)
                 if q_cf:
                     g_rows = c.execute(
                         f"""SELECT id, kind, title, question, status, updated_at

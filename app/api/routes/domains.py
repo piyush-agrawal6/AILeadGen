@@ -12,9 +12,13 @@ class Domain(BaseModel):
     id:UUID
     domain:str
     status:Literal['PENDING','VERIFIED','REVOKED','EXPIRED']
+    record_type:Literal['TXT']='TXT'
+    record_name:str
     challenge_expires_at:str
     verified_at:str|None
     checked_at:str|None
+    attempts:int=0
+    created_at:str|None=None
 
 class DomainPage(BaseModel):
     items:list[Domain]
@@ -31,6 +35,8 @@ class Challenge(BaseModel):
 class Verification(BaseModel):
     status:Literal['VERIFIED','PENDING']
     verified_at:str|None
+    found_records_count:int|None=None
+    message:str|None=None
 
 class Revoked(BaseModel):
     status:Literal['REVOKED']

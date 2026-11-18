@@ -33,6 +33,7 @@ import { request } from "@/lib/intelligence";
 import { useWorkspace } from "@/components/workspaces/use-workspace";
 import { useProducts } from "@/components/workspaces/use-products";
 import { Button } from "@/components/ui/button";
+import { SafeMarkdown } from "@/components/ui/safe-markdown";
 
 type CategoryTab = "all" | "pages" | "discoveries" | "monitors" | "sources" | "help";
 
@@ -74,6 +75,7 @@ interface SearchApiResponse {
     opportunities: BackendResult[];
     monitors: BackendResult[];
     icps: BackendResult[];
+    company?: BackendResult[];
     sources: BackendResult[];
     intelligence: BackendResult[];
     help: BackendResult[];
@@ -140,6 +142,8 @@ function iconForType(type: string): LucideIcon {
       return Radio;
     case "icp":
       return Users;
+    case "company":
+      return Building2;
     case "source":
     case "feed":
       return Plug;
@@ -358,10 +362,11 @@ export function QuickSearchTrigger() {
         addGroup("Sources & Integrations", apiData.groups.sources);
       }
       if (category === "all") {
-        addGroup("Intelligence & ICPs", [
+        addGroup("Company & Targeting", [
+          ...(apiData.groups.company || []),
           ...(apiData.groups.icps || []),
-          ...(apiData.groups.intelligence || []),
         ]);
+        addGroup("Intelligence & Research", apiData.groups.intelligence);
       }
       if (category === "all" || category === "help") {
         addGroup("Help & Documentation", apiData.groups.help);
@@ -644,8 +649,34 @@ export function QuickSearchTrigger() {
                 </div>
                 {aiError && <p className="text-destructive">{aiError}</p>}
                 {aiAnswer && (
-                  <div className="max-h-36 overflow-y-auto whitespace-pre-wrap text-foreground leading-relaxed">
-                    {aiAnswer.markdown}
+                  <div className="space-y-2">
+                    <div className="max-h-48 overflow-y-auto pr-1 text-foreground leading-relaxed">
+                      <SafeMarkdown content={aiAnswer.markdown} compact />
+                    </div>
+                    {aiAnswer.citations && aiAnswer.citations.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Sources:
+                        </span>
+                        {aiAnswer.citations.slice(0, 4).map((c, idx) => (
+                          <button
+                            key={`${c.url}-${idx}`}
+                            type="button"
+                            onClick={() => {
+                              if (c.url.startsWith("/")) {
+                                setOpen(false);
+                                router.push(c.url);
+                              } else if (c.url.startsWith("https://")) {
+                                window.open(c.url, "_blank", "noopener,noreferrer");
+                              }
+                            }}
+                            className="rounded-md border border-border bg-card px-2 py-0.5 text-[10px] font-medium text-primary hover:border-primary/40 cursor-pointer truncate max-w-[200px]"
+                          >
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -677,6 +708,17 @@ export function QuickSearchTrigger() {
                   </div>
                 )}
 
+                {/* Searching status indicator */}
+                {loading && (
+                  <div
+                    role="status"
+                    className="flex items-center gap-2 px-2 py-1 text-[11px] text-muted-foreground"
+                  >
+                    <Loader2 size={12} className="animate-spin text-primary" />
+                    <span>Searching your workspace…</span>
+                  </div>
+                )}
+
                 {/* Explicit Backend Error State (never silently shown as empty!) */}
                 {searchError && (
                   <div
@@ -695,6 +737,25 @@ export function QuickSearchTrigger() {
                     >
                       <RefreshCw size={11} /> Retry
                     </Button>
+                  </div>
+                )}
+
+                {/* Partial Search Warning */}
+                {!searchError && apiData?.partial_errors && apiData.partial_errors.length > 0 && (
+                  <div
+                    role="status"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-1.5 text-[11px] text-amber-700 dark:text-amber-300"
+                  >
+                    <span>
+                      Some workspace sections ({apiData.partial_errors.join(", ")}) could not be searched right now.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setRetryTick((t) => t + 1)}
+                      className="font-semibold underline cursor-pointer shrink-0"
+                    >
+                      Retry
+                    </button>
                   </div>
                 )}
 

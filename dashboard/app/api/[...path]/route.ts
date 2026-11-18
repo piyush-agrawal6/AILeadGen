@@ -14,7 +14,7 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   if (!external&&!user?.email) return Response.json({ detail: "Sign in to continue." }, { status: 401 });
   if (!external&&!["GET", "HEAD", "OPTIONS"].includes(request.method) && !sameOrigin(request.headers.get("origin"),request.headers.get("host"),serverEnv().production)) return Response.json({ detail: "Invalid request origin." }, { status: 403 });
   const { path } = await context.params;
-  if (path.some(p => !/^[a-zA-Z0-9_.-]+$/.test(p) || p === "." || p === "..")) return Response.json({ detail: "Invalid API path." }, { status: 400 });
+  if (path.some(p => !/^[a-zA-Z0-9_.@-]+$/.test(p) || p === "." || p === "..")) return Response.json({ detail: "Invalid API path." }, { status: 400 });
   const env = serverEnv();
   if(path[0]==='organization'&&['accounts','admission'].includes(path[1]))return Response.json({detail:'Use the account form to continue.'},{status:404});
   const apiPath = `/api/${path.join("/")}${request.nextUrl.search}`;

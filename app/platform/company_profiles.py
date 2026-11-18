@@ -86,6 +86,7 @@ class CompanyUpdate(CompanyFields):
     products_services:list[CompanyService]|None=Field(None,max_length=20)
     review_id:UUID|None=None
     reviewed_fields:list[str]=Field(default_factory=list,max_length=20)
+    quality_issues:list[dict]|None=Field(default=None,exclude=True)
 
 class ProfileQualityIssue(BaseModel):
     field:str
@@ -107,26 +108,74 @@ _PLACEHOLDER_PATTERNS=frozenset((
     'test','testing','asdf','qwerty','foo','bar','baz','sample','example','dummy','placeholder',
     'tbd','todo','n/a','na','none','null','undefined','xyz','abc','123','1234','12345','aaa','bbb',
     'lorem','lorem ipsum','my company','company name','demo','temp','idk','something','anything',
+    'asdfg','zxcv','zxcvb','qaz','wsx','xsx','xsas','saxas','sasa','asas','dadad','fafafa',
+))
+
+_VALID_SHORT_TERMS=frozenset((
+    'ai','ml','it','hr','pr','qa','ux','ui','bi','vr','ar','ev','ir','ip','os','vp','cx','dx',
+    'b2b','b2c','b2g','d2c','saas','paas','iaas','crm','erp','cms','cdn','vpn','dns','api','sdk',
+    'seo','sem','iot','smb','sme','msp','isv','ngo','cpg','oem','odm','aws','gcp','llm','nlp','rpa',
+    'cto','ceo','cfo','cmo','coo','cio','ciso','kpi','okr','roi','arr','mrr','plg','abm','gtm','sdr','bdr',
+    'usa','uk','us','eu','uae','nyc','sf','la','dc','hk','sg','au','ca','de','fr','jp','in','nl','ch','se',
+    'ops','dev','web','app','ads','tax','law','med','bio','edu','gov','fin','pay','pos',
 ))
 
 
+def _looks_gibberish_token(tok:str)->bool:
+    raw=tok.strip('.,;:!?()[]"\'')
+    t=''.join(ch for ch in raw.lower() if ch.isalpha())
+    if not t or t in _VALID_SHORT_TERMS or (t.endswith('s') and t[:-1] in _VALID_SHORT_TERMS):return False
+    # Recognize uppercase acronyms like SMBs, CTOs, APIs, VPs (unless explicitly a mash like XSX)
+    if len(raw)<=5 and raw.rstrip('s').isupper() and len(set(t))>=3:return False
+    if len(t)>=3 and len(set(t))<=2:return True
+    # Catch short alternating/consonant-heavy keyboard mashes like xsx, xsas, saxas, zxcz, fdsf
+    if 3<=len(t)<=8:
+        uniq=set(t)
+        vowels=sum(1 for ch in t if ch in 'aeiouy')
+        if vowels==0:
+            return True
+        # Repetitive 3-unique-char mash using rare/home-row mash letters (x, z, q, s, a, d, f)
+        if len(uniq)<=3 and len(t)>=4 and (uniq<=set('asxzdfqwe') or any(ch in uniq for ch in ('x','z','q'))):
+            return True
+        # Excessive consecutive consonants (4+) in short token
+        run=0
+        for ch in t:
+            if ch not in 'aeiouy':
+                run+=1
+                if run>=4:return True
+            else:
+                run=0
+    return False
+
+
 def _looks_placeholder(val:str)->bool:
-    s=(val or '').strip().lower()
+    raw_val=(val or '').strip()
+    s=raw_val.lower()
     if not s:return False
+    if s in _VALID_SHORT_TERMS:return False
     if s in _PLACEHOLDER_PATTERNS:return True
-    if len(set(s.replace(' ','')))<=2 and len(s)>=3:return True
-    if any(tok in s.split() for tok in ('asdf','qwerty','lorem','ipsum','placeholder')):return True
+    compact=s.replace(' ','')
+    if len(set(compact))<=2 and len(compact)>=3:return True
+    raw_tokens=[tok.strip('.,;:!?()[]"\'') for tok in raw_val.split() if tok.strip('.,;:!?()[]"\'')]
+    if any(tok.lower() in ('asdf','qwerty','lorem','ipsum','placeholder','zxcv','xsx','xsas','saxas') for tok in raw_tokens):return True
+    if raw_tokens and all(_looks_gibberish_token(tok) for tok in raw_tokens):return True
     return False
 
 
 def analyze_profile_quality(data:dict)->list[dict]:
     """Detect placeholder/low-quality company profile fields without mutating stored data."""
     issues:list[dict]=[]
+    name=(data.get('name') or '').strip()
     desc=(data.get('description') or '').strip()
     industry=(data.get('industry') or '').strip()
     positioning=(data.get('positioning') or '').strip()
     website=(data.get('website') or '').strip()
+    city=(data.get('city') or '').strip()
+    country=(data.get('country') or '').strip()
     services=data.get('products_services') or []
+
+    if name and (_looks_placeholder(name) or len(name)<2):
+        issues.append({'field':'name','severity':'warning','code':'placeholder_name','message':f'Company name "{name}" looks like a placeholder value.','current_value':name})
 
     if not website:
         issues.append({'field':'website','severity':'info','code':'missing_website','message':'Add your company website to enable grounded AI profile enrichment.','current_value':''})
@@ -135,8 +184,13 @@ def analyze_profile_quality(data:dict)->list[dict]:
 
     if not industry:
         issues.append({'field':'industry','severity':'warning','code':'missing_industry','message':'Industry is missing — adding it improves ICP matching and signal relevance.','current_value':''})
-    elif _looks_placeholder(industry) or len(industry)<3 or industry.isdigit():
+    elif _looks_placeholder(industry) or (len(industry)<3 and industry.lower() not in _VALID_SHORT_TERMS) or industry.isdigit():
         issues.append({'field':'industry','severity':'warning','code':'invalid_industry','message':f'Industry "{industry}" looks like a placeholder or invalid value.','current_value':industry})
+
+    if city and (_looks_placeholder(city) or city.isdigit()):
+        issues.append({'field':'city','severity':'warning','code':'invalid_city','message':f'Headquarters city "{city}" looks like a placeholder value.','current_value':city})
+    if country and (_looks_placeholder(country) or country.isdigit()):
+        issues.append({'field':'country','severity':'warning','code':'invalid_country','message':f'Headquarters country "{country}" looks like a placeholder value.','current_value':country})
 
     if not desc:
         issues.append({'field':'description','severity':'warning','code':'missing_description','message':'Add a clear summary of what your company builds or offers.','current_value':''})

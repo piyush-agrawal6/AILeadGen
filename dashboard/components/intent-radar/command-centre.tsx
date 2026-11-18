@@ -1,10 +1,56 @@
 "use client";
-import {useState,type FormEvent} from 'react';
-import Link from 'next/link';
-import {ArrowUp,Sparkles,Search,Radio,ArrowUpRight,Network} from 'lucide-react';
-import {useRadarCapabilities} from './provider';
-export function CommandCentre(){
- const [prompt,setPrompt]=useState(''),access=useRadarCapabilities(),available=access.data?.growth_enabled;
- function ask(event:FormEvent){event.preventDefault();if(prompt.trim())window.dispatchEvent(new CustomEvent('planebyte:ask',{detail:prompt.trim()}))}
- return <section className="pb-command-centre"><div className="pb-ai-emblem" aria-hidden="true"><Sparkles size={20}/></div><p className="pb-command-eyebrow">YOUR INTELLIGENCE WORKSPACE</p><h1>What would you like to discover today?</h1><p>Find the conversations, understand the context, see the opportunity.</p>{available?<form onSubmit={ask} className="pb-command-input"><label className="sr-only" htmlFor="home-question">Ask about your workspace</label><textarea id="home-question" placeholder="Ask about your signals, opportunities or next research step…" value={prompt} maxLength={1500} required rows={2} onChange={e=>setPrompt(e.target.value)}/><div><span><Sparkles size={14}/> Ask PlaneByte</span><small>You review every next step</small><button type="submit" aria-label="Open question in assistant" disabled={!prompt.trim()}><ArrowUp size={18}/></button></div></form>:<Link className="ir-button ir-primary" href="/intent-radar/discover"><Search size={15}/>Start a discovery</Link>}<div className="pb-command-suggestions">{available&&<button onClick={()=>window.dispatchEvent(new CustomEvent('planebyte:ask',{detail:'How many signals have I discovered?'}))}><Sparkles size={14}/>Summarize my signals</button>}<Link href="/intent-radar/discover"><Search size={13}/>Find relevant conversations<ArrowUpRight size={13}/></Link><Link href="/intent-radar/graph"><Network size={13}/>Refine my business context</Link><Link href="/intent-radar/monitors/new"><Radio size={13}/>Create a monitor</Link></div></section>;
+
+import Link from "next/link";
+import { Activity, Radio, Search, Sparkles } from "lucide-react";
+import { useRadarCapabilities } from "./provider";
+
+export function CommandCentre() {
+  const access = useRadarCapabilities();
+  const assistantAvailable = Boolean(access.data?.growth_enabled);
+
+  return (
+    <section
+      className="pb-command-centre"
+      aria-label="Discovery launchpad"
+    >
+      <p className="pb-command-eyebrow">PLANEBYTE INTENT RADAR</p>
+      <h1>Find your next opportunity.</h1>
+      <p className="max-w-xl">
+        Discover relevant conversations, track emerging needs, and turn signals
+        into opportunities.
+      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+        <Link
+          className="ir-button ir-primary inline-flex items-center gap-1.5 text-xs font-semibold"
+          href="/intent-radar/discover"
+        >
+          <Search size={14} />
+          Discover Intent
+        </Link>
+        <Link
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card/90 px-3.5 text-xs font-medium text-foreground shadow-sm hover:border-primary/40 hover:bg-card transition-colors"
+          href="/intent-radar/monitors/new"
+        >
+          <Radio size={14} className="text-primary" />
+          Create Monitor
+        </Link>
+        <Link
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card/90 px-3.5 text-xs font-medium text-foreground shadow-sm hover:border-primary/40 hover:bg-card transition-colors"
+          href="/intent-radar/signals"
+        >
+          <Activity size={14} className="text-primary" />
+          Explore Signals
+        </Link>
+        {assistantAvailable && (
+          <Link
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-primary/25 bg-card/90 px-3.5 text-xs font-medium text-primary shadow-sm hover:border-primary/50 hover:bg-primary/5 transition-colors"
+            href="/intelligence/assistant"
+          >
+            <Sparkles size={14} />
+            Open AI Assistant
+          </Link>
+        )}
+      </div>
+    </section>
+  );
 }

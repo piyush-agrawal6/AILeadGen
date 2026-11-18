@@ -155,6 +155,21 @@ def set_role(body:RoleChange,request:Request,c=Depends(get_db,scope='function'))
     from app.platform.memberships import change_role
     return change_role(c,request.state.user_email,target,body.role)
 
+_AUDIT_BLOCKED_KEYS=('secret','token','password','api_key','key_hash','authorization','cookie','credential','private_key','client_secret','challenge_hash','access_token','refresh_token','signature')
+
+
+def _scrub_audit_value(val):
+    import re
+    if isinstance(val,dict):
+        return {k:('[redacted]' if any(b in str(k).lower() for b in _AUDIT_BLOCKED_KEYS) else _scrub_audit_value(v)) for k,v in val.items()}
+    if isinstance(val,list):
+        return [_scrub_audit_value(item) for item in val]
+    if isinstance(val,str):
+        if re.search(r'(?:pbk_[a-f0-9-]{16,}|ghp_[A-Za-z0-9]{20,}|ghs_[A-Za-z0-9]{20,}|AIza[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{16,}|Bearer\s+\S+)',val):
+            return '[redacted]'
+    return val
+
+
 def _safe_audit_details(raw):
     if not raw:return None
     try:
@@ -162,8 +177,7 @@ def _safe_audit_details(raw):
     except Exception:
         return None
     if not isinstance(parsed,dict):return None
-    blocked=('secret','token','password','api_key','key_hash','authorization','cookie','credential')
-    return {k:('[redacted]' if any(b in str(k).lower() for b in blocked) else v) for k,v in parsed.items()}
+    return _scrub_audit_value(parsed)
 
 def _audit_query(organization:str,action:str|None,actor:str|None,result:str|None,search:str|None,from_date:str|None,to_date:str|None):
     where=['organization_id=?'];args=[organization]

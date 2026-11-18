@@ -12,10 +12,12 @@ export type Membership = {
   status?: string;
   created_at?: string;
   plan_label?: string | null;
+  plan_status?: string | null;
   access_state?: WorkspaceAccessState | null;
   onboarding_status?: string | null;
   onboarding_completed_steps?: number | null;
   onboarding_total_steps?: number | null;
+  next_setup_step?: string | null;
   member_count?: number | null;
 };
 

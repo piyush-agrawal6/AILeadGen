@@ -26,10 +26,12 @@ class WorkspaceMembership(BaseModel):
     slug:str
     created_at:str
     plan_label:str|None=None
+    plan_status:str|None=None
     access_state:str|None=None
     onboarding_status:str|None=None
     onboarding_completed_steps:int|None=None
     onboarding_total_steps:int|None=None
+    next_setup_step:str|None=None
     member_count:int|None=None
 
 class WorkspaceList(BaseModel):

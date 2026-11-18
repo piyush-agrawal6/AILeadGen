@@ -91,6 +91,8 @@ export function DomainSettings() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [activeChallenge, setActiveChallenge] = useState<ChallengeResult | null>(null);
+  const [selectedDomain, setSelectedDomain] = useState<DomainItem | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<DomainItem | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -133,16 +135,18 @@ export function DomainSettings() {
     setError("");
     setNotice("");
     try {
-      const res = await request<{ status: string; verified_at?: string | null }>(
-        `/organization/domains/${item.id}/verify`,
-        { method: "POST" }
-      );
+      const res = await request<{
+        status: string;
+        verified_at?: string | null;
+        message?: string | null;
+      }>(`/organization/domains/${item.id}/verify`, { method: "POST" });
       if (res.status === "VERIFIED") {
         setNotice(`${item.domain} ownership verified via DNS TXT record.`);
         if (activeChallenge?.id === item.id) setActiveChallenge(null);
       } else {
         setError(
-          `Matching TXT record not found yet for _heysow-verify.${item.domain}. DNS changes typically propagate within 5–30 minutes.`
+          res.message ||
+            `Matching TXT record not found yet for _heysow-verify.${item.domain}. DNS changes typically propagate within 5–30 minutes.`,
         );
       }
       await domains.refetch();
@@ -153,13 +157,17 @@ export function DomainSettings() {
     }
   }
 
-  async function revokeDomain(item: DomainItem) {
+  async function confirmRevokeDomain() {
+    if (!revokeTarget) return;
+    const item = revokeTarget;
     setBusyId(item.id);
     setError("");
     setNotice("");
     try {
       await request(`/organization/domains/${item.id}`, { method: "DELETE" });
       if (activeChallenge?.id === item.id) setActiveChallenge(null);
+      if (selectedDomain?.id === item.id) setSelectedDomain(null);
+      setRevokeTarget(null);
       setNotice(`Revoked verification for ${item.domain}.`);
       await domains.refetch();
     } catch (err) {
@@ -243,7 +251,7 @@ export function DomainSettings() {
                   className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline cursor-pointer"
                 >
                   {copiedField === "name" ? <Check size={11} /> : <Copy size={11} />}
-                  {copiedField === "name" ? "Copied" : "Copy"}
+                  {copiedField === "name" ? "Copied" : "Copy Record Name"}
                 </button>
               </div>
               <p className="font-mono text-[11px] text-foreground break-all">
@@ -262,7 +270,7 @@ export function DomainSettings() {
                   className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline cursor-pointer"
                 >
                   {copiedField === "value" ? <Check size={11} /> : <Copy size={11} />}
-                  {copiedField === "value" ? "Copied" : "Copy"}
+                  {copiedField === "value" ? "Copied" : "Copy Record Value"}
                 </button>
               </div>
               <p className="font-mono text-[11px] text-foreground break-all">
@@ -296,7 +304,18 @@ export function DomainSettings() {
 
       {/* Compact Domains Table */}
       {domains.isPending ? (
-        <div className="h-36 rounded-xl border border-border bg-muted/30 animate-pulse" />
+        <div role="status" className="rounded-xl border border-border bg-card p-6 text-xs text-muted-foreground">
+          Loading business domains…
+        </div>
+      ) : domains.isError ? (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/5 p-4 text-xs text-destructive">
+          <span>
+            {domains.error instanceof Error ? domains.error.message : "Could not load business domains."}
+          </span>
+          <Button size="sm" variant="outline" onClick={() => void domains.refetch()}>
+            Retry
+          </Button>
+        </div>
       ) : (
         <section className="rounded-xl border border-border bg-card overflow-hidden">
           <div className="overflow-x-auto">
@@ -313,19 +332,20 @@ export function DomainSettings() {
                 {items.map((item) => {
                   const meta = STATUS_META[item.status] || STATUS_META.PENDING;
                   const isBusy = busyId === item.id;
+                  const recName = item.record_name || `_heysow-verify.${item.domain}`;
                   return (
                     <tr key={item.id} className="hover:bg-muted/20">
                       <td className="px-4 py-3">
                         <div className="font-semibold text-foreground">{item.domain}</div>
-                        {item.status === "PENDING" && item.record_name && (
+                        {item.status === "PENDING" && (
                           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono mt-0.5">
-                            <span>TXT {item.record_name}</span>
+                            <span>TXT {recName}</span>
                             <button
                               type="button"
-                              onClick={() => void copyText(item.id, item.record_name!)}
+                              onClick={() => void copyText(item.id, recName)}
                               className="text-primary hover:underline cursor-pointer"
                             >
-                              {copiedField === item.id ? "Copied" : "Copy host"}
+                              {copiedField === item.id ? "Copied" : "Copy Record Name"}
                             </button>
                           </div>
                         )}
@@ -348,48 +368,52 @@ export function DomainSettings() {
                           : formatDateTime(item.checked_at)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {canEdit ? (
-                          <div className="inline-flex items-center gap-1.5">
-                            {item.status === "PENDING" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={isBusy}
-                                onClick={() => void verifyDomain(item)}
-                                className="h-7 px-2.5 text-[11px] gap-1"
-                              >
-                                <RefreshCw size={11} className={isBusy ? "animate-spin" : ""} />
-                                Verify
-                              </Button>
-                            )}
-                            {(item.status === "EXPIRED" || item.status === "REVOKED") && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={creating}
-                                onClick={() => void createChallenge(item.domain)}
-                                className="h-7 px-2.5 text-[11px] gap-1"
-                              >
-                                <RefreshCw size={11} />
-                                New Challenge
-                              </Button>
-                            )}
-                            {item.status !== "REVOKED" && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={isBusy}
-                                onClick={() => void revokeDomain(item)}
-                                className="h-7 px-2 text-[11px] text-muted-foreground hover:text-destructive gap-1"
-                              >
-                                <Trash2 size={11} />
-                                Revoke
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-muted-foreground/60">—</span>
-                        )}
+                        <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSelectedDomain(item)}
+                            className="h-7 px-2 text-[11px]"
+                          >
+                            Details
+                          </Button>
+                          {canEdit && item.status === "PENDING" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isBusy}
+                              onClick={() => void verifyDomain(item)}
+                              className="h-7 px-2.5 text-[11px] gap-1"
+                            >
+                              <RefreshCw size={11} className={isBusy ? "animate-spin" : ""} />
+                              {isBusy ? "Checking DNS…" : "Verify"}
+                            </Button>
+                          )}
+                          {canEdit && (item.status === "EXPIRED" || item.status === "REVOKED") && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={creating}
+                              onClick={() => void createChallenge(item.domain)}
+                              className="h-7 px-2.5 text-[11px] gap-1"
+                            >
+                              <RefreshCw size={11} />
+                              New Challenge
+                            </Button>
+                          )}
+                          {canEdit && item.status !== "REVOKED" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={isBusy}
+                              onClick={() => setRevokeTarget(item)}
+                              className="h-7 px-2 text-[11px] text-muted-foreground hover:text-destructive gap-1"
+                            >
+                              <Trash2 size={11} />
+                              Revoke
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -465,6 +489,164 @@ export function DomainSettings() {
                 </Button>
               </div>
             </form>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Domain Verification Details Drawer */}
+      <Dialog.Root open={Boolean(selectedDomain)} onOpenChange={(o) => !o && setSelectedDomain(null)}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-[1px]" />
+          <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-border bg-card shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+              <div className="min-w-0">
+                <Dialog.Title className="text-sm font-semibold text-foreground">
+                  {selectedDomain?.domain}
+                </Dialog.Title>
+                <Dialog.Description className="text-[11px] text-muted-foreground mt-0.5">
+                  DNS TXT ownership verification details
+                </Dialog.Description>
+              </div>
+              <Dialog.Close asChild>
+                <button className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label="Close domain details">
+                  <X size={16} />
+                </button>
+              </Dialog.Close>
+            </div>
+            {selectedDomain && (
+              <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+                <dl className="grid grid-cols-2 gap-3 rounded-xl border border-border bg-muted/15 p-3.5">
+                  <div>
+                    <dt className="text-[11px] text-muted-foreground">Status</dt>
+                    <dd className="font-semibold text-foreground mt-0.5">
+                      {(STATUS_META[selectedDomain.status] || STATUS_META.PENDING).label}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-muted-foreground">Record Type</dt>
+                    <dd className="font-mono font-medium text-foreground mt-0.5">
+                      {selectedDomain.record_type || "TXT"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-muted-foreground">Last Checked</dt>
+                    <dd className="text-foreground mt-0.5">{formatDateTime(selectedDomain.checked_at)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-muted-foreground">DNS Checks</dt>
+                    <dd className="text-foreground mt-0.5 tabular-nums">{selectedDomain.attempts ?? 0} / 20</dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className="text-[11px] text-muted-foreground">Challenge Expires</dt>
+                    <dd className="text-foreground mt-0.5">{formatDateTime(selectedDomain.challenge_expires_at)}</dd>
+                  </div>
+                </dl>
+
+                <div className="rounded-xl border border-border bg-card p-3.5 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      DNS Record Name (TXT)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void copyText(
+                          "drawer-name",
+                          selectedDomain.record_name || `_heysow-verify.${selectedDomain.domain}`,
+                        )
+                      }
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline cursor-pointer"
+                    >
+                      {copiedField === "drawer-name" ? <Check size={11} /> : <Copy size={11} />}
+                      {copiedField === "drawer-name" ? "Copied" : "Copy Record Name"}
+                    </button>
+                  </div>
+                  <p className="font-mono text-[11px] text-foreground break-all">
+                    {selectedDomain.record_name || `_heysow-verify.${selectedDomain.domain}`}
+                  </p>
+                  {selectedDomain.status === "PENDING" && (
+                    <p className="text-[11px] text-muted-foreground leading-relaxed pt-1">
+                      Verification tokens are stored hashed for security. If you need a new TXT value, regenerate the challenge below and update your DNS provider.
+                    </p>
+                  )}
+                </div>
+
+                {canEdit && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {selectedDomain.status === "PENDING" && (
+                      <Button
+                        size="sm"
+                        disabled={busyId === selectedDomain.id}
+                        onClick={() => void verifyDomain(selectedDomain)}
+                        className="h-8 text-xs gap-1.5"
+                      >
+                        <ShieldCheck size={13} />
+                        {busyId === selectedDomain.id ? "Checking DNS verification…" : "Verify Now"}
+                      </Button>
+                    )}
+                    {selectedDomain.status !== "VERIFIED" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={creating}
+                        onClick={() => {
+                          const targetDomain = selectedDomain.domain;
+                          setSelectedDomain(null);
+                          void createChallenge(targetDomain);
+                        }}
+                        className="h-8 text-xs gap-1.5"
+                      >
+                        <RefreshCw size={12} />
+                        Regenerate TXT Value
+                      </Button>
+                    )}
+                    {selectedDomain.status !== "REVOKED" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setRevokeTarget(selectedDomain);
+                          setSelectedDomain(null);
+                        }}
+                        className="h-8 text-xs text-destructive hover:text-destructive gap-1.5"
+                      >
+                        <Trash2 size={12} />
+                        Revoke Domain
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Confirm Revoke Domain Dialog */}
+      <Dialog.Root open={Boolean(revokeTarget)} onOpenChange={(o) => !o && setRevokeTarget(null)}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px]" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-xl space-y-4">
+            <Dialog.Title className="text-base font-semibold text-foreground">
+              Revoke {revokeTarget?.domain}?
+            </Dialog.Title>
+            <Dialog.Description className="text-xs text-muted-foreground leading-relaxed">
+              Revoking marks this domain&apos;s DNS verification as revoked while preserving its audit trail. You can create a new verification challenge later if needed.
+            </Dialog.Description>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setRevokeTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={busyId !== null}
+                onClick={() => void confirmRevokeDomain()}
+              >
+                {busyId ? "Revoking…" : "Revoke Domain"}
+              </Button>
+            </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

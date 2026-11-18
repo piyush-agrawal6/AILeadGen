@@ -100,6 +100,14 @@ function SetupWorkspace({
   const [state, setState] = useState(initial);
 
   const initialView = (): StepKey => {
+    if (typeof window !== 'undefined') {
+      const requested = new URLSearchParams(window.location.search).get('step');
+      if (requested && (['welcome', 'company', 'icp', 'research', 'plan'] as const).includes(requested as 'welcome' | 'company' | 'icp' | 'research' | 'plan')) {
+        if (initial.progress.status !== 'COMPLETED' || requested === 'plan') {
+          return requested as StepKey;
+        }
+      }
+    }
     if (initial.progress.status === 'COMPLETED') {
       return initial.payment?.required && !initial.payment.active ? 'plan' : 'ready';
     }
