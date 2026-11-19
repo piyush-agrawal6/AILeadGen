@@ -8,7 +8,9 @@
   color: var(--ir-text);
   font-size: 14px;
   line-height: 1.6;
-  max-width: 1360px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   min-width: 0;
   color-scheme: light;
 }

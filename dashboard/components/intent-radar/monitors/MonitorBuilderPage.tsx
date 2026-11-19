@@ -659,7 +659,7 @@ export function MonitorBuilderPage({
   }
 
   return (
-    <div className="ir-page space-y-6 pb-24">
+    <div className="ir-page w-full min-w-0 space-y-6 pb-24">
       {/* 1. Breadcrumb & Navigation */}
       <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
         <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -1425,7 +1425,7 @@ export function MonitorBuilderPage({
 
       {/* 9. Sticky Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-xs p-3.5 shadow-lg">
-        <div className="flex items-center justify-between gap-3">
+        <div className="w-full max-w-7xl mx-auto px-4 flex items-center justify-between gap-3">
           <Link
             href="/intent-radar/monitors"
             className="inline-flex h-8 items-center rounded-lg border border-border bg-card px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"

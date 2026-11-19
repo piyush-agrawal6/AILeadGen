@@ -385,7 +385,7 @@ export function MonitorsDashboard() {
   const hasZeroMonitorsEver = monitors.length === 0;
 
   return (
-    <div className="ir-page space-y-5">
+    <div className="ir-page w-full min-w-0 space-y-5">
       {/* 1. Header */}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
         <div className="space-y-0.5">
@@ -588,18 +588,18 @@ export function MonitorsDashboard() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
+            <div className="w-full min-w-0 overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-border bg-muted/30 text-[11px] uppercase tracking-wide text-muted-foreground select-none">
                   <tr>
-                    <th className="px-4 py-2.5 font-semibold">Monitor</th>
-                    <th className="px-3 py-2.5 font-semibold">Status</th>
-                    <th className="px-3 py-2.5 font-semibold">Sources</th>
-                    <th className="px-3 py-2.5 font-semibold">Frequency</th>
-                    <th className="px-3 py-2.5 font-semibold">Last Check</th>
-                    <th className="px-3 py-2.5 font-semibold">Next Check</th>
-                    <th className="px-3 py-2.5 font-semibold text-right">New Matches</th>
-                    <th className="px-4 py-2.5 font-semibold text-right">Actions</th>
+                    <th className="px-3.5 py-2.5 font-semibold min-w-[180px]">Monitor</th>
+                    <th className="px-2.5 py-2.5 font-semibold whitespace-nowrap">Status</th>
+                    <th className="px-2.5 py-2.5 font-semibold whitespace-nowrap">Sources</th>
+                    <th className="px-2.5 py-2.5 font-semibold whitespace-nowrap">Frequency</th>
+                    <th className="px-2.5 py-2.5 font-semibold whitespace-nowrap">Last Check</th>
+                    <th className="px-2.5 py-2.5 font-semibold whitespace-nowrap">Next Check</th>
+                    <th className="px-2.5 py-2.5 font-semibold text-right whitespace-nowrap">New Matches</th>
+                    <th className="px-3 py-2.5 font-semibold text-right sticky right-0 bg-muted/95 backdrop-blur-xs z-10 min-w-[155px]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -614,9 +614,9 @@ export function MonitorsDashboard() {
                     );
 
                     return (
-                      <tr key={m.id} className="hover:bg-muted/15 transition-colors">
+                      <tr key={m.id} className="group hover:bg-muted/15 transition-colors">
                         {/* Monitor column: name + objective/keywords */}
-                        <td className="px-4 py-3 min-w-[200px] max-w-md">
+                        <td className="px-3.5 py-3 min-w-[180px] max-w-sm">
                           <Link
                             href={`/intent-radar/monitors/${m.id}`}
                             className="font-semibold text-xs text-foreground hover:text-primary transition-colors block truncate"
@@ -705,8 +705,8 @@ export function MonitorsDashboard() {
                           </Link>
                         </td>
 
-                        {/* Actions column */}
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {/* Actions column - sticky right guarantees no clipping */}
+                        <td className="px-3 py-3 text-right whitespace-nowrap sticky right-0 bg-card group-hover:bg-muted/30 transition-colors z-10 min-w-[155px]">
                           <div className="inline-flex items-center justify-end gap-1.5">
                             <button
                               type="button"

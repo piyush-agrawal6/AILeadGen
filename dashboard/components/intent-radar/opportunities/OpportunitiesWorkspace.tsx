@@ -361,7 +361,7 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
   const members = membersQuery.data?.items || [];
 
   return (
-    <div className="ir-page space-y-4">
+    <div className="ir-page w-full min-w-0 space-y-4">
       {/* Header */}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-4">
         <div>
