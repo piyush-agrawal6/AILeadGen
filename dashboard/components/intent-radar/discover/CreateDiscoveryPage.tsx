@@ -360,7 +360,9 @@ export function CreateDiscoveryPage() {
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: res.reply || "I've analyzed your objective and proposed criteria updates.",
+          content: res.quota_exhausted
+            ? (res.reply || "Daily AI assistant limit reached for today. You can continue configuring your discovery search keywords, sources, and filters manually below.")
+            : (res.reply || "I've analyzed your objective and proposed criteria updates."),
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           proposedChanges,
         },
@@ -450,23 +452,46 @@ export function CreateDiscoveryPage() {
       toast.error("You have read-only access to this workspace.");
       return;
     }
-    if (!validation.hasKeywords) {
+    if (!config.keywords || config.keywords.length === 0) {
       setErrorNotice("Please add at least one keyword in Section 2.");
+      toast.error("Please add at least one keyword in Section 2.");
       const el = document.getElementById("section-keywords");
       if (typeof el?.scrollIntoView === "function") el.scrollIntoView({ behavior: "smooth" });
       return;
     }
-    if (!validation.hasSources) {
+    if (!config.sources || config.sources.length === 0) {
       setErrorNotice("Please select at least one research source in Section 3.");
+      toast.error("Please select at least one research source in Section 3.");
       const el = document.getElementById("section-sources");
       if (typeof el?.scrollIntoView === "function") el.scrollIntoView({ behavior: "smooth" });
       return;
     }
 
+    const finalName = name.trim() || `Discovery: ${config.keywords.slice(0, 3).join(", ")}`;
+
+    // Date range validation: Ensure YYYY-MM-DD format (no time strings)
+    let fromDate = config.from_date || null;
+    let toDate = config.to_date || null;
+    if (fromDate && fromDate.includes("T")) {
+      fromDate = fromDate.slice(0, 10);
+    }
+    if (toDate && toDate.includes("T")) {
+      toDate = toDate.slice(0, 10);
+    }
+    if (fromDate && toDate && fromDate > toDate) {
+      setErrorNotice("Start date cannot be after end date.");
+      toast.error("Start date cannot be after end date.");
+      return;
+    }
+
+    // Result limit validation: Enforce <= 20
+    const clampedLimit = Math.min(20, Math.max(1, Number(config.result_limit) || 20));
+
+    // Determine canonical search mode: 'ai' | 'advanced' | 'monitor' | 'rerun'
+    const searchMode: "ai" | "advanced" = messages.length > 1 ? "ai" : "advanced";
+
     setRunning(true);
     setErrorNotice(null);
-
-    const finalName = name.trim() || `Discovery: ${config.keywords.slice(0, 3).join(", ")}`;
 
     try {
       const res = (await mutation.mutateAsync({
@@ -476,10 +501,13 @@ export function CreateDiscoveryPage() {
           original_prompt: objective || finalName,
           configuration: {
             ...config,
+            from_date: fromDate,
+            to_date: toDate,
+            result_limit: clampedLimit,
             icp_id: selectedIcpId || null,
           },
           request_id: crypto.randomUUID(),
-          search_mode: "adhoc",
+          search_mode: searchMode,
         },
       })) as IntentJob;
 
@@ -1213,34 +1241,36 @@ export function CreateDiscoveryPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Date Range */}
+              {/* Date Range: Ensure YYYY-MM-DD date-only string */}
               <div className="space-y-1.5">
                 <label htmlFor="filter-daterange" className="text-xs font-semibold text-foreground">
-                  Date Range
+                  Time Horizon
                 </label>
                 <select
                   id="filter-daterange"
                   value={
-                    config.from_date
-                      ? config.from_date.includes("24h")
-                        ? "24h"
-                        : "custom"
-                      : "any"
+                    !config.from_date
+                      ? "any"
+                      : config.from_date.slice(0, 10) === new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+                      ? "24h"
+                      : config.from_date.slice(0, 10) === new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
+                      ? "7d"
+                      : config.from_date.slice(0, 10) === new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+                      ? "30d"
+                      : "custom"
                   }
                   onChange={(e) => {
                     const val = e.target.value;
                     pushHistory();
+                    const formatDateOnly = (ms: number) => new Date(Date.now() - ms).toISOString().slice(0, 10);
                     if (val === "any") {
                       setConfig({ ...config, from_date: null });
                     } else if (val === "24h") {
-                      const d = new Date(Date.now() - 86400000).toISOString();
-                      setConfig({ ...config, from_date: d });
+                      setConfig({ ...config, from_date: formatDateOnly(86400000) });
                     } else if (val === "7d") {
-                      const d = new Date(Date.now() - 7 * 86400000).toISOString();
-                      setConfig({ ...config, from_date: d });
+                      setConfig({ ...config, from_date: formatDateOnly(7 * 86400000) });
                     } else if (val === "30d") {
-                      const d = new Date(Date.now() - 30 * 86400000).toISOString();
-                      setConfig({ ...config, from_date: d });
+                      setConfig({ ...config, from_date: formatDateOnly(30 * 86400000) });
                     }
                   }}
                   className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
@@ -1252,23 +1282,24 @@ export function CreateDiscoveryPage() {
                 </select>
               </div>
 
-              {/* Result Limit */}
+              {/* Result Limit: Enforce <= 20 */}
               <div className="space-y-1.5">
                 <label htmlFor="filter-limit" className="text-xs font-semibold text-foreground">
                   Maximum Results per Run
                 </label>
                 <select
                   id="filter-limit"
-                  value={config.result_limit || 20}
+                  value={Math.min(20, config.result_limit || 20)}
                   onChange={(e) => {
                     pushHistory();
-                    setConfig({ ...config, result_limit: Number(e.target.value) });
+                    setConfig({ ...config, result_limit: Math.min(20, Number(e.target.value)) });
                   }}
                   className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
                 >
+                  <option value={5}>5 conversations (quick scan)</option>
                   <option value={10}>10 conversations</option>
-                  <option value={20}>20 conversations (standard)</option>
-                  <option value={50}>50 conversations (deep scan)</option>
+                  <option value={15}>15 conversations</option>
+                  <option value={20}>20 conversations (standard maximum)</option>
                 </select>
               </div>
             </div>

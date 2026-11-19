@@ -32,6 +32,7 @@ import { useWorkspaceManagement, useWorkspaceCapabilities } from '@/components/w
 import { useWorkspace } from '@/components/workspaces/use-workspace';
 import { useProducts } from '@/components/workspaces/use-products';
 import { isLeadEnginePage } from '@/lib/product-availability';
+import { TrialUsageCard } from './TrialUsageCard';
 
 type Item = { href: string; title: string; icon: LucideIcon };
 
@@ -185,20 +186,25 @@ export function Sidebar({
         ...(products.data?.intent_radar.growth_enabled
           ? [{ href: '/intent-radar/growth', title: 'Growth Intelligence', icon: Sparkles }]
           : []),
-        { href: '/intent-radar/graph', title: 'Intelligence Graph', icon: Network },
         { href: '/intent-radar/saved', title: 'Research Library', icon: Bookmark },
       ],
     },
   ];
 
   function active(href: string) {
-    return (
-      path === href ||
-      (href !== '/' && href !== '/intent-radar' && href !== '/intent-radar/growth' && path.startsWith(href + '/')) ||
-      (href === '/settings' &&
-        (path.startsWith('/settings') || path.startsWith('/account') || path.startsWith('/billing'))) ||
-      (href === '/campaigns' && /^\/(?:scans|discovery)\/\d+/.test(path))
-    );
+    if (path === href) return true;
+    if (href === '/intent-radar') return path === '/intent-radar';
+    if (href === '/') return path === '/';
+    if (href === '/settings') {
+      return path.startsWith('/settings') || path.startsWith('/account') || path.startsWith('/billing');
+    }
+    if (href === '/help') {
+      return path.startsWith('/help');
+    }
+    if (href === '/campaigns') {
+      return /^\/(?:scans|discovery)\/\d+/.test(path);
+    }
+    return path.startsWith(href + '/');
   }
 
   function item({ href, title, icon: Icon }: Item) {
@@ -260,6 +266,9 @@ export function Sidebar({
         )}
       </nav>
 
+      {/* Trial & Real Usage Card */}
+      <TrialUsageCard collapsed={collapsed} mobile={mobile} />
+
       <nav aria-label="Workspace settings" className="shell-nav shell-nav-bottom">
         {management && (
           <SidebarSetupShortcut
@@ -274,9 +283,6 @@ export function Sidebar({
           { href: '/help', title: 'Help & support', icon: LifeBuoy },
         ].map(item)}
       </nav>
-      <p className="shell-sidebar-footer shell-nav-label">
-        {radar ? 'Public conversation intelligence' : 'Your prospecting workspace'}
-      </p>
     </aside>
   );
 }
