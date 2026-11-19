@@ -846,11 +846,13 @@ export function InlineResultsPanel({
         ) : (
           <div className="p-6">
             <EmptyState
-              title="No matching results"
+              title={partialWarning ? "Source check incomplete" : "No matching results"}
               description={
-                signals && signals.length > 0
-                  ? "No results match your current filter. Clear the search or classification filter above."
-                  : coverage || "No recent discussions matched your criteria on the checked sources. Use AI Discovery to broaden keywords or enable additional sources."
+                partialWarning
+                  ? partialWarning
+                  : signals && signals.length > 0
+                    ? "No results match your current filter. Clear the search or classification filter above."
+                    : coverage || "No recent discussions matched your criteria on the checked sources. Use AI Discovery to broaden keywords or enable additional sources."
               }
             />
           </div>
@@ -890,8 +892,12 @@ export function InlineResultsPanel({
       ) : (
         <div className="p-6">
           <EmptyState
-            title="No matching discussions found"
-            description="No discussions matched the reviewed criteria on the checked sources. Broaden keywords, remove exclusions, or enable additional sources."
+            title={partialWarning ? "Source check incomplete" : "No matching discussions found"}
+            description={
+              partialWarning
+                ? partialWarning
+                : "No discussions matched the reviewed criteria on the checked sources. Broaden keywords, remove exclusions, or enable additional sources."
+            }
           />
         </div>
       )}

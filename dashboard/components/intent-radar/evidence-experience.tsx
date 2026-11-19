@@ -329,7 +329,7 @@ function EvidenceContent({ signal: s, canWrite }: { signal: IntentSignal; canWri
               <button
                 type="button"
                 disabled={disabled}
-                onClick={() => router.push(`/intent-radar/opportunities/${s.opportunity_id}`)}
+                onClick={() => setOppModalOpen(true)}
                 className="ir-primary inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
               >
                 <Target size={12} /> View Opportunity

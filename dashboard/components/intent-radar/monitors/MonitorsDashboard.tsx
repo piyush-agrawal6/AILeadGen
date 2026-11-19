@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import {
+  AlertCircle,
   Archive,
   ArrowRight,
   BookOpen,
@@ -36,10 +37,12 @@ import { ProviderLogo } from "../provider-logo";
 import { StatusFilterTabs } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 
-type StatusTab = "all" | "Running" | "Paused" | "Draft" | "Archived";
+type StatusTab = "all" | "Active" | "Scheduled" | "Running" | "Paused" | "Draft" | "Archived";
 
 const STATUS_TABS: { id: StatusTab; label: string }[] = [
   { id: "all", label: "All Monitors" },
+  { id: "Scheduled", label: "Scheduled" },
+  { id: "Active", label: "Active" },
   { id: "Running", label: "Running" },
   { id: "Paused", label: "Paused" },
   { id: "Draft", label: "Drafts" },
@@ -65,10 +68,10 @@ function formatDateTime(value?: string | null): string {
   }
 }
 
-function computeStatusBadge(m: IntentMonitor, isJobRunning: boolean) {
+function computeStatusBadge(m: IntentMonitor, isJobRunning: boolean, hasError: boolean = false) {
   if (isJobRunning) {
     return {
-      label: "Running check",
+      label: "Running",
       tone: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
       icon: Loader2,
       animate: true,
@@ -99,11 +102,19 @@ function computeStatusBadge(m: IntentMonitor, isJobRunning: boolean) {
     };
   }
 
+  if (hasError) {
+    return {
+      label: "Error",
+      tone: "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+      icon: AlertCircle,
+    };
+  }
+
   // Active
   const freq = m.schedule?.frequency;
   if (!freq || freq === "Manual") {
     return {
-      label: "Enabled · On demand",
+      label: "Active — On demand",
       tone: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
       icon: CheckCircle2,
     };
@@ -166,6 +177,17 @@ export function MonitorsDashboard() {
     return map;
   }, [jobsQuery.data?.items, runningJobIds]);
 
+  // Failed checks mapping for Error status
+  const failedJobMap = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    (jobsQuery.data?.items || []).forEach((j) => {
+      if (j.monitor_id && j.status === "FAILED") {
+        map[j.monitor_id] = true;
+      }
+    });
+    return map;
+  }, [jobsQuery.data?.items]);
+
   // Compute metrics for overview (only shown if meaningful data exists)
   const stats = useMemo(() => {
     let scheduled = 0;
@@ -180,7 +202,7 @@ export function MonitorsDashboard() {
         scheduled++;
       }
       totalMatches += m.signals_count || 0;
-      if (m.status === "Paused" || (!m.schedule?.frequency && m.status === "Draft")) {
+      if (m.status === "Paused" || Boolean(failedJobMap[m.id]) || (!m.schedule?.frequency && m.status === "Draft")) {
         needsAttention++;
       }
     });
@@ -192,7 +214,7 @@ export function MonitorsDashboard() {
       needsAttention,
       hasData: monitors.length > 0,
     };
-  }, [monitors, runningMap]);
+  }, [monitors, runningMap, failedJobMap]);
 
   // Filter monitors for table
   const filteredMonitors = useMemo(() => {
@@ -200,6 +222,10 @@ export function MonitorsDashboard() {
       // Status filter
       if (statusFilter === "Running") {
         if (!runningMap[m.id]) return false;
+      } else if (statusFilter === "Scheduled") {
+        if (m.status !== "Active" || !m.schedule?.frequency || m.schedule.frequency === "Manual") return false;
+      } else if (statusFilter === "Active") {
+        if (m.status !== "Active") return false;
       } else if (statusFilter === "Paused") {
         if (m.status !== "Paused") return false;
       } else if (statusFilter === "Draft") {
@@ -230,6 +256,8 @@ export function MonitorsDashboard() {
   const tabCounts = useMemo(() => {
     const counts: Record<StatusTab, number> = {
       all: monitors.filter((m) => m.status !== "Archived").length,
+      Active: monitors.filter((m) => m.status === "Active").length,
+      Scheduled: monitors.filter((m) => m.status === "Active" && m.schedule?.frequency && m.schedule.frequency !== "Manual").length,
       Running: monitors.filter((m) => Boolean(runningMap[m.id])).length,
       Paused: monitors.filter((m) => m.status === "Paused").length,
       Draft: monitors.filter((m) => m.status === "Draft").length,
@@ -337,7 +365,7 @@ export function MonitorsDashboard() {
 
   if (monitorsQuery.error) {
     return (
-      <div className="ir-page p-6 max-w-6xl mx-auto space-y-4">
+      <div className="ir-page space-y-4">
         <ErrorState
           message={monitorsQuery.error.message}
           retry={() => void monitorsQuery.refetch()}
@@ -348,7 +376,7 @@ export function MonitorsDashboard() {
 
   if (!monitorsQuery.data) {
     return (
-      <div className="ir-page p-6 max-w-6xl mx-auto space-y-4">
+      <div className="ir-page space-y-4">
         <LoadingSkeleton />
       </div>
     );
@@ -357,7 +385,7 @@ export function MonitorsDashboard() {
   const hasZeroMonitorsEver = monitors.length === 0;
 
   return (
-    <div className="ir-page space-y-5 p-4 sm:p-6 max-w-6xl mx-auto">
+    <div className="ir-page space-y-5">
       {/* 1. Header */}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4">
         <div className="space-y-0.5">
@@ -577,7 +605,8 @@ export function MonitorsDashboard() {
                 <tbody className="divide-y divide-border">
                   {filteredMonitors.map((m) => {
                     const isRunning = Boolean(runningMap[m.id]);
-                    const badge = computeStatusBadge(m, isRunning);
+                    const hasError = Boolean(failedJobMap[m.id]) && !isRunning;
+                    const badge = computeStatusBadge(m, isRunning, hasError);
                     const BadgeIcon = badge.icon;
                     const sources = m.configuration.sources || ["hacker_news"];
                     const sourceNames = sources.map(
@@ -587,7 +616,7 @@ export function MonitorsDashboard() {
                     return (
                       <tr key={m.id} className="hover:bg-muted/15 transition-colors">
                         {/* Monitor column: name + objective/keywords */}
-                        <td className="px-4 py-3 max-w-xs">
+                        <td className="px-4 py-3 min-w-[200px] max-w-md">
                           <Link
                             href={`/intent-radar/monitors/${m.id}`}
                             className="font-semibold text-xs text-foreground hover:text-primary transition-colors block truncate"

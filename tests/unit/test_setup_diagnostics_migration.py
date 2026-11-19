@@ -20,7 +20,7 @@ def test_schema51_is_additive_idempotent_and_cross_workspace_fk_is_enforced(tmp_
     monkeypatch.setattr(get_settings(),'heysow_setup_diagnostics_enabled',True)
     with pytest.raises(RuntimeError):migrations.verify_schema(c)
     monkeypatch.setattr(migrations,'MIGRATIONS',all_sql)
-    assert migrations.run_migrations(c)==1 and migrations.run_migrations(c)==0
+    assert migrations.run_migrations(c)==(len(all_sql)-50) and migrations.run_migrations(c)==0
     migrations.verify_schema(c)
     assert [tuple(r) for r in c.execute('SELECT * FROM organization_profile_jobs').fetchall()]==original
     with pytest.raises(sqlite3.IntegrityError):

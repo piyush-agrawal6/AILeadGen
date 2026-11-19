@@ -11,10 +11,10 @@ import {JobPanel} from './jobs';
 import {SignalTable} from './signals';
 import {MonitorWizard} from './wizard';
 export {MonitorWizard};
-export function ChipInput({label,value,onChange}:{label:string;value:string[];onChange:(v:string[])=>void}){
- const [input,setInput]=useState(''),id=useId();
+export function ChipInput({label,value,onChange,aliasLabel}:{label:string;value:string[];onChange:(v:string[])=>void;aliasLabel?:string}){
+ const [input,setInput]=useState(''),id=useId(),inputId=useId();
  function add(){const terms=input.split(',').map(t=>t.trim()).filter(Boolean);onChange([...new Set([...value,...terms])].slice(0,12));setInput('')}
- return <div className="ir-field"><span id={id}>{label}</span><div className="ir-chips">{value.map(x=><span className="ir-chip" key={x}>{x}<button aria-label={`Remove ${x} from ${label}`} onClick={()=>onChange(value.filter(t=>t!==x))}><X size={12}/></button></span>)}</div><div className="ir-chip-entry"><input aria-label={`Add ${label}`} maxLength={100} value={input} onChange={e=>setInput(e.target.value)} placeholder="Type a term and press Enter" onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();add()}}}/><button aria-label={`Add term to ${label}`} disabled={!input.trim()||value.length>=12} onClick={add}><Plus size={15}/></button></div></div>
+ return <div className="ir-field"><span id={id}>{label}</span>{aliasLabel&&<label htmlFor={inputId} className="sr-only">{aliasLabel}</label>}<div className="ir-chips">{value.map(x=><span className="ir-chip" key={x}>{x}<button aria-label={`Remove ${x} from ${label}`} onClick={()=>onChange(value.filter(t=>t!==x))}><X size={12}/></button></span>)}</div><div className="ir-chip-entry"><input id={inputId} aria-label={`Add ${label}`} maxLength={100} value={input} onChange={e=>setInput(e.target.value)} placeholder="Type a term and press Enter" onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();add()}}}/><button aria-label={`Add term to ${label}`} disabled={!input.trim()||value.length>=12} onClick={add}><Plus size={15}/></button></div></div>
 }
 const goals=['People requesting service recommendations','Businesses discussing specific problems','Users looking for alternatives','Companies evaluating tools','Buyers comparing products'];
 export function LegacyMonitorWizard({existing,configuration,open,onClose}:{existing?:IntentMonitor;configuration?:IntentSearch;open:boolean;onClose:()=>void}){

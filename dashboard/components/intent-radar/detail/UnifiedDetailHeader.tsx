@@ -135,6 +135,7 @@ export function UnifiedDetailHeader({
           <Button
             variant="outline"
             size="sm"
+            aria-label={recordType === "opportunity" ? "Previous Opportunity" : "Previous Signal"}
             disabled={!prevHref}
             onClick={() => prevHref && router.push(prevHref)}
             className="h-8 gap-1 px-2.5 text-xs"
@@ -145,6 +146,7 @@ export function UnifiedDetailHeader({
           <Button
             variant="outline"
             size="sm"
+            aria-label={recordType === "opportunity" ? "Next Opportunity" : "Next Signal"}
             disabled={!nextHref}
             onClick={() => nextHref && router.push(nextHref)}
             className="h-8 gap-1 px-2.5 text-xs"
@@ -209,6 +211,7 @@ export function UnifiedDetailHeader({
                 href={sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                aria-label="Open original public discussion"
               >
                 Original Discussion <ArrowUpRight size={13} />
               </a>

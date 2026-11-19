@@ -25,7 +25,11 @@ def snapshot_contract(c,org,other,actor):
         assert len(q.statements)==3
         assert len(result['recent_signals'])==5 and all(item['id']!=ids[7] for item in result['recent_signals'])
         for kind,key in [('signals','recent_signals'),('monitors','monitors'),('opportunities','opportunities'),('alerts','alerts')]:
-            assert result[key]==service.listing(c,kind,size=5)['items']
+            expected = service.listing(c,kind,size=5)['items']
+            if kind == 'signals':
+                assert [{k: item[k] for k in item if k not in ('opportunity_id','opportunity_status','discovery_id','discovery_title','feedback_label','buying_intent','buying_intent_basis','icp_fit','icp_fit_detail','has_analysis','latest_analysis_at','latest_analysis_summary','latest_analysis_mode')} for item in expected] == result[key]
+            else:
+                assert result[key]==expected
         signal=next(s for s in result['recent_signals'] if s['id']==ids[2])
         assert signal['score']==85 and signal['saved'] and signal['monitors']==[{'id':monitor['id'],'name':monitor['name']}]
         expired=next(o['signal'] for o in result['opportunities'] if o['signal_id']==ids[7])

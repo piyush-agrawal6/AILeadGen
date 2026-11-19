@@ -2,11 +2,15 @@
 
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, QueryClient } from "@tanstack/react-query";
 import { Loader2, Pencil, X } from "lucide-react";
 import { request } from "@/lib/intelligence";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+const fallbackQueryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
 
 interface TeamMember {
   id: string;
@@ -46,13 +50,24 @@ export function RecordEditDrawer({
   canWrite?: boolean;
   onSave: (values: RecordEditValues) => Promise<void>;
 }) {
-  const membersQuery = useQuery({
-    queryKey: ["workspace-members"],
-    queryFn: ({ signal }) =>
-      request<{ items: TeamMember[] }>("/organization/members", { signal }),
-    retry: false,
-    enabled: open && showAssignee,
-  });
+  let queryClient: QueryClient | undefined;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    queryClient = useQueryClient();
+  } catch {
+    queryClient = fallbackQueryClient;
+  }
+
+  const membersQuery = useQuery(
+    {
+      queryKey: ["workspace-members"],
+      queryFn: ({ signal }) =>
+        request<{ items: TeamMember[] }>("/organization/members", { signal }),
+      retry: false,
+      enabled: open && showAssignee,
+    },
+    queryClient
+  );
 
   const [status, setStatus] = useState(initialValues.status || "New");
   const [priority, setPriority] = useState(initialValues.priority || "Medium");

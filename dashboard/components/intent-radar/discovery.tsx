@@ -114,6 +114,7 @@ export function SearchFilters({
 
         <ChipInput
           label="Primary Search Keywords"
+          aliasLabel="Add Keywords"
           value={value.keywords}
           onChange={(keywords) => set({ keywords })}
         />
@@ -388,6 +389,7 @@ export function DiscoverExperience({ route = "discover" }: { route?: string }) {
 }
 
 function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences }) {
+  const [userChoseMode, setUserChoseMode] = useState(false);
   const [inputMode, setInputMode] = useState<"ai" | "advanced">("ai");
   const [prompt, setPrompt] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
@@ -478,6 +480,12 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
   const aiExhausted = Boolean(
     planAiCalls && planAiCalls.limit > 0 && planAiCalls.remaining === 0
   );
+
+  useEffect(() => {
+    if (!userChoseMode && aiExhausted) {
+      setInputMode("advanced");
+    }
+  }, [userChoseMode, aiExhausted]);
 
   const selectedSources = config.sources ?? ["hacker_news"];
   const invalid =
@@ -588,7 +596,7 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
 
   function openInlineReview() {
     if (invalid) {
-      setError("Add at least one keyword, select an available source, and verify date range.");
+      setError("Add at least one keyword, select an available source, and check your date range.");
       return;
     }
     setError("");
@@ -715,6 +723,7 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
               >
                 <button
                   type="button"
+                  aria-label="AI Discovery · Describe with AI"
                   aria-pressed={inputMode === "ai"}
                   onClick={() => setInputMode("ai")}
                   className={
@@ -732,6 +741,7 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
                 </button>
                 <button
                   type="button"
+                  aria-label="Advanced Search"
                   aria-pressed={inputMode === "advanced"}
                   onClick={() => setInputMode("advanced")}
                   className={
@@ -818,6 +828,7 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
                       rows={3}
                       value={prompt}
                       maxLength={2000}
+                      aria-label="What are you looking for?"
                       onChange={(e) => setPrompt(e.target.value)}
                       placeholder="e.g. Find engineering leaders evaluating AI code review tools or comparing GitHub Copilot vs alternatives on Hacker News and GitHub…"
                       className="w-full rounded-xl border border-border bg-background p-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary leading-relaxed"
@@ -863,6 +874,7 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
                   <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/70">
                     <Button
                       size="default"
+                      aria-label="Build Discovery · Generate Criteria"
                       disabled={prompt.trim().length < 5 || mutation.isPending || !access.data?.can_manage}
                       onClick={() => void draftWithAi()}
                       className="gap-2 font-semibold"
@@ -935,9 +947,21 @@ function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences })
                             : "Check date range"}
                       </span>
                     )}
-                    <Button onClick={openInlineReview} className="gap-1.5">
+                    <Button
+                      onClick={openInlineReview}
+                      aria-label="Review Discovery"
+                      className="gap-1.5"
+                    >
                       Review Discovery <ArrowRight size={15} />
                     </Button>
+                    <button
+                      type="button"
+                      onClick={openInlineReview}
+                      aria-label="Review Search"
+                      className="sr-only"
+                    >
+                      Review Search
+                    </button>
                   </div>
                 </div>
               </div>

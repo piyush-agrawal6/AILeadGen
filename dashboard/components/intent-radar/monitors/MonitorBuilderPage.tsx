@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   HelpCircle,
@@ -32,10 +34,12 @@ import { SourceConfigDrawer } from "../discover/SourceConfigDrawer";
 import { Button } from "@/components/ui/button";
 
 const EXAMPLE_MONITOR_PROMPTS = [
-  "Find SaaS founders looking for affordable CRM alternatives and discussing problems with their current tools",
-  "Engineers evaluating vector databases or comparing Pinecone, Qdrant, and pgvector",
-  "Product teams complaining about complex customer onboarding tools and looking for self-serve solutions",
-  "Security leads asking for recommendation on SOC 2 automated compliance platforms",
+  "Find founders looking for alternatives to HubSpot",
+  "Monitor GitHub discussions mentioning database performance problems",
+  "Find security managers evaluating SOC 2 compliance automation",
+  "Discover companies comparing cloud providers",
+  "Track businesses looking for custom CRM development",
+  "Find SaaS founders looking for affordable CRM alternatives",
 ];
 
 const COMMON_TIMEZONES = [
@@ -95,6 +99,17 @@ export function MonitorBuilderPage({
   const [aiRefineInput, setAiRefineInput] = useState("");
   const [aiDiffSummary, setAiDiffSummary] = useState<string | null>(null);
   const [historyStack, setHistoryStack] = useState<DiscoveryStrategy[]>([]);
+  const [proposedSummary, setProposedSummary] = useState<{
+    objective: string;
+    rationale?: string;
+    keywords: string[];
+    sources: string[];
+    categories: string[];
+    frequency?: string;
+  } | null>(null);
+  const [aiState, setAiState] = useState<
+    "ready" | "generating" | "completed" | "failed" | "timed_out" | "rate_limited" | "quota_exhausted"
+  >("ready");
 
   // Form Fields
   const [name, setName] = useState(existing?.name || "");
@@ -125,6 +140,49 @@ export function MonitorBuilderPage({
   // Error & submission
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Load draft from storage on mount if new monitor
+  useEffect(() => {
+    if (!existing && !savedSearchId) {
+      try {
+        const raw = sessionStorage.getItem("ir_monitor_builder_draft");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.name) setName(parsed.name);
+          if (parsed.description) setDescription(parsed.description);
+          if (parsed.config) setConfig(parsed.config);
+          if (parsed.selectedIcpId) setSelectedIcpId(parsed.selectedIcpId);
+          if (parsed.frequency) setFrequency(parsed.frequency);
+          if (parsed.timezone) setTimezone(parsed.timezone);
+          if (parsed.aiPrompt) setAiPrompt(parsed.aiPrompt);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [existing, savedSearchId]);
+
+  // Save in-progress draft to storage
+  useEffect(() => {
+    if (!existing && !savedSearchId && (name || description || config.keywords.length > 0)) {
+      try {
+        sessionStorage.setItem(
+          "ir_monitor_builder_draft",
+          JSON.stringify({
+            name,
+            description,
+            config,
+            selectedIcpId,
+            frequency,
+            timezone,
+            aiPrompt,
+          })
+        );
+      } catch {
+        // ignore
+      }
+    }
+  }, [existing, savedSearchId, name, description, config, selectedIcpId, frequency, timezone, aiPrompt]);
 
   // Sync from existing or saved search
   useEffect(() => {
@@ -284,41 +342,137 @@ export function MonitorBuilderPage({
       return;
     }
     setAiGenerating(true);
+    setAiState("generating");
     setError("");
     try {
       const res = (await mutation.mutateAsync({
         path: "/draft",
         body: {
-          prompt: aiPrompt,
+          prompt: aiPrompt.trim(),
           icp_id: selectedIcpId || null,
         },
-      })) as DiscoveryStrategy;
+      })) as {
+        draft?: {
+          name?: string;
+          description?: string;
+          configuration?: IntentSearch;
+          strategy?: DiscoveryStrategy | null;
+        };
+        strategy?: DiscoveryStrategy | null;
+        configuration?: IntentSearch;
+        keywords?: string[];
+        sources?: string[];
+        excluded?: string[];
+        categories?: string[];
+        min_relevance?: number;
+        mode?: string;
+        fallback_reason?: string | null;
+        quota_exhausted?: boolean;
+      };
 
-      // Apply proposed strategy to form
-      if (res.keywords && res.keywords.length > 0) {
-        setName((prev) => prev.trim() || res.objective.slice(0, 80));
-        setDescription(res.search_rationale || res.objective);
-        setConfig((prev) => ({
-          ...prev,
-          keywords: res.keywords.slice(0, 12),
-          excluded: (res.excluded || []).slice(0, 12),
-          sources: (res.sources || ["hacker_news"]).filter((s) =>
-            catalogSources.some((cs) => cs.id === s)
-          ) as SourceId[],
-          categories: res.categories || [],
-          min_relevance: res.min_relevance ?? prev.min_relevance,
-        }));
+      const d = res.draft || {};
+      const strat = (d.strategy || res.strategy || {}) as any;
+      const conf = (d.configuration || res.configuration || {}) as any;
 
-        if (res.suggested_frequency && ["Daily", "Weekly", "Manual"].includes(res.suggested_frequency)) {
-          setFrequency(res.suggested_frequency);
+      const extractedKeywords: string[] = strat.keywords?.length
+        ? strat.keywords
+        : conf.keywords?.length
+          ? conf.keywords
+          : res.keywords || [];
+      const extractedExcluded: string[] = strat.excluded?.length
+        ? strat.excluded
+        : conf.excluded?.length
+          ? conf.excluded
+          : res.excluded || [];
+      const rawSources = strat.sources?.length
+        ? strat.sources
+        : conf.sources?.length
+          ? conf.sources
+          : res.sources || ["hacker_news"];
+      const extractedCategories: IntentCategory[] = strat.categories?.length
+        ? strat.categories
+        : conf.categories?.length
+          ? conf.categories
+          : (res.categories as IntentCategory[]) || [];
+      const extractedTitle: string = d.name || strat.objective || (res as any).objective || "";
+      const extractedDesc: string =
+        d.description || strat.search_rationale || (res as any).search_rationale || strat.objective || "";
+      const extractedFrequency: string = strat.suggested_frequency || (res as any).suggested_frequency || "";
+      const extractedMinRelevance: number | undefined = strat.min_relevance ?? conf.min_relevance ?? res.min_relevance;
+
+      if (extractedKeywords.length > 0) {
+        if (extractedTitle) {
+          setName(extractedTitle.slice(0, 120));
+        } else {
+          setName((prev) => prev.trim() || aiPrompt.slice(0, 80));
+        }
+        if (extractedDesc) {
+          setDescription(extractedDesc.slice(0, 1000));
         }
 
-        setHistoryStack([res]);
+        const validSources = (rawSources as SourceId[]).filter((s) =>
+          catalogSources.some((cs) => cs.id === s)
+        );
+        const finalSources = validSources.length > 0 ? validSources : (["hacker_news"] as SourceId[]);
+
+        setConfig((prev) => ({
+          ...prev,
+          keywords: extractedKeywords.slice(0, 12),
+          excluded: extractedExcluded.slice(0, 12),
+          sources: finalSources,
+          categories: extractedCategories,
+          min_relevance: extractedMinRelevance ?? prev.min_relevance,
+        }));
+
+        if (extractedFrequency && ["Daily", "Weekly", "Manual", "12 hours", "6 hours"].includes(extractedFrequency)) {
+          setFrequency(extractedFrequency);
+        }
+
+        setProposedSummary({
+          objective: extractedTitle || aiPrompt,
+          rationale: extractedDesc,
+          keywords: extractedKeywords.slice(0, 12),
+          sources: finalSources,
+          categories: extractedCategories,
+          frequency: extractedFrequency || "Manual",
+        });
+
+        const recStrategy: DiscoveryStrategy = {
+          objective: extractedTitle || aiPrompt,
+          search_rationale: extractedDesc,
+          target_customer: selectedIcpId ? "Selected ICP" : "General audience",
+          keywords: extractedKeywords.slice(0, 12),
+          excluded: extractedExcluded.slice(0, 12),
+          sources: finalSources,
+          categories: extractedCategories,
+          date_range: "Any time",
+          min_relevance: extractedMinRelevance ?? config.min_relevance ?? 0,
+          result_limit: config.result_limit || 20,
+          suggested_frequency: extractedFrequency,
+        };
+        setHistoryStack([recStrategy]);
+        setAiState("completed");
         toast.success("Monitor setup generated by AI.");
+
+        if (res.fallback_reason) {
+          toast.info(res.fallback_reason);
+        }
+      } else {
+        setAiState("completed");
+        toast.info("AI completed without keyword suggestions. Please configure manually.");
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "AI generation failed. You can configure manually below.";
       setError(msg);
+      if (msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("timed out")) {
+        setAiState("timed_out");
+      } else if (msg.toLowerCase().includes("429") || msg.toLowerCase().includes("quota")) {
+        setAiState("quota_exhausted");
+      } else if (msg.toLowerCase().includes("rate limit")) {
+        setAiState("rate_limited");
+      } else {
+        setAiState("failed");
+      }
       toast.error(msg);
     } finally {
       setAiGenerating(false);
@@ -329,6 +483,7 @@ export function MonitorBuilderPage({
   async function handleAIRefine(refinementPrompt: string) {
     if (!refinementPrompt.trim()) return;
     setAiRefining(true);
+    setAiState("generating");
     setError("");
 
     const currentStrategy: DiscoveryStrategy = {
@@ -352,25 +507,54 @@ export function MonitorBuilderPage({
           icp_id: selectedIcpId || null,
           previous: currentStrategy,
         },
-      })) as DiscoveryStrategy;
+      })) as any;
 
-      if (res.keywords && res.keywords.length > 0) {
+      const d = res.draft || {};
+      const strat = d.strategy || res.strategy || {};
+      const conf = d.configuration || res.configuration || {};
+
+      const refinedKeywords: string[] = strat.keywords?.length
+        ? strat.keywords
+        : conf.keywords?.length
+          ? conf.keywords
+          : res.keywords || [];
+      const refinedExcluded: string[] = strat.excluded?.length
+        ? strat.excluded
+        : conf.excluded?.length
+          ? conf.excluded
+          : res.excluded || [];
+      const refinedSources = strat.sources?.length
+        ? strat.sources
+        : conf.sources?.length
+          ? conf.sources
+          : res.sources || config.sources || ["hacker_news"];
+      const refinedCategories = strat.categories?.length
+        ? strat.categories
+        : conf.categories?.length
+          ? conf.categories
+          : res.categories || config.categories;
+
+      if (refinedKeywords.length > 0) {
         setHistoryStack((prev) => [...prev, currentStrategy]);
+        const validSources = (refinedSources as SourceId[]).filter((s) =>
+          catalogSources.some((cs) => cs.id === s)
+        );
+
         setConfig((prev) => ({
           ...prev,
-          keywords: res.keywords.slice(0, 12),
-          excluded: (res.excluded || []).slice(0, 12),
-          sources: (res.sources || ["hacker_news"]).filter((s) =>
-            catalogSources.some((cs) => cs.id === s)
-          ) as SourceId[],
-          categories: res.categories || prev.categories,
+          keywords: refinedKeywords.slice(0, 12),
+          excluded: refinedExcluded.slice(0, 12),
+          sources: validSources.length > 0 ? validSources : prev.sources,
+          categories: refinedCategories || prev.categories,
         }));
         setAiDiffSummary(`Refined: ${refinementPrompt}`);
         setAiRefineInput("");
+        setAiState("completed");
         toast.success("Applied AI refinement.");
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not apply refinement.");
+      setAiState("failed");
     } finally {
       setAiRefining(false);
     }
@@ -454,6 +638,12 @@ export function MonitorBuilderPage({
             : `Created monitor "${name}".`
       );
 
+      try {
+        sessionStorage.removeItem("ir_monitor_builder_draft");
+      } catch {
+        // ignore
+      }
+
       if (onClose) {
         onClose();
       } else {
@@ -469,7 +659,7 @@ export function MonitorBuilderPage({
   }
 
   return (
-    <div className="ir-page p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-24">
+    <div className="ir-page space-y-6 pb-24">
       {/* 1. Breadcrumb & Navigation */}
       <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
         <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -532,25 +722,28 @@ export function MonitorBuilderPage({
             <textarea
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="Example: Find SaaS founders looking for affordable CRM alternatives and discussing problems with their current tools."
+              placeholder="Find SaaS founders asking for recommendations on alternatives, compliance platforms, or database migrations…"
               rows={2}
               className="w-full rounded-xl border border-border bg-card p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs resize-y"
             />
 
             {/* Quick example prompt chips */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-              <span className="text-[11px] text-muted-foreground">Suggestions:</span>
-              {EXAMPLE_MONITOR_PROMPTS.map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => setAiPrompt(prompt)}
-                  className="rounded-md border border-border/80 bg-card px-2 py-0.5 text-[11px] text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors truncate max-w-xs cursor-pointer"
-                  title={prompt}
-                >
-                  {prompt}
-                </button>
-              ))}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[11px] font-medium text-muted-foreground block">
+                Example objectives (click to use):
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {EXAMPLE_MONITOR_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => setAiPrompt(prompt)}
+                    className="inline-flex items-center text-left rounded-lg border border-border/80 bg-card px-2.5 py-1 text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                  >
+                    <span>{prompt}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -659,6 +852,54 @@ export function MonitorBuilderPage({
                     + {pill}
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Reviewable AI Proposed Summary */}
+          {proposedSummary && (
+            <div className="rounded-xl border border-primary/30 bg-primary/[0.04] p-3.5 space-y-2.5 mt-2">
+              <div className="flex items-center justify-between gap-2 border-b border-primary/20 pb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={14} className="text-primary" />
+                  <span className="text-xs font-semibold text-foreground">AI Proposed Configuration Summary</span>
+                  <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                    Reviewable Draft
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProposedSummary(null)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  Dismiss Summary
+                </button>
+              </div>
+              <p className="text-xs text-foreground leading-relaxed">
+                {proposedSummary.rationale || proposedSummary.objective}
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Keywords:</span>
+                {proposedSummary.keywords.map((kw: string) => (
+                  <span
+                    key={kw}
+                    className="rounded-md bg-card border border-border px-2 py-0.5 text-[11px] font-medium text-foreground"
+                  >
+                    {kw}
+                  </span>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-muted-foreground border-t border-primary/15">
+                <span>
+                  Cadence: <strong className="text-foreground">{proposedSummary.frequency || "Manual"}</strong>
+                </span>
+                <span>·</span>
+                <span>
+                  Sources: <strong className="text-foreground">{proposedSummary.sources.join(", ")}</strong>
+                </span>
+                <span className="ml-auto text-[11px] text-primary font-medium">
+                  Applied to form below. You can edit any parameter manually.
+                </span>
               </div>
             </div>
           )}
@@ -1062,12 +1303,129 @@ export function MonitorBuilderPage({
         </div>
       </section>
 
+      {/* 8. Section 5: Review & Create */}
+      <section className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-xs">
+        <div className="border-b border-border/80 pb-3">
+          <h2 className="text-sm font-semibold text-foreground">
+            5. Review &amp; Create
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Verify monitor configuration before activation. You can save as an inert draft or enable immediate scheduling.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 text-xs">
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+              Monitor Summary
+            </span>
+            <div className="space-y-1">
+              <span className="font-semibold text-foreground block text-sm">
+                {name.trim() || <span className="text-muted-foreground italic">Untitled Monitor (Name Required)</span>}
+              </span>
+              <p className="text-xs text-muted-foreground line-clamp-2">
+                {description.trim() || "No objective description provided."}
+              </p>
+            </div>
+            <div className="pt-2 border-t border-border/60 flex flex-wrap gap-2 text-[11px]">
+              <span className="text-muted-foreground">
+                Cadence: <strong className="text-foreground font-semibold">{frequency}</strong>
+              </span>
+              <span>·</span>
+              <span className="text-muted-foreground">
+                Timezone: <strong className="text-foreground font-semibold">{timezone}</strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border/70 bg-muted/20 p-3.5 space-y-2">
+            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+              Criteria &amp; Sources
+            </span>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] text-muted-foreground">Keywords ({config.keywords.length}/12):</span>
+                {config.keywords.slice(0, 4).map((kw) => (
+                  <span key={kw} className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                    {kw}
+                  </span>
+                ))}
+                {config.keywords.length > 4 && (
+                  <span className="text-[10px] text-muted-foreground">+{config.keywords.length - 4} more</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] text-muted-foreground">Sources ({(config.sources || []).length}):</span>
+                {(config.sources || []).map((sid) => {
+                  const sName = catalogSources.find((cs) => cs.id === sid)?.name || sid;
+                  return (
+                    <span key={sid} className="inline-flex items-center gap-1 rounded bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                      <ProviderLogo provider={sName} size={11} />
+                      <span>{sName}</span>
+                    </span>
+                  );
+                })}
+              </div>
+              {(config.excluded || []).length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] text-muted-foreground">Excluded:</span>
+                  {(config.excluded || []).slice(0, 3).map((ex) => (
+                    <span key={ex} className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+                      −{ex}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Validation Checklist */}
+        <div className="rounded-xl border border-border/80 bg-background p-3.5 space-y-1.5 text-xs">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+            Pre-flight Validation
+          </span>
+          <div className="grid gap-2 sm:grid-cols-3 pt-1">
+            <div className="flex items-center gap-2">
+              {name.trim() ? (
+                <CheckCircle2 size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle size={13} className="text-rose-600 dark:text-rose-400 shrink-0" />
+              )}
+              <span className={name.trim() ? "text-foreground font-medium" : "text-rose-700 dark:text-rose-400 font-medium"}>
+                Monitor name specified
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {config.keywords.length > 0 ? (
+                <CheckCircle2 size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle size={13} className="text-rose-600 dark:text-rose-400 shrink-0" />
+              )}
+              <span className={config.keywords.length > 0 ? "text-foreground font-medium" : "text-rose-700 dark:text-rose-400 font-medium"}>
+                {config.keywords.length > 0 ? `${config.keywords.length} keywords defined` : "At least 1 keyword required"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {(config.sources || []).length > 0 ? (
+                <CheckCircle2 size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle size={13} className="text-rose-600 dark:text-rose-400 shrink-0" />
+              )}
+              <span className={(config.sources || []).length > 0 ? "text-foreground font-medium" : "text-rose-700 dark:text-rose-400 font-medium"}>
+                {(config.sources || []).length > 0 ? `${(config.sources || []).length} sources selected` : "At least 1 source required"}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Error state if submission fails */}
       {error && <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</div>}
 
-      {/* 7. Sticky Bottom Action Bar */}
+      {/* 9. Sticky Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-xs p-3.5 shadow-lg">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <Link
             href="/intent-radar/monitors"
             className="inline-flex h-8 items-center rounded-lg border border-border bg-card px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"

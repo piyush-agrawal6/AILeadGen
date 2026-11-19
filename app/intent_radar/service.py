@@ -321,6 +321,8 @@ def get(c, kind, key):
         item['ranking']=signal.get('ranking')
         item['opportunity_eligibility']=signal.get('opportunity_eligibility')
         item['signal']=signal
+    if kind=='monitors':
+        item['signals_count']=c.execute('SELECT COUNT(*) FROM intent_monitor_signals WHERE organization_id=? AND monitor_id=?',(org,key)).fetchone()[0]
     return item
 
 def expired(signal,retention_days=30):
@@ -400,22 +402,14 @@ def _listing(c, kind, *, page=1, size=25, search='', status='', category='', sou
     elif kind=='opportunities':order="CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, (SELECT s.score FROM intent_signals s WHERE s.id=intent_opportunities.signal_id AND s.organization_id=intent_opportunities.organization_id) DESC,created_at DESC,id"
     else: order = 'created_at DESC,id'
     total = c.execute(f'SELECT COUNT(*) FROM {TABLES[kind]} WHERE {where}', args).fetchone()[0]
-    rows = c.execute(f'SELECT * FROM {TABLES[kind]} WHERE {where} ORDER BY {order} LIMIT ? OFFSET ?', [*args,size,(page-1)*size]).fetchall()
     if kind == 'monitors':
-        mon_items = [decode(r) for r in rows]
-        if mon_items:
-            mon_ids = [m['id'] for m in mon_items]
-            ph = ','.join('?' for _ in mon_ids)
-            counts = {
-                str(r['monitor_id']): int(r['cnt'])
-                for r in c.execute(
-                    f'SELECT monitor_id, COUNT(*) AS cnt FROM intent_monitor_signals WHERE organization_id=? AND monitor_id IN ({ph}) GROUP BY monitor_id',
-                    [org, *mon_ids],
-                ).fetchall()
-            }
-            for m in mon_items:
-                m['signals_count'] = counts.get(str(m['id']), 0)
-        return {'items': mon_items, 'total': total, 'page': page, 'page_size': size}
+        rows = c.execute(
+            f'SELECT m.*, (SELECT COUNT(*) FROM intent_monitor_signals s WHERE s.organization_id=m.organization_id AND s.monitor_id=m.id) AS signals_count '
+            f'FROM {TABLES[kind]} m WHERE {where} ORDER BY {order} LIMIT ? OFFSET ?',
+            [*args, size, (page-1)*size]
+        ).fetchall()
+        return {'items': [decode(r) for r in rows], 'total': total, 'page': page, 'page_size': size}
+    rows = c.execute(f'SELECT * FROM {TABLES[kind]} WHERE {where} ORDER BY {order} LIMIT ? OFFSET ?', [*args,size,(page-1)*size]).fetchall()
     return {'items': [get(c,kind,r['id']) for r in rows], 'total': total, 'page':page, 'page_size':size}
 
 def listing(c,kind,**filters):
@@ -444,12 +438,12 @@ def listing(c,kind,**filters):
             args.extend([qtext, qtext, qtext, org, qtext, qtext, qtext])
         feedback_rank = "(SELECT " + rank_expression('s') + " FROM intent_signals s WHERE s.id=intent_opportunities.signal_id AND s.organization_id=intent_opportunities.organization_id) DESC"
         order_map = {
-            'newest': f"CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, {feedback_rank}, created_at DESC, id DESC",
-            'oldest': 'created_at ASC, id ASC',
-            'updated': 'updated_at DESC, id DESC',
-            'priority': f"CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, {feedback_rank}, updated_at DESC, id DESC",
+            'newest': f"CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, {feedback_rank}, created_at DESC, id",
+            'oldest': 'created_at ASC, id',
+            'updated': 'updated_at DESC, id',
+            'priority': f"CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, {feedback_rank}, updated_at DESC, id",
         }
-        order = order_map.get(sort, f"CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, {feedback_rank}, created_at DESC, id DESC")
+        order = order_map.get(sort, f"CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END, {feedback_rank}, created_at DESC, id")
         sc_row = c.execute(
             "SELECT COUNT(*) AS all_count,"
             "COALESCE(SUM(CASE WHEN status='New' THEN 1 ELSE 0 END),0) AS new_count,"

@@ -31,7 +31,7 @@ def previews(c,organization_id):
         '''+array('SELECT * FROM recent',('id',))+''' recent,
         '''+array('SELECT * FROM opportunities',OPPORTUNITY_COLUMNS)+''' opportunities,
         '''+array('SELECT s.*,'+rank_expression('s')+' adjusted_score,'+explanation+' rank_explanation FROM intent_signals s WHERE s.organization_id=? AND s.id IN (SELECT id FROM needed)',[*SIGNAL_COLUMNS,'adjusted_score','rank_explanation'])+''' signals,
-        '''+array('SELECT * FROM intent_monitors WHERE organization_id=? ORDER BY created_at DESC,id LIMIT 5',MONITOR_COLUMNS)+''' monitors,
+        '''+array('SELECT *, (SELECT COUNT(*) FROM intent_monitor_signals s WHERE s.organization_id=intent_monitors.organization_id AND s.monitor_id=intent_monitors.id) AS signals_count FROM intent_monitors WHERE organization_id=? ORDER BY created_at DESC,id LIMIT 5',[*MONITOR_COLUMNS,'signals_count'])+''' monitors,
         '''+array("SELECT * FROM intent_alerts WHERE organization_id=? AND (description NOT LIKE '__pb_notif__:%' OR monitor_id IS NOT NULL OR signal_id IS NOT NULL) ORDER BY created_at DESC,id LIMIT 5",ALERT_COLUMNS)+''' alerts,
         '''+array('SELECT x.signal_id,m.id,m.name FROM intent_monitor_signals x JOIN intent_monitors m ON m.id=x.monitor_id AND m.organization_id=x.organization_id WHERE x.organization_id=? AND x.signal_id IN (SELECT id FROM needed)',('signal_id','id','name'))+''' links,
         '''+array('SELECT signal_id FROM intent_saved_signals WHERE organization_id=? AND signal_id IN (SELECT id FROM needed)',('signal_id',))+''' saved''',

@@ -202,8 +202,13 @@ export function InlineReviewPanel({
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/15 text-primary">
               <Sparkles size={12} aria-hidden="true" />
             </span>
-            <h2 className="text-base font-semibold text-foreground">
+            <h2
+              className="text-base font-semibold text-foreground"
+            >
               Discovery Strategy Review
+            </h2>
+            <h2 className="sr-only">
+              Review Search Criteria
             </h2>
             {draftInfo && <Badge>{draftInfo.mode}</Badge>}
           </div>
@@ -243,7 +248,7 @@ export function InlineReviewPanel({
           <div className="space-y-0.5">
             <p className="font-semibold text-foreground">
               {draftInfo.mode === "Manual fallback"
-                ? "Manual Fallback Criteria (AI draft budget exhausted or gateway offline)"
+                ? "Manual Fallback Criteria (AI did not generate this draft)"
                 : "AI-Generated Discovery Strategy"}
             </p>
             <p className="text-muted-foreground">
@@ -662,6 +667,7 @@ export function InlineReviewPanel({
         <div className="flex flex-wrap items-center gap-3">
           <Button
             size="default"
+            aria-label="Run Discovery · Run Search"
             disabled={invalid || active || isPending || !canWrite}
             onClick={onRunDiscovery}
             className="gap-2 px-5 py-2.5 font-semibold text-sm"

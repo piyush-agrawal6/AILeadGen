@@ -53,8 +53,8 @@ def approved_endpoint(url):
     if not is_safe_url(url,check_dns=True):raise HTTPException(422,'Source endpoint is not a public destination.')
     return url
 
-def configurations(c):
-    org=context(c).organization_id
+def configurations(c, org=None):
+    if org is None: org=context(c).organization_id
     from app.intent_radar.source_policy import evaluate_feed_policy
     rows=[]
     for r in c.execute('SELECT * FROM intent_source_configs WHERE organization_id=? ORDER BY id LIMIT 100',(org,)).fetchall():
@@ -120,14 +120,17 @@ def enable_preset(c,preset_id,*,enabled=True):
     )
     return configure(c,body,key=existing['id'] if existing else None)
 
-def catalog(c=None):
-    s=get_settings();configs=configurations(c) if c else []
+def catalog(c=None, org=None):
+    s=get_settings()
+    if c is not None and org is None:
+        try: org=context(c).organization_id
+        except Exception: pass
+    configs=configurations(c, org=org) if c else []
     se_sites=[x for x in s.intent_radar_stackexchange_sites.split(';') if x]
     gh_public=bool(s.intent_radar_github_enabled and s.intent_radar_github_public_search_enabled and s.github_app_id and s.github_app_private_key.get_secret_value() and s.github_app_installation_id)
     gh_connected=False
-    if c is not None:
+    if c is not None and org and s.intent_radar_sources_v2_enabled:
         try:
-            org=context(c).organization_id
             row=c.execute("SELECT status FROM intent_github_connections WHERE organization_id=?",(org,)).fetchone()
             gh_connected=bool(row and row['status']=='CONNECTED')
         except Exception:

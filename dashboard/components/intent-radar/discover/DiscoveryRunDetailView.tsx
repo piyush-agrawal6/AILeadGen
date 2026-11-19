@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowLeft,
   Bookmark,
   ChevronDown,
@@ -323,6 +324,36 @@ export function DiscoveryRunDetailView({ id }: { id: string }) {
         </div>
       )}
       {err && <ErrorState message={err} />}
+
+      {/* Failed / Incomplete Sources Banner with Retry Action */}
+      {failedSources.length > 0 && (
+        <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-3.5 space-y-2 text-xs text-amber-900 dark:text-amber-100">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 font-semibold">
+              <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400" />
+              <span>Source Execution Notice</span>
+            </div>
+            {access.data?.can_write && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={mutation.isPending}
+                onClick={() => void rerunAsNew()}
+                className="h-7 text-xs bg-background/80 hover:bg-background border-amber-500/40 text-amber-900 dark:text-amber-100 font-semibold cursor-pointer"
+              >
+                Retry Failed Sources
+              </Button>
+            )}
+          </div>
+          <p className="leading-relaxed text-amber-800 dark:text-amber-200">
+            {failedSources.map((s) =>
+              s.provider === "hacker_news" && s.status === "TIMED_OUT"
+                ? "Hacker News could not complete this check. No reliable result count is available for this source."
+                : `${SOURCE_LABELS[s.provider] || s.provider} could not complete this check (${s.status}).`
+            ).join(" ")}
+          </p>
+        </div>
+      )}
 
       {/* C. Compact 4-Metric Execution Summary (Zero duplication) */}
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">

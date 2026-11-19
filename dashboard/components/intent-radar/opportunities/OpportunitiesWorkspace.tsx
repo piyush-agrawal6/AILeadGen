@@ -441,7 +441,7 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
       <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-border bg-card p-2.5">
         <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[240px]">
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[180px] max-w-sm">
+          <div className="relative flex-1 min-w-[220px]">
             <Search size={13} className="absolute left-2.5 top-2.5 text-muted-foreground" />
             <Input
               value={search}
@@ -467,59 +467,65 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
             )}
           </div>
 
-          {/* Priority Filter */}
-          <select
-            aria-label="Filter by priority"
-            value={priorityFilter}
-            onChange={(e) => {
-              setPriorityFilter(e.target.value);
-              setPage(1);
-            }}
-            className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground cursor-pointer focus:border-primary focus:outline-none"
-          >
-            <option value="">All Priorities</option>
-            <option value="High">High Priority</option>
-            <option value="Medium">Medium Priority</option>
-            <option value="Low">Low Priority</option>
-          </select>
-
-          {/* Filters Popover for Source & Assignee */}
+          {/* Filters Popover for Secondary Filters: Priority, Source, Assignee */}
           <div className="relative" ref={filterPopoverRef}>
             <button
               type="button"
               onClick={() => setFilterPopoverOpen(!filterPopoverOpen)}
-              className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors cursor-pointer ${
-                sourceFilter || assigneeFilter
+              className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors cursor-pointer ${
+                priorityFilter || sourceFilter || assigneeFilter
                   ? "border-primary/50 bg-primary/10 text-primary font-semibold"
                   : "border-border bg-background text-foreground hover:bg-muted"
               }`}
             >
               <SlidersHorizontal size={13} />
               <span>Filters</span>
-              {(sourceFilter || assigneeFilter) && (
+              {(priorityFilter || sourceFilter || assigneeFilter) && (
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-                  {(sourceFilter ? 1 : 0) + (assigneeFilter ? 1 : 0)}
+                  {(priorityFilter ? 1 : 0) + (sourceFilter ? 1 : 0) + (assigneeFilter ? 1 : 0)}
                 </span>
               )}
             </button>
 
             {filterPopoverOpen && (
-              <div className="absolute left-0 top-full mt-1.5 z-40 w-72 rounded-xl border border-border bg-popover p-3.5 shadow-xl space-y-3.5 text-xs animate-in fade-in-50">
+              <div className="absolute right-0 sm:left-0 top-full mt-1.5 z-40 w-72 rounded-xl border border-border bg-popover p-3.5 shadow-xl space-y-3.5 text-xs animate-in fade-in-50">
                 <div className="flex items-center justify-between border-b border-border/80 pb-2">
-                  <span className="font-semibold text-foreground">Advanced Filters</span>
-                  {(sourceFilter || assigneeFilter) && (
+                  <span className="font-semibold text-foreground">Filters</span>
+                  {(priorityFilter || sourceFilter || assigneeFilter) && (
                     <button
                       type="button"
                       onClick={() => {
+                        setPriorityFilter("");
                         setSourceFilter("");
                         setAssigneeFilter("");
                         setPage(1);
                       }}
                       className="text-[11px] font-medium text-primary hover:underline cursor-pointer"
                     >
-                      Reset
+                      Reset All
                     </button>
                   )}
+                </div>
+
+                {/* Priority Filter */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-muted-foreground block">
+                    Priority
+                  </label>
+                  <select
+                    aria-label="Filter by priority"
+                    value={priorityFilter}
+                    onChange={(e) => {
+                      setPriorityFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground cursor-pointer focus:border-primary focus:outline-none"
+                  >
+                    <option value="">All Priorities</option>
+                    <option value="High">High Priority</option>
+                    <option value="Medium">Medium Priority</option>
+                    <option value="Low">Low Priority</option>
+                  </select>
                 </div>
 
                 {/* Source Filter */}

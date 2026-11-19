@@ -159,7 +159,7 @@ async def process(c,key,job_id=None,lease_owner=None):
         except Exception as exc:
             found=found[:provider_start];new=provider_new_start;new_ids=provider_new_ids
             c.rollback();permit();fence(c,discovery,job_id,lease_owner)
-            report={'provider':provider,'status':getattr(exc,'code','TIMED_OUT' if isinstance(exc,TimeoutError) else 'UNAVAILABLE'),'retry_at':getattr(exc,'retry_at',None),'requests':None,'request_count_known':False,'coverage':'Source did not complete; coverage and exact request count unavailable.'}
+            report={'provider':provider,'status':getattr(exc,'code','TIMED_OUT' if isinstance(exc,TimeoutError) else 'UNAVAILABLE'),'retry_at':getattr(exc,'retry_at',None),'requests':None,'request_count_known':False,'coverage':'Hacker News could not complete this check. No reliable result count is available for this source.' if provider=='hacker_news' and isinstance(exc,TimeoutError) else 'Source did not complete; coverage and exact request count unavailable.'}
             if len(query.sources)==1:
                 c.execute('INSERT INTO intent_source_runs(organization_id,discovery_id,provider,status,result_json,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(organization_id,discovery_id,provider) DO UPDATE SET status=excluded.status,result_json=excluded.result_json,updated_at=excluded.updated_at',(ctx.organization_id,key,provider,report['status'],json.dumps(report),now()))
                 c.commit();raise

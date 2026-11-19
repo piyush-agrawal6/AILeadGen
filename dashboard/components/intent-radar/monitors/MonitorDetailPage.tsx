@@ -206,7 +206,7 @@ export function MonitorDetailPage({ id }: { id: string }) {
 
   if (monitorQuery.error) {
     return (
-      <div className="ir-page p-6 max-w-5xl mx-auto space-y-4">
+      <div className="ir-page space-y-4">
         <Link
           href="/intent-radar/monitors"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
@@ -223,7 +223,7 @@ export function MonitorDetailPage({ id }: { id: string }) {
 
   if (!monitor) {
     return (
-      <div className="ir-page p-6 max-w-5xl mx-auto space-y-4">
+      <div className="ir-page space-y-4">
         <LoadingSkeleton />
       </div>
     );
@@ -255,7 +255,7 @@ export function MonitorDetailPage({ id }: { id: string }) {
         : "border-border bg-muted/60 text-muted-foreground";
 
   return (
-    <div className="ir-page p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
+    <div className="ir-page space-y-5">
       {/* 1. Top Navigation Bar */}
       <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
         <Link
