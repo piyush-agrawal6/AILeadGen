@@ -11,6 +11,7 @@ tests
 /*.jpg
 /*.svg
 !dashboard/public/**
+!dashboard/scripts/**
 planebyte-website*
 dashboard/node_modules
 dashboard/.next
