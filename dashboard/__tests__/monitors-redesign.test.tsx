@@ -192,27 +192,25 @@ describe("Monitors Rebuild & Details 3.0", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the 8-column Monitors data table with metrics and status tabs", async () => {
+  it("renders the 7-column Monitors data table with metrics and status tabs", async () => {
     wrap(<MonitorsDashboard />);
 
     expect(await screen.findByRole("heading", { name: "Monitoring" })).toBeVisible();
 
-    // 8 Required Columns
+    // 7 Required Columns
     expect(screen.getByRole("columnheader", { name: "Monitor" })).toBeVisible();
     expect(screen.getByRole("columnheader", { name: "Status" })).toBeVisible();
     expect(screen.getByRole("columnheader", { name: "Sources" })).toBeVisible();
-    expect(screen.getByRole("columnheader", { name: "Frequency" })).toBeVisible();
+    expect(screen.getByRole("columnheader", { name: "Schedule" })).toBeVisible();
     expect(screen.getByRole("columnheader", { name: "Last Check" })).toBeVisible();
-    expect(screen.getByRole("columnheader", { name: "Next Check" })).toBeVisible();
-    expect(screen.getByRole("columnheader", { name: "New Matches" })).toBeVisible();
+    expect(screen.getByRole("columnheader", { name: "Matches" })).toBeVisible();
     expect(screen.getByRole("columnheader", { name: "Actions" })).toBeVisible();
 
     // Status filter tabs
     expect(screen.getByRole("button", { name: /All Monitors/i })).toBeVisible();
-    expect(screen.getByRole("button", { name: /Running/i })).toBeVisible();
-    expect(screen.getByRole("button", { name: /Paused/i })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Scheduled/i })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Active/i })).toBeVisible();
     expect(screen.getByRole("button", { name: /Drafts/i })).toBeVisible();
-    expect(screen.getByRole("button", { name: /Archived/i })).toBeVisible();
 
     // Data Row
     expect(screen.getByText("Vector Database Migration")).toBeVisible();
@@ -233,7 +231,7 @@ describe("Monitors Rebuild & Details 3.0", () => {
     wrap(<MonitorBuilderPage />);
 
     expect(await screen.findByRole("heading", { name: "Create Monitor" })).toBeVisible();
-    expect(screen.getByText("Describe what you want to monitor")).toBeVisible();
+    expect(screen.getByText("Monitor Assistant")).toBeVisible();
     expect(screen.getByPlaceholderText(/Find SaaS founders/i)).toBeVisible();
 
     // Form Sections
@@ -257,22 +255,23 @@ describe("Monitors Rebuild & Details 3.0", () => {
     });
   });
 
-  it("renders Monitor Details with metrics strip, 3 tabs, and execution history", async () => {
+  it("renders Monitor Details with metrics strip, 4 tabs, and execution history", async () => {
     wrap(<MonitorDetailPage id="mon-1" />);
 
     expect(await screen.findByRole("heading", { name: "Vector Database Migration" })).toBeVisible();
     expect(screen.getByRole("link", { name: /Back to Monitors/i })).toBeVisible();
 
     // Operational metrics strip
-    expect(screen.getByText("Sources Monitored")).toBeVisible();
-    expect(screen.getByText("Last Execution")).toBeVisible();
-    expect(screen.getByText("Next Scheduled Check")).toBeVisible();
-    expect(screen.getByText("Total Matches")).toBeVisible();
+    expect(screen.getByText("Last Check")).toBeVisible();
+    expect(screen.getByText("Next Check")).toBeVisible();
+    expect(screen.getByText("New Matches")).toBeVisible();
+    expect(screen.getByText("Source Health")).toBeVisible();
 
-    // 3 Tabs
+    // Tabs
     expect(screen.getByRole("button", { name: "Overview" })).toBeVisible();
     expect(screen.getByRole("button", { name: /Run History/i })).toBeVisible();
-    expect(screen.getByRole("button", { name: /Matches/i })).toBeVisible();
+    expect(screen.getByRole("button", { name: /^Matches/i })).toBeVisible();
+    expect(screen.getByRole("button", { name: /^Configuration$/i })).toBeVisible();
 
     // Switch to Run History Tab
     fireEvent.click(screen.getByRole("button", { name: /Run History/i }));

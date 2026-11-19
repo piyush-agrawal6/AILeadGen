@@ -244,8 +244,14 @@ export function Sidebar({
       </Link>
 
       <nav aria-label="Main navigation" className="shell-nav">
-        {(radar ? (products.data?.intent_radar.enabled ? radarGroups : []) : products.data?.lead_engine ? groups : []).map(
-          (group) => (
+        {(radar
+          ? products.data && products.data.intent_radar.enabled === false
+            ? []
+            : radarGroups
+          : products.data && products.data.lead_engine === false
+            ? []
+            : groups
+        ).map((group) => (
             <section key={group.name} className="shell-nav-group">
               <p className="shell-nav-heading">{group.name}</p>
               {group.items.map(item)}

@@ -31,6 +31,7 @@ import { OpportunityModal } from "./OpportunityModal";
 import { request } from "@/lib/intelligence";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { StatusFilterTabs } from "@/components/ui/tabs";
 
 type StatusTab = "all" | "New" | "Reviewing" | "Qualified" | "Saved" | "Dismissed";
@@ -184,7 +185,7 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [activeMenuId]);
 
-  // Close filter popover on click outside
+  // Close filter popover on click outside or escape
   useEffect(() => {
     if (!filterPopoverOpen) return;
     function onDocClick(e: MouseEvent) {
@@ -192,8 +193,17 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
         setFilterPopoverOpen(false);
       }
     }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setFilterPopoverOpen(false);
+      }
+    }
     document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [filterPopoverOpen]);
 
   // Detail View Route
@@ -441,31 +451,19 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
       <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-border bg-card p-2.5">
         <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[240px]">
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[220px]">
-            <Search size={13} className="absolute left-2.5 top-2.5 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search opportunities, notes, actions…"
-              className="h-8 pl-8 text-xs"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-                  setPage(1);
-                }}
-                className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground"
-                aria-label="Clear search"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
+          <SearchInput
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            onClear={() => {
+              setSearch("");
+              setPage(1);
+            }}
+            placeholder="Search opportunities, notes, actions…"
+            wrapperClassName="flex-1 min-w-[220px]"
+          />
 
           {/* Filters Popover for Secondary Filters: Priority, Source, Assignee */}
           <div className="relative" ref={filterPopoverRef}>
@@ -488,7 +486,10 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
             </button>
 
             {filterPopoverOpen && (
-              <div className="absolute right-0 sm:left-0 top-full mt-1.5 z-40 w-72 rounded-xl border border-border bg-popover p-3.5 shadow-xl space-y-3.5 text-xs animate-in fade-in-50">
+              <div
+                className="absolute right-0 sm:left-0 top-full mt-2 z-50 w-72 rounded-xl border border-border bg-card p-3.5 shadow-2xl space-y-3.5 text-xs animate-in fade-in-50"
+                style={{ backgroundColor: "hsl(var(--card))", opacity: 1 }}
+              >
                 <div className="flex items-center justify-between border-b border-border/80 pb-2">
                   <span className="font-semibold text-foreground">Filters</span>
                   {(priorityFilter || sourceFilter || assigneeFilter) && (
@@ -723,9 +724,49 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
 
       {/* Main Table View */}
       {listQuery.isPending ? (
-        <div role="status" className="rounded-2xl border border-border bg-card p-8 text-xs text-muted-foreground text-center">
-          <Loader2 size={18} className="animate-spin mx-auto mb-2 text-primary" />
-          Loading opportunities…
+        <div role="status" className="overflow-x-auto rounded-xl border border-border bg-card shadow-xs animate-pulse">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-border bg-muted/30 text-[11px] uppercase tracking-wide text-muted-foreground select-none">
+              <tr>
+                <th className="px-4 py-2.5 font-semibold">Opportunity</th>
+                <th className="px-3 py-2.5 font-semibold">Source</th>
+                <th className="px-3 py-2.5 font-semibold">Priority</th>
+                <th className="px-3 py-2.5 font-semibold">Status</th>
+                <th className="px-3 py-2.5 font-semibold">Assigned To</th>
+                <th className="px-3 py-2.5 font-semibold">Updated</th>
+                <th className="px-4 py-2.5 font-semibold text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {[1, 2, 3, 4, 5].map((idx) => (
+                <tr key={idx} className="h-14">
+                  <td className="px-4 py-3">
+                    <div className="h-3.5 w-48 rounded bg-muted/60 mb-1.5" />
+                    <div className="h-2.5 w-32 rounded bg-muted/40" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-3 w-16 rounded bg-muted/50" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-4 w-14 rounded-full bg-muted/50" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-4 w-16 rounded-full bg-muted/50" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-3 w-20 rounded bg-muted/40" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-3 w-12 rounded bg-muted/40" />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="h-7 w-14 rounded bg-muted/50 ml-auto" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <span className="sr-only">Loading opportunities…</span>
         </div>
       ) : listQuery.isError ? (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/25 bg-destructive/5 p-5 text-xs text-destructive">

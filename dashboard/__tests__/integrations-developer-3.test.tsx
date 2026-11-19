@@ -192,12 +192,12 @@ describe("Integrations 3.0, Developer Platform 3.0 & Official Source Branding", 
       </div>
     );
     const imgs = Array.from(container.querySelectorAll("img"));
-    const srcs = imgs.map((i) => i.getAttribute("src"));
-    expect(srcs).toContain("/brands/sources/github.png");
-    expect(srcs).toContain("/brands/sources/youtube.png");
-    expect(srcs).toContain("/brands/sources/bluesky.png");
-    expect(srcs).toContain("/brands/sources/stack-exchange.png");
-    expect(srcs).toContain("/brands/sources/rss.png");
+    const srcs = imgs.map((i) => i.getAttribute("src") || "");
+    expect(srcs.some((s) => s.endsWith("/brands/sources/github.png"))).toBe(true);
+    expect(srcs.some((s) => s.endsWith("/brands/sources/youtube.png"))).toBe(true);
+    expect(srcs.some((s) => s.endsWith("/brands/sources/bluesky.png"))).toBe(true);
+    expect(srcs.some((s) => s.endsWith("/brands/sources/stack-exchange.png"))).toBe(true);
+    expect(srcs.some((s) => s.endsWith("/brands/sources/rss.png"))).toBe(true);
   });
 
   it("shows truthful RSS 'No custom feeds' status, opens Details drawer, and runs live Test Connection", async () => {

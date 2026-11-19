@@ -531,7 +531,7 @@ export function QuickSearchTrigger() {
           <Dialog.Overlay className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px]" />
           <Dialog.Content
             aria-label="Universal workspace search"
-            className="fixed left-1/2 top-[10vh] z-50 flex max-h-[80vh] w-[calc(100%-1.5rem)] max-w-[820px] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+            className="fixed left-1/2 top-[12vh] z-50 flex max-h-[75vh] w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
           >
             <Dialog.Title className="sr-only">Universal workspace search</Dialog.Title>
             <Dialog.Description className="sr-only">
@@ -682,10 +682,8 @@ export function QuickSearchTrigger() {
               </div>
             )}
 
-            {/* Main Split Body: Results List + Optional Right Preview Panel */}
-            <div className="grid min-h-0 flex-1 md:grid-cols-[minmax(0,1fr)_270px]">
-              {/* Left: Scrollable Results */}
-              <div className="overflow-y-auto p-3 space-y-3">
+            {/* Results List */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
                 {/* Recent & Suggested Queries (when input empty) */}
                 {!query.trim() && (recentQueries.length > 0 || category === "all") && (
                   <div className="flex flex-wrap items-center gap-1.5 px-1">
@@ -834,58 +832,10 @@ export function QuickSearchTrigger() {
                 ) : null}
               </div>
 
-              {/* Right: Contextual Preview Pane (Desktop md+) */}
-              <aside className="hidden md:flex flex-col justify-between border-l border-border/70 bg-muted/15 p-4 text-xs">
-                {selectedItem ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <selectedItem.icon size={15} />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {selectedItem.group}
-                        </p>
-                        {selectedItem.badge && (
-                          <span className="text-[11px] font-medium text-primary">
-                            {selectedItem.badge}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <h3 className="text-sm font-semibold text-foreground leading-snug">
-                      {selectedItem.title}
-                    </h3>
-                    {selectedItem.subtitle && (
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {selectedItem.subtitle}
-                      </p>
-                    )}
-                    {selectedItem.updatedAt && (
-                      <p className="text-[11px] text-muted-foreground">
-                        Updated: <strong className="text-foreground">{formatDateShort(selectedItem.updatedAt)}</strong>
-                      </p>
-                    )}
-                    <Button
-                      size="sm"
-                      onClick={() => openItem(selectedItem)}
-                      className="w-full h-8 text-xs gap-1.5 mt-2"
-                    >
-                      <span>Open</span>
-                      <ArrowRight size={13} />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-muted-foreground text-xs">
-                    Select any result to preview details and open directly.
-                  </div>
-                )}
-
-                <div className="border-t border-border/70 pt-3 text-[10px] text-muted-foreground flex items-center justify-between">
-                  <span>↑↓ navigate · ↵ open</span>
-                  <span>ESC close</span>
-                </div>
-              </aside>
+            {/* Bottom Command Palette Keyboard Shortcuts */}
+            <div className="border-t border-border bg-muted/20 px-3.5 py-2 text-[11px] text-muted-foreground flex items-center justify-between">
+              <span>↑↓ navigate · ↵ open</span>
+              <span>esc to close</span>
             </div>
           </Dialog.Content>
         </Dialog.Portal>

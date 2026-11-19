@@ -7,8 +7,10 @@ tests
 *.sqlite*
 *.zip
 *.tar*
-*.png
-*.jpg
+/*.png
+/*.jpg
+/*.svg
+!dashboard/public/**
 planebyte-website*
 dashboard/node_modules
 dashboard/.next
@@ -18,4 +20,3 @@ output
 tmp
 scripts
 docs
-*.svg

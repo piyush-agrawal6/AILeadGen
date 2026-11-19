@@ -21,6 +21,7 @@ import {
   Pencil,
   Play,
   Radio,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -40,7 +41,7 @@ import { PrimaryTabs } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { MonitorBuilderPage } from "./MonitorBuilderPage";
 
-type MonitorTab = "overview" | "history" | "matches";
+type MonitorTab = "overview" | "matches" | "history" | "configuration";
 
 function formatDateTime(value?: string | null): string {
   if (!value) return "—";
@@ -403,38 +404,16 @@ export function MonitorDetailPage({ id }: { id: string }) {
       <section aria-label="Operational summary" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl border border-border bg-card p-3 space-y-1">
           <span className="text-[11px] text-muted-foreground font-medium block">
-            Sources Monitored
-          </span>
-          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-            {sourceNames.slice(0, 3).map((sname) => (
-              <span
-                key={sname}
-                className="inline-flex items-center gap-1 rounded bg-muted/40 px-1.5 py-0.5 text-[11px] font-medium text-foreground"
-              >
-                <ProviderLogo provider={sname} size={13} />
-                <span>{sname}</span>
-              </span>
-            ))}
-            {sourceNames.length > 3 && (
-              <span className="text-[10px] text-muted-foreground font-medium">
-                +{sourceNames.length - 3}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-3 space-y-1">
-          <span className="text-[11px] text-muted-foreground font-medium block">
-            Last Execution
+            Last Check
           </span>
           <div className="text-xs font-semibold text-foreground pt-0.5">
-            {formatDateTime(monitor.last_checked)}
+            {monitor.last_checked ? formatDateTime(monitor.last_checked) : "Not yet checked"}
           </div>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-3 space-y-1">
           <span className="text-[11px] text-muted-foreground font-medium block">
-            Next Scheduled Check
+            Next Check
           </span>
           <div className="text-xs font-semibold text-foreground pt-0.5 flex items-center gap-1">
             <CalendarClock size={12} className="text-muted-foreground" />
@@ -454,13 +433,77 @@ export function MonitorDetailPage({ id }: { id: string }) {
 
         <div className="rounded-xl border border-border bg-card p-3 space-y-1">
           <span className="text-[11px] text-muted-foreground font-medium block">
-            Total Matches
+            New Matches
           </span>
           <div className="text-xs font-bold text-foreground pt-0.5 tabular-nums">
             {totalMatches} signals
           </div>
         </div>
+
+        <div className="rounded-xl border border-border bg-card p-3 space-y-1">
+          <span className="text-[11px] text-muted-foreground font-medium block">
+            Source Health
+          </span>
+          <div className="flex items-center gap-1.5 pt-0.5 text-xs font-semibold text-foreground">
+            <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+            <span>
+              {sourceNames.length}/{sourceNames.length} operational
+            </span>
+          </div>
+        </div>
       </section>
+
+      {/* Contextual Primary Status & First-Run Experience */}
+      {!monitor.last_checked && !isJobRunning && !activeJobId ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 text-xs">
+          <div className="space-y-0.5">
+            <p className="font-semibold text-foreground">Your monitor is ready for its first check.</p>
+            <p className="text-muted-foreground">Run a check to search your selected sources and collect matching conversations.</p>
+          </div>
+          <Button
+            size="sm"
+            disabled={!canWrite || mutation.isPending}
+            onClick={() => void handleRunCheck()}
+            className="h-8 text-xs font-semibold gap-1.5"
+          >
+            <Play size={13} />
+            <span>Run First Check</span>
+          </Button>
+        </div>
+      ) : monitor.status === "Paused" ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs">
+          <div className="space-y-0.5">
+            <p className="font-semibold text-amber-800 dark:text-amber-200">This monitor is paused.</p>
+            <p className="text-muted-foreground">Automated checks are stopped. You can resume at any time.</p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!canWrite || mutation.isPending}
+            onClick={() => void handleToggleStatus()}
+            className="h-8 text-xs font-medium gap-1.5"
+          >
+            <Play size={12} />
+            <span>Resume Monitor</span>
+          </Button>
+        </div>
+      ) : totalMatches > 0 && !isJobRunning && !activeJobId ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 text-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={15} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="font-medium text-foreground">
+              Last check completed successfully. <strong>{totalMatches}</strong> matching signals available.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("matches")}
+            className="font-semibold text-primary hover:underline cursor-pointer"
+          >
+            Review Matches →
+          </button>
+        </div>
+      ) : null}
 
       {/* Active Run Status Banner */}
       {activeJobId && (
@@ -469,12 +512,13 @@ export function MonitorDetailPage({ id }: { id: string }) {
         </div>
       )}
 
-      {/* 4. Consistent 3 Detail Tabs (Phase 6.2) */}
+      {/* 4. Detail Tabs */}
       <PrimaryTabs
         items={[
           { id: "overview", label: "Overview", icon: Radio },
-          { id: "history", label: "Run History", icon: History, count: (historyQuery.data?.items || []).length },
           { id: "matches", label: "Matches", icon: Sparkles, count: totalMatches },
+          { id: "history", label: "Run History", icon: History, count: (historyQuery.data?.items || []).length },
+          { id: "configuration", label: "Configuration", icon: SlidersHorizontal },
         ]}
         activeId={activeTab}
         onChange={(tabId) => setActiveTab(tabId as MonitorTab)}
@@ -727,6 +771,121 @@ export function MonitorDetailPage({ id }: { id: string }) {
           ) : (
             <SignalTable signals={signalsQuery.data.items} />
           )}
+        </div>
+      )}
+
+      {/* 8. TAB 4: CONFIGURATION */}
+      {activeTab === "configuration" && (
+        <div className="space-y-4 pt-1">
+          <div className="rounded-2xl border border-border bg-card p-5 space-y-5">
+            <div className="flex items-center justify-between border-b border-border/80 pb-3">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Saved Monitor Configuration
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Complete criteria and execution schedule stored for this monitor.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => router.push(`/intent-radar/monitors/${monitor.id}?edit=true`)}
+                className="h-8 text-xs gap-1.5 font-medium"
+              >
+                <Pencil size={12} />
+                <span>Edit Configuration</span>
+              </Button>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 text-xs">
+              <div className="space-y-3">
+                <div>
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                    Monitor Details
+                  </span>
+                  <p className="font-semibold text-foreground text-sm mt-0.5">{monitor.name}</p>
+                  <p className="text-muted-foreground mt-0.5">
+                    {monitor.description || monitor.goal || "No description provided."}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                    Target ICP
+                  </span>
+                  <p className="text-foreground font-medium mt-0.5">
+                    {monitor.configuration?.icp_id ? `Assigned to ICP ID: ${monitor.configuration.icp_id}` : "Workspace Default (All ICPs)"}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                    Sources Monitored
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {sourceNames.map((sname) => (
+                      <span
+                        key={sname}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/20 px-2 py-0.5 text-xs text-foreground font-medium"
+                      >
+                        <ProviderLogo provider={sname} size={13} />
+                        <span>{sname}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                    Search Keywords
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {(monitor.configuration.keywords || []).map((kw) => (
+                      <span
+                        key={kw}
+                        className="rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs text-foreground font-medium"
+                      >
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {(monitor.configuration.excluded || []).length > 0 && (
+                  <div>
+                    <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                      Excluded Keywords
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {monitor.configuration.excluded?.map((ex) => (
+                        <span
+                          key={ex}
+                          className="rounded-md border border-destructive/20 bg-destructive/5 px-2 py-0.5 text-xs text-destructive font-medium"
+                        >
+                          −{ex}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                    Schedule &amp; Execution
+                  </span>
+                  <p className="text-foreground font-medium mt-0.5">
+                    Frequency: <strong>{freq === "Manual" ? "On demand (Manual trigger)" : freq}</strong>
+                  </p>
+                  <p className="text-muted-foreground text-[11px] mt-0.5">
+                    Timezone: {monitor.schedule?.timezone || "UTC"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

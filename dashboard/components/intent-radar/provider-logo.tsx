@@ -1,14 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { Atom, Blocks, BookOpen, Code2, MessageSquare, Radio, Rss, Video } from "lucide-react";
 import { resolveSourceBrand } from "@/lib/source-branding";
 
 export function ProviderLogo({ provider, size = 32 }: { provider: string; size?: number }) {
+  const [hasError, setHasError] = useState(false);
   const brand = resolveSourceBrand(provider);
   const dimension = Number.isFinite(size) ? Math.min(128, Math.max(14, size)) : 32;
 
-  if (brand.logoSrc) {
+  if (brand.logoSrc && !hasError) {
     return (
       <span
         className={
@@ -24,6 +26,7 @@ export function ProviderLogo({ provider, size = 32 }: { provider: string; size?:
           width={dimension}
           height={dimension}
           unoptimized
+          onError={() => setHasError(true)}
         />
       </span>
     );

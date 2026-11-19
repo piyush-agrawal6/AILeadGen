@@ -35,6 +35,7 @@ import { useRadarCapabilities, useRadarMutation, useRadarRead } from "../provide
 import { ErrorState, LoadingSkeleton } from "../ui";
 import { ProviderLogo } from "../provider-logo";
 import { StatusFilterTabs } from "@/components/ui/tabs";
+import { SearchInput } from "@/components/ui/search-input";
 import { Button } from "@/components/ui/button";
 
 type StatusTab = "all" | "Active" | "Scheduled" | "Running" | "Paused" | "Draft" | "Archived";
@@ -190,6 +191,7 @@ export function MonitorsDashboard() {
 
   // Compute metrics for overview (only shown if meaningful data exists)
   const stats = useMemo(() => {
+    let enabled = 0;
     let scheduled = 0;
     let checksRunning = 0;
     let totalMatches = 0;
@@ -197,6 +199,7 @@ export function MonitorsDashboard() {
 
     monitors.forEach((m) => {
       const isRunning = Boolean(runningMap[m.id]);
+      if (m.status === "Active") enabled++;
       if (isRunning) checksRunning++;
       if (m.status === "Active" && m.schedule?.frequency && m.schedule.frequency !== "Manual") {
         scheduled++;
@@ -208,6 +211,7 @@ export function MonitorsDashboard() {
     });
 
     return {
+      enabled,
       scheduled,
       checksRunning,
       totalMatches,
@@ -425,31 +429,33 @@ export function MonitorsDashboard() {
       {/* 2. Compact Overview Metrics (rendered only when meaningful data exists) */}
       {stats.hasData && (
         <section aria-label="Monitoring metrics overview" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-xl border border-border bg-card p-3.5 space-y-1">
+          <div
+            onClick={() => setStatusFilter("Active")}
+            className="rounded-xl border border-border bg-card p-3.5 space-y-1 cursor-pointer hover:border-primary/40 transition-colors"
+          >
             <span className="text-[11px] font-medium text-muted-foreground block">
-              Scheduled Monitors
+              Enabled Monitors
             </span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-xl font-bold text-foreground tabular-nums">
-                {stats.scheduled}
+                {stats.enabled}
               </span>
               <span className="text-[11px] text-muted-foreground">active</span>
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-3.5 space-y-1">
+          <div
+            onClick={() => setStatusFilter("Scheduled")}
+            className="rounded-xl border border-border bg-card p-3.5 space-y-1 cursor-pointer hover:border-primary/40 transition-colors"
+          >
             <span className="text-[11px] font-medium text-muted-foreground block">
-              Checks Running
+              Scheduled Checks
             </span>
             <div className="flex items-baseline gap-1.5">
               <span className="text-xl font-bold text-foreground tabular-nums">
-                {stats.checksRunning}
+                {stats.scheduled}
               </span>
-              {stats.checksRunning > 0 && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400">
-                  <Loader2 size={10} className="animate-spin" /> live
-                </span>
-              )}
+              <span className="text-[11px] text-muted-foreground">cadenced</span>
             </div>
           </div>
 
@@ -465,7 +471,10 @@ export function MonitorsDashboard() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-3.5 space-y-1">
+          <div
+            onClick={() => setStatusFilter("Paused")}
+            className="rounded-xl border border-border bg-card p-3.5 space-y-1 cursor-pointer hover:border-primary/40 transition-colors"
+          >
             <span className="text-[11px] font-medium text-muted-foreground block">
               Needs Attention
             </span>
@@ -537,36 +546,19 @@ export function MonitorsDashboard() {
             />
 
             <div className="flex items-center gap-2.5">
-              <div className="relative min-w-[220px]">
-                <Search
-                  size={13}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-                />
-                <input
-                  type="search"
-                  aria-label="Search monitors"
-                  value={search}
-                  placeholder="Filter by name or keyword…"
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full rounded-lg border border-border bg-card pl-8 pr-7 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch("");
-                      setPage(1);
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
-                    aria-label="Clear search"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
+              <SearchInput
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                onClear={() => {
+                  setSearch("");
+                  setPage(1);
+                }}
+                placeholder="Filter by name or keyword…"
+                wrapperClassName="min-w-[220px]"
+              />
             </div>
           </div>
 
@@ -592,14 +584,13 @@ export function MonitorsDashboard() {
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-border bg-muted/30 text-[11px] uppercase tracking-wide text-muted-foreground select-none">
                   <tr>
-                    <th className="px-3.5 py-2.5 font-semibold min-w-[180px]">Monitor</th>
-                    <th className="px-2.5 py-2.5 font-semibold whitespace-nowrap">Status</th>
-                    <th className="px-2.5 py-2.5 font-semibold whitespace-nowrap">Sources</th>
-                    <th className="px-2.5 py-2.5 font-semibold whitespace-nowrap">Frequency</th>
-                    <th className="px-2.5 py-2.5 font-semibold whitespace-nowrap">Last Check</th>
-                    <th className="px-2.5 py-2.5 font-semibold whitespace-nowrap">Next Check</th>
-                    <th className="px-2.5 py-2.5 font-semibold text-right whitespace-nowrap">New Matches</th>
-                    <th className="px-3 py-2.5 font-semibold text-right sticky right-0 bg-muted/95 backdrop-blur-xs z-10 min-w-[155px]">Actions</th>
+                    <th className="px-3.5 py-2.5 font-semibold min-w-[200px]">Monitor</th>
+                    <th className="px-3 py-2.5 font-semibold whitespace-nowrap">Status</th>
+                    <th className="px-3 py-2.5 font-semibold whitespace-nowrap">Sources</th>
+                    <th className="px-3 py-2.5 font-semibold whitespace-nowrap">Schedule</th>
+                    <th className="px-3 py-2.5 font-semibold whitespace-nowrap">Last Check</th>
+                    <th className="px-3 py-2.5 font-semibold text-right whitespace-nowrap">Matches</th>
+                    <th className="px-3.5 py-2.5 font-semibold text-right sticky right-0 bg-muted/95 backdrop-blur-xs z-10 min-w-[155px]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -615,32 +606,20 @@ export function MonitorsDashboard() {
 
                     return (
                       <tr key={m.id} className="group hover:bg-muted/15 transition-colors">
-                        {/* Monitor column: name + objective/keywords */}
-                        <td className="px-3.5 py-3 min-w-[180px] max-w-sm">
+                        {/* Monitor column: name + objective */}
+                        <td className="px-3.5 py-3 min-w-[200px] max-w-sm">
                           <Link
                             href={`/intent-radar/monitors/${m.id}`}
                             className="font-semibold text-xs text-foreground hover:text-primary transition-colors block truncate"
+                            title={m.name}
                           >
                             {m.name}
                           </Link>
-                          <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                            {m.goal || m.description || (m.configuration.keywords || []).slice(0, 3).join(", ")}
-                          </p>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {(m.configuration.keywords || []).slice(0, 3).map((kw) => (
-                              <span
-                                key={kw}
-                                className="rounded bg-muted/60 px-1.5 py-0.2 text-[10px] text-muted-foreground font-medium"
-                              >
-                                {kw}
-                              </span>
-                            ))}
-                            {(m.configuration.keywords || []).length > 3 && (
-                              <span className="text-[10px] text-muted-foreground px-0.5">
-                                +{(m.configuration.keywords || []).length - 3}
-                              </span>
-                            )}
-                          </div>
+                          {(m.goal || m.description) && (
+                            <p className="text-[11px] text-muted-foreground truncate mt-0.5" title={m.goal || m.description}>
+                              {m.goal || m.description}
+                            </p>
+                          )}
                         </td>
 
                         {/* Status column */}
@@ -677,25 +656,17 @@ export function MonitorsDashboard() {
                           </div>
                         </td>
 
-                        {/* Frequency column */}
+                        {/* Schedule column */}
                         <td className="px-3 py-3 whitespace-nowrap text-muted-foreground font-medium">
-                          {m.schedule?.frequency || "Manual"}
+                          {m.schedule?.frequency && m.schedule.frequency !== "Manual" ? m.schedule.frequency : "On demand"}
                         </td>
 
                         {/* Last check column */}
                         <td className="px-3 py-3 whitespace-nowrap text-muted-foreground">
-                          {formatDateTime(m.last_checked)}
+                          {m.last_checked ? formatDateTime(m.last_checked) : "Never run"}
                         </td>
 
-                        {/* Next check column */}
-                        <td className="px-3 py-3 whitespace-nowrap text-muted-foreground">
-                          <span className="inline-flex items-center gap-1">
-                            <CalendarClock size={11} className="text-muted-foreground/70" />
-                            <span>{nextCheckLabel(m)}</span>
-                          </span>
-                        </td>
-
-                        {/* New Matches column */}
+                        {/* Matches column */}
                         <td className="px-3 py-3 text-right tabular-nums whitespace-nowrap font-medium">
                           <Link
                             href={`/intent-radar/signals?monitor_id=${m.id}`}

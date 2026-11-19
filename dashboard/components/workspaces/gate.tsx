@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
 import { useWorkspace } from './use-workspace';
 import { Button } from '@/components/ui/button';
 export type { WorkspaceSummary } from './use-workspace';
@@ -19,7 +20,15 @@ export function WorkspaceGate({ children }: { children: React.ReactNode }) {
   const state = useWorkspace();
 
   if (state.isPending) {
-    return <p role="status" className="text-sm text-muted-foreground">Loading your workspace…</p>;
+    return (
+      <div role="status" className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 space-y-3">
+        <Loader2 size={24} className="animate-spin text-primary" />
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">Loading your workspace</p>
+          <p className="text-xs text-muted-foreground">Initializing permissions, team access, and context…</p>
+        </div>
+      </div>
+    );
   }
   if (state.isError) {
     return (

@@ -10,6 +10,10 @@ const nextConfig = {
   // development request logs without hiding ordinary application diagnostics.
    logging: { incomingRequests: { ignore: [/\/reset-password/, /\/api\/auth\//, /\/acquisition\/sheets\/callback/, /\/settings\/integrations\/gmail-callback/] } },
   turbopack: { root: path.dirname(fileURLToPath(import.meta.url)) },
+  images: {
+    unoptimized: true,
+    dangerouslyAllowSVG: true,
+  },
   async headers() {
     return [{source:'/reset-password',headers:[{key:'Referrer-Policy',value:'no-referrer'}]},{ source: "/:path*", headers: [
       { key: "X-Content-Type-Options", value: "nosniff" },

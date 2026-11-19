@@ -695,40 +695,116 @@ export function MonitorBuilderPage({
         </p>
       </div>
 
-      {/* 3. AI-Assisted Setup Hero (Phase 3) */}
-      {!existing && (
-        <section
-          aria-label="AI Monitor Setup"
-          className="rounded-2xl border border-primary/20 bg-linear-to-b from-primary/5 to-card p-4 sm:p-5 shadow-xs space-y-3.5"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-primary font-semibold text-xs">
-              <Sparkles size={15} />
-              <span>Describe what you want to monitor</span>
+      {/* 2-Panel Workspace: Left AI Assistant, Right Builder */}
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 items-start">
+        {/* LEFT PANEL: Permanent AI Monitor Assistant */}
+        <aside className="space-y-4 lg:sticky lg:top-4">
+          <section
+            aria-label="AI Monitor Assistant"
+            className="rounded-2xl border border-primary/20 bg-card p-4 space-y-3.5 shadow-xs"
+          >
+            <div className="flex items-center justify-between border-b border-border/80 pb-3">
+              <div className="flex items-center gap-2 text-primary font-semibold text-xs">
+                <Sparkles size={15} />
+                <span>Monitor Assistant</span>
+              </div>
+              {historyStack.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleUndoRefine}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+                  title="Undo previous AI change"
+                >
+                  <Undo2 size={12} />
+                  <span>Undo</span>
+                </button>
+              )}
             </div>
-            {historyStack.length > 0 && (
-              <button
-                type="button"
-                onClick={handleUndoRefine}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                <Undo2 size={12} />
-                <span>Undo AI change</span>
-              </button>
-            )}
-          </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Build and refine your monitoring strategy through natural language instructions.
+            </p>
 
-          <div className="space-y-2">
-            <textarea
-              value={aiPrompt}
-              onChange={(e) => setAiPrompt(e.target.value)}
-              placeholder="Find SaaS founders asking for recommendations on alternatives, compliance platforms, or database migrations…"
-              rows={2}
-              className="w-full rounded-xl border border-border bg-card p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs resize-y"
-            />
+            {/* Prompt input */}
+            <div className="space-y-2">
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="Find SaaS founders asking for recommendations on CRM alternatives, compliance platforms, or database tools…"
+                rows={3}
+                className="w-full rounded-xl border border-border bg-background p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs resize-y"
+              />
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                {icps.length > 0 && (
+                  <select
+                    value={selectedIcpId}
+                    onChange={(e) => setSelectedIcpId(e.target.value)}
+                    className="rounded-lg border border-border bg-card px-2 py-1 text-[11px] text-foreground max-w-[150px] truncate"
+                    title="Target ICP"
+                  >
+                    <option value="">All / Workspace Default</option>
+                    {icps.map((icp) => (
+                      <option key={icp.id} value={icp.id}>
+                        {icp.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void handleAIGenerate()}
+                  disabled={aiGenerating || !aiPrompt.trim()}
+                  className="h-8 text-xs font-semibold gap-1.5 ml-auto"
+                >
+                  {aiGenerating ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      <span>Thinking…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={12} />
+                      <span>{historyStack.length > 0 ? "Refine Strategy" : "Generate Setup"}</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Proposed Structured Changes Card (if pending) */}
+            {proposedSummary && (
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 space-y-2.5 animate-in fade-in-50 text-xs">
+                <div className="flex items-center justify-between border-b border-primary/20 pb-2">
+                  <span className="font-semibold text-foreground flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-primary" />
+                    <span>Proposed Changes</span>
+                  </span>
+                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                    AI Suggested
+                  </span>
+                </div>
+                <div className="space-y-1 text-muted-foreground text-[11px]">
+                  <p><strong>Goal:</strong> {proposedSummary.objective}</p>
+                  <p><strong>Keywords ({proposedSummary.keywords.length}):</strong> {proposedSummary.keywords.slice(0, 4).join(", ")}{proposedSummary.keywords.length > 4 ? "…" : ""}</p>
+                  <p><strong>Sources:</strong> {proposedSummary.sources.join(", ")}</p>
+                  <p><strong>Cadence:</strong> {proposedSummary.frequency || "Manual"}</p>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-primary/20">
+                  <button
+                    type="button"
+                    onClick={() => setProposedSummary(null)}
+                    className="text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Quick example prompt chips */}
-            <div className="space-y-1.5 pt-1">
+            <div className="space-y-1.5 pt-2 border-t border-border/70">
               <span className="text-[11px] font-medium text-muted-foreground block">
                 Example objectives (click to use):
               </span>
@@ -738,173 +814,39 @@ export function MonitorBuilderPage({
                     key={prompt}
                     type="button"
                     onClick={() => setAiPrompt(prompt)}
-                    className="inline-flex items-center text-left rounded-lg border border-border/80 bg-card px-2.5 py-1 text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                    className="inline-flex text-left rounded-lg border border-border/80 bg-background px-2 py-1 text-[11px] text-muted-foreground hover:border-primary/50 hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer"
                   >
                     <span>{prompt}</span>
                   </button>
                 ))}
               </div>
             </div>
-          </div>
+          </section>
+        </aside>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/60">
-            <div className="flex items-center gap-2 text-xs">
-              {icps.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground text-[11px]">Target ICP:</span>
-                  <select
-                    value={selectedIcpId}
-                    onChange={(e) => setSelectedIcpId(e.target.value)}
-                    className="rounded-md border border-border bg-card px-2 py-0.5 text-xs text-foreground"
-                  >
-                    <option value="">All / Workspace Default</option>
-                    {icps.map((icp) => (
-                      <option key={icp.id} value={icp.id}>
-                        {icp.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
+        {/* RIGHT PANEL: Monitor Configuration Builder */}
+        <main className="space-y-6 min-w-0">
+          {/* Section Navigation Tabs */}
+          <nav aria-label="Configuration sections" className="flex items-center gap-1 border-b border-border overflow-x-auto pb-1 text-xs">
+            {[
+              { id: "section-details", label: "Details" },
+              { id: "section-search", label: "Search & Criteria" },
+              { id: "section-sources", label: "Sources" },
+              { id: "section-schedule", label: "Schedule" },
+              { id: "section-review", label: "Review" },
+            ].map((sec) => (
               <button
+                key={sec.id}
                 type="button"
                 onClick={() => {
-                  const target = document.getElementById("manual-section-focus");
-                  target?.scrollIntoView({ behavior: "smooth" });
+                  document.getElementById(sec.id)?.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="text-xs text-muted-foreground hover:text-foreground font-medium px-2 py-1 cursor-pointer"
+                className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors font-medium whitespace-nowrap cursor-pointer"
               >
-                Configure Manually
+                {sec.label}
               </button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void handleAIGenerate()}
-                disabled={aiGenerating || !aiPrompt.trim()}
-                className="h-8 text-xs font-semibold"
-              >
-                {aiGenerating ? (
-                  <>
-                    <Loader2 size={13} className="animate-spin" />
-                    <span>Generating…</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={13} />
-                    <span>Generate Monitor Setup</span>
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* AI Refinement inline bar if strategy was generated */}
-          {historyStack.length > 0 && (
-            <div className="rounded-xl border border-primary/20 bg-card p-3 space-y-2 mt-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-semibold text-primary">
-                  Refine with AI
-                </span>
-                {aiDiffSummary && (
-                  <span className="text-[11px] text-muted-foreground italic truncate max-w-sm">
-                    {aiDiffSummary}
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="text"
-                  value={aiRefineInput}
-                  onChange={(e) => setAiRefineInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void handleAIRefine(aiRefineInput);
-                    }
-                  }}
-                  placeholder="e.g. Focus on B2B SaaS, exclude coding tutorials, use daily schedule…"
-                  className="flex-1 rounded-lg border border-border bg-muted/20 px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={aiRefining || !aiRefineInput.trim()}
-                  onClick={() => void handleAIRefine(aiRefineInput)}
-                  className="h-7 text-xs font-medium"
-                >
-                  {aiRefining ? <Loader2 size={11} className="animate-spin" /> : "Apply"}
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                {["Focus on small businesses", "Exclude hiring posts", "Track recommendation requests", "Focus on pain points"].map((pill) => (
-                  <button
-                    key={pill}
-                    type="button"
-                    onClick={() => void handleAIRefine(pill)}
-                    className="rounded-full border border-border/80 bg-muted/30 px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground cursor-pointer"
-                  >
-                    + {pill}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Reviewable AI Proposed Summary */}
-          {proposedSummary && (
-            <div className="rounded-xl border border-primary/30 bg-primary/[0.04] p-3.5 space-y-2.5 mt-2">
-              <div className="flex items-center justify-between gap-2 border-b border-primary/20 pb-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={14} className="text-primary" />
-                  <span className="text-xs font-semibold text-foreground">AI Proposed Configuration Summary</span>
-                  <span className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                    Reviewable Draft
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setProposedSummary(null)}
-                  className="text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
-                >
-                  Dismiss Summary
-                </button>
-              </div>
-              <p className="text-xs text-foreground leading-relaxed">
-                {proposedSummary.rationale || proposedSummary.objective}
-              </p>
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Keywords:</span>
-                {proposedSummary.keywords.map((kw: string) => (
-                  <span
-                    key={kw}
-                    className="rounded-md bg-card border border-border px-2 py-0.5 text-[11px] font-medium text-foreground"
-                  >
-                    {kw}
-                  </span>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-muted-foreground border-t border-primary/15">
-                <span>
-                  Cadence: <strong className="text-foreground">{proposedSummary.frequency || "Manual"}</strong>
-                </span>
-                <span>·</span>
-                <span>
-                  Sources: <strong className="text-foreground">{proposedSummary.sources.join(", ")}</strong>
-                </span>
-                <span className="ml-auto text-[11px] text-primary font-medium">
-                  Applied to form below. You can edit any parameter manually.
-                </span>
-              </div>
-            </div>
-          )}
-        </section>
-      )}
+            ))}
+          </nav>
 
       {/* Quality Warnings (non-blocking) */}
       {qualityWarnings.length > 0 && (
@@ -923,7 +865,7 @@ export function MonitorBuilderPage({
 
       {/* 4. Section 1: What to Monitor */}
       <section
-        id="manual-section-focus"
+        id="section-details"
         className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-xs"
       >
         <div className="border-b border-border/80 pb-3">
@@ -987,7 +929,7 @@ export function MonitorBuilderPage({
       </section>
 
       {/* 5. Section 2: Search criteria & keywords */}
-      <section className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-xs">
+      <section id="section-search" className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-xs">
         <div className="border-b border-border/80 pb-3">
           <h2 className="text-sm font-semibold text-foreground">
             2. Search criteria &amp; keywords
@@ -1124,7 +1066,7 @@ export function MonitorBuilderPage({
       </section>
 
       {/* 6. Section 3: Approved sources */}
-      <section className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-xs">
+      <section id="section-sources" className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-xs">
         <div className="border-b border-border/80 pb-3">
           <h2 className="text-sm font-semibold text-foreground">
             3. Approved sources
@@ -1195,7 +1137,7 @@ export function MonitorBuilderPage({
       </section>
 
       {/* 7. Section 4: Schedule & check frequency */}
-      <section className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-xs">
+      <section id="section-schedule" className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-xs">
         <div className="border-b border-border/80 pb-3">
           <h2 className="text-sm font-semibold text-foreground">
             4. Schedule &amp; check frequency
@@ -1304,7 +1246,7 @@ export function MonitorBuilderPage({
       </section>
 
       {/* 8. Section 5: Review & Create */}
-      <section className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-xs">
+      <section id="section-review" className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-xs">
         <div className="border-b border-border/80 pb-3">
           <h2 className="text-sm font-semibold text-foreground">
             5. Review &amp; Create
@@ -1423,51 +1365,51 @@ export function MonitorBuilderPage({
       {/* Error state if submission fails */}
       {error && <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">{error}</div>}
 
-      {/* 9. Sticky Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 backdrop-blur-xs p-3.5 shadow-lg">
-        <div className="w-full max-w-7xl mx-auto px-4 flex items-center justify-between gap-3">
-          <Link
-            href="/intent-radar/monitors"
-            className="inline-flex h-8 items-center rounded-lg border border-border bg-card px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Cancel
-          </Link>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={submitting}
-              onClick={() => void handleSubmit(true)}
-              className="h-8 text-xs font-medium"
+          {/* 9. Sticky Action Bar contained inside Configuration Builder */}
+          <div className="sticky bottom-0 z-20 mt-6 rounded-xl border border-border bg-card/95 backdrop-blur-xs p-3.5 shadow-lg flex items-center justify-between gap-3">
+            <Link
+              href="/intent-radar/monitors"
+              className="inline-flex h-8 items-center rounded-lg border border-border bg-card px-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              Save Draft
-            </Button>
+              Cancel
+            </Link>
 
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              disabled={submitting || !canWrite}
-              onClick={() => void handleSubmit(false)}
-              className="h-8 text-xs font-semibold"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 size={13} className="animate-spin" />
-                  <span>Saving…</span>
-                </>
-              ) : existing ? (
-                <span>Save Monitor</span>
-              ) : frequency === "Manual" ? (
-                <span>Create Monitor</span>
-              ) : (
-                <span>Create &amp; Enable Schedule</span>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={submitting}
+                onClick={() => void handleSubmit(true)}
+                className="h-8 text-xs font-medium"
+              >
+                Save Draft
+              </Button>
+
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                disabled={submitting || !canWrite}
+                onClick={() => void handleSubmit(false)}
+                className="h-8 text-xs font-semibold"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    <span>Saving…</span>
+                  </>
+                ) : existing ? (
+                  <span>Save Monitor</span>
+                ) : frequency === "Manual" ? (
+                  <span>Create Monitor</span>
+                ) : (
+                  <span>Create &amp; Enable Schedule</span>
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
+        </main>
       </div>
 
       {/* Advanced Source Config Drawer */}

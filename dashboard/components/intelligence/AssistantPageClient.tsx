@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  Activity,
   Archive,
   ArchiveRestore,
   ArrowUpRight,
@@ -16,6 +17,7 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  CreditCard,
   History,
   Loader2,
   MessageSquarePlus,
@@ -25,13 +27,17 @@ import {
   Pencil,
   Pin,
   PinOff,
+  Plug,
+  Radio,
   RefreshCw,
   Search,
   SendHorizontal,
   ShieldCheck,
   Sparkles,
   Square,
+  Target,
   Trash2,
+  Users,
   Wrench,
   X,
   XCircle,
@@ -831,33 +837,45 @@ function groupConversations(items: ConversationItem[]) {
 const STARTER_PROMPTS = [
   {
     title: "Workspace daily briefing",
+    description: "Summarize activity today across signals, monitors, and alerts.",
     prompt: "Summarize what is happening in my workspace today across signals, monitors, ICPs, and alerts.",
-    tag: "0 AI quota",
+    category: "Briefing",
+    icon: Sparkles,
   },
   {
     title: "Top high-relevance signals",
+    description: "Review top intent signals and explain priority opportunities.",
     prompt: "Show my top high-relevance signals and explain which ones deserve immediate follow-up.",
-    tag: "Signals",
+    category: "Signals",
+    icon: Activity,
   },
   {
     title: "Compare & prioritize ICPs",
+    description: "Evaluate buyer profiles against observed conversation intent.",
     prompt: "Compare my Ideal Customer Profiles against collected signals and recommend which ICP to prioritize.",
-    tag: "ICPs",
+    category: "Targeting",
+    icon: Target,
   },
   {
-    title: "Connected sources & AI policies",
+    title: "Connected sources & policies",
+    description: "Check source health, feed status, and AI ingestion policies.",
     prompt: "Check my connected sources, custom feeds, and current YouTube and Discourse AI processing policies.",
-    tag: "0 AI quota",
+    category: "Sources",
+    icon: Plug,
   },
   {
-    title: "Check plan & allowances",
+    title: "Plan & remaining allowance",
+    description: "Inspect trial status, subscription tier, and monthly quotas.",
     prompt: "What is my current subscription plan, trial status, and remaining monthly search and AI allowance?",
-    tag: "0 AI quota",
+    category: "Account",
+    icon: CreditCard,
   },
   {
     title: "Create an intent monitor",
+    description: "Configure automated checks for buying discussions.",
     prompt: "Create an active monitor tracking SaaS teams evaluating alternatives to legacy tools.",
-    tag: "Action",
+    category: "Monitors",
+    icon: Radio,
   },
 ];
 
@@ -1567,28 +1585,36 @@ export function AssistantPageClient() {
                 </div>
 
                 <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {STARTER_PROMPTS.map((sp) => (
-                    <button
-                      key={sp.title}
-                      type="button"
-                      onClick={() => void sendMessage(sp.prompt)}
-                      className="group flex flex-col justify-between rounded-xl border border-border bg-card p-3.5 text-left transition-all hover:border-primary/40 hover:shadow-xs"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold text-foreground group-hover:text-primary">
-                            {sp.title}
-                          </span>
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                            {sp.tag}
-                          </span>
+                  {STARTER_PROMPTS.map((sp) => {
+                    const Icon = sp.icon;
+                    return (
+                      <button
+                        key={sp.title}
+                        type="button"
+                        onClick={() => void sendMessage(sp.prompt)}
+                        className="group flex flex-col justify-between rounded-xl border border-border bg-card p-3.5 text-left transition-all hover:border-primary/40 hover:shadow-xs cursor-pointer"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                              <Icon size={14} />
+                            </span>
+                            <span className="rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground whitespace-nowrap">
+                              {sp.category}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-foreground group-hover:text-primary block truncate">
+                              {sp.title}
+                            </span>
+                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                              {sp.description}
+                            </p>
+                          </div>
                         </div>
-                        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground line-clamp-2">
-                          {sp.prompt}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ) : (
