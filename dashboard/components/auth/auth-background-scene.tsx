@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { PixelWord, type PixelWordType } from './pixel-word-svg';
 
 interface CubeConfig {
   id: number;
@@ -14,45 +13,20 @@ interface CubeConfig {
   hideOnMobile?: boolean;
 }
 
-interface PixelWordConfig {
-  word: PixelWordType;
-  pos: { top?: string; bottom?: string; left?: string; right?: string };
-  width?: number;
-  rotate?: number;
-  opacity?: number;
-  hideOnMobile?: boolean;
-  animClass?: string;
-}
-
+// Well-placed, subtle floating 3D geometric elements for clean, minimal SaaS aesthetic
 const AUTH_CUBES: CubeConfig[] = [
-  { id: 1, size: 85, depth: 0.8, parallaxSpeed: -0.12, animIndex: 1, pos: { top: '15%', left: '3.5%' }, hideOnMobile: true },
-  { id: 2, size: 100, depth: 0.85, parallaxSpeed: -0.15, animIndex: 2, pos: { top: '17%', right: '4%' }, hideOnMobile: true },
-  { id: 3, size: 55, depth: 0.45, parallaxSpeed: 0.08, animIndex: 3, pos: { top: '52%', left: '5%' }, opacity: 0.7, hideOnMobile: true },
-  { id: 4, size: 75, depth: 0.6, parallaxSpeed: 0.1, animIndex: 4, pos: { bottom: '14%', right: '4.5%' }, hideOnMobile: false },
-  { id: 5, size: 65, depth: 0.55, parallaxSpeed: -0.07, animIndex: 5, pos: { bottom: '11%', left: '5.5%' }, opacity: 0.75, hideOnMobile: true },
-];
-
-const AUTH_WORDS: PixelWordConfig[] = [
-  { word: 'DEMAND', pos: { top: '21%', left: '16%' }, width: 130, rotate: -2, opacity: 0.35, hideOnMobile: true, animClass: 'pb-float-gentle-2' },
-  { word: 'INSIGHT', pos: { top: '21%', right: '16%' }, width: 130, rotate: 2, opacity: 0.35, hideOnMobile: true, animClass: 'pb-float-gentle-3' },
-  { word: 'INTENT', pos: { top: '42%', left: '4.5%' }, width: 140, rotate: -3, opacity: 0.42, hideOnMobile: true, animClass: 'pb-float-gentle-1' },
-  { word: 'SIGNAL', pos: { top: '44%', right: '4.5%' }, width: 135, rotate: 3, opacity: 0.4, hideOnMobile: true, animClass: 'pb-float-gentle-2' },
-  { word: 'GROWTH', pos: { bottom: '26%', left: '5%' }, width: 150, rotate: 1.5, opacity: 0.42, hideOnMobile: true, animClass: 'pb-float-gentle-3' },
-  { word: 'RADAR', pos: { bottom: '28%', right: '5%' }, width: 125, rotate: -2, opacity: 0.38, hideOnMobile: true, animClass: 'pb-float-gentle-1' },
+  { id: 1, size: 70, depth: 0.7, parallaxSpeed: -0.1, animIndex: 1, pos: { top: '16%', left: '4%' }, opacity: 0.85, hideOnMobile: true },
+  { id: 2, size: 85, depth: 0.8, parallaxSpeed: -0.12, animIndex: 2, pos: { top: '20%', right: '5%' }, opacity: 0.9, hideOnMobile: true },
+  { id: 3, size: 48, depth: 0.4, parallaxSpeed: 0.06, animIndex: 3, pos: { top: '56%', left: '5%' }, opacity: 0.65, hideOnMobile: true },
+  { id: 4, size: 64, depth: 0.55, parallaxSpeed: 0.08, animIndex: 4, pos: { bottom: '16%', right: '5%' }, opacity: 0.75, hideOnMobile: false },
+  { id: 5, size: 52, depth: 0.45, parallaxSpeed: -0.06, animIndex: 5, pos: { bottom: '12%', left: '6%' }, opacity: 0.7, hideOnMobile: true },
 ];
 
 const LEGAL_CUBES: CubeConfig[] = [
-  { id: 1, size: 75, depth: 0.6, parallaxSpeed: -0.09, animIndex: 1, pos: { top: '200px', left: '2.5%' }, hideOnMobile: true },
-  { id: 2, size: 90, depth: 0.75, parallaxSpeed: -0.12, animIndex: 2, pos: { top: '280px', right: '3%' }, hideOnMobile: true },
-  { id: 3, size: 60, depth: 0.45, parallaxSpeed: 0.08, animIndex: 3, pos: { top: '760px', right: '3.5%' }, opacity: 0.65, hideOnMobile: true },
-  { id: 4, size: 70, depth: 0.55, parallaxSpeed: -0.08, animIndex: 4, pos: { top: '1080px', left: '2.5%' }, opacity: 0.7, hideOnMobile: true },
-];
-
-const LEGAL_WORDS: PixelWordConfig[] = [
-  { word: 'INTENT', pos: { top: '480px', left: '2%' }, width: 135, rotate: -2, opacity: 0.38, hideOnMobile: true, animClass: 'pb-float-gentle-1' },
-  { word: 'RESEARCH', pos: { top: '530px', right: '2%' }, width: 165, rotate: 2, opacity: 0.35, hideOnMobile: true, animClass: 'pb-float-gentle-2' },
-  { word: 'DEMAND', pos: { top: '920px', left: '2%' }, width: 140, rotate: 1, opacity: 0.38, hideOnMobile: true, animClass: 'pb-float-gentle-3' },
-  { word: 'RADAR', pos: { top: '1240px', right: '2%' }, width: 130, rotate: -1.5, opacity: 0.38, hideOnMobile: true, animClass: 'pb-float-gentle-1' },
+  { id: 1, size: 65, depth: 0.55, parallaxSpeed: -0.08, animIndex: 1, pos: { top: '180px', left: '3%' }, opacity: 0.8, hideOnMobile: true },
+  { id: 2, size: 80, depth: 0.7, parallaxSpeed: -0.1, animIndex: 2, pos: { top: '260px', right: '3.5%' }, opacity: 0.85, hideOnMobile: true },
+  { id: 3, size: 50, depth: 0.4, parallaxSpeed: 0.06, animIndex: 3, pos: { top: '740px', right: '3%' }, opacity: 0.6, hideOnMobile: true },
+  { id: 4, size: 60, depth: 0.5, parallaxSpeed: -0.07, animIndex: 4, pos: { top: '1060px', left: '3%' }, opacity: 0.65, hideOnMobile: true },
 ];
 
 export function AuthBackgroundScene({
@@ -62,7 +36,6 @@ export function AuthBackgroundScene({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cubes = variant === 'auth' ? AUTH_CUBES : LEGAL_CUBES;
-  const words = variant === 'auth' ? AUTH_WORDS : LEGAL_WORDS;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -143,7 +116,7 @@ export function AuthBackgroundScene({
       className={`pb-auth-scene ${variant === 'legal' ? 'pb-auth-scene-legal' : ''}`}
       aria-hidden="true"
     >
-      {/* 1. Floating 3D Geometric Cubes */}
+      {/* Floating 3D Geometric Cubes - clean, intentional, balanced */}
       {cubes.map((c) => {
         const style: React.CSSProperties = {
           ...c.pos,
@@ -170,28 +143,6 @@ export function AuthBackgroundScene({
               </div>
               <div className="hero-cube-shadow" />
             </div>
-          </div>
-        );
-      })}
-
-      {/* 2. Scattered Pixel-Text Word Accents */}
-      {words.map((w, idx) => {
-        const style: React.CSSProperties = {
-          ...w.pos,
-          transform: `rotate(${w.rotate ?? 0}deg)`,
-        };
-
-        return (
-          <div
-            key={idx}
-            className={`pb-pixel-word-wrapper ${w.hideOnMobile ? 'hidden lg:block' : 'block'} ${w.animClass || ''}`}
-            style={style}
-          >
-            <PixelWord
-              word={w.word}
-              opacity={w.opacity ?? 0.2}
-              style={{ width: `${w.width || 140}px`, height: 'auto' }}
-            />
           </div>
         );
       })}

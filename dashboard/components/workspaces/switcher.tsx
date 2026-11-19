@@ -45,15 +45,31 @@ export function WorkspaceSwitcher({
 
   if (list.isPending) {
     return (
-      <span role="status" className="workspace-loading">
-        Loading workspace…
-      </span>
+      <div className="workspace-trigger opacity-70 animate-pulse pointer-events-none" aria-busy="true">
+        <span className="workspace-avatar">
+          <Building2 size={13} className="text-muted-foreground" />
+        </span>
+        <span className="workspace-trigger-text text-xs text-muted-foreground">
+          Loading…
+        </span>
+      </div>
     );
   }
   if (list.isError) {
     return (
-      <button className="workspace-retry" onClick={() => void list.refetch()}>
-        Retry workspaces
+      <button
+        type="button"
+        className="workspace-trigger hover:border-primary/40 cursor-pointer"
+        onClick={() => void list.refetch()}
+        title="Workspace connection failed. Click to retry."
+        aria-label="Retry loading workspace"
+      >
+        <span className="workspace-avatar text-amber-500 bg-amber-500/10">
+          <Building2 size={13} />
+        </span>
+        <span className="workspace-trigger-text text-xs text-muted-foreground">
+          Offline · Retry
+        </span>
       </button>
     );
   }

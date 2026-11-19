@@ -1,3 +1,15 @@
-import Image from 'next/image';
-import {brand} from '@/lib/brand';
-export function PlaneByteBrand({compact=false}:{compact?:boolean}){return <span className="heysow-wordmark"><Image src={brand.mark} width={36} height={36} alt="PlaneByte" priority unoptimized/>{!compact&&<span>{brand.name}</span>}</span>;}
+"use client";
+
+import React from 'react';
+import { BrandLogo } from '@/components/ui/BrandLogo';
+import { brand } from '@/lib/brand';
+
+export { BrandLogo };
+
+export function PlaneByteBrand({ compact = false }: { compact?: boolean }) {
+  return (
+    <span className="heysow-wordmark inline-flex items-center gap-2">
+      <BrandLogo size={32} showWordmark={!compact} priority />
+    </span>
+  );
+}

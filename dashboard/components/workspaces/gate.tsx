@@ -5,6 +5,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useWorkspace } from './use-workspace';
 import { Button } from '@/components/ui/button';
+import {
+  WorkspaceLoadingState,
+  WorkspaceErrorState,
+  WorkspaceEmptyState,
+} from '@/components/ui/workspace-loading-state';
 export type { WorkspaceSummary } from './use-workspace';
 
 function ResumeOwnerSetup() {
@@ -21,24 +26,24 @@ export function WorkspaceGate({ children }: { children: React.ReactNode }) {
 
   if (state.isPending) {
     return (
-      <div role="status" className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 space-y-3">
-        <Loader2 size={24} className="animate-spin text-primary" />
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-foreground">Loading your workspace</p>
-          <p className="text-xs text-muted-foreground">Initializing permissions, team access, and context…</p>
-        </div>
-      </div>
+      <WorkspaceLoadingState
+        title="Loading your workspace"
+        description="Preparing your workspace and account settings…"
+      />
     );
   }
   if (state.isError) {
     return (
-      <section className="settings-page">
-        <header>
-          <h1>Your workspace could not be loaded</h1>
-          <p>Retry or sign out and sign in again with your permitted account.</p>
-        </header>
-        <Button onClick={() => void state.refetch()}>Retry workspace access</Button>
-      </section>
+      <WorkspaceErrorState
+        title="Unable to load your workspace"
+        description="We couldn't connect to your workspace. Please check your connection or sign in again."
+        error={state.error instanceof Error ? state.error.message : null}
+        onRetry={() => void state.refetch()}
+        secondaryAction={{
+          label: "Sign in again",
+          href: "/login",
+        }}
+      />
     );
   }
 
