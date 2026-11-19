@@ -12,13 +12,20 @@ vi.mock('@/lib/intelligence',()=>({request:vi.fn().mockResolvedValue({enabled:fa
 vi.mock('@/components/intent-radar/provider',()=>({useRadarMutation:()=>({mutateAsync:state.mutate,mutate:state.mutate,isPending:false}),useRadarRefresh:()=>vi.fn(),useRadarRead:(path:string)=>({data:path==='/settings'?{default_view:'table',topics:[],min_relevance:0,alerts_enabled:true,alert_threshold:85,revision:0}:path.startsWith('/signals/')?state.signal:undefined}),useRadarCapabilities:()=>({data:{can_write:true,can_manage:true,sources:[{name:'Hacker News',state:'Available',coverage:'Recent Ask HN stories only',documentation:'https://github.com/HackerNews/API'}]}})}));
 beforeEach(()=>state.mutate.mockReset());
 it('an explicitly labeled manual draft stays inert until the user confirms a public search',async()=>{
- state.mutate.mockResolvedValueOnce({draft:{configuration:{...emptyIntentSearch(),keywords:['website']}},mode:'Manual fallback',fallback_reason:'AI assistance is disabled.'}).mockResolvedValueOnce({id:'fixture-job'});
- render(<DiscoverExperience/>);fireEvent.click(screen.getByRole('button',{name:/Describe with AI/i}));fireEvent.change(screen.getByLabelText('What are you looking for?'),{target:{value:'Find website development recommendations'}});fireEvent.click(screen.getByRole('button',{name:/Generate Criteria/i}));
- await screen.findByRole('heading',{name:'Review Search Criteria'});expect(screen.getByText(/Manual Fallback Criteria/i)).toBeVisible();expect(state.mutate).toHaveBeenCalledTimes(1);expect(state.mutate.mock.calls[0][0].path).toBe('/draft');
- fireEvent.click(screen.getByRole('button',{name:/Run Search/i}));await waitFor(()=>expect(state.mutate).toHaveBeenCalledWith(expect.objectContaining({path:'/discover',body:expect.objectContaining({configuration:expect.objectContaining({keywords:['website']})})})));
+ state.mutate.mockResolvedValueOnce({id:'fixture-job',discovery_id:'disc-1'});
+ render(<DiscoverExperience route="discover/new"/>);
+ const kwInput = screen.getByPlaceholderText(/Type keyword/i);
+ fireEvent.change(kwInput, { target: { value: 'website' } });
+ fireEvent.keyDown(kwInput, { key: 'Enter' });
+ expect(state.mutate).not.toHaveBeenCalled();
+ fireEvent.click(screen.getAllByRole('button',{name:/Run Discovery/i})[0]);
+ await waitFor(()=>expect(state.mutate).toHaveBeenCalledWith(expect.objectContaining({path:'/discover',body:expect.objectContaining({configuration:expect.objectContaining({keywords:['website']})})})));
 });
 it('advanced search requires a committed keyword before reaching review',()=>{
- render(<DiscoverExperience/>);fireEvent.click(screen.getByRole('button',{name:'Advanced Search'}));fireEvent.click(screen.getByRole('button',{name:'Review Search'}));expect(screen.getByRole('alert')).toHaveTextContent('Add at least one keyword');expect(state.mutate).not.toHaveBeenCalled();
+ render(<DiscoverExperience route="discover/new"/>);
+ fireEvent.click(screen.getAllByRole('button',{name:/Run Discovery/i})[0]);
+ expect(screen.getByRole('alert')).toHaveTextContent('Please add at least one keyword');
+ expect(state.mutate).not.toHaveBeenCalled();
 });
 it('public source markup is displayed as inert text in the evidence view',()=>{
  const view=render(<EvidenceDetail id="controlled-evidence"/>);expect(screen.getByRole('heading',{name:'<script>alert(1)</script>'})).toBeVisible();expect(screen.getByText('<img src=x onerror=alert(1)>',{exact:true})).toBeVisible();expect(view.container.querySelector('script')).toBeNull();expect(view.container.querySelector('img[src="x"]')).toBeNull();expect(screen.getByRole('link',{name:/Open original public discussion/})).toHaveAttribute('rel','noopener noreferrer');

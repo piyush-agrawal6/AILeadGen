@@ -37,6 +37,8 @@ import { DISCOVERY_PRELOAD_KEY } from "./discover/DiscoveryCopilotPanel";
 import { DiscoveryHistoryView } from "./discover/DiscoveryHistoryView";
 import { DiscoveryRunDetailView } from "./discover/DiscoveryRunDetailView";
 import { SavedSearchesView } from "./discover/SavedSearchesView";
+import { DiscoverMainPage } from "./discover/DiscoverMainPage";
+import { CreateDiscoveryPage } from "./discover/CreateDiscoveryPage";
 
 function UsageReader({ onData }: { onData: (data: UsageData | undefined) => void }) {
   const q = useUsage();
@@ -379,13 +381,14 @@ function NewDiscoveryLoader() {
 }
 
 export function DiscoverExperience({ route = "discover" }: { route?: string }) {
-  if (route === "discover/history") return <DiscoveryHistoryView />;
-  if (route === "discover/saved") return <SavedSearchesView />;
+  if (route === "discover/new") return <CreateDiscoveryPage />;
+  if (route === "discover/saved") return <DiscoverMainPage initialTab="saved" />;
+  if (route === "discover/history") return <DiscoverMainPage initialTab="history" />;
   if (route.startsWith("discover/runs/")) {
     const runId = route.split("/")[2];
     if (runId) return <DiscoveryRunDetailView id={runId} />;
   }
-  return <NewDiscoveryLoader />;
+  return <DiscoverMainPage initialTab="history" />;
 }
 
 function DiscoveryWorkspace({ preferences }: { preferences: IntentPreferences }) {

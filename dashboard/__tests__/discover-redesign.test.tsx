@@ -42,9 +42,11 @@ vi.mock("@/components/intent-radar/provider", () => ({
       can_write: true,
       can_manage: true,
       sources: [
-        { id: "hacker_news", name: "Hacker News", state: "Available", coverage: "Official HN Firebase v0", documentation: "https://github.com/HackerNews/API", request_limit_per_check: 30 },
-        { id: "github", name: "GitHub", state: "Connected", coverage: "GitHub REST & GraphQL", documentation: "https://docs.github.com", request_limit_per_check: 24 },
-        { id: "stack_exchange", name: "Stack Exchange", state: "Available", coverage: "SE API 2.3", documentation: "https://api.stackexchange.com", configured_sites: ["stackoverflow"], request_limit_per_check: 8 },
+        { id: "hacker_news", name: "Hacker News", configured: true, state: "Available" },
+        { id: "github", name: "GitHub", configured: true, state: "Connected" },
+        { id: "stack_exchange", name: "Stack Exchange", configured: true, state: "Available" },
+        { id: "bluesky", name: "Bluesky", configured: true, state: "Available" },
+        { id: "rss", name: "RSS Feeds", configured: true, state: "Available" },
       ],
       usage: { searches_today: 1, daily_search_limit: 20, monitor_limit: 50, automatic_schedules_enabled: true, minimum_schedule_hours: 6 },
     },
@@ -101,32 +103,32 @@ const SAMPLE_RUN: DiscoveryRun = {
   search_mode: "ai",
   parent_discovery_id: null,
   monitor_id: null,
-  created_by: "contact@planebyte.com",
-  created_at: "2026-11-18T09:00:00Z",
-  completed_at: "2026-11-18T09:00:15Z",
-  status: "COMPLETED",
+  created_by: "user@test.com",
   error_code: null,
   attempts: 1,
-  sources: ["hacker_news", "github"],
-  keywords: ["AI code review", "CodeRabbit", "Copilot review"],
-  matched_count: 1,
-  scanned_count: 50,
   requests_count: 8,
-  coverage: "HN Ask & GitHub active PR issues scanned.",
+  coverage: "Ask HN + GitHub Discussions",
   configuration: {
     ...emptyIntentSearch(),
-    keywords: ["AI code review", "CodeRabbit", "Copilot review"],
-    excluded: ["tutorial", "free", "intern"],
+    keywords: ["AI code review", "CodeRabbit"],
     sources: ["hacker_news", "github"],
-    min_relevance: 70,
+    categories: ["Tool / service evaluation"],
     result_limit: 20,
+    min_relevance: 50,
   },
+  status: "COMPLETED",
+  matched_count: 1,
+  scanned_count: 50,
+  sources: ["hacker_news", "github"],
+  keywords: ["AI code review", "CodeRabbit"],
+  created_at: "2026-11-18T10:00:00Z",
+  completed_at: "2026-11-18T10:02:00Z",
   strategy: {
-    objective: "Identify engineering teams comparing AI code review solutions",
-    target_customer_context: "PlaneByte · ICP: Engineering Leaders",
-    keyword_rationale: "Targeting active tool evaluations and comparison queries.",
-    source_rationale: "Hacker News and GitHub capture authentic developer feedback.",
-    exclusions_rationale: "Filter academic papers and beginner tutorials.",
+    objective: "Find engineering leaders evaluating AI code review tools",
+    target_customer_context: "Engineering Leaders",
+    keyword_rationale: "Comparison terms identify active evaluators",
+    source_rationale: "HN and GitHub capture technical discussions",
+    exclusions_rationale: "Excludes generic job postings",
     limitations: ["Past 30 days discussions only."],
   },
   source_runs: [
@@ -215,140 +217,150 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-describe("PlaneByte Intent Radar — Discover 3.0 Redesign", () => {
-  it("Phase 1: renders 3 clear top-level tabs and switches modes smoothly", () => {
+describe("PlaneByte Intent Radar — Discover Module Redesign", () => {
+  it("Phase 1: Discover Main Page renders 4 real metrics, exactly 2 tabs, and + Create Discovery button", () => {
     render(wrap(<DiscoverExperience route="discover" />));
 
-    // 3 clean top-level tabs
-    expect(screen.getByRole("link", { name: /New Discovery/i })).toBeVisible();
-    expect(screen.getByRole("link", { name: /Discovery History/i })).toBeVisible();
-    expect(screen.getByRole("link", { name: /Saved Searches/i })).toBeVisible();
+    // Header & action
+    expect(screen.getByRole("heading", { name: "Discover Conversations" })).toBeVisible();
+    expect(screen.getByText(/Search public conversations, review discoveries, and save research for later./i)).toBeVisible();
+    const createBtn = screen.getByRole("link", { name: /Create Discovery/i });
+    expect(createBtn).toBeVisible();
+    expect(createBtn).toHaveAttribute("href", "/intent-radar/discover/new");
 
-    // Mode toggle between AI Discovery (recommended) and Advanced Search
-    const aiBtn = screen.getByRole("button", { name: /AI Discovery/i });
-    const advBtn = screen.getByRole("button", { name: "Advanced Search" });
-    expect(aiBtn).toBeVisible();
-    expect(advBtn).toBeVisible();
-    expect(aiBtn).toHaveAttribute("aria-pressed", "true");
+    // 4 Real metrics
+    expect(screen.getByText("Total Discovery Runs")).toBeVisible();
+    expect(screen.getByText("Conversations Found")).toBeVisible();
+    expect(screen.getAllByText("Saved Searches")[0]).toBeVisible();
+    expect(screen.getByText("Runs Requiring Attention")).toBeVisible();
 
-    // Switching to Advanced Search reveals the 4 structured sections
-    fireEvent.click(advBtn);
-    expect(advBtn).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("1 · Search Terms")).toBeVisible();
-    expect(screen.getByText("2 · Research Sources")).toBeVisible();
-    expect(screen.getByText("3 · Search Intent")).toBeVisible();
-    expect(screen.getByText(/4 · Advanced Filters/i)).toBeVisible();
+    // Exactly 2 tabs
+    const historyTab = screen.getByRole("tab", { name: /Discovery History/i });
+    const savedTab = screen.getByRole("tab", { name: /Saved Searches/i });
+    expect(historyTab).toBeVisible();
+    expect(savedTab).toBeVisible();
+    expect(historyTab).toHaveAttribute("aria-selected", "true");
+
+    // Click Saved Searches tab switches view
+    fireEvent.click(savedTab);
+    expect(savedTab).toHaveAttribute("aria-selected", "true");
   });
 
-  it("Phase 2: AI Discovery generates strategy review, supports natural language refinement and Undo", async () => {
-    mocks.mutateAsync.mockResolvedValueOnce({
-      draft: {
-        name: "AI Code Review Evaluations",
-        configuration: {
-          ...emptyIntentSearch(),
-          keywords: ["AI code review", "CodeRabbit"],
-          excluded: ["tutorial"],
-          sources: ["hacker_news", "github"],
-          categories: ["Tool / service evaluation"],
-          result_limit: 20,
-        },
-        strategy: {
-          objective: "Find engineering teams evaluating AI code review tools",
-          target_customer_context: "Engineering Leaders",
-          keyword_rationale: "Comparison terms identify active evaluators",
-          source_rationale: "HN and GitHub capture technical discussions",
-          limitations: [],
-        },
-      },
-      mode: "AI-assisted draft",
-      quota_exhausted: false,
-      fallback_reason: null,
-    });
+  it("Phase 2: Create Discovery page renders unified 2-column workspace layout with 5 sections", () => {
+    render(wrap(<DiscoverExperience route="discover/new" />));
 
-    render(wrap(<DiscoverExperience route="discover" />));
+    // Page title and breadcrumb
+    expect(screen.getByRole("heading", { name: "Create Discovery" })).toBeVisible();
 
-    // Clear starting prompt input
-    expect(screen.getByRole("heading", { name: "What would you like to discover?" })).toBeVisible();
-    const promptInput = screen.getByPlaceholderText(/Find engineering leaders evaluating AI code review tools/i);
-    expect(promptInput).toBeVisible();
+    // LEFT: Permanent AI Assistant
+    expect(screen.getByText("Discovery Assistant")).toBeVisible();
+    expect(screen.getByText(/Describe what you want to find. I'll help configure your search./i)).toBeVisible();
+    expect(screen.getByText("Workspace: PlaneByte")).toBeVisible();
+    expect(screen.getByPlaceholderText(/Find teams looking for Postgres alternatives/i)).toBeVisible();
 
-    // Click example suggestion chip
-    fireEvent.click(screen.getByText("Find engineering leaders evaluating AI code review tools"));
-    expect(promptInput).toHaveValue("Find engineering leaders evaluating AI code review tools");
+    // Quick starter chips
+    expect(screen.getByText("Founders complaining about CRM complexity & cost")).toBeVisible();
 
-    // Click Build Discovery
-    fireEvent.click(screen.getByRole("button", { name: /Build Discovery/i }));
+    // RIGHT: 5 Logical sections
+    expect(screen.getByRole("heading", { name: "Discovery Objective" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Keywords & Search Criteria" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Research Sources" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Advanced Filters" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Review & Run" })).toBeVisible();
 
-    // Strategy review card renders
-    expect(await screen.findByRole("heading", { name: "Discovery Strategy Review" })).toBeVisible();
-    expect(screen.getByText("Find engineering teams evaluating AI code review tools")).toBeVisible();
-    expect(screen.getByText("AI code review")).toBeVisible();
-    expect(screen.getByText("CodeRabbit")).toBeVisible();
-    expect(screen.getByRole("button", { name: /Run Discovery/i })).toBeVisible();
-
-    // Natural-language Refine with AI
-    mocks.mutateAsync.mockResolvedValueOnce({
-      draft: {
-        name: "AI Code Review (GitHub Only)",
-        configuration: {
-          ...emptyIntentSearch(),
-          keywords: ["AI code review", "CodeRabbit", "Copilot"],
-          excluded: ["tutorial", "free tier"],
-          sources: ["github"],
-          categories: ["Tool / service evaluation"],
-          result_limit: 20,
-        },
-        strategy: {
-          objective: "Narrowed to GitHub with Copilot evaluation terms",
-          target_customer_context: "Engineering Leaders",
-          keyword_rationale: "Added Copilot",
-          source_rationale: "Filtered to GitHub",
-          limitations: [],
-        },
-      },
-      mode: "AI-assisted draft",
-      quota_exhausted: false,
-    });
-
-    const refineInput = screen.getByPlaceholderText(/Narrow to GitHub and Hacker News only/i);
-    fireEvent.change(refineInput, { target: { value: "Focus on GitHub only and add Copilot" } });
-    fireEvent.click(screen.getByRole("button", { name: "Refine" }));
-
-    expect(await screen.findByText(/Refined: applied changes based on/i)).toBeVisible();
-    expect(screen.getByText("Copilot")).toBeVisible();
-
-    // Click Undo to revert refinement
-    fireEvent.click(screen.getByRole("button", { name: /Undo Last Refinement/i }));
-    expect(screen.getByText("Reverted to previous strategy criteria.")).toBeVisible();
+    // Contained action bar
+    expect(screen.getAllByRole("link", { name: "Cancel" })[0]).toBeVisible();
+    expect(screen.getAllByRole("button", { name: "Save Search" })[0]).toBeVisible();
+    expect(screen.getAllByRole("button", { name: "Run Discovery" })[0]).toBeVisible();
   });
 
-  it("Phase 3: Advanced Search builder validates inputs and opens review", async () => {
-    render(wrap(<DiscoverExperience route="discover" />));
+  it("Phase 3: AI Assistant receives prompt, generates proposed criteria diff, and applies to form", async () => {
+    mocks.mutateAsync.mockResolvedValueOnce({
+      reply: "I've analyzed your objective and proposed criteria updates.",
+      mode: "strategy",
+      strategy: {
+        objective: "Find founders looking for CRM alternatives",
+        keywords: ["CRM alternative", "replace HubSpot", "affordable CRM"],
+        sources: ["hacker_news", "github"],
+        categories: ["Tool / service evaluation", "Problem / pain point"],
+        min_relevance: 65,
+        date_range: "30d",
+      },
+      proposals: [],
+    });
 
-    fireEvent.click(screen.getByRole("button", { name: "Advanced Search" }));
+    render(wrap(<DiscoverExperience route="discover/new" />));
 
-    // Try clicking Review Discovery without keywords -> shows validation
-    fireEvent.click(screen.getByRole("button", { name: /Review Discovery/i }));
-    expect(await screen.findByText(/Add at least 1 keyword/i)).toBeVisible();
+    const assistantInput = screen.getByPlaceholderText(/Find teams looking for Postgres alternatives/i);
+    fireEvent.change(assistantInput, { target: { value: "Find founders seeking CRM alternatives" } });
+    fireEvent.submit(assistantInput.closest("form")!);
 
-    // Add keyword & negative exclusion in section 1
-    fireEvent.change(screen.getByLabelText("Add Primary Search Keywords"), { target: { value: "PostgreSQL vs ClickHouse" } });
-    fireEvent.keyDown(screen.getByLabelText("Add Primary Search Keywords"), { key: "Enter" });
+    // Proposed changes diff card appears
+    expect(await screen.findByText("Proposed Search Criteria")).toBeVisible();
+    expect(screen.getByText("+ CRM alternative")).toBeVisible();
+    expect(screen.getByText("+ replace HubSpot")).toBeVisible();
 
-    fireEvent.change(screen.getByLabelText("Add Negative Keywords (Exclusions)"), { target: { value: "homework" } });
-    fireEvent.keyDown(screen.getByLabelText("Add Negative Keywords (Exclusions)"), { key: "Enter" });
+    // Click Apply to Form
+    const applyBtn = screen.getByRole("button", { name: /Apply to Form/i });
+    expect(applyBtn).toBeVisible();
+    fireEvent.click(applyBtn);
 
-    // Review Discovery button expands the strategy review card
-    fireEvent.click(screen.getByRole("button", { name: /Review Discovery/i }));
-    expect(await screen.findByRole("heading", { name: "Discovery Strategy Review" })).toBeVisible();
-    expect(screen.getAllByText("PostgreSQL vs ClickHouse")[0]).toBeVisible();
-    expect(screen.getAllByText("homework")[0]).toBeVisible();
+    // Form keywords updated
+    expect(screen.getByText("CRM alternative")).toBeVisible();
+    expect(screen.getByText("replace HubSpot")).toBeVisible();
+    expect(screen.getByText("affordable CRM")).toBeVisible();
+
+    // Undo button appears and works
+    const undoBtn = screen.getByRole("button", { name: /Undo Changes/i });
+    expect(undoBtn).toBeVisible();
+    fireEvent.click(undoBtn);
+  });
+
+  it("Phase 4: Run Discovery validates inputs, calls /discover, and routes to run details", async () => {
+    mocks.mutateAsync.mockResolvedValueOnce({
+      id: "job-new-123",
+      discovery_id: "run-new-123",
+      status: "QUEUED",
+      items: [],
+    });
+
+    render(wrap(<DiscoverExperience route="discover/new" />));
+
+    // Try running without keywords -> validation alert
+    const runBtn = screen.getAllByRole("button", { name: "Run Discovery" })[0];
+    fireEvent.click(runBtn);
+
+    // Add required keyword
+    const kwInput = screen.getByPlaceholderText(/Type keyword/i);
+    fireEvent.change(kwInput, { target: { value: "developer tools" } });
+    fireEvent.keyDown(kwInput, { key: "Enter" });
+
+    // Now keywords exist
+    expect(screen.getByText("developer tools")).toBeVisible();
+
+    // Click Run Discovery
+    const activeRunBtn = screen.getAllByRole("button", { name: "Run Discovery" })[0];
+    fireEvent.click(activeRunBtn);
+
+    await waitFor(() => {
+      expect(mocks.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: "/discover",
+          body: expect.objectContaining({
+            configuration: expect.objectContaining({
+              keywords: expect.arrayContaining(["developer tools"]),
+            }),
+          }),
+        })
+      );
+      expect(mocks.push).toHaveBeenCalledWith("/intent-radar/discover/runs/run-new-123");
+    });
   });
 
   it("Phase 5: Saved Searches renders clean minimal table with Open in Builder and Run Search", async () => {
     render(wrap(<DiscoverExperience route="discover/saved" />));
 
-    expect(screen.getByRole("heading", { name: "Saved Searches" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: /Saved Searches/i })).toBeVisible();
     expect(screen.getByRole("table")).toBeVisible();
 
     // Table columns check
@@ -356,6 +368,10 @@ describe("PlaneByte Intent Radar — Discover 3.0 Redesign", () => {
     expect(screen.getByText("Engineering Leaders")).toBeVisible(); // ICP tag
     expect(screen.getByRole("button", { name: /Open in Builder/i })).toBeVisible();
     expect(screen.getByRole("button", { name: /Run Search/i })).toBeVisible();
+
+    // Open in builder navigates to /intent-radar/discover/new?saved_search_id=[id]
+    fireEvent.click(screen.getByRole("button", { name: /Open in Builder/i }));
+    expect(mocks.push).toHaveBeenCalledWith(`/intent-radar/discover/new?saved_search_id=${SAMPLE_SAVED.id}`);
 
     // Run Search executes search directly
     mocks.mutateAsync.mockResolvedValueOnce({
@@ -367,14 +383,14 @@ describe("PlaneByte Intent Radar — Discover 3.0 Redesign", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Run Search/i }));
     await waitFor(() => {
-      expect(mocks.push).toHaveBeenCalledWith(expect.stringContaining("/intent-radar/discover?run=run-saved-1&job=job-saved-1"));
+      expect(mocks.push).toHaveBeenCalledWith("/intent-radar/discover/runs/run-saved-1");
     });
   });
 
   it("Phase 6: Discovery History renders standard table, Results primary action, and row navigation", async () => {
     render(wrap(<DiscoverExperience route="discover/history" />));
 
-    expect(screen.getByRole("heading", { name: "Discovery History" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: /Discovery History/i })).toBeVisible();
     expect(screen.getByRole("table")).toBeVisible();
 
     // Row details
@@ -388,7 +404,7 @@ describe("PlaneByte Intent Radar — Discover 3.0 Redesign", () => {
     expect(mocks.push).toHaveBeenCalledWith(`/intent-radar/discover/runs/${SAMPLE_RUN.id}`);
   });
 
-  it("Phase 4: Results table renders Conversation, Source, Relevance, Intent, Observed, Actions, and supports Convert to Opportunity & CSV export", async () => {
+  it("Phase 7: Results table renders Conversation, Source, Relevance, Intent, Observed, Actions, and supports Convert to Opportunity & CSV export", async () => {
     render(wrap(<DiscoverExperience route={`discover/runs/${SAMPLE_RUN.id}`} />));
 
     expect(screen.getByRole("heading", { name: "AI Code Review Evaluations" })).toBeVisible();

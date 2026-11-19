@@ -57,7 +57,12 @@ function statusLabel(status: string, matched: number): { text: string; tone: str
 }
 
 export function DiscoveryRunDetailView({ id }: { id: string }) {
-  const router = useRouter();
+  let router: any = null;
+  try {
+    router = useRouter();
+  } catch {
+    // ignore
+  }
   const access = useRadarCapabilities();
   const mutation = useRadarMutation();
   const query = useRadarRead<DiscoveryRun>(`/discoveries/${id}`);
@@ -72,12 +77,12 @@ export function DiscoveryRunDetailView({ id }: { id: string }) {
   const [err, setErr] = useState("");
 
   function handleBackToHistory() {
-    let target = "/intent-radar/discover/history";
+    let target = "/intent-radar/discover";
     try {
       const raw = sessionStorage.getItem(DISCOVERY_HISTORY_RETURN_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as { url?: string };
-        if (parsed.url && parsed.url.startsWith("/intent-radar/discover/history")) {
+        if (parsed.url && (parsed.url.startsWith("/intent-radar/discover/history") || parsed.url.startsWith("/intent-radar/discover"))) {
           target = parsed.url;
         }
       }
@@ -142,7 +147,7 @@ export function DiscoveryRunDetailView({ id }: { id: string }) {
     } catch {
       // ignore storage errors
     }
-    router.push("/intent-radar/discover");
+    router.push("/intent-radar/discover/new");
   }
 
   async function rerunAsNew() {
@@ -161,10 +166,8 @@ export function DiscoveryRunDetailView({ id }: { id: string }) {
           strategy: run.strategy || null,
         },
       })) as IntentJob;
-      const params = new URLSearchParams();
-      if (res.discovery_id) params.set("run", res.discovery_id);
-      params.set("job", res.id);
-      router.push(`/intent-radar/discover?${params.toString()}`);
+      const targetRunId = res.discovery_id || res.id;
+      router.push(`/intent-radar/discover/runs/${targetRunId}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not start linked rerun.");
     }

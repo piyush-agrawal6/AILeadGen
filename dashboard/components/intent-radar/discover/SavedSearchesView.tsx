@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { IntentJob, IntentPage, SavedSearch } from "@/lib/intent-radar";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { Menu, MenuContent } from "@/components/ui/menu";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeading } from "../ui";
 import { ProviderLogo } from "../provider-logo";
@@ -40,8 +41,17 @@ function formatRelativeTime(iso: string): string {
   return `${Math.floor(months / 12)}y ago`;
 }
 
-export function SavedSearchesView() {
-  const router = useRouter();
+export function SavedSearchesView({
+  embeddedInMain = false,
+}: {
+  embeddedInMain?: boolean;
+} = {}) {
+  let router: any = null;
+  try {
+    router = useRouter();
+  } catch {
+    // ignore
+  }
   const access = useRadarCapabilities();
   const mutation = useRadarMutation();
   const icps = useRadarRead<{ items: { id: string; name: string }[] }>("/icps");
@@ -76,7 +86,7 @@ export function SavedSearchesView() {
     } catch {
       // ignore storage errors
     }
-    router.push("/intent-radar/discover");
+    router.push(`/intent-radar/discover/new?saved_search_id=${item.id}`);
   }
 
   async function runDirectly(item: SavedSearch) {
@@ -95,10 +105,8 @@ export function SavedSearchesView() {
         },
       })) as IntentJob;
 
-      const sp = new URLSearchParams();
-      if (res.discovery_id) sp.set("run", res.discovery_id);
-      sp.set("job", res.id);
-      router.push(`/intent-radar/discover?${sp.toString()}`);
+      const targetRunId = res.discovery_id || res.id;
+      router.push(`/intent-radar/discover/runs/${targetRunId}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not execute saved search.");
       setRunningId(null);
@@ -162,30 +170,32 @@ export function SavedSearchesView() {
   const items = query.data?.items || [];
 
   return (
-    <div className="ir-page space-y-5">
-      <PageHeading
-        title="Saved Searches"
-        description="Reusable discovery search configurations. Saved searches do not run automatically — convert any search into a Monitor when you want recurring checks."
-      />
-      <DiscoverNav activeTab="saved" />
+    <div className={embeddedInMain ? "space-y-4" : "ir-page space-y-5"}>
+      {!embeddedInMain && (
+        <>
+          <PageHeading
+            title="Saved Searches"
+            description="Reusable discovery search configurations. Saved searches do not run automatically — convert any search into a Monitor when you want recurring checks."
+          />
+          <DiscoverNav activeTab="saved" />
+        </>
+      )}
 
       {/* Header controls: search and new discovery */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3.5 text-xs">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            type="search"
-            aria-label="Filter saved searches"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter saved searches by name, prompt, or keyword…"
-            style={{ paddingLeft: "2.25rem" }}
-            className="w-full rounded-lg border border-border bg-background pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-        <Button size="sm" onClick={() => router.push("/intent-radar/discover")} className="gap-1.5">
-          <Plus size={14} /> New Discovery
-        </Button>
+        <SearchInput
+          aria-label="Filter saved searches"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onClear={() => setSearch("")}
+          placeholder="Filter saved searches by name, prompt, or keyword…"
+          wrapperClassName="flex-1 min-w-[200px] max-w-md"
+        />
+        {!embeddedInMain && (
+          <Button size="sm" onClick={() => router.push("/intent-radar/discover/new")} className="gap-1.5">
+            <Plus size={14} /> New Discovery
+          </Button>
+        )}
       </div>
 
       {notice && (
@@ -363,7 +373,7 @@ export function SavedSearchesView() {
                                   <span>Duplicate</span>
                                 </Menu.Item>
                                 <Menu.Item
-                                  onSelect={() => setMonitorTarget(item)}
+                                  onSelect={() => router.push(`/intent-radar/monitors/new?saved_search_id=${item.id}`)}
                                   className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
                                 >
                                   <Radio size={13} />

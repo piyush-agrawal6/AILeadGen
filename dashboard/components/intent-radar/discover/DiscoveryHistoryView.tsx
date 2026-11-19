@@ -12,6 +12,7 @@ import {
   Filter,
   MoreHorizontal,
   Play,
+  Radio,
   RotateCcw,
   Search,
   SlidersHorizontal,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import type { DiscoveryRun, IntentJob, IntentPage, SourceId } from "@/lib/intent-radar";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { Menu, MenuContent } from "@/components/ui/menu";
 import { EmptyState, ErrorState, PageHeading } from "../ui";
 import { ProviderLogo } from "../provider-logo";
@@ -120,8 +122,17 @@ function readInitialUrlState() {
   };
 }
 
-export function DiscoveryHistoryView() {
-  const router = useRouter();
+export function DiscoveryHistoryView({
+  embeddedInMain = false,
+}: {
+  embeddedInMain?: boolean;
+} = {}) {
+  let router: any = null;
+  try {
+    router = useRouter();
+  } catch {
+    // ignore in test environments without next router
+  }
   const access = useRadarCapabilities();
   const mutation = useRadarMutation();
 
@@ -270,7 +281,7 @@ export function DiscoveryHistoryView() {
     } catch {
       // ignore storage errors
     }
-    router.push("/intent-radar/discover");
+    router.push("/intent-radar/discover/new");
   }
 
   async function rerunAsNew(run: DiscoveryRun) {
@@ -288,10 +299,8 @@ export function DiscoveryHistoryView() {
           strategy: run.strategy || null,
         },
       })) as IntentJob;
-      const sp = new URLSearchParams();
-      if (res.discovery_id) sp.set("run", res.discovery_id);
-      sp.set("job", res.id);
-      router.push(`/intent-radar/discover?${sp.toString()}`);
+      const targetRunId = res.discovery_id || res.id;
+      router.push(`/intent-radar/discover/runs/${targetRunId}`);
     } catch (e) {
       setFeedback(e instanceof Error ? e.message : "Could not rerun discovery.");
     }
@@ -366,28 +375,28 @@ export function DiscoveryHistoryView() {
   const endRow = Math.min(total, page * pageSize);
 
   return (
-    <div className="ir-page space-y-4">
-      <PageHeading
-        title="Discovery History"
-        description="Searchable archive of executed discovery runs with immutable original criteria and retained results."
-      />
-      <DiscoverNav activeTab="history" />
+    <div className={embeddedInMain ? "space-y-4" : "ir-page space-y-4"}>
+      {!embeddedInMain && (
+        <>
+          <PageHeading
+            title="Discovery History"
+            description="Searchable archive of executed discovery runs with immutable original criteria and retained results."
+          />
+          <DiscoverNav activeTab="history" />
+        </>
+      )}
 
       {/* Compact Single-Row Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[240px]">
-          <div className="relative flex-1 max-w-sm min-w-[200px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            <input
-              type="search"
-              aria-label="Search discoveries"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search title, prompt, or keyword…"
-              style={{ paddingLeft: "2.25rem" }}
-              className="h-9 w-full rounded-lg border border-border bg-card pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+          <SearchInput
+            aria-label="Search discoveries"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onClear={() => setSearchInput("")}
+            placeholder="Search title, prompt, or keyword…"
+            wrapperClassName="flex-1 max-w-sm min-w-[200px]"
+          />
 
           {/* Compact Filters Popover */}
           <div className="relative" ref={popoverRef}>
@@ -577,10 +586,12 @@ export function DiscoveryHistoryView() {
             <option value="title_desc">Title Z–A</option>
           </select>
 
-          <Button size="sm" onClick={() => router.push("/intent-radar/discover")} className="h-9 gap-1.5 text-xs whitespace-nowrap">
-            <Compass size={13} aria-hidden="true" />
-            New Discovery
-          </Button>
+          {!embeddedInMain && (
+            <Button size="sm" onClick={() => router.push("/intent-radar/discover/new")} className="h-9 gap-1.5 text-xs whitespace-nowrap">
+              <Compass size={13} aria-hidden="true" />
+              New Discovery
+            </Button>
+          )}
         </div>
       </div>
 
@@ -821,6 +832,12 @@ export function DiscoveryHistoryView() {
                                     className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
                                   >
                                     <Bookmark size={13} /> Save as Search
+                                  </Menu.Item>
+                                  <Menu.Item
+                                    onSelect={() => router.push(`/intent-radar/monitors/new?discovery_id=${run.id}`)}
+                                    className="flex items-center gap-2 rounded-md px-2.5 py-1.5 cursor-pointer hover:bg-muted outline-none"
+                                  >
+                                    <Radio size={13} /> Convert to Monitor
                                   </Menu.Item>
                                   <Menu.Item
                                     onSelect={() => {

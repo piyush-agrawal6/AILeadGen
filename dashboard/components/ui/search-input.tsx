@@ -43,10 +43,10 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
-            "flex h-8 w-full rounded-lg border border-border bg-card pl-8.5 pr-7 py-1 text-xs text-foreground placeholder:text-muted-foreground transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-8 w-full rounded-lg border border-border bg-card pl-9 pr-7 py-1 text-xs text-foreground placeholder:text-muted-foreground transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50",
             className
           )}
-          style={{ paddingLeft: "2.125rem" }}
+          style={{ paddingLeft: "2.25rem" }}
           {...props}
         />
         {hasValue && onClear && (

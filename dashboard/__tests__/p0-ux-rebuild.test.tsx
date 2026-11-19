@@ -295,42 +295,23 @@ describe('P0 Integrations & Custom Feeds Redesign', () => {
 });
 
 describe('P0 Discover Advanced Search, AI Fallback & Signal Cards', () => {
-  it('shows guided 3-step Advanced Search with collapsible Advanced Filters and upfront AI exhaustion banner', async () => {
-    mocks.mutateAsync.mockResolvedValue({
-      draft: { configuration: { keywords: ['kubernetes'], excluded: [], topics: [], phrases: [], offerings: '', source: 'Hacker News', sources: ['github'], categories: [], language: 'Any / unverified', geography: 'Any / unknown', from_date: null, to_date: null, min_relevance: 0, result_limit: 20 } },
-      mode: 'Manual fallback',
-      fallback_reason: 'The AI draft allowance is exhausted; manual editing remains available.',
-      quota_exhausted: true,
-    });
-
-    render(wrap(<DiscoverExperience />));
-    expect(screen.getByRole('heading', { name: 'Discover Conversations' })).toBeVisible();
-    expect(screen.getByRole('button', { name: /Advanced Filters/i })).toHaveAttribute('aria-expanded', 'false');
-
-    // Switch to Describe with AI and verify upfront exhausted allowance notice
-    fireEvent.click(screen.getByRole('button', { name: /Describe with AI/i }));
-    expect(screen.getByText(/Shared AI operations allowance exhausted/i)).toBeVisible();
-    expect(screen.getAllByRole('link', { name: /View Billing & Usage/i }).length).toBeGreaterThanOrEqual(1);
-
-    // Generate criteria returns labeled manual fallback
-    fireEvent.change(screen.getByLabelText('What are you looking for?'), {
-      target: { value: 'Find GitHub discussions about Kubernetes observability' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Generate Criteria/i }));
-    expect(await screen.findByText(/Manual Fallback Criteria \(AI did not generate this draft\)/i)).toBeVisible();
+  it('shows unified discovery builder with Advanced Filters and AI assistant', async () => {
+    render(wrap(<DiscoverExperience route="discover/new" />));
+    expect(screen.getByRole('heading', { name: 'Create Discovery' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Advanced Filters' })).toBeVisible();
+    expect(screen.getByText('Discovery Assistant')).toBeVisible();
   });
 
   it('distinguishes Usage Limit Reached from empty results when /discover returns 429', async () => {
     mocks.mutateAsync.mockRejectedValue(new Error('Monthly searches allowance exhausted.'));
-    render(wrap(<DiscoverExperience />));
+    render(wrap(<DiscoverExperience route="discover/new" />));
 
-    fireEvent.change(screen.getByLabelText('Add Keywords'), { target: { value: 'observability' } });
-    fireEvent.keyDown(screen.getByLabelText('Add Keywords'), { key: 'Enter' });
-    fireEvent.click(screen.getByRole('button', { name: /Review Search/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Run Search/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Type keyword/i), { target: { value: 'observability' } });
+    fireEvent.keyDown(screen.getByPlaceholderText(/Type keyword/i), { key: 'Enter' });
+    fireEvent.click(screen.getAllByRole('button', { name: /Run Discovery/i })[0]);
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Usage Limit Reached' })).toBeVisible();
+      expect(screen.getByRole('alert')).toHaveTextContent(/Monthly searches allowance exhausted/i);
     });
     expect(screen.queryByText('No matching discussions found')).not.toBeInTheDocument();
   });

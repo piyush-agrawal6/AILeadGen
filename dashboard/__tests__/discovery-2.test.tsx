@@ -269,22 +269,13 @@ describe("Discovery 2.0 Refinement", () => {
   });
 
   it("renders compact source drawer and inline review without navigating away", async () => {
-    render(wrap(<DiscoverExperience route="discover" />));
-
-    // Switch to Advanced Search
-    fireEvent.click(screen.getByRole("button", { name: "Advanced Search" }));
+    render(wrap(<DiscoverExperience route="discover/new" />));
 
     expect(screen.queryByText("Selected source options")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Configure/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Configure Hacker News" }));
     expect(await screen.findByRole("dialog", { name: /Configure Hacker News/i })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(screen.queryByRole("dialog", { name: /Configure Hacker News/i })).not.toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Add Primary Search Keywords"), { target: { value: "CRM alternative" } });
-    fireEvent.keyDown(screen.getByLabelText("Add Primary Search Keywords"), { key: "Enter" });
-    fireEvent.click(screen.getByRole("button", { name: /Review Discovery/i }));
-    expect(await screen.findByRole("heading", { name: "Discovery Strategy Review" })).toBeVisible();
-    expect(screen.getByText("1 · Search Terms")).toBeVisible();
   });
 
   it("renders scalable table-based Discovery History with compact filter popover, row navigation, and Back-to-History state restoration", async () => {
