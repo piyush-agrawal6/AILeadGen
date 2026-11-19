@@ -702,8 +702,8 @@ def _limits_meta(c, org: str, saved_calls: int, saved_tokens: int) -> dict:
         'plan_monthly_ai_calls_remaining': plan_ai_remaining,
     }
 
-def preferences(c, body=None):
-    ctx = context(c, body is not None, body is not None)
+def preferences(c, body=None, *, _verified_context=None):
+    ctx = _verified_context or context(c, body is not None, body is not None)
     old = c.execute('SELECT * FROM intent_preferences WHERE organization_id=?',(ctx.organization_id,)).fetchone()
     if body is None:
         raw = json.loads(old['configuration_json']) if old and old['configuration_json'] else {}

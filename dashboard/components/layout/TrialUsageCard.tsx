@@ -61,9 +61,11 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
   const daysRemaining = Math.ceil(secondsRemaining / 86400);
 
   // Standard trial duration is typically 7 or 14 days
-  const startTimestamp = sub?.trial_start || (endTimestamp - 7 * 86400);
+  const startTimestamp = sub?.trial_start || (endTimestamp - 14 * 86400);
   const totalDurationSec = Math.max(86400, endTimestamp - startTimestamp);
+  const totalDays = Math.max(1, Math.round(totalDurationSec / 86400));
   const elapsedSec = Math.max(0, nowSec - startTimestamp);
+  const daysUsed = Math.max(1, Math.min(totalDays, totalDays - daysRemaining));
   const trialProgressPercent = Math.min(100, Math.max(0, Math.round((elapsedSec / totalDurationSec) * 100)));
 
   // Real Usage Metrics
@@ -84,7 +86,11 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
 
   const isExpired = isTrial && daysRemaining <= 0 && endTimestamp > 0;
   const isExpiringSoon = isTrial && daysRemaining > 0 && daysRemaining <= 3;
-  const isPaid = !isTrial && Boolean(sub && sub.status === "active");
+  const isPaid = !isTrial && Boolean(sub && (sub.status === "active" || sub.status === "trialing"));
+  const isCanceled = Boolean(
+    sub && (sub.cancel_confirmed_at || (sub as any).canceled_at || (sub as any).cancel_at_period_end)
+  );
+  const isLimitReached = searchAllowance.used >= searchAllowance.limit || aiAllowance.used >= aiAllowance.limit;
 
   // Tooltip content for collapsed mode
   const tooltipContent = (
@@ -170,14 +176,22 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
             }`}
           >
             {isExpired
-              ? "Expired"
+              ? "Trial expired"
+              : daysRemaining === 0
+              ? "Ends today"
               : daysRemaining === 1
               ? "1 day left"
               : `${daysRemaining} days remaining`}
           </span>
         )}
 
-        {isPaid && (
+        {isPaid && isCanceled && (
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300">
+            Canceled
+          </span>
+        )}
+
+        {isPaid && !isCanceled && (
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
             Active
           </span>
@@ -187,6 +201,12 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
       {/* Progress Bar (Only for active trial) */}
       {isTrial && !isExpired && (
         <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Trial period</span>
+            <span className="font-medium text-foreground tabular-nums">
+              {daysUsed} / {totalDays} days used
+            </span>
+          </div>
           <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
             <div
               className={`h-full transition-all duration-300 rounded-full ${
@@ -194,6 +214,7 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
               }`}
               style={{ width: `${Math.max(5, Math.min(100, trialProgressPercent))}%` }}
               role="progressbar"
+              aria-label="Trial period progress"
               aria-valuenow={trialProgressPercent}
               aria-valuemin={0}
               aria-valuemax={100}
@@ -218,12 +239,16 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
         </div>
       </div>
 
-      {/* Expired message */}
-      {isExpired && (
+      {/* Limit reached warning or Expired message */}
+      {isExpired ? (
         <p className="text-[11px] text-destructive leading-tight">
           Trial expired. Upgrade to resume searching &amp; monitoring.
         </p>
-      )}
+      ) : isLimitReached ? (
+        <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-tight">
+          Usage limit reached. Upgrade to increase limits.
+        </p>
+      ) : null}
 
       {/* CTA Button */}
       <Link

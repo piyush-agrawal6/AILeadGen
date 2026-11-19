@@ -52,9 +52,19 @@ def evidence(c,scope:Scope,as_of=None,*,_verified_context=None):
     if _verified_context is not None:
         from app.platform.context import current
         if _verified_context!=current():raise HTTPException(403,'The composed read does not match the verified workspace.')
-    org=(_verified_context or access(c)).organization_id;end=as_of or datetime.now(timezone.utc);days=scope.days or 7
-    start=end-timedelta(days=days);previous=start-timedelta(days=days)
-    where=['organization_id=?','available=1','observed_at>=?','observed_at<?',service.rank_expression()+'>=?'];args=[org,previous.isoformat(),end.isoformat(),scope.min_score]
+    ctx = _verified_context or access(c)
+    org = ctx.organization_id; end = as_of or datetime.now(timezone.utc)
+    if scope.days > 0:
+        days = scope.days
+        start = end - timedelta(days=days); previous = start - timedelta(days=days)
+        where = ['organization_id=?', 'available=1', 'observed_at>=?', 'observed_at<?', service.rank_expression() + '>=?']
+        args = [org, previous.isoformat(), end.isoformat(), scope.min_score]
+    else:
+        days = 0
+        start = end - timedelta(days=365)
+        previous = start
+        where = ['organization_id=?', 'available=1', 'observed_at<?', service.rank_expression() + '>=?']
+        args = [org, end.isoformat(), scope.min_score]
     if scope.sources:where.append('source IN ('+','.join('?' for _ in scope.sources)+')');args.extend(scope.sources)
     if scope.search:where.append('(LOWER(title) LIKE ? OR LOWER(excerpt) LIKE ?)');args.extend(['%'+scope.search.casefold()+'%']*2)
     if scope.icp_id:
@@ -73,10 +83,12 @@ def evidence(c,scope:Scope,as_of=None,*,_verified_context=None):
         for term in terms:args.extend(['%'+term.casefold()+'%']*2)
     language_sql=",(SELECT analysis_json FROM intent_analyses a WHERE a.organization_id=intent_signals.organization_id AND a.signal_id=intent_signals.id ORDER BY a.created_at DESC,a.id DESC LIMIT 1) AS language_analysis" if scope.language!='any' else ''
     rows=c.execute('SELECT *, '+service.rank_expression()+' AS current_score'+language_sql+' FROM intent_signals WHERE '+' AND '.join(where)+' ORDER BY observed_at DESC,id LIMIT ?',[*args,LIMIT+1]).fetchall()
-    preferences=service.preferences(c);valid=[]
+    pref_row = c.execute('SELECT configuration_json FROM intent_preferences WHERE organization_id=?',(org,)).fetchone()
+    retention = json.loads(pref_row[0]).get('source_retention_days', 30) if pref_row and pref_row[0] else 30
+    valid=[]
     for r in rows[:LIMIT]:
         item=dict(r);item['evidence']=json.loads(item.pop('evidence_json'));item['score']=item.pop('current_score')
-        if service.expired(item,preferences['source_retention_days']):continue
+        if service.expired(item, retention):continue
         if scope.language!='any':
             # A quote-validated existing interpretation supplies language; Unicode
             # or location guesses alone never grant a language/geography filter.
@@ -95,8 +107,8 @@ def evidence(c,scope:Scope,as_of=None,*,_verified_context=None):
         runs=[r for r in runs if r['provider'] in selected]
     source_where='organization_id=?'+(' AND source IN ('+','.join('?' for _ in scope.sources)+')' if scope.sources else '')
     source_first=c.execute('SELECT MIN(retrieved_at) FROM intent_signals WHERE '+source_where,[org,*scope.sources]).fetchone()[0]
-    current=[r for r in unique if instant(r['observed_at']) and instant(r['observed_at'])>=start]
-    prior=[r for r in unique if instant(r['observed_at']) and instant(r['observed_at'])<start]
+    current=[r for r in unique if instant(r['observed_at']) and (scope.days==0 or instant(r['observed_at'])>=start)]
+    prior=[r for r in unique if instant(r['observed_at']) and scope.days>0 and instant(r['observed_at'])<start]
     def configurations(a,b):
         rows=c.execute('SELECT configuration_json FROM intent_discoveries WHERE organization_id=? AND created_at>=? AND created_at<? ORDER BY created_at LIMIT 1001',(org,a.isoformat(),b.isoformat())).fetchall()
         return {hashlib.sha256(r[0].encode()).hexdigest() for r in rows},len(rows)

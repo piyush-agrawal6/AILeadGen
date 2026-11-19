@@ -1,5 +1,18 @@
 export interface GrowthScope {days:0|7|30|90;sources:string[];search:string;min_score:number;language:string;theme_ids:string[];competitor_id:string|null;icp_id:string|null}
 export const emptyGrowthScope=():GrowthScope=>({days:0,sources:[],search:'',min_score:0,language:'any',theme_ids:[],competitor_id:null,icp_id:null});
+export function growthQuery(scope: GrowthScope): string {
+  const query = new URLSearchParams({
+    days: String(scope.days),
+    search: scope.search,
+    min_score: String(scope.min_score),
+    language: scope.language,
+  });
+  scope.sources.forEach((s) => query.append("source", s));
+  scope.theme_ids.forEach((s) => query.append("theme_id", s));
+  if (scope.competitor_id) query.set("competitor_id", scope.competitor_id);
+  if (scope.icp_id) query.set("icp_id", scope.icp_id);
+  return query.toString();
+}
 export interface GrowthCoverage {comparable:boolean;windows_supported:Record<string,boolean>;source_errors:boolean;truncated:boolean;duplicates_excluded:number;current_checks:number;previous_checks:number;scope:string;collection_started_at:string|null}
 export interface GrowthComparison {current:number;previous:number;state:string;percentage_change:number|null;market_trend_proven:false;limitation?:string}
 export interface GrowthSignal {id:string;title:string;excerpt?:string;source:string;source_url:string;observed_at:string;retrieved_at:string;score:number;category:string}

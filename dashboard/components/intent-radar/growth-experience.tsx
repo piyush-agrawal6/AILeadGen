@@ -1,110 +1,197 @@
 "use client";
-import {useState,type FormEvent} from 'react';
-import Link from 'next/link';
-import {useRouter,useSearchParams} from 'next/navigation';
-import {ArrowUpRight,Bookmark,Download,RefreshCw,Sparkles} from 'lucide-react';
-import {useRadarCapabilities,useRadarMutation,useRadarRead} from './provider';
-import {Badge,EmptyState,ErrorState,Field,LoadingSkeleton,PageHeading} from './ui';
-import {emptyGrowthScope,type GrowthCitation,type GrowthCompetitor,type GrowthCoverage,type GrowthOverview,type GrowthPage,type GrowthResearch,type GrowthScope,type GrowthSignal,type GrowthTheme,type GrowthWatchlist} from '@/lib/growth';
-import './growth.css';
 
-const base='/intent-radar/growth';
-const date=(value:string|null|undefined)=>value?new Date(value).toLocaleString():'Not yet available';
-const split=(value:string)=>value.split(',').map(v=>v.trim()).filter(Boolean);
-const titles:Record<string,string>={growth:'Growth Intelligence',themes:'Market themes',trends:'Collected conversation trends',research:'Research assistant',saved:'Saved research',reports:'Research reports',competitors:'Competitor intelligence',watchlists:'Growth watchlists'};
-export function growthQuery(scope:GrowthScope){
- const query=new URLSearchParams({days:String(scope.days),search:scope.search,min_score:String(scope.min_score),language:scope.language});
- scope.sources.forEach(s=>query.append('source',s));scope.theme_ids.forEach(s=>query.append('theme_id',s));
- if(scope.competitor_id)query.set('competitor_id',scope.competitor_id);if(scope.icp_id)query.set('icp_id',scope.icp_id);
- return query.toString();
+import React, { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  LayoutDashboard,
+  TrendingUp,
+  Users,
+  Sparkles,
+  HelpCircle,
+} from "lucide-react";
+import { PrimaryTabs, type PrimaryTabItem } from "@/components/ui/tabs";
+import { EmptyState } from "./ui";
+import { GrowthOverviewDashboard } from "./growth/GrowthOverviewDashboard";
+import { GrowthThemesPage } from "./growth/GrowthThemesPage";
+import { GrowthCompetitorsPage } from "./growth/GrowthCompetitorsPage";
+import { GrowthResearchWorkspace } from "./growth/GrowthResearchWorkspace";
+import type { GrowthOverview } from "@/lib/growth";
+
+export { growthQuery } from "@/lib/growth";
+
+export function ConversationChart({ rows }: { rows: GrowthOverview["daily"] }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const maximum = Math.max(1, ...rows.map((r) => r.conversations));
+
+  if (!rows.length) {
+    return (
+      <EmptyState
+        title="No conversation history yet"
+        description="The chart uses actual stored publication dates. It will populate as approved monitors collect evidence."
+      />
+    );
+  }
+
+  return (
+    <section className="ir-panel ir-form-section">
+      <h2>Published conversations in this collection</h2>
+      <p>Choose a bar to inspect its count. Missing days are not proof of zero market activity.</p>
+      <div className="growth-chart" role="group" aria-label="Collected conversations by publication day">
+        {rows.map((row) => (
+          <button
+            key={row.day}
+            className="growth-bar"
+            aria-label={row.day + ": " + row.conversations + " conversations"}
+            aria-pressed={selected === row.day}
+            onClick={() => setSelected(row.day)}
+          >
+            <span
+              className="growth-bar-fill"
+              style={{ height: Math.max(8, (row.conversations / maximum) * 140) }}
+            />
+            <small>{row.day.slice(5)}</small>
+          </button>
+        ))}
+      </div>
+      <p role="status">
+        {selected
+          ? selected + ": " + rows.find((r) => r.day === selected)?.conversations + " collected conversations"
+          : "Select a day for its exact count."}
+      </p>
+      <details>
+        <summary>View chart data</summary>
+        <table className="growth-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Conversations</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.day}>
+                <td>{row.day}</td>
+                <td>{row.conversations}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
+    </section>
+  );
 }
-function Coverage({value}:{value:GrowthCoverage}){return <aside className="ir-notice growth-coverage"><strong>{value.comparable?'Comparable collection windows':'Historical comparison is not established'}</strong><p>{value.scope} {value.source_errors?'Some source checks failed. ':''}{value.truncated?'Results reached the bounded evidence limit. ':''}Collection began {date(value.collection_started_at)}. {value.duplicates_excluded} duplicate conversations excluded.</p><small>Successful checks: current {value.current_checks}, previous {value.previous_checks}. Counts do not establish market size or buying probability.</small></aside>}
-function ScopeFilters({value,onChange,coverage,options}:{value:GrowthScope;onChange:(scope:GrowthScope)=>void;coverage?:GrowthCoverage;options?:GrowthOverview['filter_options']}){
- const capabilities=useRadarCapabilities();
- const [draft,setDraft]=useState(value);
- function apply(event:FormEvent){event.preventDefault();onChange(draft)}
- return <form className="ir-toolbar growth-filters" onSubmit={apply}>
-  <Field label="Evidence keywords"><input type="search" value={draft.search} maxLength={160} placeholder="Customer problem or topic" onChange={e=>setDraft({...draft,search:e.target.value})}/></Field>
-  <Field label="Time window"><select value={draft.days} onChange={e=>setDraft({...draft,days:Number(e.target.value) as GrowthScope['days']})}><option value={0}>Available evidence · up to 7 days</option>{[7,30,90].map(d=><option key={d} value={d} disabled={!coverage?.windows_supported[String(d)]}>{d} days{!coverage?.windows_supported[String(d)]?' · insufficient history':''}</option>)}</select></Field>
-  <Field label="Source"><select value={draft.sources[0]||''} onChange={e=>setDraft({...draft,sources:e.target.value?[e.target.value]:[]})}><option value="">All collected sources</option>{capabilities.data?.sources.map(source=><option key={source.name} value={source.name}>{source.name}</option>)}</select></Field>
-  <Field label="Evidence language"><select value={draft.language} onChange={e=>setDraft({...draft,language:e.target.value})}>{[['any','Any verified or unknown'],['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['hi','Hindi'],['ja','Japanese']].map(([key,name])=><option key={key} value={key}>{name}</option>)}</select></Field>
-  <Field label="Competitor"><select value={draft.competitor_id||''} onChange={e=>setDraft({...draft,competitor_id:e.target.value||null})}><option value="">Any</option>{options?.competitors.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
-  <Field label="Research customer profile"><select value={draft.icp_id||''} onChange={e=>setDraft({...draft,icp_id:e.target.value||null})}><option value="">Reviewed company context</option>{options?.icps.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
-  <Field label="Minimum relevance"><input type="number" min={0} max={100} value={draft.min_score} onChange={e=>setDraft({...draft,min_score:Number(e.target.value)})}/></Field>
-  <button type="submit">Apply filters</button>
- </form>;
+
+interface GrowthExperienceProps {
+  route: string;
 }
-function Pages({page,total,onChange}:{page:number;total:number;onChange:(page:number)=>void}){return total>25?<nav className="ir-pagination" aria-label="Research pages"><button disabled={page===1} onClick={()=>onChange(page-1)}>Previous</button><span>Page {page} of {Math.ceil(total/25)}</span><button disabled={page*25>=total} onClick={()=>onChange(page+1)}>Next</button></nav>:null}
-function SignalList({items}:{items:GrowthSignal[]}){const mutation=useRadarMutation(),access=useRadarCapabilities();return items.length?<div className="growth-evidence-list">{items.map(signal=><article className="growth-evidence" key={signal.id}><div className="ir-meta"><Badge>{signal.source}</Badge><small>{date(signal.observed_at)}</small><span>Relevance {signal.score}/100</span></div><h3><Link href={'/intent-radar/signals/'+signal.id}>{signal.title}</Link></h3>{signal.excerpt&&<blockquote>{signal.excerpt}</blockquote>}<div className="ir-actions"><a className="ir-link" href={signal.source_url} target="_blank" rel="noopener noreferrer">Original discussion <ArrowUpRight size={14}/></a><Link className="ir-link" href={'/intent-radar/signals/'+signal.id}>Review opportunity evidence</Link></div></article>)}</div>:<EmptyState title="No collected evidence matches" description="Review filters or use an approved source monitor. No research claims are generated from an empty sample."/>}
-export function ConversationChart({rows}:{rows:GrowthOverview['daily']}){
- const [selected,setSelected]=useState<string|null>(null),maximum=Math.max(1,...rows.map(r=>r.conversations));
- if(!rows.length)return <EmptyState title="No conversation history yet" description="The chart uses actual stored publication dates. It will populate as approved monitors collect evidence."/>;
- return <section className="ir-panel ir-form-section"><h2>Published conversations in this collection</h2><p>Choose a bar to inspect its count. Missing days are not proof of zero market activity.</p><div className="growth-chart" role="group" aria-label="Collected conversations by publication day">{rows.map(row=><button key={row.day} className="growth-bar" aria-label={row.day+': '+row.conversations+' conversations'} aria-pressed={selected===row.day} onClick={()=>setSelected(row.day)}><span className="growth-bar-fill" style={{height:Math.max(8,row.conversations/maximum*140)}}/><small>{row.day.slice(5)}</small></button>)}</div><p role="status">{selected?selected+': '+rows.find(r=>r.day===selected)?.conversations+' collected conversations':'Select a day for its exact count.'}</p><details><summary>View chart data</summary><table className="growth-table"><thead><tr><th>Date</th><th>Conversations</th></tr></thead><tbody>{rows.map(row=><tr key={row.day}><td>{row.day}</td><td>{row.conversations}</td></tr>)}</tbody></table></details></section>;
-}
-function Overview({trends=false}:{trends?:boolean}){
- const params=useSearchParams(),[scope,setScope]=useState(()=>({...emptyGrowthScope(),competitor_id:params.get('competitor')})),query=useRadarRead<GrowthOverview>('/growth/overview?'+growthQuery(scope));
- return <><ScopeFilters value={scope} onChange={setScope} coverage={query.data?.coverage} options={query.data?.filter_options}/>{query.error?<ErrorState message={query.error.message} retry={()=>void query.refetch()}/>:!query.data?<LoadingSkeleton/>:<>
-  <div className="growth-metrics">{[['Collected conversations',query.data.sample_size],['Opportunity candidates',query.data.opportunity_candidates],['Active monitors',query.data.monitored_topics],['Stored themes',query.data.theme_count??query.data.themes.length]].map(([title,count])=><article className="ir-panel" key={title}><small>{title}</small><strong>{count}</strong></article>)}</div>
-  <Coverage value={query.data.coverage}/><section className="ir-panel ir-form-section"><h2>{query.data.comparison.state}</h2><p>{query.data.comparison.current} current · {query.data.comparison.previous} previous{query.data.comparison.percentage_change!==null?' · '+query.data.comparison.percentage_change+'% change in collected mentions':''}</p><small>As of {date(query.data.as_of)} · Latest collection {date(query.data.freshest_evidence)}</small></section>
-  <ConversationChart rows={query.data.daily}/>{!trends&&<><div className="growth-two"><section className="ir-panel ir-form-section"><h2>Sources represented</h2>{Object.entries(query.data.sources).map(([name,count])=><p key={name}>{name} <Badge>{count}</Badge></p>)}</section><section className="ir-panel ir-form-section"><h2>Interpreted intent categories</h2>{Object.entries(query.data.categories).map(([name,count])=><p key={name}>{name} <Badge>{count}</Badge></p>)}</section></div><h2>Recent source evidence</h2><SignalList items={query.data.signals}/></>}
- </>}</>;
-}
-function ResearchComposer({kind='RESEARCH'}:{kind?:GrowthResearch['kind']}){
- const router=useRouter(),mutation=useRadarMutation(),access=useRadarCapabilities();
- const [question,setQuestion]=useState(''),[title,setTitle]=useState('Market research'),[scope,setScope]=useState(emptyGrowthScope),[report,setReport]=useState('Market overview'),[error,setError]=useState('');
- const coverage=useRadarRead<GrowthOverview>('/growth/overview');
- async function submit(event:FormEvent){event.preventDefault();setError('');try{const result=await mutation.mutateAsync({path:'/growth/research',body:{kind,title,question,report_type:report,scope,request_id:crypto.randomUUID()}}) as GrowthResearch;router.push(base+'/research/'+result.id)}catch(e){setError((e as Error).message)}}
- return <section className="ir-panel ir-form-section"><h2>{kind==='THEMES'?'Find evidence-backed themes':kind==='REPORT'?'Create a cited report':'Ask a research question'}</h2><p>Uses existing authorized evidence and reviewed company context. Generation runs in the background with bounded AI usage. It does not start discovery or outreach.</p>
-  <ScopeFilters value={scope} onChange={setScope} coverage={coverage.data?.coverage} options={coverage.data?.filter_options}/><form className="growth-form" onSubmit={submit}>
-  <Field label="Research title"><input required maxLength={120} value={title} onChange={e=>setTitle(e.target.value)}/></Field>
-  {kind==='REPORT'&&<Field label="Report focus"><select value={report} onChange={e=>setReport(e.target.value)}>{['Market overview','Emerging demand','Competitor alternatives','Intent summary','Opportunity shortlist','Watchlist activity','Market comparison'].map(type=><option key={type}>{type}</option>)}</select></Field>}
-  <Field label="Question or focus" hint="For example: Which workflow problems appear in these discussions, and what evidence contradicts buying intent?"><textarea maxLength={1500} value={question} onChange={e=>setQuestion(e.target.value)}/></Field>
-  <button className="ir-primary" disabled={!access.data?.can_manage||mutation.isPending||!title.trim()} type="submit"><Sparkles size={16}/>{mutation.isPending?'Submitting…':'Generate from collected evidence'}</button>{!access.data?.can_manage&&<small>A workspace administrator can start AI research.</small>}{error&&<ErrorState message={error}/>}</form>
- </section>;
-}
-function ResearchList({kind='',saved=false}:{kind?:string;saved?:boolean}){
- const [page,setPage]=useState(1),[search,setSearch]=useState(''),query=useRadarRead<GrowthPage<GrowthResearch>>('/growth/research?kind='+kind+'&saved='+saved+'&page='+page+'&search='+encodeURIComponent(search));
- return <><Field label="Search research"><input type="search" value={search} maxLength={120} onChange={e=>{setSearch(e.target.value);setPage(1)}}/></Field>{query.error?<ErrorState message={query.error.message}/>:!query.data?<LoadingSkeleton/>:query.data.items.length?<><div className="growth-list">{query.data.items.map(item=><Link key={item.id} className="ir-panel growth-list-row" href={base+'/research/'+item.id}><div><h3>{item.title}</h3><p>{item.question}</p><small>{date(item.created_at)}</small></div><div className="ir-meta"><Badge>{item.kind}</Badge><Badge>{item.status}</Badge>{item.saved_at&&<Bookmark size={16}/>}<ArrowUpRight size={16}/></div></Link>)}</div><Pages page={page} total={query.data.total} onChange={setPage}/></>:<EmptyState title={saved?'No saved research yet':'No research generated yet'} description="Generate a cited review, inspect its evidence, then save it for your team."/>}</>;
-}
-function Citations({items}:{items:GrowthCitation[]}){return <ul className="growth-citations">{items.map(cite=><li key={cite.signal_id}><blockquote>{cite.quote}</blockquote><Link href={'/intent-radar/signals/'+cite.signal_id}>Inspect original evidence <ArrowUpRight size={12}/></Link></li>)}</ul>}
-function Notes({kind,id}:{kind:'theme'|'research'|'competitor';id:string}){
- const query=useRadarRead<{items:{id:string;body:string;author:string;created_at:string}[]}>('/growth/'+kind+'/'+id+'/notes'),mutation=useRadarMutation(),access=useRadarCapabilities(),[body,setBody]=useState('');
- async function submit(event:FormEvent){event.preventDefault();try{await mutation.mutateAsync({path:'/growth/'+kind+'/'+id+'/notes',body:{body}});setBody('')}catch{/* Shared mutation displays the error. */}}
- return <section className="ir-panel ir-form-section"><h2>Workspace research notes</h2>{query.error&&<ErrorState message={query.error.message}/>}<form onSubmit={submit}><Field label="Add a shared note"><textarea value={body} maxLength={4000} onChange={e=>setBody(e.target.value)}/></Field><button disabled={!access.data?.can_write||mutation.isPending||!body.trim()}>Add note</button></form>{query.data?.items.map(note=><article className="growth-note" key={note.id}><p>{note.body}</p><small>{note.author} · {date(note.created_at)}</small></article>)}</section>;
-}
-function ResearchDetail({id}:{id:string}){
- const query=useRadarRead<GrowthResearch>('/growth/research/'+id,true,true),mutation=useRadarMutation(),access=useRadarCapabilities(),[error,setError]=useState(''),[downloading,setDownloading]=useState(false);
- async function download(format:string){setError('');setDownloading(true);try{const response=await fetch('/api'+base+'/research/'+id+'/export/'+format);if(!response.ok)throw new Error('Export unavailable. Refresh and review current source evidence.');const url=URL.createObjectURL(await response.blob()),link=document.createElement('a');link.href=url;link.download='planebyte-market-review-'+id.slice(0,8)+'.'+format;link.click();URL.revokeObjectURL(url)}catch(e){setError((e as Error).message)}finally{setDownloading(false)}}
- if(query.error)return <ErrorState message={query.error.message} retry={()=>void query.refetch()}/>;if(!query.data)return <LoadingSkeleton/>;
- const row=query.data,pending=['QUEUED','RUNNING'].includes(row.status);
- return <><PageHeading title={row.title} description={row.question||'Evidence-backed workspace research'} badge={<Badge>{row.status}</Badge>} actions={<><Link className="ir-button" href={base+'/research'}>All research</Link><button disabled={!access.data?.can_write||mutation.isPending} onClick={()=>mutation.mutate({path:'/growth/research/'+id,method:'PATCH',body:{saved:!row.saved_at,revision:row.revision}})}><Bookmark size={16}/>{row.saved_at?'Unsave':'Save research'}</button></>}/>
-  {pending?<section className="ir-notice" role="status"><strong>{row.status==='QUEUED'?'Waiting for a worker':'Reviewing collected evidence'}</strong><p>You can leave this page. Progress is saved and refreshed every ten seconds.</p><button disabled={!access.data?.can_manage||mutation.isPending} onClick={()=>mutation.mutate({path:'/growth/research/'+id+'/cancel'})}>Cancel research</button></section>:row.status!=='COMPLETE'?<section className="ir-notice"><h2>Research did not complete</h2><p>{row.job_error||row.status}</p><button disabled={!access.data?.can_manage||mutation.isPending} onClick={()=>mutation.mutate({path:'/growth/research/'+id+'/retry'})}>Retry safely</button></section>:<>
-  <section className="ir-panel ir-form-section"><Badge>{row.output.mode||'Evidence review'}</Badge><h2>{row.output.executive_summary||'Review the evidence before using this research'}</h2><p>{row.snapshot.sampling}</p><small>Snapshot {date(row.snapshot.as_of)} · {row.snapshot.analysis_sample??0} analyzed discussions · Provider {row.output.provider||'No AI provider used'}</small></section>
-  {row.snapshot.coverage&&<Coverage value={row.snapshot.coverage}/>}{!row.evidence_current&&<ErrorState message="Source evidence changed, expired or was withdrawn. Sharing and export are blocked. Generate a fresh review."/>}
-  {row.output.findings?.map((finding,index)=><section className="ir-panel ir-form-section" key={index}><Badge>{finding.section}</Badge><h2>{finding.interpretation}</h2><Citations items={finding.citations}/></section>)}
-  {row.output.themes?.map((theme,index)=><section className="ir-panel ir-form-section" key={index}><h2>{theme.name}</h2><p>{theme.description}</p><Citations items={theme.citations}/></section>)}
-  <section className="ir-panel ir-form-section"><h2>Limitations and unknowns</h2><ul>{row.output.limitations?.map((item,index)=><li key={index}>{item}</li>)}</ul><p>AI interpretations require review. No independent quality pass, representative market demand, identity, budget, urgency or purchasing authority is implied.</p></section>
-  <div className="ir-actions">{['md','csv','json'].map(format=><button key={format} disabled={!row.export_available||downloading} onClick={()=>void download(format)}><Download size={15}/>Download {format.toUpperCase()}</button>)}<Link className="ir-button" href={base+'/research'}><RefreshCw size={15}/>New research</Link></div>{error&&<ErrorState message={error}/>}
-  <h2>Original source material</h2><SignalList items={row.snapshot.evidence||[]}/>
- </>}<Notes kind="research" id={id}/></>;
-}
-function Themes(){const [page,setPage]=useState(1),[search,setSearch]=useState(''),[saved,setSaved]=useState(false),query=useRadarRead<GrowthPage<GrowthTheme>>('/growth/themes?page='+page+'&saved='+saved+'&search='+encodeURIComponent(search));return <><ResearchComposer kind="THEMES"/><div className="ir-toolbar"><Field label="Search themes"><input value={search} maxLength={120} onChange={e=>{setSearch(e.target.value);setPage(1)}}/></Field><label><input type="checkbox" checked={saved} onChange={e=>{setSaved(e.target.checked);setPage(1)}}/> Saved only</label></div>{query.error?<ErrorState message={query.error.message}/>:!query.data?<LoadingSkeleton/>:query.data.items.length?<><div className="ir-cards">{query.data.items.map(theme=><Link className="ir-panel ir-form-section" key={theme.id} href={base+'/themes/'+theme.id}><Badge>{theme.method}</Badge><h2>{theme.name}</h2><p>{theme.description}</p><span className="ir-link">Inspect theme and evidence <ArrowUpRight size={14}/></span></Link>)}</div><Pages page={page} total={query.data.total} onChange={setPage}/></>:<EmptyState title="No themes in this view" description="Generate themes from actual collected discussions. Themes are tentative groupings with exact source citations."/>}</>}
-function ThemeDetail({id}:{id:string}){const query=useRadarRead<GrowthTheme>('/growth/themes/'+id),mutation=useRadarMutation(),access=useRadarCapabilities();if(query.error)return <ErrorState message={query.error.message}/>;if(!query.data)return <LoadingSkeleton/>;const theme=query.data;return <><PageHeading title={theme.name} description={theme.description} badge={<Badge>{theme.method}</Badge>} actions={<><button disabled={!access.data?.can_write||mutation.isPending} onClick={()=>mutation.mutate({path:'/growth/themes/'+id,method:'PATCH',body:{revision:theme.revision,saved:!theme.saved_at}})}>{theme.saved_at?'Unsave':'Save theme'}</button><Link className="ir-button" href={base+'/research/'+theme.research_id}>Research snapshot</Link></>}/>{!theme.evidence_current&&<ErrorState message="Underlying source evidence requires refresh."/>}<section className="ir-notice"><strong>{theme.comparison?.state}</strong><p>{theme.comparison?.current} current sample mentions · {theme.comparison?.previous} previous sample mentions.</p><small>{theme.comparison?.limitation}</small></section><Citations items={theme.citations||[]}/><Notes kind="theme" id={id}/></>}
-function Watchlists(){
- const query=useRadarRead<{items:GrowthWatchlist[]}>('/growth/watchlists'),mutation=useRadarMutation(),access=useRadarCapabilities(),[name,setName]=useState(''),[keywords,setKeywords]=useState(''),[kind,setKind]=useState('Market'),[resource,setResource]=useState('');
- const themes=useRadarRead<GrowthPage<GrowthTheme>>('/growth/themes',kind==='Theme'),competitors=useRadarRead<{items:GrowthCompetitor[]}>('/growth/competitors',kind==='Competitor'),context=useRadarRead<{icps:{id:string;name:string}[]}>('/growth/context',kind==='ICP');
- const needsResource=['Theme','Competitor','ICP'].includes(kind),options=kind==='Theme'?themes.data?.items:kind==='Competitor'?competitors.data?.items:context.data?.icps;
- async function submit(event:FormEvent){event.preventDefault();try{await mutation.mutateAsync({path:'/growth/watchlists',body:{name,kind,resource_id:needsResource?resource:null,keywords:split(keywords),request_id:crypto.randomUUID()}});setName('');setKeywords('')}catch{/* Shared error state. */}}
- return <><form className="ir-panel ir-form-section" onSubmit={submit}><h2>Create a watchlist</h2><p>Starts as a draft. Review approved source settings before activating and scheduling its monitor.</p><Field label="Watchlist name"><input required minLength={2} maxLength={120} value={name} onChange={e=>setName(e.target.value)}/></Field><Field label="Watchlist focus"><select value={kind} onChange={e=>{setKind(e.target.value);setResource('')}}>{['Market','Industry','Customer problem','Topic','Product','Theme','Competitor','ICP'].map(t=><option key={t}>{t}</option>)}</select></Field>{needsResource&&<Field label={'Select '+kind}><select required value={resource} onChange={e=>setResource(e.target.value)}><option value="">Choose a workspace resource</option>{options?.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>}<Field label="Reviewed keywords, separated by commas"><input required value={keywords} maxLength={1200} onChange={e=>setKeywords(e.target.value)}/></Field><button className="ir-primary" disabled={!access.data?.can_manage||mutation.isPending||!name.trim()||!keywords.trim()||(needsResource&&!resource)}>Create draft watchlist</button></form>{query.error?<ErrorState message={query.error.message}/>:!query.data?<LoadingSkeleton/>:query.data.items.length?<div className="ir-cards">{query.data.items.map(w=><article className="ir-panel ir-form-section" key={w.id}><Badge>{w.kind}</Badge><h2>{w.name}</h2><Badge>{w.status}</Badge><p>Next check: {date(w.next_run_at)}<br/>Last check: {date(w.last_checked)}</p><Link className="ir-button" href={'/intent-radar/monitors/'+w.id}>Manage schedule, pause and run history</Link></article>)}</div>:<EmptyState title="No growth watchlists yet" description="Choose a focused market, problem, industry or product to monitor."/>}</>;
-}
-function Competitors(){
- const query=useRadarRead<{items:GrowthCompetitor[]}>('/growth/competitors'),mutation=useRadarMutation(),access=useRadarCapabilities(),[name,setName]=useState(''),[aliases,setAliases]=useState(''),[context,setContext]=useState('');
- async function submit(event:FormEvent){event.preventDefault();try{await mutation.mutateAsync({path:'/growth/competitors',body:{name,aliases:split(aliases),context,request_id:crypto.randomUUID()}});setName('');setAliases('');setContext('')}catch{/* Shared mutation error. */}}
- return <><form onSubmit={submit} className="ir-panel ir-form-section"><h2>Define a competitor to research</h2><p>Searches stored discussions using reviewed exact names and aliases. Mentions are not proof of a commercial relationship or market share.</p><Field label="Product or competitor name"><input required minLength={2} maxLength={100} value={name} onChange={e=>setName(e.target.value)}/></Field><Field label="Known aliases, separated by commas"><input maxLength={500} value={aliases} onChange={e=>setAliases(e.target.value)}/></Field><Field label="Disambiguation notes"><textarea maxLength={500} value={context} onChange={e=>setContext(e.target.value)}/></Field><button disabled={!access.data?.can_write||mutation.isPending||!name.trim()} className="ir-primary">Save competitor</button></form>{query.error?<ErrorState message={query.error.message}/>:!query.data?<LoadingSkeleton/>:<div className="ir-cards">{query.data.items.map(item=><article className="ir-panel ir-form-section" key={item.id}><h2>{item.name}</h2><p>{item.context}</p><small>{item.aliases.join(' · ')}</small><Link className="ir-link" href={base+'?competitor='+item.id}>Filter collected evidence</Link><button disabled={!access.data?.can_write||mutation.isPending} onClick={()=>mutation.mutate({path:'/growth/competitors/'+item.id,method:'PUT',body:{name:item.name,aliases:item.aliases,context:item.context,revision:item.revision,archived:true}})}>Archive</button></article>)}</div>}</>;
-}
-export function GrowthExperience({route}:{route:string}){
- const parts=route.split('/'),section=parts[1]||'growth';
- if(section==='research'&&parts[2])return <div className="ir-page growth"><ResearchDetail key={parts[2]} id={parts[2]}/></div>;
- if(section==='themes'&&parts[2])return <div className="ir-page growth"><ThemeDetail key={parts[2]} id={parts[2]}/></div>;
- return <div className="ir-page growth"><PageHeading title={titles[section]||titles.growth} description="Understand collected conversations, investigate customer problems, and prioritize evidence-backed opportunities." badge={<Badge>Authorized beta</Badge>}/><nav className="pb-context-tabs" aria-label="Growth Intelligence sections">{[['growth','Market overview'],['themes','Themes'],['trends','Trends'],['competitors','Competitors'],['research','Research'],['watchlists','Watchlists'],['reports','Reports'],['saved','Saved']].map(([key,label])=><Link key={key} aria-current={key===section?'page':undefined} href={key==='growth'?base:base+'/'+key}>{label}</Link>)}</nav>{section==='growth'?<Overview/>:section==='trends'?<Overview trends/>:section==='themes'?<Themes/>:section==='research'?<><ResearchComposer/><ResearchList kind="RESEARCH"/></>:section==='reports'?<><ResearchComposer kind="REPORT"/><ResearchList kind="REPORT"/></>:section==='saved'?<ResearchList saved/>:section==='watchlists'?<Watchlists/>:section==='competitors'?<Competitors/>:null}</div>;
+
+export function GrowthExperience({ route }: GrowthExperienceProps) {
+  const router = useRouter();
+
+  // Normalize route segments: "growth", "growth/themes", "growth/themes/123", "growth/competitors", "growth/research", "growth/research/456"
+  const parts = route.replace(/^\/?intent-radar\//, "").split("/");
+  const section = parts[1] || "overview";
+  const itemId = parts[2];
+
+  // Determine active tab ID
+  const activeTab =
+    section === "themes"
+      ? "themes"
+      : section === "competitors"
+        ? "competitors"
+        : section === "research"
+          ? "research"
+          : "overview";
+
+  const tabs: PrimaryTabItem[] = [
+    {
+      id: "overview",
+      label: "Overview",
+      href: "/intent-radar/growth",
+      icon: LayoutDashboard,
+    },
+    {
+      id: "themes",
+      label: "Trends & Themes",
+      href: "/intent-radar/growth/themes",
+      icon: TrendingUp,
+    },
+    {
+      id: "competitors",
+      label: "Competitor Intelligence",
+      href: "/intent-radar/growth/competitors",
+      icon: Users,
+    },
+    {
+      id: "research",
+      label: "AI Research",
+      href: "/intent-radar/growth/research",
+      icon: Sparkles,
+    },
+  ];
+
+  function handleNavigateTab(tabId: string) {
+    if (tabId === "overview") {
+      router.push("/intent-radar/growth");
+    } else {
+      router.push(`/intent-radar/growth/${tabId}`);
+    }
+  }
+
+  return (
+    <div className="w-full min-w-0 space-y-6 pb-20">
+      {/* Top Header & Context */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+              Growth Intelligence
+            </h1>
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              2.0
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Transform conversations collected through Discovery and Monitoring into evidence-backed market and customer intelligence.
+          </p>
+        </div>
+
+        <Link
+          href="/help?article=growth-intelligence"
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 self-start sm:self-auto"
+        >
+          <HelpCircle size={13} />
+          <span>Growth Guide</span>
+        </Link>
+      </div>
+
+      {/* 4 Primary Navigation Tabs */}
+      <PrimaryTabs
+        items={tabs}
+        activeId={activeTab}
+        onChange={handleNavigateTab}
+        ariaLabel="Growth Intelligence navigation"
+      />
+
+      {/* Dynamic Section Router */}
+      <div className="pt-1">
+        {activeTab === "overview" && (
+          <GrowthOverviewDashboard onNavigateTab={handleNavigateTab} />
+        )}
+
+        {activeTab === "themes" && (
+          <GrowthThemesPage themeId={itemId} onNavigateTab={handleNavigateTab} />
+        )}
+
+        {activeTab === "competitors" && (
+          <GrowthCompetitorsPage onNavigateTab={handleNavigateTab} />
+        )}
+
+        {activeTab === "research" && (
+          <GrowthResearchWorkspace researchId={itemId} onNavigateTab={handleNavigateTab} />
+        )}
+      </div>
+    </div>
+  );
 }

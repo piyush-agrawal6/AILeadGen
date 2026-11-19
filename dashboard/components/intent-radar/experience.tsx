@@ -21,7 +21,7 @@ export function IntentRadarExperience({route}:{route:string}){
  const access=useRadarCapabilities();
  if(access.error)return <ErrorState message={access.error.message} retry={()=>void access.refetch()}/>;
  if(route==='integrations/github/callback')return <GitHubOAuthCallbackView/>;
- if(route==='ideal-customers')return <IdealCustomersWorkspace/>;
+ if(route==='ideal-customers'||route.startsWith('ideal-customers/'))return <IdealCustomersWorkspace route={route}/>;
 
  if(route==='growth'||route.startsWith('growth/'))return !access.data?<LoadingSkeleton/>:access.data.growth_enabled?<GrowthExperience route={route}/>:<ErrorState message="Growth Intelligence is not enabled for this workspace."/>;
  if(route==='discover'||route.startsWith('discover/'))return <DiscoverExperience route={route}/>;
