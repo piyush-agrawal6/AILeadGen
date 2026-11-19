@@ -2,6 +2,6 @@
   "branch": "codex/production-integration-20261117",
   "ui_baseline": "c54a670ef10a3d0d94273ac56da36ecd116df7e0",
   "backend_baseline": "cf0e43662fa0e447f609c35a94f10ee1deb6ce11",
-  "source_commit": "2f160a6652ba120a2de940afea08ed375210ae5a",
-  "frontend_tree": "74c432da14c66eb8566dd5cfde47ccc449b25c03"
+  "source_commit": "d812d6029def8870813b111d4a5a66d6eed2036f",
+  "frontend_tree": "7ec19e5cf73c56fd55c184839cdee495134f70b5"
 }
