@@ -217,12 +217,50 @@ node scripts/verify_e2e_core_workflow.mjs
 - `GET /api/intent-radar/sources/health`: Batch provider limits query removes N+1 overhead.
 
 ### 3. Deployment Configuration
-- **Vercel Production**: Packaged frontend release deployed via `--archive=tgz` (`leadengine-qsnix7e1b-piyushagrawal6s-projects.vercel.app` mapped to `app.planebyte.com`).
+- **Vercel Production Deployment**: `https://leadengine-qs350ml69-piyushagrawal6s-projects.vercel.app`
+- **Active Custom Domain Alias**: `https://app.planebyte.com` (pointed to deployment `leadengine-qs350ml69`)
+- **Stabilization Commit**: `dedcfe6` (on branch `codex/onboarding-icp-p0-20261118`)
 - **Cloud Run API**: Backend deployed with HTTPS TLS termination, IAM role boundaries, and server-side secret management.
 
 ---
 
-## I. Remaining Work & Roadmap
+## I. Production Discrepancy Investigation & Live Stabilization (19 Nov 2026)
+
+### 1. Root Cause of Live Production Discrepancy
+An audit of the Vercel project aliases via `vercel alias ls --scope=piyushagrawal6s-projects` revealed that the custom domain `https://app.planebyte.com` was pointed to `leadengine-lvd3r1kns-piyushagrawal6s-projects.vercel.app`, an **8-day-old deployment** from November 11th. Even though newer deployments were successfully built, the custom domain alias was never reassigned.
+
+Consequently, the live site at `app.planebyte.com` was serving stale components that contained:
+1. The old 3-row Opportunities layout (narrow search input, 85% width Priority dropdown, and solitary third-row Filters button).
+2. The old Create Monitor wizard with unstyled, colliding AI suggestion chips.
+3. The old restricted container width with clipped Actions column in the Monitoring table.
+
+### 2. Forensic UI/UX Root Causes & Exact Code Fixes
+1. **Full-Width Canvas Unlocking (`experience.css` & `intent-radar.css`)**:
+   - *Problem*: `.ir` had `max-width: 1360px` in `dashboard/app/intent-radar/experience.css` and `max-width: 1520px; margin: auto;` in `dashboard/app/intent-radar/intent-radar.css`. On wide desktop monitors (1440px - 1920px), this forced an artificially narrow centered container with large unused whitespace on both sides.
+   - *Fix*: Removed `max-width` restrictions and set `width: 100%; max-width: none; margin: 0; min-width: 0;`. All Intent Radar pages now take 100% of the available workspace content canvas.
+2. **Monitoring Table Column Alignment & Non-Clipping Actions (`MonitorsDashboard.tsx`)**:
+   - *Problem*: The 8 columns in the Monitors table exceeded container width on standard 1280px laptop viewports, and the Actions column lacked sticky positioning, clipping `Details` and `•••` buttons off-screen.
+   - *Fix*: Made the Actions column `sticky right-0` with `bg-muted/95 backdrop-blur-xs` for the header and `bg-card group-hover:bg-muted/30 transition-colors` for data cells (`min-w-[155px] text-right`). Compacted column padding across `Monitor`, `Status`, `Sources`, `Frequency`, `Last Check`, `Next Check`, and `New Matches`. On 1280px+ viewports, the entire table fits with zero scroll, and on narrower screens, the Actions column sticks firmly to the right edge with zero button clipping.
+3. **Create Monitor & AI Suggestion Pills (`MonitorBuilderPage.tsx`)**:
+   - *Problem*: Old prompt suggestions suffered from text truncation and button collision.
+   - *Fix*: Replaced rigid wrappers with `flex flex-wrap gap-1.5` containing styled pill buttons (`text-xs rounded-lg border border-border/80 bg-card px-2.5 py-1 text-muted-foreground hover:border-primary/50 hover:text-foreground`). Verified zero bounding-box overlaps across all viewports.
+4. **Opportunities Workspace Single-Row Toolbar (`OpportunitiesWorkspace.tsx`)**:
+   - *Problem*: The search input, priorities dropdown, and filters button were stacked across three disjointed rows.
+   - *Fix*: Deployed the unified horizontal toolbar: `[Search Input — flexible width] [Filters Popover Button with active filter badge] [Sort Dropdown]`, organized in a single horizontal flex row.
+
+### 3. Deployment & Live Domain Verification
+- Built frontend via Next.js Turbopack (`npm run build` -> 85 routes compiled cleanly).
+- Deployed production release: `https://leadengine-qs350ml69-piyushagrawal6s-projects.vercel.app`.
+- Explicitly re-aliased the custom domain:
+  ```bash
+  npx vercel alias set leadengine-qs350ml69-piyushagrawal6s-projects.vercel.app app.planebyte.com --scope=piyushagrawal6s-projects
+  ```
+  Verified output: `Success! https://app.planebyte.com now points to leadengine-qs350ml69-piyushagrawal6s-projects.vercel.app`.
+- Confirmed via `npx vercel alias ls` that `app.planebyte.com` is actively pointing to `leadengine-qs350ml69`.
+
+---
+
+## J. Remaining Work & Roadmap
 
 | Item | Severity | Status | Next Planned Action |
 |---|---|---|---|
