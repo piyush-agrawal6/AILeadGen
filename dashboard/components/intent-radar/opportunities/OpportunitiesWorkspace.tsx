@@ -15,6 +15,7 @@ import {
   Pencil,
   RefreshCw,
   Search,
+  SlidersHorizontal,
   Target,
   Trash2,
   UserCheck,
@@ -30,6 +31,7 @@ import { OpportunityModal } from "./OpportunityModal";
 import { request } from "@/lib/intelligence";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StatusFilterTabs } from "@/components/ui/tabs";
 
 type StatusTab = "all" | "New" | "Reviewing" | "Qualified" | "Saved" | "Dismissed";
 type SortOption = "newest" | "updated" | "priority" | "oldest";
@@ -123,8 +125,10 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
   const [editingOpp, setEditingOpp] = useState<IntentOpportunity | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<IntentOpportunity | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
+  const filterPopoverRef = useRef<HTMLDivElement>(null);
 
   // Fetch workspace members for assignee filtering
   const membersQuery = useQuery({
@@ -179,6 +183,18 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [activeMenuId]);
+
+  // Close filter popover on click outside
+  useEffect(() => {
+    if (!filterPopoverOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (filterPopoverRef.current && !filterPopoverRef.current.contains(e.target as Node)) {
+        setFilterPopoverOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [filterPopoverOpen]);
 
   // Detail View Route
   if (id) {
@@ -393,9 +409,8 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
       )}
 
       {/* Status Workflow Tabs with Exact Real Counts */}
-      <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border/80 pb-2">
-        {STATUS_TABS.map((tab) => {
-          const isActive = statusTab === tab.key;
+      <StatusFilterTabs
+        items={STATUS_TABS.map((tab) => {
           const count =
             statusCounts &&
             (tab.key === "all"
@@ -409,40 +424,21 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
                     : tab.key === "Saved"
                       ? statusCounts.saved
                       : statusCounts.dismissed);
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              aria-label={`${tab.label} (${count ?? 0})`}
-              onClick={() => {
-                setStatusTab(tab.key);
-                setPage(1);
-              }}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <span>{tab.label}</span>
-              {typeof count === "number" && (
-                <span
-                  className={`rounded-full px-1.5 py-0.2 text-[10px] tabular-nums ${
-                    isActive
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {count}
-                </span>
-              )}
-            </button>
-          );
+          return {
+            id: tab.key,
+            label: tab.label,
+            count: typeof count === "number" ? count : undefined,
+          };
         })}
-      </div>
+        activeId={statusTab}
+        onChange={(id) => {
+          setStatusTab(id as StatusTab);
+          setPage(1);
+        }}
+      />
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-border bg-card p-3">
+      {/* Compact Horizontal Filter & Search Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-border bg-card p-2.5">
         <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[240px]">
           {/* Search Box */}
           <div className="relative flex-1 min-w-[180px] max-w-sm">
@@ -479,50 +475,102 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
               setPriorityFilter(e.target.value);
               setPage(1);
             }}
-            className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground cursor-pointer"
+            className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground cursor-pointer focus:border-primary focus:outline-none"
           >
-            <option value="">All priorities</option>
+            <option value="">All Priorities</option>
             <option value="High">High Priority</option>
             <option value="Medium">Medium Priority</option>
             <option value="Low">Low Priority</option>
           </select>
 
-          {/* Source Filter */}
-          <select
-            aria-label="Filter by source"
-            value={sourceFilter}
-            onChange={(e) => {
-              setSourceFilter(e.target.value);
-              setPage(1);
-            }}
-            className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground cursor-pointer"
-          >
-            <option value="">All sources</option>
-            {COMMON_SOURCES.map((src) => (
-              <option key={src} value={src}>
-                {src}
-              </option>
-            ))}
-          </select>
+          {/* Filters Popover for Source & Assignee */}
+          <div className="relative" ref={filterPopoverRef}>
+            <button
+              type="button"
+              onClick={() => setFilterPopoverOpen(!filterPopoverOpen)}
+              className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors cursor-pointer ${
+                sourceFilter || assigneeFilter
+                  ? "border-primary/50 bg-primary/10 text-primary font-semibold"
+                  : "border-border bg-background text-foreground hover:bg-muted"
+              }`}
+            >
+              <SlidersHorizontal size={13} />
+              <span>Filters</span>
+              {(sourceFilter || assigneeFilter) && (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                  {(sourceFilter ? 1 : 0) + (assigneeFilter ? 1 : 0)}
+                </span>
+              )}
+            </button>
 
-          {/* Assignee Filter */}
-          <select
-            aria-label="Filter by assignee"
-            value={assigneeFilter}
-            onChange={(e) => {
-              setAssigneeFilter(e.target.value);
-              setPage(1);
-            }}
-            className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground cursor-pointer"
-          >
-            <option value="">All assignees</option>
-            <option value="unassigned">Unassigned</option>
-            {members.map((m) => (
-              <option key={m.email} value={m.email}>
-                {m.display_name}
-              </option>
-            ))}
-          </select>
+            {filterPopoverOpen && (
+              <div className="absolute left-0 top-full mt-1.5 z-40 w-72 rounded-xl border border-border bg-popover p-3.5 shadow-xl space-y-3.5 text-xs animate-in fade-in-50">
+                <div className="flex items-center justify-between border-b border-border/80 pb-2">
+                  <span className="font-semibold text-foreground">Advanced Filters</span>
+                  {(sourceFilter || assigneeFilter) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSourceFilter("");
+                        setAssigneeFilter("");
+                        setPage(1);
+                      }}
+                      className="text-[11px] font-medium text-primary hover:underline cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+
+                {/* Source Filter */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-muted-foreground block">
+                    Source Platform
+                  </label>
+                  <select
+                    aria-label="Filter by source"
+                    value={sourceFilter}
+                    onChange={(e) => {
+                      setSourceFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground cursor-pointer focus:border-primary focus:outline-none"
+                  >
+                    <option value="">All Sources</option>
+                    {COMMON_SOURCES.map((src) => (
+                      <option key={src} value={src}>
+                        {src}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Assignee Filter */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-muted-foreground block">
+                    Assigned Owner
+                  </label>
+                  <select
+                    aria-label="Filter by assignee"
+                    value={assigneeFilter}
+                    onChange={(e) => {
+                      setAssigneeFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground cursor-pointer focus:border-primary focus:outline-none"
+                  >
+                    <option value="">All Assignees</option>
+                    <option value="unassigned">Unassigned</option>
+                    {members.map((m) => (
+                      <option key={m.email} value={m.email}>
+                        {m.display_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -531,10 +579,10 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
             aria-label="Sort opportunities"
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground cursor-pointer"
+            className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground cursor-pointer focus:border-primary focus:outline-none"
           >
             <option value="newest">Sort: Newest</option>
-            <option value="updated">Sort: Recently updated</option>
+            <option value="updated">Sort: Recently Updated</option>
             <option value="priority">Sort: Priority</option>
             <option value="oldest">Sort: Oldest</option>
           </select>
@@ -546,11 +594,126 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
               onClick={clearFilters}
               className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
             >
-              <X size={12} /> Clear filters
+              <X size={12} /> Clear
             </Button>
           )}
         </div>
       </div>
+
+      {/* Active Filter Chips Strip */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground mr-1">Active filters:</span>
+            {search && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs text-foreground">
+                <span>Search: &ldquo;{search}&rdquo;</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setPage(1);
+                  }}
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {statusTab !== "all" && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs text-foreground">
+                <span>Status: {statusTab}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusTab("all");
+                    setPage(1);
+                  }}
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {priorityFilter && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs text-foreground">
+                <span>Priority: {priorityFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriorityFilter("");
+                    setPage(1);
+                  }}
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {sourceFilter && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs text-foreground">
+                <span>Source: {sourceFilter}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSourceFilter("");
+                    setPage(1);
+                  }}
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {assigneeFilter && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs text-foreground">
+                <span>
+                  Assignee:{" "}
+                  {assigneeFilter === "unassigned"
+                    ? "Unassigned"
+                    : members.find((m) => m.email === assigneeFilter)?.display_name || assigneeFilter}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssigneeFilter("");
+                    setPage(1);
+                  }}
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            {sort !== "newest" && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-0.5 text-xs text-foreground">
+                <span>Sort: {sort}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSort("newest");
+                    setPage(1);
+                  }}
+                  className="text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-[11px] font-semibold text-primary hover:underline ml-1 cursor-pointer"
+            >
+              Clear all
+            </button>
+          </div>
+
+          <span className="text-[11px] text-muted-foreground tabular-nums">
+            {total} {total === 1 ? "opportunity" : "opportunities"}
+          </span>
+        </div>
+      )}
 
       {/* Main Table View */}
       {listQuery.isPending ? (

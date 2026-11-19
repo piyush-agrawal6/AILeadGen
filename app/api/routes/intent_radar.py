@@ -193,6 +193,9 @@ def update_monitor(key:UUID,body:models.Monitor,c=Depends(get_db,scope='function
 def duplicate(key:UUID,body:models.RequestKey,c=Depends(get_db,scope='function')):
     old=service.get(c,'monitors',str(key))
     return service.save_monitor(c,models.Monitor(name=(old['name']+' (copy)')[:120],description=old['description'],goal=old['goal'],configuration=old['configuration'],request_id=body.request_id))
+@router.delete('/monitors/{key}')
+def delete_monitor(key:UUID,c=Depends(get_db,scope='function')):
+    return service.delete_monitor(c,str(key))
 
 @router.post('/discover',status_code=202)
 async def start(body:models.Discovery,c=Depends(get_db,scope='function')):

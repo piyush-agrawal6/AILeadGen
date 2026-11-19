@@ -80,7 +80,7 @@ export interface OpportunityStatusCounts {
 }
 export interface IntentSaved {signal?:IntentSignal;signal_id:string;collection:string;tags:string[];notes:string;revision:number}
 export interface IntentAlert {id:string;monitor_id:string|null;signal_id:string|null;title:string;description:string;created_at:string;read_at:string|null}
-export interface IntentJob {id:string;discovery_id?:string;status:string;error_code:string|null;created_at:string;attempts:number;sources?:{provider:string;status:string;coverage:string;requests:number;scanned:number;retry_at?:string}[];items:{status:string;error_code:string|null;result:{signals?:string[];scanned?:number;matched?:number;requests?:number;coverage?:string}}[]}
+export interface IntentJob {id:string;discovery_id?:string;monitor_id?:string;status:string;error_code:string|null;created_at:string;attempts:number;sources?:{provider:string;status:string;coverage:string;requests:number;scanned:number;retry_at?:string}[];items:{status:string;error_code:string|null;result:{signals?:string[];scanned?:number;matched?:number;requests?:number;coverage?:string}}[]}
 export interface IntentLimitsMeta {
   platform_daily_call_limit: number;
   platform_daily_token_limit: number;

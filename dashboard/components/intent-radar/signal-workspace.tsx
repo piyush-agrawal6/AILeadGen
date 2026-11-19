@@ -34,6 +34,7 @@ import {
   type SignalViewKey,
 } from "@/lib/intent-radar";
 import { Menu, MenuContent } from "@/components/ui/menu";
+import { PrimaryTabs } from "@/components/ui/tabs";
 import { useRadarCapabilities, useRadarMutation, useRadarRead } from "./provider";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeading } from "./ui";
 import { SignalCard, SignalScore } from "./signals";
@@ -563,51 +564,17 @@ export function SignalsWorkspace() {
       />
 
       {/* Saved View Tabs */}
-      <div
-        role="tablist"
-        aria-label="Signal views"
-        className="flex items-center gap-1 overflow-x-auto border-b border-border pb-px"
-      >
-        {VIEW_TABS.map((tab) => {
-          const active = filters.view === tab.key;
-          const count = viewCounts ? viewCounts[tab.key] : undefined;
-          return (
-              <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              title={tab.hint}
-              onClick={() => updateFilters({ view: tab.key })}
-              style={{
-                border: "none",
-                borderBottom: active ? "2px solid var(--primary)" : "2px solid transparent",
-                borderRadius: 0,
-                background: "transparent",
-                boxShadow: "none",
-              }}
-              className={
-                "inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-xs font-medium transition-colors cursor-pointer " +
-                (active
-                  ? "text-primary font-semibold"
-                  : "text-muted-foreground hover:text-foreground")
-              }
-            >
-              <span>{tab.label}</span>
-              {typeof count === "number" && (
-                <span
-                  className={
-                    "rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums " +
-                    (active ? "bg-primary/12 text-primary" : "bg-muted text-muted-foreground")
-                  }
-                >
-                  {count.toLocaleString()}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <PrimaryTabs
+        items={VIEW_TABS.map((tab) => ({
+          id: tab.key,
+          label: tab.label,
+          count: viewCounts ? viewCounts[tab.key] : undefined,
+        }))}
+        activeId={filters.view}
+        onChange={(id) => updateFilters({ view: id as SignalViewKey })}
+        ariaLabel="Signal views"
+        tabRole="tab"
+      />
 
       {/* Compact Single-Row Toolbar */}
       <div className="flex flex-wrap items-center gap-2.5">

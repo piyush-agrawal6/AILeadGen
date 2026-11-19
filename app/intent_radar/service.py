@@ -659,6 +659,15 @@ def save_monitor(c, body, key=None):
     audit(c,'MONITOR_SAVED',key)
     return get(c,'monitors',key)
 
+def delete_monitor(c, key):
+    ctx = context(c, True)
+    old = get(c, 'monitors', key)
+    c.execute('DELETE FROM intent_rankings WHERE organization_id=? AND signal_id IN (SELECT signal_id FROM intent_monitor_signals WHERE organization_id=? AND monitor_id=?)', (ctx.organization_id, ctx.organization_id, key))
+    c.execute('DELETE FROM intent_monitor_signals WHERE organization_id=? AND monitor_id=?', (ctx.organization_id, key))
+    c.execute('DELETE FROM intent_monitors WHERE id=? AND organization_id=?', (key, ctx.organization_id))
+    audit(c, 'MONITOR_DELETED', key)
+    return {'id': key, 'deleted': True}
+
 def _limits_meta(c, org: str, saved_calls: int, saved_tokens: int) -> dict:
     from datetime import datetime, timedelta, timezone
     s = get_settings()
