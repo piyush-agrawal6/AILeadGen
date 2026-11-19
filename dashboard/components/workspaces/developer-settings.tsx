@@ -128,7 +128,7 @@ type OpenApiDoc = {
   >;
 };
 
-type DevTabKey = "keys" | "overview" | "mcp" | "api" | "usage";
+export type DevTabKey = "keys" | "overview" | "mcp" | "api" | "usage";
 
 const SCOPE_DESCRIPTIONS: Record<string, string> = {
   "intent:read": "Read workspace Intent Radar signals, discoveries, saved searches, monitors, opportunities, ICPs, and source status.",
@@ -248,11 +248,23 @@ function buildCodeExample(
   ].join("\n");
 }
 
-export function DeveloperSettings() {
+export function DeveloperSettings({
+  activeTab: externalTab,
+  onTabChange,
+}: {
+  activeTab?: DevTabKey;
+  onTabChange?: (tab: DevTabKey) => void;
+} = {}) {
   const leadAvailable = useWorkspaceCapabilities().leadEngineAvailable !== false;
 
   // Sub-tab navigation — defaults to "keys" to preserve immediate API key management & existing tests
-  const [activeTab, setActiveTab] = useState<DevTabKey>("keys");
+  const [internalTab, setInternalTab] = useState<DevTabKey>("keys");
+  const activeTab = externalTab ?? internalTab;
+
+  function setActiveTab(tab: DevTabKey) {
+    setInternalTab(tab);
+    onTabChange?.(tab);
+  }
 
   // Create & manage key state
   const [name, setName] = useState("");

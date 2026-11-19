@@ -88,7 +88,7 @@ function Toggle({
   );
 }
 
-export function NotificationPreferencesPanel() {
+export function NotificationPreferencesPanel({ activeTab }: { activeTab?: string } = {}) {
   const client = useQueryClient();
   const workspace = useWorkspace();
   const orgId = workspace.data?.active_organization_id || "";
@@ -216,7 +216,8 @@ export function NotificationPreferencesPanel() {
       )}
 
       {/* Section 1: Delivery Channels (Personal) */}
-      <section className="rounded-xl border border-border bg-card p-4 space-y-4">
+      {activeTab !== "types" && (
+        <section className="rounded-xl border border-border bg-card p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Bell size={15} className="text-primary" />
@@ -358,11 +359,18 @@ export function NotificationPreferencesPanel() {
               Only email high-priority &amp; urgent alerts
             </span>
           </div>
+          {activeTab === "channels" && (
+            <Button size="sm" disabled={saving} onClick={() => void savePreferences()} className="h-8 text-xs">
+              {saving ? "Saving…" : "Save Personal Preferences"}
+            </Button>
+          )}
         </div>
       </section>
+      )}
 
       {/* Section 2: Notification Types Table (Personal) */}
-      <section className="rounded-xl border border-border bg-card overflow-hidden">
+      {activeTab !== "channels" && (
+        <section className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/70">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-foreground">Notification Types</h3>
@@ -440,6 +448,7 @@ export function NotificationPreferencesPanel() {
           </Button>
         </div>
       </section>
+      )}
     </div>
   );
 }

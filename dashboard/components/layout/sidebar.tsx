@@ -183,10 +183,11 @@ export function Sidebar({
       name: 'Intelligence',
       items: [
         { href: '/intent-radar/ideal-customers', title: 'Ideal Customers', icon: Users },
-        ...(products.data?.intent_radar.growth_enabled
-          ? [{ href: '/intent-radar/growth', title: 'Growth Intelligence', icon: Sparkles }]
-          : []),
+        ...(products.data?.intent_radar?.growth_enabled === false
+          ? []
+          : [{ href: '/intent-radar/growth', title: 'Growth Intelligence', icon: Sparkles }]),
         { href: '/intent-radar/saved', title: 'Research Library', icon: Bookmark },
+        { href: '/intent-radar/integrations', title: 'Integrations', icon: Plug },
       ],
     },
   ];

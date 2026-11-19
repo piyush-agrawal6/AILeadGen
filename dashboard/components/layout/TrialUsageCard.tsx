@@ -97,11 +97,9 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
     <div className="p-2 space-y-1.5 text-xs max-w-[200px]">
       <div className="font-semibold text-foreground flex items-center justify-between">
         <span>{isTrial ? "Starter Trial" : entitlementLabel}</span>
-        {isTrial && (
-          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-            isExpired ? "bg-destructive/10 text-destructive" : isExpiringSoon ? "bg-amber-500/10 text-amber-600" : "bg-primary/10 text-primary"
-          }`}>
-            {isExpired ? "Expired" : `${daysRemaining}d left`}
+        {isTrial && isExpired && (
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
+            Expired
           </span>
         )}
       </div>
@@ -154,7 +152,7 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
 
   return (
     <div className="mx-3 my-2 rounded-xl border border-border bg-card p-3 shadow-xs space-y-2.5 text-xs">
-      {/* Header with Title and Days Remaining */}
+      {/* Header with Title (Remaining days badge removed as requested) */}
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1.5 font-semibold text-foreground">
           {isPaid ? (
@@ -165,28 +163,14 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
           <span className="truncate">{isTrial ? "Starter Trial" : entitlementLabel}</span>
         </div>
 
-        {isTrial && (
-          <span
-            className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${
-              isExpired
-                ? "bg-destructive/10 text-destructive font-semibold"
-                : isExpiringSoon
-                ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/25"
-                : "bg-primary/10 text-primary"
-            }`}
-          >
-            {isExpired
-              ? "Trial expired"
-              : daysRemaining === 0
-              ? "Ends today"
-              : daysRemaining === 1
-              ? "1 day left"
-              : `${daysRemaining} days remaining`}
+        {isTrial && isExpired && (
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 bg-destructive/10 text-destructive font-semibold">
+            Expired
           </span>
         )}
 
         {isPaid && isCanceled && (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300">
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
             Canceled
           </span>
         )}
@@ -209,9 +193,7 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
           </div>
           <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
             <div
-              className={`h-full transition-all duration-300 rounded-full ${
-                isExpiringSoon ? "bg-amber-500" : "bg-primary"
-              }`}
+              className="h-full transition-all duration-300 rounded-full bg-primary"
               style={{ width: `${Math.max(5, Math.min(100, trialProgressPercent))}%` }}
               role="progressbar"
               aria-label="Trial period progress"
@@ -245,19 +227,17 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
           Trial expired. Upgrade to resume searching &amp; monitoring.
         </p>
       ) : isLimitReached ? (
-        <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-tight">
+        <p className="text-[11px] text-muted-foreground leading-tight">
           Usage limit reached. Upgrade to increase limits.
         </p>
       ) : null}
 
-      {/* CTA Button */}
+      {/* CTA Button — matching main application CTA */}
       <Link
         href="/billing"
         className={`inline-flex h-7 w-full items-center justify-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold transition-colors shadow-xs ${
           isPaid
             ? "border border-border bg-background text-foreground hover:bg-muted"
-            : isExpiringSoon
-            ? "bg-amber-600 text-white hover:bg-amber-700"
             : "bg-primary text-primary-foreground hover:bg-primary/90"
         }`}
       >

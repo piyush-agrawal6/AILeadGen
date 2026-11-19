@@ -8,7 +8,9 @@ import {
   Building2,
   Users,
   SlidersHorizontal,
-  Plug,
+  Bell,
+  Radio,
+  Code2,
   CreditCard,
   ChevronRight,
   type LucideIcon,
@@ -21,7 +23,9 @@ import { AccountSection } from "./sections/account-section";
 import { CompanySection } from "./sections/company-section";
 import { TeamSection } from "./sections/team-section";
 import { PreferencesSection } from "./sections/preferences-section";
-import { IntegrationsSection } from "./sections/integrations-section";
+import { NotificationsSection } from "./sections/notifications-section";
+import { SourcesSection } from "./sections/sources-section";
+import { DeveloperSection } from "./sections/developer-section";
 import { BillingSection } from "./sections/billing-section";
 
 export type SettingsCategoryKey =
@@ -29,8 +33,11 @@ export type SettingsCategoryKey =
   | "company"
   | "team"
   | "preferences"
-  | "integrations"
-  | "billing";
+  | "notifications"
+  | "sources"
+  | "developer"
+  | "billing"
+  | "integrations"; // legacy alias mapping to sources
 
 interface SettingsCategoryDef {
   key: SettingsCategoryKey;
@@ -85,27 +92,53 @@ export const SETTINGS_CATEGORIES: SettingsCategoryDef[] = [
     key: "preferences",
     label: "Research Preferences",
     shortLabel: "Preferences",
-    description: "Signal discovery defaults, notification alerts, data retention, and daily safety caps.",
+    description: "Signal discovery defaults, high-relevance alert sensitivity, data retention, and daily safety caps.",
     icon: SlidersHorizontal,
     defaultTab: "discovery",
     tabs: [
       { id: "discovery", label: "Discovery Defaults" },
-      { id: "notifications", label: "Notifications & Alerts" },
+      { id: "alerts", label: "Alerts" },
       { id: "retention", label: "Data Retention" },
       { id: "limits", label: "Capacity & Limits" },
     ],
   },
   {
-    key: "integrations",
-    label: "Integrations & API",
-    shortLabel: "Integrations",
-    description: "Manage your research sources, connected accounts, approved feeds, and developer access.",
-    icon: Plug,
+    key: "notifications",
+    label: "Notifications",
+    shortLabel: "Notifications",
+    description: "Configure personal delivery channels, notification types, quiet hours, and email alerts.",
+    icon: Bell,
+    defaultTab: "channels",
+    tabs: [
+      { id: "channels", label: "Delivery Channels" },
+      { id: "types", label: "Notification Types" },
+    ],
+  },
+  {
+    key: "sources",
+    label: "Sources & Tools",
+    shortLabel: "Sources",
+    description: "Manage your public research evidence sources, connected account health, and custom RSS/Atom feeds.",
+    icon: Radio,
     defaultTab: "sources",
     tabs: [
       { id: "sources", label: "Research Sources" },
-      { id: "developer", label: "MCP & Developer API" },
       { id: "feeds", label: "Custom Feeds" },
+    ],
+  },
+  {
+    key: "developer",
+    label: "Developer & API",
+    shortLabel: "Developer",
+    description: "Manage scoped API keys, configure Model Context Protocol (MCP) clients, and inspect REST endpoints.",
+    icon: Code2,
+    defaultTab: "keys",
+    tabs: [
+      { id: "keys", label: "API Keys" },
+      { id: "overview", label: "Overview & Diagnostics" },
+      { id: "mcp", label: "MCP Setup" },
+      { id: "api", label: "API Reference" },
+      { id: "usage", label: "Usage & Logs" },
     ],
   },
   {
@@ -121,6 +154,32 @@ export const SETTINGS_CATEGORIES: SettingsCategoryDef[] = [
     ],
   },
 ];
+
+export function resolveSettingsCategory(rawCategory?: string | null, rawTab?: string | null): { category: SettingsCategoryKey; tab?: string } {
+  if (!rawCategory) return { category: "account" };
+
+  // Handle legacy mappings
+  if (rawCategory === "integrations") {
+    if (rawTab === "developer") {
+      return { category: "developer", tab: "keys" };
+    }
+    if (rawTab === "feeds") {
+      return { category: "sources", tab: "feeds" };
+    }
+    return { category: "sources", tab: "sources" };
+  }
+
+  if (rawCategory === "preferences" && rawTab === "notifications") {
+    return { category: "notifications", tab: "channels" };
+  }
+
+  const found = SETTINGS_CATEGORIES.find((c) => c.key === rawCategory);
+  if (found) {
+    return { category: found.key, tab: rawTab || undefined };
+  }
+
+  return { category: "account" };
+}
 
 export function UnifiedSettingsCenter({
   initialCategory,
@@ -142,87 +201,68 @@ export function UnifiedSettingsCenter({
   }, [searchParams, router]);
 
   // Determine starting category and tab from props, URL searchParams, or path
-  const paramCategory = searchParams.get("category") as SettingsCategoryKey | null;
+  const paramCategory = searchParams.get("category");
   const paramTab = searchParams.get("tab");
 
-  const resolvedCategory: SettingsCategoryKey =
-    initialCategory ||
-    (paramCategory && SETTINGS_CATEGORIES.some((c) => c.key === paramCategory)
-      ? paramCategory
-      : "account");
+  const resolved = resolveSettingsCategory(
+    initialCategory || paramCategory,
+    initialTab || paramTab
+  );
 
-  const [category, setCategory] = useState<SettingsCategoryKey>(resolvedCategory);
+  const [category, setCategory] = useState<SettingsCategoryKey>(resolved.category);
 
   const categoryDef =
     SETTINGS_CATEGORIES.find((c) => c.key === category) ?? SETTINGS_CATEGORIES[0];
 
   const resolvedTab =
-    initialTab ||
-    (paramTab && categoryDef.tabs.some((t) => t.id === paramTab)
-      ? paramTab
-      : categoryDef.defaultTab);
+    resolved.tab && categoryDef.tabs.some((t) => t.id === resolved.tab)
+      ? resolved.tab
+      : categoryDef.defaultTab;
 
   const [activeTab, setActiveTab] = useState<string>(resolvedTab);
 
-  // Sync state if initial props or URL searchParams change (e.g., clicking Settings links while already on /settings)
+  // Sync state if initial props or URL searchParams change
   useEffect(() => {
-    if (initialCategory && initialCategory !== category) {
-      setCategory(initialCategory);
-    } else if (
-      !initialCategory &&
-      paramCategory &&
-      SETTINGS_CATEGORIES.some((c) => c.key === paramCategory) &&
-      paramCategory !== category
-    ) {
-      setCategory(paramCategory);
-      const nextDef = SETTINGS_CATEGORIES.find((c) => c.key === paramCategory);
-      const nextTab =
-        paramTab && nextDef?.tabs.some((t) => t.id === paramTab)
-          ? paramTab
-          : nextDef?.defaultTab ?? "profile";
+    const next = resolveSettingsCategory(
+      initialCategory || paramCategory,
+      initialTab || paramTab
+    );
+    if (next.category !== category) {
+      setCategory(next.category);
+      const nextDef = SETTINGS_CATEGORIES.find((c) => c.key === next.category) ?? SETTINGS_CATEGORIES[0];
+      const nextTab = next.tab && nextDef.tabs.some((t) => t.id === next.tab)
+        ? next.tab
+        : nextDef.defaultTab;
       setActiveTab(nextTab);
+    } else if (next.tab && next.tab !== activeTab && categoryDef.tabs.some((t) => t.id === next.tab)) {
+      setActiveTab(next.tab);
     }
-  }, [initialCategory, paramCategory, paramTab]);
-
-  useEffect(() => {
-    if (initialTab && initialTab !== activeTab) {
-      setActiveTab(initialTab);
-    } else if (
-      !initialTab &&
-      paramTab &&
-      categoryDef.tabs.some((t) => t.id === paramTab) &&
-      paramTab !== activeTab
-    ) {
-      setActiveTab(paramTab);
-    }
-  }, [initialTab, paramTab, categoryDef]);
+  }, [initialCategory, paramCategory, initialTab, paramTab]);
 
   // Support browser back/forward navigation
   useEffect(() => {
     function onPopState() {
       const search = new URLSearchParams(window.location.search);
-      const cat = search.get("category") as SettingsCategoryKey | null;
-      const t = search.get("tab");
-      if (cat && SETTINGS_CATEGORIES.some((c) => c.key === cat)) {
-        setCategory(cat);
-        const def = SETTINGS_CATEGORIES.find((c) => c.key === cat);
-        setActiveTab(t && def?.tabs.some((tab) => tab.id === t) ? t : def?.defaultTab ?? "profile");
-      }
+      const next = resolveSettingsCategory(search.get("category"), search.get("tab"));
+      setCategory(next.category);
+      const def = SETTINGS_CATEGORIES.find((c) => c.key === next.category) ?? SETTINGS_CATEGORIES[0];
+      setActiveTab(next.tab && def.tabs.some((t) => t.id === next.tab) ? next.tab : def.defaultTab);
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
   function switchCategory(newCategory: SettingsCategoryKey) {
-    setCategory(newCategory);
-    const newDef = SETTINGS_CATEGORIES.find((c) => c.key === newCategory) ?? SETTINGS_CATEGORIES[0];
+    const targetCat = newCategory === "integrations" ? "sources" : newCategory;
+    setCategory(targetCat);
+    const newDef = SETTINGS_CATEGORIES.find((c) => c.key === targetCat) ?? SETTINGS_CATEGORIES[0];
     const newTab = newDef.defaultTab;
     setActiveTab(newTab);
 
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.pathname = "/settings";
-      url.searchParams.set("category", newCategory);
+      url.searchParams.set("category", targetCat);
       url.searchParams.set("tab", newTab);
       window.history.pushState(null, "", url.toString());
     }
@@ -354,7 +394,13 @@ export function UnifiedSettingsCenter({
               {category === "company" && <CompanySection activeTab={activeTab} />}
               {category === "team" && <TeamSection activeTab={activeTab} onSwitchTab={switchTab} />}
               {category === "preferences" && <PreferencesSection activeTab={activeTab} />}
-              {category === "integrations" && <IntegrationsSection activeTab={activeTab} onSwitchTab={switchTab} />}
+              {category === "notifications" && <NotificationsSection activeTab={activeTab} />}
+              {(category === "sources" || category === "integrations") && (
+                <SourcesSection activeTab={activeTab} onSwitchTab={switchTab} />
+              )}
+              {category === "developer" && (
+                <DeveloperSection activeTab={activeTab} onSwitchTab={switchTab} />
+              )}
               {category === "billing" && <BillingSection activeTab={activeTab} onSwitchTab={switchTab} />}
             </div>
           </main>

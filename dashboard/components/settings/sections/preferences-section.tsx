@@ -23,7 +23,6 @@ import {
 } from "@/components/intent-radar/provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { NotificationPreferencesPanel } from "@/components/notifications/NotificationPreferencesPanel";
 import type { IntentPreferences } from "@/lib/intent-radar";
 
 interface IcpOption {
@@ -457,12 +456,10 @@ function PreferencesForm({
         </section>
       )}
 
-      {/* TAB 2: NOTIFICATIONS & ALERTS */}
-      {activeTab === "notifications" && (
+      {/* TAB 2: ALERTS & SENSITIVITY */}
+      {(activeTab === "alerts" || activeTab === "notifications") && (
         <div className="space-y-4">
-          <NotificationPreferencesPanel />
-
-          {/* Section 3: Alert Sensitivity (Workspace-wide) */}
+          {/* Section: Alert Sensitivity (Workspace-wide) */}
           <section className="rounded-xl border border-border bg-card p-4 space-y-3.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -752,11 +749,6 @@ function PreferencesForm({
 export function PreferencesSection({ activeTab }: { activeTab: string }) {
   const capabilities = useRadarCapabilities();
   const prefsQuery = useRadarRead<IntentPreferences>("/settings");
-
-  if (activeTab === "notifications" && prefsQuery.isError) {
-    // Allow personal notification preferences even if Intent Radar isn't active yet
-    return <NotificationPreferencesPanel />;
-  }
 
   if (prefsQuery.isPending) {
     return (

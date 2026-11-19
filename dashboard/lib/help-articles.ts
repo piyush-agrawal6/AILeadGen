@@ -17,23 +17,104 @@ export interface HelpArticle {
   aiPrompt: string;
 }
 
+export interface HelpCategoryMeta {
+  id: string;
+  name: string;
+  shortName: string;
+  description: string;
+  iconName: "sparkles" | "search" | "target" | "radio" | "bot" | "plug" | "code" | "credit-card" | "shield" | "help";
+}
+
 export const HELP_CATEGORIES = [
-  "Getting Started & Onboarding",
-  "Discovering Conversations",
-  "Intent Signals & Opportunities",
+  "Getting Started",
+  "Discover & Research",
+  "Signals & Opportunities",
   "Monitoring & Alerts",
-  "AI Assistant & Ideal Customers",
-  "Research Sources & Integrations",
-  "Developer API & MCP",
-  "Billing, Trials & Subscriptions",
-  "Team, Workspaces & Security",
-  "Troubleshooting & Known Issues",
+  "AI Assistant & ICPs",
+  "Sources & Integrations",
+  "Developer & API",
+  "Billing & Subscriptions",
+  "Team & Security",
+  "Troubleshooting",
 ] as const;
+
+export const HELP_CATEGORY_METAS: HelpCategoryMeta[] = [
+  {
+    id: "getting-started",
+    name: "Getting Started",
+    shortName: "Getting Started",
+    description: "Account setup, workspace creation, guided onboarding, and activation.",
+    iconName: "sparkles",
+  },
+  {
+    id: "discover-research",
+    name: "Discover & Research",
+    shortName: "Discover & Research",
+    description: "Multi-source conversation searches, query builders, and discovery runs.",
+    iconName: "search",
+  },
+  {
+    id: "signals-opportunities",
+    name: "Signals & Opportunities",
+    shortName: "Signals & Opportunities",
+    description: "Evaluating buying intent, scoring relevance, and managing opportunity pipelines.",
+    iconName: "target",
+  },
+  {
+    id: "monitoring-alerts",
+    name: "Monitoring & Alerts",
+    shortName: "Monitoring & Alerts",
+    description: "Automated recurring monitors, alert sensitivity thresholds, and notifications.",
+    iconName: "radio",
+  },
+  {
+    id: "ai-assistant-icps",
+    name: "AI Assistant & ICPs",
+    shortName: "AI Assistant & ICPs",
+    description: "Configuring Ideal Customer Profiles, buyer personas, and AI research prompts.",
+    iconName: "bot",
+  },
+  {
+    id: "sources-integrations",
+    name: "Sources & Integrations",
+    shortName: "Sources & Integrations",
+    description: "Approved public research sources, custom RSS/Atom feeds, and customer integrations.",
+    iconName: "plug",
+  },
+  {
+    id: "developer-api",
+    name: "Developer & API",
+    shortName: "Developer & API",
+    description: "REST API endpoints, scoped API keys, OpenAPI docs, and Model Context Protocol (MCP).",
+    iconName: "code",
+  },
+  {
+    id: "billing-subscriptions",
+    name: "Billing & Subscriptions",
+    shortName: "Billing & Subscriptions",
+    description: "Starter trials, subscription tiers, plan upgrades, invoices, and quota usage.",
+    iconName: "credit-card",
+  },
+  {
+    id: "team-security",
+    name: "Team & Security",
+    shortName: "Team & Security",
+    description: "Member invitations, role-based access control, security audit logs, and domains.",
+    iconName: "shield",
+  },
+  {
+    id: "troubleshooting",
+    name: "Troubleshooting",
+    shortName: "Troubleshooting",
+    description: "Common questions, quota limits, rate limits, error codes, and resolution steps.",
+    iconName: "help",
+  },
+];
 
 export const HELP_ARTICLES: HelpArticle[] = [
   {
     id: "getting-started",
-    category: "Getting Started & Onboarding",
+    category: "Getting Started",
     title: "Setting up your workspace & completing onboarding",
     summary:
       "Walk through the 5-step guided setup to configure your company profile, Ideal Customer Profiles, research preferences, and workspace plan.",
@@ -83,7 +164,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: "discover-conversations",
-    category: "Discovering Conversations",
+    category: "Discover & Research",
     title: "Running discoveries, saved searches & Discovery History",
     summary:
       "Search permitted public conversations using AI-assisted prompts or Advanced Filters, save reusable queries, and review past runs.",
@@ -128,7 +209,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: "signals-opportunities",
-    category: "Intent Signals & Opportunities",
+    category: "Signals & Opportunities",
     title: "Reviewing intent signals, evidence & qualifying opportunities",
     summary:
       "Evaluate collected public discussions, verify original source quotes, rate relevance, and promote qualified leads to Opportunities.",
@@ -199,14 +280,15 @@ export const HELP_ARTICLES: HelpArticle[] = [
     ],
     settingsLinks: [
       { label: "Open Monitoring", href: "/intent-radar/monitors" },
-      { label: "Notifications & Alerts", href: "/settings?category=preferences&tab=notifications" },
+      { label: "Alert Sensitivity", href: "/settings?category=preferences&tab=alerts" },
+      { label: "Notifications", href: "/settings?category=notifications" },
     ],
     relatedIds: ["discover-conversations", "signals-opportunities"],
     aiPrompt: "How do I create an effective monitor for my current Ideal Customer Profile?",
   },
   {
     id: "ai-assistant-icps",
-    category: "AI Assistant & Ideal Customers",
+    category: "AI Assistant & ICPs",
     title: "Using the AI Assistant & managing Ideal Customer Profiles",
     summary:
       "Leverage the workspace-aware PlaneByte AI Assistant for grounded analysis and maintain accurate Ideal Customer Profiles.",
@@ -245,7 +327,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: "sources-integrations",
-    category: "Research Sources & Integrations",
+    category: "Sources & Integrations",
     title: "Managing Research Sources, GitHub App & Custom Feeds",
     summary:
       "Connect GitHub repositories and webhooks, manage built-in public sources, understand AI processing policies, and configure Atom/Discourse feeds.",
@@ -276,8 +358,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
       },
     ],
     settingsLinks: [
-      { label: "Research Sources", href: "/settings?category=integrations&tab=sources" },
-      { label: "Custom Feeds", href: "/settings?category=integrations&tab=feeds" },
+      { label: "Sources & Tools", href: "/settings?category=sources&tab=sources" },
+      { label: "Custom Feeds", href: "/settings?category=sources&tab=feeds" },
+      { label: "Customer Integrations", href: "/intent-radar/integrations" },
       { label: "Sources Policy", href: "/sources-policy" },
     ],
     relatedIds: ["discover-conversations", "developer-api-mcp"],
@@ -285,7 +368,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: "developer-api-mcp",
-    category: "Developer API & MCP",
+    category: "Developer & API",
     title: "Configuring Developer API keys & MCP server access",
     summary:
       "Issue scoped API keys for read-only REST endpoints and connect Claude, Cursor, or VS Code via the Model Context Protocol (MCP).",
@@ -294,7 +377,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       {
         title: "Issue a scoped API key",
         detail:
-          "Owners and administrators can create keys in Settings → Integrations & API → MCP & Developer API. Copy the key immediately—it is displayed only once.",
+          "Owners and administrators can create keys in Settings → Developer & API. Copy the key immediately—it is displayed only once.",
       },
       {
         title: "Connect an MCP client",
@@ -315,7 +398,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       },
     ],
     settingsLinks: [
-      { label: "MCP & Developer API", href: "/settings?category=integrations&tab=developer" },
+      { label: "Developer & API", href: "/settings?category=developer&tab=keys" },
       { label: "Billing & Usage", href: "/settings?category=billing&tab=overview" },
     ],
     relatedIds: ["sources-integrations", "billing-subscriptions"],
@@ -323,7 +406,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: "billing-subscriptions",
-    category: "Billing, Trials & Subscriptions",
+    category: "Billing & Subscriptions",
     title: "Plans, Starter Trial, Creem billing & usage allowances",
     summary:
       "Understand monthly plan limits, Starter Trial rules, renewal cancellation, invoices, and how daily safety limits interact with monthly quotas.",
@@ -363,7 +446,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: "team-workspaces-security",
-    category: "Team, Workspaces & Security",
+    category: "Team & Security",
     title: "Managing team roles, invitations, domains & multi-workspace isolation",
     summary:
       "Invite teammates, manage Owner/Admin/Member/Viewer roles, verify company domains via DNS TXT, review audit logs, and switch between isolated workspaces.",
@@ -403,7 +486,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   {
     id: "troubleshooting",
-    category: "Troubleshooting & Known Issues",
+    category: "Troubleshooting",
     title: "Resolving access restrictions, quota errors & sync issues",
     summary:
       "Quickly diagnose workspace access restrictions, monthly vs daily limits, email delivery checks, and workspace switching states.",

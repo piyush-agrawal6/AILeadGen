@@ -50,10 +50,10 @@ function renderWithClient(ui: React.ReactElement) {
 }
 
 describe("Sidebar and Free Trial & Usage Card", () => {
-  it("renders the Starter Trial card with remaining days and usage metrics", async () => {
+  it("renders the Starter Trial card with clean styling, usage metrics, and no remaining days badge", async () => {
     renderWithClient(<TrialUsageCard />);
     expect(await screen.findByText("Starter Trial")).toBeInTheDocument();
-    expect(screen.getByText("6 days remaining")).toBeInTheDocument();
+    expect(screen.queryByText(/remaining/i)).not.toBeInTheDocument();
     expect(screen.getByText("Discovery searches")).toBeInTheDocument();
     expect(screen.getByText("6 / 20")).toBeInTheDocument();
     expect(screen.getByText("AI requests")).toBeInTheDocument();
