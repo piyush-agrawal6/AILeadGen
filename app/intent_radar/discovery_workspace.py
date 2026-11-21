@@ -97,6 +97,7 @@ def _derive_title(cfg: dict, explicit_title: str = '', original_prompt: str = ''
 
 
 def _has_meta_table(c) -> bool:
+    if getattr(c,'backend',None)=='postgres':return c.execute("SELECT to_regclass(current_schema() || '.intent_discovery_runs_meta') IS NOT NULL").fetchone()[0]
     ensure_sqlite_tables(c)
     try:
         c.execute('SELECT 1 FROM intent_discovery_runs_meta LIMIT 1')
@@ -106,6 +107,7 @@ def _has_meta_table(c) -> bool:
 
 
 def _has_saved_table(c) -> bool:
+    if getattr(c,'backend',None)=='postgres':return c.execute("SELECT to_regclass(current_schema() || '.intent_saved_searches') IS NOT NULL").fetchone()[0]
     ensure_sqlite_tables(c)
     try:
         c.execute('SELECT 1 FROM intent_saved_searches LIMIT 1')

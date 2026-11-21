@@ -70,6 +70,8 @@ interface DiscoveryStrategy {
   suggested_frequency?: string;
 }
 
+type DraftResponse=Partial<DiscoveryStrategy> & {draft?:{name?:string;description?:string;configuration?:Partial<IntentSearch>;strategy?:Partial<DiscoveryStrategy>|null}; configuration?:Partial<IntentSearch>;strategy?:Partial<DiscoveryStrategy>|null;mode?:string;fallback_reason?:string|null;quota_exhausted?:boolean};
+
 export function MonitorBuilderPage({
   existing,
   onClose,
@@ -351,28 +353,11 @@ export function MonitorBuilderPage({
           prompt: aiPrompt.trim(),
           icp_id: selectedIcpId || null,
         },
-      })) as {
-        draft?: {
-          name?: string;
-          description?: string;
-          configuration?: IntentSearch;
-          strategy?: DiscoveryStrategy | null;
-        };
-        strategy?: DiscoveryStrategy | null;
-        configuration?: IntentSearch;
-        keywords?: string[];
-        sources?: string[];
-        excluded?: string[];
-        categories?: string[];
-        min_relevance?: number;
-        mode?: string;
-        fallback_reason?: string | null;
-        quota_exhausted?: boolean;
-      };
+      })) as DraftResponse;
 
       const d = res.draft || {};
-      const strat = (d.strategy || res.strategy || {}) as any;
-      const conf = (d.configuration || res.configuration || {}) as any;
+      const strat = d.strategy || res.strategy || {};
+      const conf = d.configuration || res.configuration || {};
 
       const extractedKeywords: string[] = strat.keywords?.length
         ? strat.keywords
@@ -394,10 +379,10 @@ export function MonitorBuilderPage({
         : conf.categories?.length
           ? conf.categories
           : (res.categories as IntentCategory[]) || [];
-      const extractedTitle: string = d.name || strat.objective || (res as any).objective || "";
+      const extractedTitle: string = d.name || strat.objective || res.objective || "";
       const extractedDesc: string =
-        d.description || strat.search_rationale || (res as any).search_rationale || strat.objective || "";
-      const extractedFrequency: string = strat.suggested_frequency || (res as any).suggested_frequency || "";
+        d.description || strat.search_rationale || res.search_rationale || strat.objective || "";
+      const extractedFrequency: string = strat.suggested_frequency || res.suggested_frequency || "";
       const extractedMinRelevance: number | undefined = strat.min_relevance ?? conf.min_relevance ?? res.min_relevance;
 
       if (extractedKeywords.length > 0) {
@@ -507,7 +492,7 @@ export function MonitorBuilderPage({
           icp_id: selectedIcpId || null,
           previous: currentStrategy,
         },
-      })) as any;
+      })) as DraftResponse;
 
       const d = res.draft || {};
       const strat = d.strategy || res.strategy || {};

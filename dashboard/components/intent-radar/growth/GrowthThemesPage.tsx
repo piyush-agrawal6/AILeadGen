@@ -123,7 +123,7 @@ export function GrowthThemesPage({ themeId, onNavigateTab }: GrowthThemesPagePro
           {/* Sort Dropdown */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground focus:border-primary focus:outline-none"
           >
             <option value="mentions">Sort by Evidence Volume</option>

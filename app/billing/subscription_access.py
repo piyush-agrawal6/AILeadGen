@@ -119,13 +119,17 @@ def active(c,org):
   result.update(plan_json=json.dumps(saved,sort_keys=True),usage_period_start=grant['usage_period_start'],usage_period_end=grant['usage_period_end'],internal_testing={'active':True,'expires_at':grant['expires_at'],'limits':grant['limits']})
  return result
 
-def product_grant(c,org):
+def product_grant(c,org,*,include_development=True):
  value=active(c,org)
  if value:return value
  # A genuinely verified existing PayU one-time purchase is an allowed paid path.
  from app.billing.access_periods import active as legacy
  value=legacy(c,org)
- return value if value and value['source_kind']=='PAYMENT' else None
+ if value and value['source_kind']=='PAYMENT':return value
+ if include_development and enabled():
+  from app.billing.owner_starter import active as development
+  return development(c,org)
+ return None
 
 def require_product(c,org):
  if not required(c,org):return None
@@ -139,7 +143,18 @@ def scheduled_sql(org):
  restriction=''
  if mode=='test':restriction=' AND p.organization_id IN ('+','.join('?' for _ in approved)+')' if approved else ' AND 0=1'
  sql="EXISTS(SELECT 1 FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.organization_id=p.organization_id AND w.contract_id=p.id AND w.environment=p.environment JOIN subscription_payments t ON t.organization_id=p.organization_id AND t.contract_id=p.id AND t.period_start=p.period_start AND t.period_end=p.period_end WHERE p.organization_id="+org+" AND p.environment=? AND p.status IN ('active','scheduled_cancel','canceled') AND p.verified_at IS NOT NULL AND (p.recurring_authorized=1 OR p.cancel_confirmed_at IS NOT NULL) AND p.period_start<=? AND p.period_end>? AND t.status='paid'"+restriction+')'
- return sql,[mode,stamp,stamp,*(approved if mode=='test' else [])]
+ args=[mode,stamp,stamp,*(approved if mode=='test' else [])]
+ from app.billing.owner_starter import configured_id,active as development,ISSUED,REVOKED,OWNER
+ key=configured_id()
+ if key:
+  from app.database.connection import db_session
+  with db_session() as c:
+   receipt=c.execute('SELECT organization_id FROM audit_log WHERE id=? AND action=?',(key,ISSUED)).fetchone()
+   grant=development(c,receipt[0]) if receipt else None
+  if grant:
+   sql='('+sql+' OR ('+org+'=? AND EXISTS(SELECT 1 FROM organization_memberships mbr WHERE mbr.organization_id='+org+" AND mbr.user_id=? AND mbr.role='OWNER' AND mbr.status='ACTIVE') AND NOT EXISTS(SELECT 1 FROM audit_log revoked WHERE revoked.id=? AND revoked.action=?)))"
+   args.extend([grant['organization_id'],OWNER,key+':revoked',REVOKED])
+ return sql,args
 
 @contextmanager
 def setup_scope(c,key):

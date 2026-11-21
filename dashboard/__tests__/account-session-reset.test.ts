@@ -1,7 +1,7 @@
 import {beforeEach,expect,it,vi} from 'vitest';
-const state=vi.hoisted(()=>({session:null as any,result:{ok:false,data:{}} as any,request:vi.fn(),env:{accounts:true,customerAccess:true,production:true,allowed:['owner@example.com']}}));
+const state=vi.hoisted(()=>({session:null as {user:{email:string;planeByteAdmitted?:boolean}}|null,request:vi.fn(),env:{accounts:true,customerAccess:true,production:true,allowed:['owner@example.com']}}));
 vi.mock('server-only',()=>({}));
-vi.mock('react',()=>({cache:(fn:any)=>fn}));
+vi.mock('react',()=>({cache:<T,>(fn:T)=>fn}));
 vi.mock('@/auth',()=>({auth:async()=>state.session}));
 vi.mock('@/lib/server/private-session',()=>({privateSession:async()=>'private-capability'}));
 vi.mock('@/lib/server/env',()=>({serverEnv:()=>state.env}));

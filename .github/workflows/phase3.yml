@@ -1,6 +1,25 @@
 name: LeadEngine checks
 on: [push, pull_request]
 jobs:
+  production-source:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/codex/production-integration-20261117'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Package from verified production ancestry and run the original source guard
+        run: |
+          set -eu
+          git fetch origin main:refs/heads/main codex/intent-radar-phase4-20261113:refs/heads/codex/intent-radar-phase4-20261113
+          live=$(curl --fail --silent --show-error https://app.planebyte.com/release.json | python -c 'import sys,json,re; s=json.load(sys.stdin)["source_commit"]; assert re.fullmatch("[0-9a-f]{40}",s); print(s)')
+          python scripts/check_release_candidate.py --deployed-source "$live" --destination data/artifacts/staging/candidate
   verify:
     runs-on: ubuntu-latest
     services:
@@ -36,8 +55,12 @@ jobs:
         working-directory: dashboard
       - run: npm run test:e2e
         working-directory: dashboard
-      - name: Verify Radar download and reviewed Sheets delivery (offline providers)
-        run: npx playwright test --config=playwright.radar-destinations.config.ts
+      - name: Required release journeys on the built candidate (isolated providers)
+        run: |
+          set -eu
+          for journey in accounts workspace subscription onboarding destinations; do
+            PLANEBYTE_RELEASE_JOURNEY="$journey" npx playwright test --config=playwright.release.config.ts
+          done
         working-directory: dashboard
       - uses: actions/upload-artifact@v4
         if: failure()

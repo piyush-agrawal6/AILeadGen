@@ -46,12 +46,7 @@ export function SavedSearchesView({
 }: {
   embeddedInMain?: boolean;
 } = {}) {
-  let router: any = null;
-  try {
-    router = useRouter();
-  } catch {
-    // ignore
-  }
+  const router=useRouter();
   const access = useRadarCapabilities();
   const mutation = useRadarMutation();
   const icps = useRadarRead<{ items: { id: string; name: string }[] }>("/icps");

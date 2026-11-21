@@ -37,9 +37,9 @@ export type ICPProfile = {
   is_primary?: boolean;
   related_counts?: { discoveries?: number; monitors?: number };
   criteria: {
-    company?: Record<string, any>;
-    contact?: Record<string, any>;
-    intent?: Record<string, any>;
+    company?: Partial<Record<'industries'|'size'|'geographies'|'technologies'|'exclusions',string[]> & Record<'business_objective'|'product_service',string>>;
+    contact?: Partial<Record<'job_titles',string[]>>;
+    intent?: Partial<Record<'keywords'|'pain_points'|'buying_triggers'|'negative_keywords',string[]>>;
   };
   generation_source?: string;
   created_at?: string;
@@ -113,14 +113,14 @@ export function ICPDashboard() {
   // Duplicate Mutation
   const duplicateMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) =>
-      request(`/organization/icps/${id}/duplicate`, {
+      request<{id:string}>(`/organization/icps/${id}/duplicate`, {
         method: "POST",
         body: JSON.stringify({
           name: `${name} (Copy)`,
           request_id: crypto.randomUUID(),
         }),
       }),
-    onSuccess: (newProfile: any) => {
+    onSuccess: (newProfile) => {
       toast.success("Profile duplicated.");
       queryClient.invalidateQueries({ queryKey: ["ideal-customer-profiles"] });
       if (newProfile?.id) {
@@ -336,7 +336,7 @@ export function ICPDashboard() {
           <select
             aria-label="Sort ICPs"
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground cursor-pointer focus:border-primary focus:outline-none"
           >
             <option value="updated">Sort: Recently Updated</option>

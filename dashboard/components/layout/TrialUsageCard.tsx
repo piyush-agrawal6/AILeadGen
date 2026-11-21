@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {useState} from 'react';
 import { Sparkles, ArrowRight, ShieldAlert, CreditCard } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { useQueryClient } from "@tanstack/react-query";
@@ -31,6 +32,7 @@ export function TrialUsageCard({ collapsed = false, mobile = false }: TrialUsage
 function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsageCardProps) {
   const usageQuery = useUsage();
   const workspace = useWorkspace();
+  const [renderedAt]=useState(()=>Math.floor(Date.now()/1000));
 
   if(usageQuery.isError||workspace.isError||(!workspace.isPending&&workspace.data&&!workspace.data.active_organization_id))return <div className="mx-3 rounded-lg border p-3 text-xs" role="status">Billing status unavailable. <button onClick={()=>{void workspace.refetch();void usageQuery.refetch();}}>Retry</button> · <Link href="/billing">Billing</Link></div>;
   if (usageQuery.isPending) {
@@ -56,7 +58,7 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
 
   // Calculate trial / subscription period
   const endTimestamp = (isTrial?sub?.trial_end:sub?.period_end) || 0;
-  const nowSec = Math.floor(Date.now() / 1000);
+  const nowSec = Math.floor((usageQuery.dataUpdatedAt||renderedAt*1000)/1000);
   const secondsRemaining = Math.max(0, endTimestamp - nowSec);
   const daysRemaining = Math.ceil(secondsRemaining / 86400);
 
@@ -82,7 +84,7 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
   const isExpiringSoon = isTrial && daysRemaining > 0 && daysRemaining <= 3;
   const isPaid = !isTrial && Boolean(sub && sub.status.toLowerCase()==='active');
   const isCanceled = Boolean(
-    sub && (sub.cancel_confirmed_at || (sub as any).canceled_at || (sub as any).cancel_at_period_end)
+    sub && (sub.cancel_confirmed_at || sub.provider_status==='canceled'||sub.provider_status==='scheduled_cancel')
   );
   const isLimitReached = (searchAllowance&&searchAllowance.used>=searchAllowance.limit)||(aiAllowance&&aiAllowance.used>=aiAllowance.limit);
   const searchText=searchAllowance?`${searchAllowance.used} / ${searchAllowance.limit}`:'—',aiText=aiAllowance?`${aiAllowance.used} / ${aiAllowance.limit}`:'—';

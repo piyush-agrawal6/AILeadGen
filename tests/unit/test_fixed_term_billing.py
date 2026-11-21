@@ -127,6 +127,9 @@ def test_payment_confirmation_and_expiry_outbox_are_deduplicated(purchase,monkey
         assert c.execute("SELECT status FROM access_periods WHERE source_kind='PAYMENT'").fetchone()[0]=='EXPIRED'
 
 def test_invitation_email_quota_and_verified_recipient_explicit_acceptance(purchase,monkeypatch):
+    # This test inspects the pending, encrypted outbox before delivery. The
+    # admission fixture otherwise runs in development and consumes the row.
+    monkeypatch.setattr('app.notifications.dispatch.enqueue_notification',lambda _:None)
     from app.platform import invitations
     from app.accounts import service as accounts,models as account_models
     from test_customer_accounts import signup,otp

@@ -74,6 +74,7 @@ export function ResearchLibraryWorkspace() {
 
   // Filter & Search State
   const [search, setSearch] = useState("");
+  const [dateAnchor]=useState(()=>Date.now());
   const [selectedCollection, setSelectedCollection] = useState<string>("All");
   const [sort, setSort] = useState<"newest" | "oldest" | "collection">("newest");
   const [page, setPage] = useState(1);
@@ -144,7 +145,7 @@ export function ResearchLibraryWorkspace() {
     const reportsCount = generatedReports.length;
 
     // Calculate recently updated (within last 7 days)
-    const sevenDaysAgo = Date.now() - 7 * 86400 * 1000;
+    const sevenDaysAgo = dateAnchor - 7 * 86400 * 1000;
     const recentCount = items.filter((item) => {
       if (!item.saved_at) return false;
       const t = new Date(item.saved_at).getTime();
@@ -514,7 +515,7 @@ export function ResearchLibraryWorkspace() {
               <select
                 value={sort}
                 onChange={(e) => {
-                  setSort(e.target.value as any);
+                  setSort(e.target.value as typeof sort);
                   setPage(1);
                 }}
                 className="h-8 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
@@ -1153,7 +1154,7 @@ export function ResearchLibraryWorkspace() {
                   <button
                     key={tpl.id}
                     type="button"
-                    onClick={() => setReportTemplate(tpl.id as any)}
+                    onClick={() => setReportTemplate(tpl.id as typeof reportTemplate)}
                     className={`p-3 rounded-xl border text-left transition-colors cursor-pointer ${
                       reportTemplate === tpl.id
                         ? "border-primary bg-primary/10 text-primary"

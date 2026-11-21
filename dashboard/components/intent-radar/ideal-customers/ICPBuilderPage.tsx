@@ -199,7 +199,8 @@ export function ICPBuilderPage({
   }
 
   function removeItem<K extends keyof ICPFormData>(key: K, index: number) {
-    const current = [...((formData[key] as any[]) || [])];
+    const value=formData[key];if(!Array.isArray(value))return;
+    const current = [...value];
     current.splice(index, 1);
     setFormData({ ...formData, [key]: current });
   }
@@ -220,9 +221,9 @@ export function ICPBuilderPage({
         draft?: {
           name?: string;
           description?: string;
-          company_criteria?: Record<string, any>;
-          contact_criteria?: Record<string, any>;
-          intent_criteria?: Record<string, any>;
+          company_criteria?: ICPProfile['criteria']['company'];
+          contact_criteria?: ICPProfile['criteria']['contact'];
+          intent_criteria?: ICPProfile['criteria']['intent'];
         };
       }>("/organization/icps/interpret", {
         method: "POST",
@@ -270,12 +271,12 @@ export function ICPBuilderPage({
           },
         ]);
       }
-    } catch (err: any) {
+    } catch (err) {
       setChatMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          text: `Could not reach AI assistant: ${err.message || "Please check your network connection."}. You can continue configuring manually.`,
+          text: `Could not reach AI assistant: ${err instanceof Error ? err.message : "Please check your network connection."}. You can continue configuring manually.`,
         },
       ]);
     } finally {
@@ -376,8 +377,8 @@ export function ICPBuilderPage({
       } else {
         router.push("/intent-radar/ideal-customers");
       }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save profile.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save profile.");
     } finally {
       setSubmitting(false);
     }

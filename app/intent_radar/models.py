@@ -1,4 +1,5 @@
 from datetime import date
+from app.config.settings import get_settings
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
@@ -230,7 +231,7 @@ class Preferences(Strict):
     default_icp_id: UUID | None = None
     ai_assistance: bool = True
     analysis_daily_call_limit: int = Field(3,ge=1,le=10)
-    analysis_daily_token_limit: int = Field(100000,ge=6000,le=300000)
+    analysis_daily_token_limit: int = Field(default_factory=lambda:get_settings().intent_radar_ai_daily_tokens,ge=6000,le=300000)
     topics: list[Term] = Field(default_factory=list, max_length=12)
     discovery_keywords: list[Term] = Field(default_factory=list, max_length=12)
     discovery_excluded: list[Term] = Field(default_factory=list, max_length=12)

@@ -74,4 +74,6 @@ def overview(c):
         life=subscriptions.lifecycle(c,org,ctx.actor)
         payload['billing_phase']=life['phase'];active=bool(paid)
         payload['access'].update(intent_radar=active,growth_intelligence=bool(active and s.intent_radar_growth_enabled),kind=life['effective_label'] or ('Trial Ended' if life['phase']=='trial_ended' else 'No active subscription'))
+    if paid and paid.get('source_kind')=='COMPLIMENTARY':
+        payload['billing_phase']='complimentary';payload['access'].update(kind=paid['entitlement_label'],commercial_subscription=False)
     return payload

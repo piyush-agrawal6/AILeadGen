@@ -77,7 +77,7 @@ function renderWithClient(ui: React.ReactElement) {
 describe("Ideal Customers (ICP) 2.0 Redesign", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.spyOn(intelligence, "request").mockImplementation(async (path: string, options?: any) => {
+    vi.spyOn(intelligence, "request").mockImplementation(async (path: string, options?: RequestInit) => {
       if (path.startsWith("/organization/icps?")) {
         return {
           items: mockProfiles,

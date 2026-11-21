@@ -184,7 +184,7 @@ def test_postgres_global_source_reservations_serialize_across_workspaces(pg_rada
                 except HTTPException as exc:assert exc.status_code==429;return 'DENIED'
     with ThreadPoolExecutor(max_workers=2) as workers:results=list(workers.map(reserve,[org,other]))
     assert sorted(results)==['DENIED','RESERVED']
-    assert c.execute('SELECT SUM(reserved_requests) FROM intent_source_usage').fetchone()[0]==22
+    assert c.execute('SELECT SUM(reserved_requests) FROM intent_source_usage').fetchone()[0]==operations.CAPS['hacker_news']
 
 
 def test_postgres_overview_trend_alias_and_empty_workspace_are_valid(pg_radar,monkeypatch):

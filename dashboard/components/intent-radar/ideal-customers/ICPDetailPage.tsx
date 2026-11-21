@@ -106,14 +106,14 @@ export function ICPDetailPage({ id }: { id: string }) {
   // Duplicate Mutation
   const duplicateMutation = useMutation({
     mutationFn: () =>
-      request(`/organization/icps/${id}/duplicate`, {
+      request<{id:string}>(`/organization/icps/${id}/duplicate`, {
         method: "POST",
         body: JSON.stringify({
           name: `${profileQuery.data?.name || "Profile"} (Copy)`,
           request_id: crypto.randomUUID(),
         }),
       }),
-    onSuccess: (newP: any) => {
+    onSuccess: (newP) => {
       toast.success("Profile duplicated.");
       if (newP?.id) {
         router.push(`/intent-radar/ideal-customers/${newP.id}`);

@@ -285,7 +285,7 @@ export function HelpCenterClient() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">
-              Search results for "{query}" ({searchResults.length})
+              Search results for &quot;{query}&quot; ({searchResults.length})
             </h2>
             <button
               type="button"
@@ -326,7 +326,7 @@ export function HelpCenterClient() {
           ) : (
             <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center space-y-2">
               <HelpCircle size={24} className="mx-auto text-muted-foreground" />
-              <h3 className="text-sm font-semibold text-foreground">No articles match "{query}"</h3>
+              <h3 className="text-sm font-semibold text-foreground">No articles match &quot;{query}&quot;</h3>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                 Try searching with different terms, or explore the category guides below.
               </p>

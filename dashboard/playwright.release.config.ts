@@ -1,0 +1,11 @@
+import {defineConfig} from '@playwright/test';
+import accounts from './playwright.accounts.config';
+import workspace from './playwright.workspace.config';
+import subscription from './playwright.subscription.config';
+import onboarding from './playwright.onboarding.config';
+import destinations from './playwright.radar-destinations.config';
+const configs={accounts,workspace,subscription,onboarding,destinations};
+const suite=process.env.PLANEBYTE_RELEASE_JOURNEY as keyof typeof configs;
+if(!Object.hasOwn(configs,suite))throw Error('Select a defined release journey');
+const selected=configs[suite];const servers=Array.isArray(selected.webServer)?selected.webServer:[];
+export default defineConfig({...selected,reporter:'list',webServer:servers.map((s,i)=>({...s,command:i?'node ../scripts/local_frontend.cjs start -p 13000':s.command,env:{...s.env,APP_ENV:'test',DATABASE_BACKEND:'sqlite',DATABASE_URL:'',HEYSOW_E2E_DIST_DIR:process.env.PLANEBYTE_RELEASE_DIST||'.next',EMAIL_SENDING_ENABLED:'false',HEYSOW_CUSTOMER_MAIL_SENDING_ENABLED:'false'}}))});

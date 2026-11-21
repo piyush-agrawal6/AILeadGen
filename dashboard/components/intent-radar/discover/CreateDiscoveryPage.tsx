@@ -63,7 +63,7 @@ interface CopilotResponse {
   mode?: string;
   quota_exhausted?: boolean;
   warnings?: string[];
-  strategy?: SearchStrategy | null;
+  strategy?: (SearchStrategy & Partial<Pick<IntentSearch,'keywords'|'sources'|'categories'|'min_relevance'>> & {date_range?:string}) | null;
   proposals?: CopilotProposal[];
   context_summary?: {
     workspace_name?: string;
@@ -111,12 +111,8 @@ const INTENT_CATEGORY_DESCRIPTIONS: Record<IntentCategory, string> = {
 };
 
 export function CreateDiscoveryPage() {
-  let router: any = null;
-  try {
-    router = useRouter();
-  } catch {
-    // ignore
-  }
+  const router=useRouter();
+  const [dateAnchor]=useState(()=>Date.now());
 
   let savedSearchId: string | null = null;
   try {
@@ -309,7 +305,7 @@ export function CreateDiscoveryPage() {
     if (!prompt || assistantLoading) return;
 
     const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: `user-${crypto.randomUUID()}`,
       role: "user",
       content: prompt,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -347,11 +343,11 @@ export function CreateDiscoveryPage() {
       } else if (res.strategy) {
         proposedChanges = {
           objective: res.strategy.objective,
-          keywordsToAdd: (res.strategy as any).keywords,
-          sourcesToEnable: (res.strategy as any).sources,
-          categories: (res.strategy as any).categories,
-          minRelevance: (res.strategy as any).min_relevance,
-          dateRange: (res.strategy as any).date_range,
+          keywordsToAdd: res.strategy.keywords,
+          sourcesToEnable: res.strategy.sources,
+          categories: res.strategy.categories,
+          minRelevance: res.strategy.min_relevance,
+          dateRange: res.strategy.date_range,
         };
       }
 
@@ -1206,7 +1202,7 @@ export function CreateDiscoveryPage() {
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/60">
-                      <span>{(source as any).state === "configured" || Boolean((source as any).configured) ? "Ready to search" : "Standard public API"}</span>
+                      <span>{('state' in source && source.state==='configured') || ('configured' in source && source.configured===true) ? 'Ready to search' : 'Standard public API'}</span>
                       {["reddit", "github", "stack_exchange", "rss", "hacker_news"].includes(sId) && (
                         <button
                           type="button"
@@ -1251,11 +1247,11 @@ export function CreateDiscoveryPage() {
                   value={
                     !config.from_date
                       ? "any"
-                      : config.from_date.slice(0, 10) === new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+                      : config.from_date.slice(0, 10) === new Date(dateAnchor - 86400000).toISOString().slice(0, 10)
                       ? "24h"
-                      : config.from_date.slice(0, 10) === new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
+                      : config.from_date.slice(0, 10) === new Date(dateAnchor - 7 * 86400000).toISOString().slice(0, 10)
                       ? "7d"
-                      : config.from_date.slice(0, 10) === new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+                      : config.from_date.slice(0, 10) === new Date(dateAnchor - 30 * 86400000).toISOString().slice(0, 10)
                       ? "30d"
                       : "custom"
                   }

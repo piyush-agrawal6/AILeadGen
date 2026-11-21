@@ -501,7 +501,7 @@ export function CustomerIntegrationsCatalog() {
             <Search size={18} />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">No integrations match "{search}"</h3>
+            <h3 className="text-sm font-semibold text-foreground">No integrations match &quot;{search}&quot;</h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
               Try adjusting your search terms or select another category filter.
             </p>

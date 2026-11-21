@@ -32,6 +32,8 @@ class Draft(BaseModel):
 
 def admin(c):
     ctx=context(c,True,True);service.manager(c)
+    s=get_settings()
+    if s.app_env=='production' and ctx.organization_id not in {v.strip() for v in s.radar_sheets_workspaces.split(',') if v.strip()}:raise HTTPException(403,'Sheets export is restricted to approved pilot workspaces.')
     if c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0]<(1011 if get_settings().database_schema_profile=='intent-radar-v1' else 53):raise HTTPException(503,'The spreadsheet worker schema is not ready.')
     return ctx
 

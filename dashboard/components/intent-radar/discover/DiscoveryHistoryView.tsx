@@ -127,12 +127,7 @@ export function DiscoveryHistoryView({
 }: {
   embeddedInMain?: boolean;
 } = {}) {
-  let router: any = null;
-  try {
-    router = useRouter();
-  } catch {
-    // ignore in test environments without next router
-  }
+  const router=useRouter();
   const access = useRadarCapabilities();
   const mutation = useRadarMutation();
 

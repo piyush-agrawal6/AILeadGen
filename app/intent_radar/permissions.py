@@ -56,7 +56,7 @@ def _access_state(c, organization_id, row, enabled):
     trial_ok=False
     try:
         ctx=current()
-        trial_ok=bool(trial_available(c,ctx.actor))
+        trial_ok=bool(sub_enabled() and trial_available(c,ctx.actor))
     except Exception:
         trial_ok=False
     c_status=contract_row['status'] if contract_row else None

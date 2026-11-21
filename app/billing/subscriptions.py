@@ -87,7 +87,7 @@ def lifecycle(c,org,actor):
  env=get_settings().creem_environment
  row=c.execute('SELECT p.* FROM subscription_workspace_slots w JOIN subscription_contracts p ON p.id=w.contract_id AND p.organization_id=w.organization_id AND p.environment=w.environment WHERE w.organization_id=? AND w.environment=?',(org,env)).fetchone()
  pending=c.execute("SELECT id,created_by,status,plan_code,variant,checkout_url FROM subscription_checkouts WHERE organization_id=? AND environment=? AND status IN ('CREATING','PENDING','REVIEW') ORDER BY created_at DESC,id LIMIT 1",(org,env)).fetchone()
- grant=access.product_grant(c,org);eligible=trial_available(c,actor);raw=row['status'] if row else None
+ grant=access.product_grant(c,org,include_development=False);eligible=trial_available(c,actor);raw=row['status'] if row else None
  if grant:
   phase='cancellation_scheduled' if raw in ('canceled','scheduled_cancel') else 'trial_active' if grant.get('is_trial') else 'paid_active'
  elif pending:phase='checkout_pending'
@@ -108,7 +108,7 @@ def summary(c):
  ctx=current()
  if not membership_role(c,ctx.actor,ctx.organization_id):raise HTTPException(403,'Active workspace membership required.')
  if not access.enabled():return {'enabled':False,'required':False,'active':False,'plans':commercial.catalog()['plans'],'blockers':['Subscription onboarding is not enabled.']}
- org=ctx.organization_id;s=get_settings();active=access.product_grant(c,org)
+ org=ctx.organization_id;s=get_settings();active=access.product_grant(c,org,include_development=False)
  row=c.execute('SELECT p.* FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id AND w.environment=p.environment WHERE p.organization_id=? AND p.environment=?',(org,s.creem_environment)).fetchone()
  provider,reason=route(c,org);billing=profile(c,org)
  history=[dict(r) for r in c.execute('SELECT provider,environment,payment_id,amount_minor,currency,status,period_start,period_end,receipt_url,recorded_at FROM subscription_payments WHERE organization_id=? AND environment=? ORDER BY recorded_at DESC,payment_id DESC LIMIT 50',(org,s.creem_environment)).fetchall()]

@@ -148,7 +148,8 @@ if __name__ == "__main__":
                 raise SystemExit('Intent Radar recurring dispatch is disabled.')
             with db_session() as c:verify_schema(c)
             from app.intent_radar.schedules import tick
-            asyncio.run(tick())
+            from app.platform.company_discovery_dispatch import recover
+            asyncio.run(recover());asyncio.run(tick())
             raise SystemExit(0)
         if mode=='bluesky-jetstream-poll':
             import json
@@ -216,7 +217,10 @@ if __name__ == "__main__":
     profile_job_id=os.environ.get('LEADENGINE_PROFILE_DISCOVERY_ID','')
     if profile_job_id:
         from app.platform.company_discovery import execute as execute_profile
-        execute_profile(str(uuid.UUID(profile_job_id)))
+        try:execute_profile(str(uuid.UUID(profile_job_id)))
+        finally:
+            from app.platform.company_discovery_dispatch import recover
+            asyncio.run(recover())
         raise SystemExit(0)
     report_id=os.environ.get('LEADENGINE_REPORT_ID','')
     if report_id:

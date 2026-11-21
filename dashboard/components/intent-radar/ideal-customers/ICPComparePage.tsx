@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -62,7 +62,7 @@ export function ICPComparePage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Initialize selected IDs once profiles load
-  useMemo(() => {
+  useEffect(() => {
     if (profiles.length > 0 && selectedIds.length === 0) {
       setSelectedIds(profiles.slice(0, 3).map((p) => p.id));
     }

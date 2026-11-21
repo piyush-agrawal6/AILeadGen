@@ -57,12 +57,7 @@ function statusLabel(status: string, matched: number): { text: string; tone: str
 }
 
 export function DiscoveryRunDetailView({ id }: { id: string }) {
-  let router: any = null;
-  try {
-    router = useRouter();
-  } catch {
-    // ignore
-  }
+  const router=useRouter();
   const access = useRadarCapabilities();
   const mutation = useRadarMutation();
   const query = useRadarRead<DiscoveryRun>(`/discoveries/${id}`);

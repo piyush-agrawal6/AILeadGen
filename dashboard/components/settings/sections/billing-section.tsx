@@ -71,6 +71,7 @@ function resolvePlanStatus(
       (contract?.trial_start != null && contract.period_start === contract.trial_start)
   );
   const rawStatus = (contract?.status || sub?.provider_status || sub?.status || "").toLowerCase();
+  if(sub?.status==='COMPLIMENTARY')return {label:'Development access',tone:'blue',planTitle:sub.entitlement_label||'Complimentary Starter',isActive:false,isTrial:false,isCanceled:false,alertMessage:'Starter development access through '+formatDate(sub.period_end)+'. No recurring charge. Paid checkout remains available.'};
   const isCanceled = Boolean(
     contract?.cancel_confirmed_at ||
       sub?.cancel_confirmed_at ||

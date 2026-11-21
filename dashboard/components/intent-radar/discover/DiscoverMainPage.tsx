@@ -55,12 +55,7 @@ export function DiscoverMainPage({
 }: {
   initialTab?: MainTab;
 }) {
-  let router: any = null;
-  try {
-    router = useRouter();
-  } catch {
-    // ignore in test environments without next router
-  }
+  const router=useRouter();
 
   let urlTab: string | null = null;
   try {

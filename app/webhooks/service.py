@@ -20,6 +20,8 @@ def radar_access(c):
     from app.intent_radar.permissions import context
     from app.billing.access_periods import require_paid_feature
     ctx=context(c);require_paid_feature(c,ctx.organization_id,'api_requests')
+    s=get_settings()
+    if s.app_env=='production' and ctx.organization_id not in {v.strip() for v in s.radar_webhook_workspaces.split(',') if v.strip()}:raise HTTPException(403,'Radar webhook delivery is restricted to approved pilot workspaces.')
 
 def radar_allowed(c):
     try:radar_access(c);return True
