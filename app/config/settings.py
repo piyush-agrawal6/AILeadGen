@@ -284,6 +284,10 @@ class Settings(BaseSettings):
     r2_access_key_id: str = Field(default="", alias="R2_ACCESS_KEY_ID", repr=False)
     r2_secret_access_key: str = Field(default="", alias="R2_SECRET_ACCESS_KEY", repr=False)
     r2_bucket_name: str = Field(default="", alias="R2_BUCKET_NAME")
+    reports_r2_bucket:str=Field('',alias='R2_BUCKET')
+    reports_r2_access_key_id:SecretStr=Field(SecretStr(''),alias='REPORTS_R2_ACCESS_KEY_ID',repr=False,exclude=True)
+    reports_r2_secret_access_key:SecretStr=Field(SecretStr(''),alias='REPORTS_R2_SECRET_ACCESS_KEY',repr=False,exclude=True)
+    reports_r2_new_writes:bool=Field(False,alias='REPORTS_R2_NEW_WRITES')
     r2_region: str = Field(default="auto", alias="R2_REGION")
 
     @property

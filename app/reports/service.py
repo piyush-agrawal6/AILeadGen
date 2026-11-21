@@ -68,6 +68,10 @@ def create_report(conn,business_id,prospect_id,actor,*,pitch_types=None,report_t
         snapshot['sales_review']=plan(snapshot)
         snapshot['content_quality']={'issues':report_issues(snapshot,snapshot['sales_review'])}
     key=f'prospects/{prospect_id}/reports/{timestamp[:10]}/{report_id}.pdf'
+    from app.config.settings import get_settings
+    if get_settings().reports_r2_new_writes:
+        from app.storage import workspace_report_key
+        key=workspace_report_key(organization,report_id)
     conn.execute("INSERT INTO client_reports(id,prospect_id,business_id,created_at,created_by,version,status,object_key,snapshot_json,updated_at,organization_id) VALUES(?,?,?,?,?,?,'QUEUED',?,?,?,?)",(report_id,prospect_id,business_id,timestamp,actor,version,key,json.dumps(snapshot,ensure_ascii=False),timestamp,organization))
     return public_report(conn.execute('SELECT * FROM client_reports WHERE id=?',(report_id,)).fetchone())
 
