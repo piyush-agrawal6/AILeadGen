@@ -80,7 +80,9 @@ def test_postgres_fixed_term_fulfillment_race_and_refund_preserves_history(postg
     c=postgres;s=get_settings();run_migrations(c);actor='payment-owner@example.com';org=str(uuid.uuid4());stamp=now()
     ensure_user(c,actor)
     c.execute("INSERT INTO organizations(id,name,slug,status,created_by_user_id,created_at,updated_at) VALUES(?,?,?,'ACTIVE',?,?,?)",(org,'Payment race','payment-race-'+uuid.uuid4().hex,actor,stamp,stamp))
-    c.execute("INSERT INTO organization_memberships(id,organization_id,user_id,role,status,created_at,updated_at) VALUES(?,?,?,'OWNER','ACTIVE',?,?)",(str(uuid.uuid4()),org,actor,stamp,stamp));c.commit()
+    c.execute("INSERT INTO organization_memberships(id,organization_id,user_id,role,status,created_at,updated_at) VALUES(?,?,?,'OWNER','ACTIVE',?,?)",(str(uuid.uuid4()),org,actor,stamp,stamp))
+    from app.billing.accounts import register
+    register(c,org,actor);c.commit()
     for key,value in {'heysow_access_periods_enabled':True,'fixed_term_billing_enabled':True,'payu_one_time_checkout_enabled':True,'payu_mode':'test','payu_merchant_key':'pg-fixture-key','payu_merchant_salt':SecretStr('pg-fixture-salt'),'payu_charge_currency':'USD','payu_currency_approved':True,'billing_test_workspaces':org,'billing_terms_version':'pg-terms','api_signing_secret':'pg-fixture-signing-secret-at-least-thirty-two-characters','transactional_mail_enabled':True,'resend_api_key':SecretStr('fixture-only'),'resend_from_email':'PlaneByte <accounts@planebyte.com>'}.items():monkeypatch.setattr(s,key,value)
     s.payu_merchant_capabilities_json=json.dumps({'test':{'provider':'payu','hosted_v2_verified':True,'charge_currencies':['USD'],'verification_reference':'SYNTHETIC ONLY','merchant_key_sha256':hashlib.sha256(s.payu_merchant_key.encode()).hexdigest()}})
     @contextmanager
