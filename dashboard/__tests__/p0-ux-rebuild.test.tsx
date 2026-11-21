@@ -12,6 +12,7 @@ import type { UsageData } from '@/components/workspaces/usage';
 import type { IntentSignal } from '@/lib/intent-radar';
 
 const catalog = JSON.parse(readFileSync('../app/billing/commercial_catalog.json', 'utf8'));
+vi.mock('next/navigation',()=>({useRouter:()=>({push:vi.fn(),replace:vi.fn(),back:vi.fn()}),useSearchParams:()=>new URLSearchParams(),usePathname:()=>'/intent-radar/discover'}));
 vi.mock('@/components/workspaces/use-workspace',()=>({useWorkspace:()=>({data:{active_organization_id:'fixture-org'},isPending:false,isError:false})}));
 
 const mocks = vi.hoisted(() => ({

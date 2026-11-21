@@ -168,7 +168,7 @@ def _hydrate_signal_metadata(c, org: str, items: list[dict], actor: str | None =
         if i.get('evidence', {}).get('discovery_id')
     ))
     discovery_titles: dict[str, str] = {}
-    if discovery_ids:
+    if discovery_ids and (getattr(c,'backend',None)!='postgres' or c.execute("SELECT to_regclass(current_schema() || '.intent_discovery_runs_meta') IS NOT NULL").fetchone()[0]):
         dmarks = ','.join('?' for _ in discovery_ids)
         try:
             for r in c.execute(

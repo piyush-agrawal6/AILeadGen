@@ -1,6 +1,6 @@
-FROM asia-south1-docker.pkg.dev/querryside/leadengine/api:growth-20261113-r4
+FROM asia-south1-docker.pkg.dev/querryside/leadengine/api@sha256:d40e4e54263bc9d37a1be2a24bc068453358cb318279dd86b18ddbb80f36cf4f
 ARG SOURCE_REV
 LABEL org.opencontainers.image.revision=$SOURCE_REV
 COPY --chown=10001:10001 app /opt/leadengine/app
 COPY --chown=10001:10001 scripts /opt/leadengine/scripts
-RUN python -c "import jwt, websockets; from app.database.migrations import MIGRATIONS; assert len(MIGRATIONS) == 52"
+RUN python -c "import jwt, websockets, openpyxl, reportlab; from app.database.migrations import MIGRATIONS; from app.database.intent_profile import migrations; assert len(MIGRATIONS) == 54 and migrations()[-1][0] == 1012"
