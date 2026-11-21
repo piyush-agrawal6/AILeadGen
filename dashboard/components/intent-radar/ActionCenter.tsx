@@ -1,0 +1,28 @@
+'use client';
+import {useRef,useState} from 'react';
+import {useSearchParams} from 'next/navigation';
+import Link from 'next/link';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {request} from '@/lib/intelligence';
+import {useRadarRead} from './provider';
+import {useWorkspace} from '@/components/workspaces/use-workspace';
+
+type Entry={id:string;opportunity_id:string;status:string;digest:string;task_status:string|null;outcome:string|null;preview:{title:string;owner:string;description:string;due_at:string;priority:string}};
+export function ActionCenter(){const org=useWorkspace().data?.active_organization_id;return org?<Queue key={org}/>:<p role="status">Select a workspace.</p>}
+function Queue(){
+  const params=useSearchParams(),op=params.get('opportunity');
+  const [filter,setFilter]=useState(''),[page,setPage]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[outcome,setOutcome]=useState(''),[opened,setOpened]=useState('');
+  const list=useRadarRead<{items:Entry[];has_more:boolean}>(`/actions?limit=20&offset=${page*20}${filter?'&status='+filter:''}`);
+  const id=useRef<string|null>(null),running=useRef(false);
+  async function submit(path:string,body:unknown){if(running.current)return;running.current=true;setBusy(true);setError('');try{await request('/intent-radar/actions/'+path,{method:'POST',body:JSON.stringify(body)});await list.refetch();return true}catch(e){setError(e instanceof Error?e.message:'Action could not be saved.');return false}finally{running.current=false;setBusy(false)}}
+  return <main className="mx-auto w-full max-w-5xl space-y-4"><header><h1 className="text-2xl font-semibold">Action Center</h1><p className="text-sm text-muted-foreground">Review actions and track workspace follow-ups.</p></header>
+    {op&&<form key={op} className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-2" onChange={()=>{id.current=null}} onSubmit={async e=>{e.preventDefault();const form=e.currentTarget,f=new FormData(form);id.current??=crypto.randomUUID();const ok=await submit('followups',{opportunity_id:op,request_id:id.current,title:f.get('title'),description:f.get('description'),owner:f.get('owner'),priority:f.get('priority'),due_at:new Date(String(f.get('due'))).toISOString()});if(ok){id.current=null;form.reset();setPage(0);setFilter('')}}}><h2 className="font-semibold sm:col-span-2">Prepare follow-up</h2><label>Title<Input name="title" required maxLength={140}/></label><label>Assignee’s workspace email<Input type="email" name="owner" required/></label><label>Due (your local time)<Input type="datetime-local" name="due" required/></label><label>Priority<select className="control block" name="priority" defaultValue="normal"><option>low</option><option>normal</option><option>high</option></select></label><label className="sm:col-span-2">Details<textarea className="control block w-full" name="description" maxLength={1200}/></label><Button type="submit" disabled={busy}>Prepare for review</Button></form>}
+    {error&&<p role="alert">{error}</p>}
+    <label className="text-sm">Show <select className="control" value={filter} onChange={e=>{setFilter(e.target.value);setPage(0)}}>{[['','All actions'],['NEEDS_REVIEW','Pending approval'],['OPEN','Open follow-ups'],['DONE','Completed follow-ups'],['CANCELED','Canceled']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
+    {list.isLoading?<p role="status">Loading actions…</p>:list.isError?<p role="alert">Actions could not be loaded. <button onClick={()=>void list.refetch()}>Retry</button></p>:!list.data?.items.length?<p className="rounded-lg border p-4 text-sm">No matching actions. Open an <Link className="underline" href="/intent-radar/opportunities">opportunity</Link> to prepare a follow-up.</p>:<ul className="divide-y rounded-lg border bg-card">{list.data.items.map(a=><li key={a.id} className="space-y-2 p-4 text-sm"><div className="flex flex-wrap justify-between gap-2"><strong className="break-words">{a.preview.title}</strong><span>{a.task_status==='OPEN'?'Open follow-up':a.task_status==='DONE'?'Completed follow-up':a.status==='NEEDS_REVIEW'?'Needs review':'Canceled'}</span></div><p className="break-all text-muted-foreground">{a.preview.owner} · {new Date(a.preview.due_at).toLocaleString()} · {a.preview.priority} priority</p><p className="whitespace-pre-wrap break-words">{a.preview.description}</p><Link className="underline" href={'/intent-radar/opportunities/'+a.opportunity_id}>Related opportunity</Link>
+    {a.status==='NEEDS_REVIEW'&&<div className="flex flex-wrap gap-2"><Button disabled={busy} onClick={()=>void submit(a.id+'/approve',{digest:a.digest})}>Approve and create follow-up</Button><Button variant="outline" disabled={busy} onClick={()=>void submit(a.id+'/cancel',{digest:a.digest})}>Cancel</Button></div>}
+    {a.task_status==='OPEN'&&(opened!==a.id?<Button variant="outline" onClick={()=>{setOpened(a.id);setOutcome('')}}>Record outcome</Button>:<form onSubmit={async e=>{e.preventDefault();if(await submit(a.id+'/complete',{note:outcome}))setOpened('')}}><label>User-reported outcome<Input value={outcome} onChange={e=>setOutcome(e.target.value)} required maxLength={500}/></label><Button disabled={busy}>Complete follow-up</Button></form>)}{a.outcome&&<p className="break-words">User-reported outcome: {a.outcome}</p>}</li>)}</ul>}
+    {(page>0||list.data?.has_more)&&<nav aria-label="Action pages"><Button variant="outline" disabled={!page} onClick={()=>setPage(page-1)}>Previous</Button><Button variant="outline" disabled={!list.data?.has_more} onClick={()=>setPage(page+1)}>Next</Button></nav>}
+  </main>;
+}

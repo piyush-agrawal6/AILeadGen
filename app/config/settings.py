@@ -275,6 +275,7 @@ class Settings(BaseSettings):
     max_scan_runtime_minutes: int = Field(default=180, ge=1, le=180, alias="MAX_SCAN_RUNTIME_MINUTES")
     seo_crawl_max_pages: int = Field(default=30, ge=1, le=30, alias="SEO_CRAWL_MAX_PAGES")
     r2_endpoint: str = Field(default="", alias="R2_ENDPOINT")
+    radar_actions_enabled: bool = Field(False,alias='RADAR_ACTIONS_ENABLED')
     r2_access_key_id: str = Field(default="", alias="R2_ACCESS_KEY_ID", repr=False)
     r2_secret_access_key: str = Field(default="", alias="R2_SECRET_ACCESS_KEY", repr=False)
     r2_bucket_name: str = Field(default="", alias="R2_BUCKET_NAME")

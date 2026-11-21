@@ -530,11 +530,11 @@ export function QuickSearchTrigger() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Universal search (⌘K)"
-        className="flex h-9 w-full sm:w-[280px] md:w-[340px] lg:w-[400px] items-center justify-between rounded-xl border border-border bg-muted/40 px-3 text-xs text-muted-foreground hover:border-primary/40 hover:bg-muted/70 hover:text-foreground transition-all cursor-pointer shadow-xs"
+        className="flex h-9 w-9 sm:w-[280px] md:w-[340px] lg:w-[400px] max-w-full items-center justify-center sm:justify-between rounded-xl border border-border bg-muted/40 sm:px-3 text-xs text-muted-foreground hover:border-primary/40 hover:bg-muted/70 hover:text-foreground transition-all cursor-pointer shadow-xs"
       >
         <div className="flex items-center gap-2 min-w-0">
           <Search size={14} className="shrink-0 text-muted-foreground" />
-          <span className="truncate">Search workspace, signals, monitors…</span>
+          <span className="hidden truncate sm:inline">Search workspace, signals, monitors…</span>
         </div>
         <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground shrink-0 shadow-xs">
           ⌘K

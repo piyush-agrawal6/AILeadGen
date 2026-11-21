@@ -15,6 +15,7 @@ const routes = [
   'monitors/new',
   'signals',
   'opportunities',
+  'actions',
   'saved',
   'alerts',
   'integrations',

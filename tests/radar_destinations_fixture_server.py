@@ -7,6 +7,9 @@ from app.integrations import service,sheet_exports
 from app.config.settings import get_settings
 from uuid import uuid4
 
+assert get_settings().app_env=='test'
+get_settings().radar_actions_enabled=True
+
 with db_session(path) as c:
     c.execute('INSERT INTO intent_signals(id,organization_id,source,source_record_id,source_url,title,excerpt,observed_at,retrieved_at,category,score,evidence_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(str(uuid4()),PLANEBYTE_ORGANIZATION_ID,'Hacker News','990011','https://news.ycombinator.com/item?id=990011','Controlled export example','Fixture evidence only.',now(),now(),'Discussion',42,'{}'))
 
