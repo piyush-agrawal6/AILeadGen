@@ -17,7 +17,8 @@ export async function proxy(request: NextRequest) {
   const billingCheckout=pathname==='/billing/checkout';
   const paymentConnect=billingCheckout?' https://api.razorpay.com https://lumberjack.razorpay.com':'';
   const paymentFrame=billingCheckout?' https://api.razorpay.com https://checkout.razorpay.com':'';
-  const csp = ["default-src 'self'", `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`, "style-src 'self' 'unsafe-inline'", "img-src 'self' data: https://lh3.googleusercontent.com", "font-src 'self'", `connect-src 'self'${paymentConnect}${dev ? " ws: http://localhost:*" : ""}`, `frame-src 'self'${paymentFrame}`, "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'"].join("; ");
+  const challenge=process.env.TURNSTILE_ENFORCED==='true'&&['/signup','/forgot-password'].includes(pathname)?' https://challenges.cloudflare.com':'';
+  const csp = ["default-src 'self'", `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`, "style-src 'self' 'unsafe-inline'", "img-src 'self' data: https://lh3.googleusercontent.com", "font-src 'self'", `connect-src 'self'${paymentConnect}${challenge}${dev ? " ws: http://localhost:*" : ""}`, `frame-src 'self'${paymentFrame}${challenge}`, "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'"].join("; ");
   const headers = new Headers(request.headers); headers.set("x-nonce", nonce); headers.set("Content-Security-Policy", csp);
   headers.set('x-heysow-public-page',isPublicPage(pathname)?'1':'0');
   if(!leadEngineEnabled(process.env.LEAD_ENGINE_AVAILABLE)&&isLeadEnginePage(pathname)){

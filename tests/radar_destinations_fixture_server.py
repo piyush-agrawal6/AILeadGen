@@ -7,6 +7,9 @@ from app.integrations import service,sheet_exports
 from app.config.settings import get_settings
 from uuid import uuid4
 
+assert get_settings().app_env=='test'
+get_settings().radar_actions_enabled=True
+
 with db_session(path) as c:
     c.execute('INSERT INTO intent_signals(id,organization_id,source,source_record_id,source_url,title,excerpt,observed_at,retrieved_at,category,score,evidence_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(str(uuid4()),PLANEBYTE_ORGANIZATION_ID,'Hacker News','990011','https://news.ycombinator.com/item?id=990011','Controlled export example','Fixture evidence only.',now(),now(),'Discussion',42,'{}'))
 
@@ -23,7 +26,9 @@ sheets.read_with_token=read
 # The normal worker refuses network in test mode. Inject only its HTTP transport.
 import httpx
 write=sheet_exports.write
-async def write_fixture(token,sid,target,rows,transport=None):
+async def write_fixture(token,sid,target,rows,transport=None,*,verify_read=False):
     assert sid=='controlled-sheet-id' and token=='offline-access'
-    return await write(token,sid,target,rows,httpx.MockTransport(lambda req:httpx.Response(200,json={'updatedCells':sum(map(len,rows))})))
+    def response(req):
+        return httpx.Response(200,json={'values':rows} if req.method=='GET' else {'updatedCells':sum(map(len,rows))})
+    return await write(token,sid,target,rows,httpx.MockTransport(response),verify_read=verify_read)
 sheet_exports.write=write_fixture

@@ -34,9 +34,10 @@ def report_status(report_id:str,request:Request,conn=Depends(get_db,scope='funct
 
 @router.get('/client-reports/{report_id}/download')
 def download(report_id:str,request:Request,view:bool=False,conn=Depends(get_db,scope='function')):
-    from app.storage import artifact_storage
+    from app.storage import artifact_storage,is_workspace_report,workspace_report_key
     row=report_row(conn,report_id,request.state.organization_id)
     if row['status']!='READY':raise HTTPException(409,'The PDF is not ready. Please retry shortly.')
+    if is_workspace_report(row['object_key']) and row['object_key']!=workspace_report_key(request.state.organization_id,report_id):raise HTTPException(404,'Report not found.')
     try:body=artifact_storage().get(row['object_key'])
     except Exception:raise HTTPException(503,'The PDF is temporarily unavailable. Please retry.')
     def chunks():

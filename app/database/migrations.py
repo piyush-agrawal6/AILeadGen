@@ -352,6 +352,8 @@ MIGRATIONS: List[str] = [
     , SOURCE_INTEGRATION_SQL
     , (Path(__file__).with_name('intent_migrations')/'1011_radar_sheet_exports.sql').read_text().split('-- Clean profile identity')[0]
     , (Path(__file__).with_name('intent_migrations')/'1012_subscription_changes.sql').read_text().split('-- Clean profile identity')[0]
+    , (Path(__file__).with_name('intent_migrations')/'1013_radar_actions.sql').read_text().split('-- Clean profile identity')[0]
+    , (Path(__file__).with_name('intent_migrations')/'1014_radar_crm_vault.sql').read_text().split('-- Clean profile identity')[0]
 ]
 
 

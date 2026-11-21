@@ -7,6 +7,7 @@ import {randomUUID} from 'node:crypto';
 import {signIn} from '@/auth';
 import {serverEnv} from '@/lib/server/env';
 import {accountRequest} from '@/lib/server/account-broker';
+import {verifyChallenge} from '@/lib/server/turnstile';
 import {readAccountCookie,saveAccountCookie,verificationCookie} from '@/lib/server/account-cookies';
 import {encodeConsent,invitationCookie} from '@/lib/server/admission';
 export type AccountState={error:string|null;message?:string};
@@ -23,7 +24,8 @@ export async function createAccount(_state:AccountState,form:FormData):Promise<A
  if(form.get('accept_terms')!=='accepted')return {error:'Accept the current Terms of Service to continue.'};
  if(value(form,'password',128)!==value(form,'confirm_password',128))return {error:'The passwords do not match. Enter the same password in both fields.'};
  const email=value(form,'email',254).trim().toLowerCase();if(!isWorkEmail(email))return {error:workEmailMessage};
- const invitation=value(form,'invitation_token',100).trim();
+  const invitation=value(form,'invitation_token',100).trim();
+  if(!await verifyChallenge(form,'signup'))return {error:'Complete a fresh security check and try again.'};
  const result=await accountRequest('signup',email,{email,password:value(form,'password',128),name:value(form,'name',120),company_name:value(form,'company_name',120),terms_version:env.termsVersion,accepted_terms:true,request_id:value(form,'request_id',36)||randomUUID(),...(invitation?{invitation_token:invitation}:{})});
  if(!result.ok||!result.data.challenge_id||!result.data.capability)return failure(result.status);
  await saveAccountCookie(verificationCookie,{email,...result.data,...(invitation?{invitation}:{})});
@@ -49,6 +51,7 @@ export async function resendAccountCode():Promise<AccountState>{
  return {error:null,message:'If your account is eligible, a fresh verification code is on its way. Otherwise, follow the sign-in guidance in your email.'};
 }
 export async function recoverAccount(_state:AccountState,form:FormData):Promise<AccountState>{
+ if(!await verifyChallenge(form,'recovery'))return {error:'Complete a fresh security check and try again.'};
  const email=value(form,'email',254).trim().toLowerCase();const result=await accountRequest('recovery',email,{email,request_id:randomUUID()});
  return result.ok?{error:null,message:'If this account has a PlaneByte password, a reset link will be emailed shortly. For Google-only accounts, use Google Account Recovery.'}:failure(result.status);
 }

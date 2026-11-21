@@ -12,6 +12,24 @@ from app.intent_radar.permissions import context,availability
 
 router=APIRouter(prefix='/intent-radar',tags=['Intent Radar'])
 
+from app.intent_radar import actions as action_center
+
+@router.get('/actions')
+def actions(status:Literal['NEEDS_REVIEW','SUCCEEDED','CANCELED','OPEN','DONE']|None=None,limit:int=Query(25,ge=1,le=100),offset:int=Query(0,ge=0,le=10000),c=Depends(get_db,scope='function')):
+    return action_center.listing(c,status,limit,offset)
+
+@router.post('/actions/followups',status_code=201)
+def prepare_followup(body:action_center.Draft,c=Depends(get_db,scope='function')):
+    return action_center.prepare(c,body)
+
+@router.post('/actions/{key}/complete')
+def complete_followup(key:UUID,body:action_center.Outcome,c=Depends(get_db,scope='function')):
+    return action_center.complete(c,str(key),body)
+
+@router.post('/actions/{key}/{decision}')
+def review_followup(key:UUID,decision:Literal['approve','cancel'],body:action_center.Approval,c=Depends(get_db,scope='function')):
+    return action_center.decide(c,str(key),decision,body)
+
 from app.intent_radar import exports as radar_exports
 from fastapi.responses import Response
 

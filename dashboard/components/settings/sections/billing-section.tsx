@@ -71,7 +71,7 @@ function resolvePlanStatus(
       (contract?.trial_start != null && contract.period_start === contract.trial_start)
   );
   const rawStatus = (contract?.status || sub?.provider_status || sub?.status || "").toLowerCase();
-  if(sub?.status==='COMPLIMENTARY')return {label:'Development access',tone:'blue',planTitle:sub.entitlement_label||'Complimentary Starter',isActive:false,isTrial:false,isCanceled:false,alertMessage:'Starter development access through '+formatDate(sub.period_end)+'. No recurring charge. Paid checkout remains available.'};
+  if(sub?.status==='COMPLIMENTARY')return {label:'Active',tone:'blue',planTitle:'Starter — Development Access',isActive:true,isTrial:false,isCanceled:false};
   const isCanceled = Boolean(
     contract?.cancel_confirmed_at ||
       sub?.cancel_confirmed_at ||
@@ -388,7 +388,8 @@ export function BillingSection({
   const subState = subQuery.data;
   const resolved = resolvePlanStatus(subState, data);
   const contract = subState?.contract;
-  const currentPlanCode = resolved.isActive?(subState?.lifecycle?.effective_plan||contract?.plan_code||data.subscription?.plan_code||null):null;
+  const development = data.subscription?.status==='COMPLIMENTARY';
+  const currentPlanCode = resolved.isActive&&!development?(subState?.lifecycle?.effective_plan||contract?.plan_code||data.subscription?.plan_code||null):null;
   const catalogPlan = data.commercial.catalog.plans.find(
     (p) => p.code.toLowerCase() === (currentPlanCode || "").toLowerCase()
   );
@@ -426,14 +427,14 @@ export function BillingSection({
       dailySearches.remaining > 0
   );
 
-  const periodEnd =
+  const periodEnd = development ? data.subscription?.period_end :
     (resolved.isTrial ? contract?.trial_end ?? data.subscription?.trial_end : null) ??
     contract?.period_end ??
     data.subscription?.period_end ??
     data.native_access?.expires_at ??
     null;
 
-  const nextPaymentText = resolved.isCanceled
+  const nextPaymentText = development ? 'No automatic renewal or charge' : resolved.isCanceled
     ? "None scheduled"
     : contract?.next_charge_at && catalogPlan?.monthly_minor
       ? `${formatMoney(catalogPlan.monthly_minor)} on ${formatDate(contract.next_charge_at)}`
@@ -470,7 +471,7 @@ export function BillingSection({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {contract && subState?.can_manage ? (
+            {contract && !development && subState?.can_manage ? (
               <Button
                 size="sm"
                 disabled={busyAction !== null}
@@ -487,7 +488,7 @@ export function BillingSection({
               onClick={() => onSwitchTab?.("plans")}
               className="h-8 text-xs"
             >
-              {contract ? "Change Plan" : "Choose Plan"}
+              {contract && !development ? "Change Plan" : "Choose Plan"}
             </Button>
           </div>
         </div>
@@ -514,7 +515,7 @@ export function BillingSection({
           </div>
           <div>
             <dt className="text-[11px] text-muted-foreground">
-              {resolved.isCanceled || resolved.isTrial ? "Access until" : "Current period ends"}
+              {development || resolved.isCanceled || resolved.isTrial ? "Access until" : "Current period ends"}
             </dt>
             <dd className="font-semibold text-foreground mt-0.5">{formatDate(periodEnd)}</dd>
           </div>
@@ -525,7 +526,7 @@ export function BillingSection({
         </dl>
 
         {/* Compact Secondary Controls Row */}
-        {contract && subState?.can_manage && (
+        {contract && !development && subState?.can_manage && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3 text-xs">
             <div className="flex flex-wrap items-center gap-1.5">
               {!resolved.isCanceled && resolved.isActive && !confirmCancel && (

@@ -64,7 +64,7 @@ def _access_state(c, organization_id, row, enabled):
     if enabled:
         if grant and grant.get('is_trial'):
             state='CANCELED_REMAINING' if c_status in ('canceled','scheduled_cancel') else 'TRIAL_ACTIVE'
-        elif grant and c_status in ('canceled','scheduled_cancel'):
+        elif grant and grant.get('source_kind')!='COMPLIMENTARY' and c_status in ('canceled','scheduled_cancel'):
             state='CANCELED_REMAINING'
         else:
             state='ACTIVE'
@@ -101,7 +101,7 @@ def availability(c, organization_id):
         LEFT JOIN organization_products p ON p.organization_id=o.id AND p.product='INTENT_RADAR' WHERE o.id=?""",(organization_id,)).fetchone() if organization_id else None
     enabled=_enabled(c,organization_id,row)
     meta=_access_state(c,organization_id,row,enabled)
-    return {'enabled':enabled,'stage':get_settings().intent_radar_stage,'product':'Intent Radar',**meta}
+    return {'enabled':enabled,'actions_enabled':enabled and get_settings().radar_actions_enabled,'stage':get_settings().intent_radar_stage,'product':'Intent Radar',**meta}
 
 def context(c, write=False, manager=False):
     ctx=current()

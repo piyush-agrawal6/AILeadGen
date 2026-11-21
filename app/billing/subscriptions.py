@@ -102,7 +102,7 @@ def lifecycle(c,org,actor):
  version=c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] or 0
  supports_change=version>=(1012 if version>=1000 else 54)
  if row and supports_change:change=pending_change(c,row['id'],env)
- return {'phase':phase,'can_purchase':bool(buy),'can_change':bool(supports_change and grant and raw=='active' and not grant.get('is_trial') and not change),'pending_change':{k:change[k] for k in ('plan_code','status','effective_at')} if change else None,'effective_plan':grant.get('plan_code') if grant else None,'effective_label':grant.get('entitlement_label') if grant else None,'trial_eligible':eligible,'pending_checkout':({'status':pending['status'],'plan_code':pending['plan_code'],'variant':pending['variant'],'resume_url':pending['checkout_url'] if pending['status']=='PENDING' and pending['created_by']==actor and membership_role(c,actor,org)=='OWNER' else None} if pending else None)}
+ return {'phase':phase,'can_purchase':bool(buy),'can_change':bool(supports_change and grant and raw=='active' and not grant.get('is_trial') and not change),'pending_change':{k:change[k] for k in ('plan_code','status','effective_at')} if change else None,'effective_plan':grant.get('plan_code') if grant else None,'effective_label':grant.get('entitlement_label') if grant else None,'trial_eligible':eligible,'pending_checkout':({'id':pending['id'],'status':pending['status'],'plan_code':pending['plan_code'],'variant':pending['variant'],'resume_url':None} if pending else None)}
 
 def summary(c):
  ctx=current()
@@ -282,4 +282,7 @@ def refresh_checkout(c,org):
   c.execute("UPDATE subscription_checkouts SET status='EXPIRED',updated_at=? WHERE id=? AND organization_id=? AND status IN ('PENDING','CREATING','REVIEW')",(now(),row['id'],org));c.commit()
  elif state=='pending' and row['checkout_url'] and metadata.get('planebyte_policy')==access.POLICY:
   url=creem.hosted_url(row['checkout_url']);c.execute("UPDATE subscription_checkouts SET status='PENDING',checkout_url=?,updated_at=? WHERE id=? AND organization_id=? AND status IN ('CREATING','REVIEW')",(url,now(),row['id'],org));c.commit()
+  # A cached pending row is history until its creator checks it with the provider.
+  if row['created_by']==current().actor and ref(value.get('customer'))==row['customer_id'] and row['accepted_at'] and row['terms_version']==get_settings().subscription_terms_version and (row['variant']!='trial' or trial_available(c,current().actor)):
+   return row['id'],url
  # pending/processing remain saved, without entitlement or duplicate checkout.

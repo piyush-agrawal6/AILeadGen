@@ -15,6 +15,7 @@ import {
   UserX,
 } from "lucide-react";
 import type { IntentOpportunity } from "@/lib/intent-radar";
+import {useRadarCapabilities} from '../provider';
 import { ProviderLogo } from "../provider-logo";
 import { Button } from "@/components/ui/button";
 import { PrimaryTabs } from "@/components/ui/tabs";
@@ -54,6 +55,7 @@ export function OpportunityDetail({
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const actions=useRadarCapabilities().data?.actions_enabled;
   const signal = opp.signal;
   const rawExcerpt = signal?.excerpt || signal?.title || "";
 
@@ -118,7 +120,7 @@ export function OpportunityDetail({
         recordId={opp.id}
         onOpenEdit={canWrite ? () => setEditDrawerOpen(true) : undefined}
         primaryAction={
-          signal?.id ? (
+          actions&&canWrite&&signal?.available ? <Link className="control" href={'/intent-radar/actions?opportunity='+opp.id}>Take action</Link> : signal?.id ? (
             <Link
               href={`/intent-radar/signals/${signal.id}`}
               className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground hover:border-primary/50 hover:text-primary transition-colors"

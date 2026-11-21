@@ -30,16 +30,20 @@ def refresh(c=Depends(get_db,scope='function')):
  from app.accounts.security import limited
  if limited(c,'subscription-refresh',ctx.organization_id,6,60):raise HTTPException(429,'Wait before refreshing the provider again.')
  from app.billing.creem import Unavailable,Rejected
- try:service.refresh_checkout(c,ctx.organization_id)
+ try:checked=service.refresh_checkout(c,ctx.organization_id)
  except (Unavailable,Rejected):raise HTTPException(502,'The checkout status could not be confirmed. Your setup remains saved; no access was granted.') from None
  row=c.execute('SELECT p.provider_id,p.environment FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id AND w.environment=p.environment WHERE p.organization_id=? AND p.environment=?',(ctx.organization_id,get_settings().creem_environment)).fetchone()
- if not row:return service.summary(c)
+ def result():
+  data=service.summary(c);pending=(data.get('lifecycle') or {}).get('pending_checkout')
+  if checked and pending and pending['id']==checked[0] and pending['status']=='PENDING' and not data['active']:pending['resume_url']=checked[1]
+  return data
+ if not row:return result()
  c.commit()
  from app.billing.subscription_sync import reconcile_subscription
  from app.billing.creem import Unavailable,Rejected
  try:reconcile_subscription(row['provider_id'],row['environment'])
  except (Unavailable,Rejected):raise HTTPException(502,'The provider status could not be confirmed. No access change is assumed.') from None
- return service.summary(c)
+ return result()
 
 @router.post('/webhooks/creem')
 async def webhook(request:Request):

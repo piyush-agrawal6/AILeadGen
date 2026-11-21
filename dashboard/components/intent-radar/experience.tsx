@@ -12,6 +12,8 @@ import {ResearchLibraryWorkspace} from './saved/ResearchLibraryWorkspace';
 import {RadarSettings} from './settings-experience';
 import {CustomerIntegrationsCatalog} from './integrations/CustomerIntegrationsCatalog';
 import {RadarSheets} from './integrations/RadarSheets';
+import {ActionCenter} from './ActionCenter';
+import {HubSpotConnection} from './integrations/HubSpotConnection';
 import {WebhookSettings} from '../workspaces/webhook-settings';
 import {useWorkspace} from '../workspaces/use-workspace';
 import {useRadarRead} from './provider';
@@ -26,7 +28,9 @@ export function IntentRadarExperience({route}:{route:string}){
  const access=useRadarCapabilities();
  // Static catalog routes — do not need backend radar capabilities
  if(route==='integrations')return <CustomerIntegrationsCatalog/>;
+ if(route==='actions')return access.data?.actions_enabled?<ActionCenter/>:<p role="status">{access.isLoading?'Loading workspace…':'Action Center is unavailable for this workspace.'}</p>;
  if(route==='integrations/sheets')return <RadarSheets/>;
+ if(route==='integrations/hubspot')return <HubSpotConnection/>;
  if(route==='integrations/webhooks')return <RadarHooks/>;
  if(route==='integrations/github/callback')return <GitHubOAuthCallbackView/>;
  if(access.error)return <ErrorState message={access.error.message} retry={()=>void access.refetch()}/>;

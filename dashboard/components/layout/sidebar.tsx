@@ -176,6 +176,7 @@ export function Sidebar({
         { href: '/intent-radar/discover', title: 'Discover', icon: Search },
         { href: '/intent-radar/signals', title: 'Signals', icon: Activity },
         { href: '/intent-radar/opportunities', title: 'Opportunities', icon: Target },
+        ...(products.data?.intent_radar?.actions_enabled?[{href:'/intent-radar/actions',title:'Action Center',icon:ListTodo}]:[]),
         { href: '/intent-radar/monitors', title: 'Monitoring', icon: Radio },
       ],
     },

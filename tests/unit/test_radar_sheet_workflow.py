@@ -1,4 +1,4 @@
-import asyncio,uuid
+import asyncio,uuid,json
 from unittest.mock import AsyncMock
 from urllib.parse import urlsplit,parse_qs
 import httpx,pytest
@@ -11,6 +11,12 @@ from app.platform.context import workspace_scope
 from test_customer_integrations import workspace,OWNER,TOKENS
 from test_intent_radar import example
 
+def test_write_receipt_without_matching_cells_is_uncertain():
+    def response(req):
+        return httpx.Response(200,json={'updatedCells':1} if req.method=='PUT' else {'values':[['different']]})
+    result=asyncio.run(sheet_exports.write('offline','controlled-sheet-id',"'Demo'!A1:A1",[['expected']],httpx.MockTransport(response),verify_read=True))
+    assert result==(200,False)
+
 def test_review_write_once_and_reject_changed_evidence(workspace,monkeypatch):
     c,org,other,path=workspace;monkeypatch.setattr(get_settings(),'intent_radar_stage','Beta')
     c.execute("UPDATE organization_onboarding SET status='COMPLETED' WHERE organization_id=?",(org,));c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id=? AND product='INTENT_RADAR'",(org,));c.commit()
@@ -22,9 +28,13 @@ def test_review_write_once_and_reject_changed_evidence(workspace,monkeypatch):
         body=radar_sheets.Draft(selection=Selection(dataset='signals',ids=[key]),spreadsheet='disposable-test-sheet',sheet='Reviews',request_id=uuid.uuid4());j=radar_sheets.stage(c,conn['id'],body);assert j['row_count']==1 and j['target_range']=="'Reviews'!A1:J2";c.commit()
         sheet_exports.approve(c,j['id'],j['fingerprint'],'OVERWRITE_REVIEWED_RANGE');c.commit();calls=[]
         def receiver(req):
-            calls.append(req);assert req.method=='PUT' and req.url.params['valueInputOption']=='RAW';return httpx.Response(200,json={'updatedCells':20})
+            calls.append(req)
+            if req.method=='GET':
+                assert req.url.path==calls[0].url.path
+                return httpx.Response(200,json={'values':json.loads(calls[0].content)['values']})
+            assert req.method=='PUT' and req.url.params['valueInputOption']=='RAW';return httpx.Response(200,json={'updatedCells':20})
         for _ in range(2):asyncio.run(sheet_exports.execute(j['id'],path,httpx.MockTransport(receiver)))
-        assert len(calls)==1 and sheet_exports.owned(c,j['id'])['status']=='COMPLETED'
+        assert [req.method for req in calls]==['PUT','GET'] and sheet_exports.owned(c,j['id'])['status']=='COMPLETED'
         pending=radar_sheets.stage(c,conn['id'],body.model_copy(update={'request_id':uuid.uuid4()}));c.execute("UPDATE intent_signals SET title='Changed' WHERE id=?",(key,));c.commit()
         with pytest.raises(HTTPException,match='Evidence changed'):sheet_exports.approve(c,pending['id'],pending['fingerprint'],'OVERWRITE_REVIEWED_RANGE')
     with workspace_scope(c,OWNER,other):

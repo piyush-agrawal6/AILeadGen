@@ -54,7 +54,7 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
   const usageData = usageQuery.data;
   const sub = usageData?.subscription;
   const isTrial = Boolean(sub?.is_trial || usageData?.access?.is_trial);
-  const entitlementLabel = sub?.entitlement_label || usageData?.access?.kind || 'No active subscription';
+  const entitlementLabel = sub?.status==='COMPLIMENTARY' ? 'Starter — Development' : sub?.entitlement_label || usageData?.access?.kind || 'No active subscription';
 
   // Calculate trial / subscription period
   const endTimestamp = (isTrial?sub?.trial_end:sub?.period_end) || 0;
@@ -157,7 +157,7 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
           ) : (
             <Sparkles size={13} className="text-primary shrink-0" />
           )}
-          <span className="truncate">{entitlementLabel}</span>
+          <span className="min-w-0 break-words">{entitlementLabel}</span>
         </div>
 
         {isTrial && isExpired && (
