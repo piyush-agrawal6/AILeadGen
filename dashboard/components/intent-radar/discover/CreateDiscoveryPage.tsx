@@ -50,34 +50,14 @@ import { useRadarCapabilities, useRadarMutation, useRadarRead } from "../provide
 import { SourceConfigDrawer } from "./SourceConfigDrawer";
 import { DISCOVERY_PRELOAD_KEY } from "./DiscoveryCopilotPanel";
 
-interface CopilotProposal {
-  id: string;
-  type: "add_keywords" | "remove_keywords" | "set_sources" | "set_categories" | "set_relevance" | "set_timeframe" | "set_objective";
-  title: string;
-  description: string;
-  patch: Partial<IntentSearch>;
-}
-
-interface CopilotResponse {
-  reply: string;
-  mode?: string;
-  quota_exhausted?: boolean;
-  warnings?: string[];
-  strategy?: (SearchStrategy & Partial<Pick<IntentSearch,'keywords'|'sources'|'categories'|'min_relevance'>> & {date_range?:string}) | null;
-  proposals?: CopilotProposal[];
-  context_summary?: {
-    workspace_name?: string;
-    target_icp?: string | null;
-    primary_sources?: string[];
-  };
-}
-
+interface DraftReply { schema_version:1; draft:{name:string;configuration:IntentSearch;strategy?:SearchStrategy}; mode:string; fallback_reason?:string; }
 interface ChatMessage {
   id: string;
   role: "assistant" | "user";
   content: string;
   timestamp: string;
   proposedChanges?: {
+    setup?:IntentSearch; name?:string; base?:string;
     objective?: string;
     keywordsToAdd?: string[];
     keywordsToRemove?: string[];
@@ -124,6 +104,9 @@ export function CreateDiscoveryPage() {
 
   const access = useRadarCapabilities();
   const mutation = useRadarMutation();
+  const feedQuery=useRadarRead<{items:{id:string;family:SourceId;enabled:boolean}[]}>('/sources/configurations');
+  const attempt=useRef<{payload:string;id:string}|null>(null);
+  const sending=useRef(false);
   const canWrite = Boolean(access.data?.can_write);
 
   // ICPs Query
@@ -159,7 +142,7 @@ export function CreateDiscoveryPage() {
   const [formHistory, setFormHistory] = useState<{
     name: string;
     objective: string;
-    config: IntentSearch;
+    config: IntentSearch; icp:string;
   }[]>([]);
 
   // 3. AI Assistant State
@@ -225,7 +208,7 @@ export function CreateDiscoveryPage() {
   // Ensure default sources if empty
   useEffect(() => {
     if (!config.sources || config.sources.length === 0) {
-      const available = access.data?.sources.map((s) => s.id) as SourceId[] | undefined;
+      const available = access.data?.sources.filter(s=>['Available','Connected'].includes(s.state)).map(s=>s.id||'hacker_news');
       const defaults: SourceId[] = available && available.length > 0 ? [available[0]] : ["hacker_news"];
       setConfig((prev) => ({ ...prev, sources: defaults }));
     }
@@ -245,7 +228,7 @@ export function CreateDiscoveryPage() {
       {
         name,
         objective,
-        config: JSON.parse(JSON.stringify(config)),
+        config: JSON.parse(JSON.stringify(config)),icp:selectedIcpId,
       },
     ]);
   };
@@ -256,7 +239,7 @@ export function CreateDiscoveryPage() {
     setFormHistory((prev) => prev.slice(0, -1));
     setName(last.name);
     setObjective(last.objective);
-    setConfig(last.config);
+    setConfig(last.config);setSelectedIcpId(last.icp);
     toast.info("Undid last AI changes.");
   };
 
@@ -270,7 +253,7 @@ export function CreateDiscoveryPage() {
     if (raw.length === 0) return;
     pushHistory();
     const current = config[field] || [];
-    const next = Array.from(new Set([...current, ...raw])).slice(0, 30);
+    const next = Array.from(new Set([...current, ...raw])).slice(0, 12);
     setConfig({ ...config, [field]: next });
     clearInput();
   };
@@ -287,7 +270,7 @@ export function CreateDiscoveryPage() {
     const next = current.includes(sourceId)
       ? current.filter((s) => s !== sourceId)
       : [...current, sourceId];
-    setConfig({ ...config, sources: next });
+    setConfig({ ...config, sources: next, feed_ids:(config.feed_ids||[]).filter(id=>!(feedQuery.data?.items||[]).some(f=>f.id===id&&!next.includes(f.family))) });
   };
 
   const toggleCategory = (category: IntentCategory) => {
@@ -316,79 +299,12 @@ export function CreateDiscoveryPage() {
     setAssistantLoading(true);
 
     try {
-      // Call Copilot API
-      const res = (await mutation.mutateAsync({
-        path: "/discover/copilot",
-        body: {
-          message: prompt,
-          draft: config.keywords.length > 0 ? config : null,
-          original_prompt: objective || prompt,
-          icp_id: selectedIcpId || null,
-          history: messages.slice(-4).map((m) => ({ role: m.role, content: m.content })),
-        },
-      })) as CopilotResponse;
-
-      // Extract changes for diff proposal
-      let proposedChanges: ChatMessage["proposedChanges"] | undefined;
-      const firstProposal = res.proposals?.[0];
-      if (firstProposal && firstProposal.patch) {
-        proposedChanges = {
-          objective: res.strategy?.objective,
-          keywordsToAdd: firstProposal.patch.keywords,
-          sourcesToEnable: firstProposal.patch.sources,
-          categories: firstProposal.patch.categories,
-          minRelevance: firstProposal.patch.min_relevance || undefined,
-          dateRange: firstProposal.patch.from_date ? `${firstProposal.patch.from_date} to ${firstProposal.patch.to_date || 'now'}` : undefined,
-        };
-      } else if (res.strategy) {
-        proposedChanges = {
-          objective: res.strategy.objective,
-          keywordsToAdd: res.strategy.keywords,
-          sourcesToEnable: res.strategy.sources,
-          categories: res.strategy.categories,
-          minRelevance: res.strategy.min_relevance,
-          dateRange: res.strategy.date_range,
-        };
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: res.quota_exhausted
-            ? (res.reply || "Daily AI assistant limit reached for today. You can continue configuring your discovery search keywords, sources, and filters manually below.")
-            : (res.reply || "I've analyzed your objective and proposed criteria updates."),
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          proposedChanges,
-        },
-      ]);
-    } catch (err) {
-      // Graceful fallback: extract sensible keywords directly from prompt
-      const words = prompt
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, "")
-        .split(/\s+/)
-        .filter((w) => w.length > 3 && !["want", "find", "looking", "about", "with", "from", "that", "this"].includes(w));
-      const extractedKeywords = Array.from(new Set(words)).slice(0, 5);
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content:
-            "I've configured keywords based on your prompt. Review the proposed criteria below and click Apply to update your form.",
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          proposedChanges: {
-            objective: prompt,
-            keywordsToAdd: extractedKeywords.length > 0 ? extractedKeywords : [prompt.slice(0, 40)],
-            sourcesToEnable: config.sources && config.sources.length > 0 ? config.sources : ["hacker_news", "github"],
-            categories: ["Problem / pain point", "Product comparison"],
-            minRelevance: 50,
-          },
-        },
-      ]);
+      const res=await mutation.mutateAsync({path:'/draft',body:{prompt,previous:config.keywords.length?config:null,icp_id:selectedIcpId||null}}) as DraftReply;
+      if(res.schema_version!==1||!res.draft?.configuration?.keywords?.length||!res.draft.configuration.sources?.length)throw Error('No usable search setup was returned.');
+      const setup=res.draft.configuration;
+      setMessages(prev=>[...prev,{id:crypto.randomUUID(),role:'assistant',content:res.fallback_reason || 'Review the proposed setup before applying it.',timestamp:new Date().toLocaleTimeString(),proposedChanges:{objective:res.draft.strategy?.objective||prompt,name:res.draft.name,setup,base:JSON.stringify([config,objective,name,selectedIcpId]),keywordsToAdd:setup.keywords,sourcesToEnable:setup.sources,categories:setup.categories}}]);
+    } catch(err){
+      setAssistantInput(prompt);setErrorNotice(err instanceof Error?err.message:'Could not generate a setup. Retry or continue manually.');
     } finally {
       setAssistantLoading(false);
     }
@@ -396,31 +312,8 @@ export function CreateDiscoveryPage() {
 
   // Apply AI Proposed Changes
   const handleApplyProposal = (msgId: string, changes: NonNullable<ChatMessage["proposedChanges"]>) => {
-    pushHistory();
-
-    if (changes.objective && !objective) {
-      setObjective(changes.objective);
-    }
-    if (!name && changes.objective) {
-      setName(changes.objective.slice(0, 60));
-    }
-
-    const nextConfig = { ...config };
-    if (changes.keywordsToAdd && changes.keywordsToAdd.length > 0) {
-      nextConfig.keywords = Array.from(new Set([...nextConfig.keywords, ...changes.keywordsToAdd])).slice(0, 30);
-    }
-    if (changes.sourcesToEnable && changes.sourcesToEnable.length > 0) {
-      nextConfig.sources = Array.from(new Set([...(nextConfig.sources || []), ...changes.sourcesToEnable]));
-    }
-    if (changes.categories && changes.categories.length > 0) {
-      nextConfig.categories = Array.from(new Set([...nextConfig.categories, ...changes.categories]));
-    }
-    if (typeof changes.minRelevance === "number") {
-      nextConfig.min_relevance = changes.minRelevance;
-    }
-
-    setConfig(nextConfig);
-
+    if(!changes.setup || changes.base!==JSON.stringify([config,objective,name,selectedIcpId])){setErrorNotice('Your draft changed. Generate a new proposal before applying.');return;}
+    pushHistory();setName(changes.name||name);setObjective(changes.objective||objective);setSelectedIcpId(changes.setup.icp_id||selectedIcpId);setConfig({...config,...changes.setup});
     setMessages((prev) =>
       prev.map((m) => (m.id === msgId ? { ...m, applied: true } : m))
     );
@@ -432,15 +325,18 @@ export function CreateDiscoveryPage() {
     const hasName = Boolean(name.trim());
     const hasKeywords = (config.keywords || []).length > 0;
     const hasSources = (config.sources || []).length > 0;
-    const isValid = hasKeywords && hasSources;
+
 
     const issues: string[] = [];
     if (!hasKeywords) issues.push("Add at least one keyword");
     if (!hasSources) issues.push("Select at least one research source");
-    if (!hasName) issues.push("Enter a discovery name");
+    if(config.semantic&&!config.offerings.trim())issues.push('Enter a relevant offering or select keyword matching.');
+    for(const id of config.sources||[]){const source=access.data?.sources.find(s=>(s.id||'hacker_news')===id);if(!source||!['Available','Connected'].includes(source.state)){issues.push((source?.name||id)+': unavailable or not configured.');continue;}
+      if(['atom','discourse','rss'].includes(id)&&!(feedQuery.data?.items||[]).some(f=>f.enabled&&f.family===id&&config.feed_ids?.includes(f.id)))issues.push('Choose an approved feed for '+source.name+'.');}
+    const isValid=issues.length===0;
 
     return { isValid, issues, hasKeywords, hasSources, hasName };
-  }, [name, config.keywords, config.sources]);
+  }, [name,config,access.data,feedQuery.data]);
 
   // Execute Discovery Run
   const handleRunDiscovery = async () => {
@@ -463,6 +359,8 @@ export function CreateDiscoveryPage() {
       return;
     }
 
+    if(!validation.isValid){setErrorNotice(validation.issues.join(" "));return;}
+    if(sending.current)return;
     const finalName = name.trim() || `Discovery: ${config.keywords.slice(0, 3).join(", ")}`;
 
     // Date range validation: Ensure YYYY-MM-DD format (no time strings)
@@ -486,23 +384,16 @@ export function CreateDiscoveryPage() {
     // Determine canonical search mode: 'ai' | 'advanced' | 'monitor' | 'rerun'
     const searchMode: "ai" | "advanced" = messages.length > 1 ? "ai" : "advanced";
 
-    setRunning(true);
+    sending.current=true;setRunning(true);
     setErrorNotice(null);
 
     try {
+      const configuration={...config,from_date:fromDate,to_date:toDate,result_limit:clampedLimit,icp_id:selectedIcpId||null};
+      const check=await mutation.mutateAsync({path:'/discover/preflight',body:configuration}) as {executable:boolean;issue?:string};
+      if(!check.executable)throw Error(check.issue||'Search setup could not be verified.');
+      const payload=JSON.stringify([configuration,finalName,objective]);if(attempt.current?.payload!==payload)attempt.current={payload,id:crypto.randomUUID()};
       const res = (await mutation.mutateAsync({
-        path: "/discover",
-        body: {
-          title: finalName,
-          original_prompt: objective || finalName,
-          configuration: {
-            ...config,
-            from_date: fromDate,
-            to_date: toDate,
-            result_limit: clampedLimit,
-            icp_id: selectedIcpId || null,
-          },
-          request_id: crypto.randomUUID(),
+        path: "/discover",body:{title:finalName,original_prompt:objective||finalName,configuration,request_id:attempt.current.id,
           search_mode: searchMode,
         },
       })) as IntentJob;
@@ -514,7 +405,7 @@ export function CreateDiscoveryPage() {
       const msg = err instanceof Error ? err.message : "Failed to execute discovery run.";
       setErrorNotice(msg);
       toast.error(msg);
-      setRunning(false);
+      sending.current=false;setRunning(false);
     }
   };
 
@@ -550,13 +441,7 @@ export function CreateDiscoveryPage() {
   };
 
   const selectedIcpName = icps.find((i) => i.id === selectedIcpId)?.name;
-  const availableSources = access.data?.sources || [
-    { id: "hacker_news", name: "Hacker News", configured: true },
-    { id: "github", name: "GitHub", configured: true },
-    { id: "stack_exchange", name: "Stack Exchange", configured: true },
-    { id: "bluesky", name: "Bluesky", configured: true },
-    { id: "rss", name: "RSS Feeds", configured: true },
-  ];
+  const availableSources=access.data?.sources||[];
 
   return (
     <div className="ir-page w-full min-w-0 space-y-6">
@@ -595,35 +480,6 @@ export function CreateDiscoveryPage() {
             </Button>
           )}
 
-          <Link
-            href="/intent-radar/discover"
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            Cancel
-          </Link>
-
-          <Button
-            size="sm"
-            onClick={() => {
-              setSaveSearchName(name || (config.keywords.length ? `Search: ${config.keywords[0]}` : "New Search"));
-              setSaveModalOpen(true);
-            }}
-            variant="outline"
-            className="h-8 text-xs gap-1.5 cursor-pointer"
-            disabled={!config.keywords.length}
-          >
-            Save Search
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() => void handleRunDiscovery()}
-            disabled={!canWrite || running}
-            className="h-8 text-xs gap-1.5 font-semibold cursor-pointer"
-          >
-            {running ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            <span>Run Discovery</span>
-          </Button>
         </div>
       </header>
 
@@ -648,7 +504,7 @@ export function CreateDiscoveryPage() {
       )}
 
       {/* Mobile/Tablet Assistant Floating Trigger */}
-      <div className="lg:hidden flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs">
+      <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs">
         <div className="flex items-center gap-2 text-foreground font-medium">
           <Bot size={16} className="text-primary" />
           <span>Need help crafting your search?</span>
@@ -665,11 +521,11 @@ export function CreateDiscoveryPage() {
       </div>
 
       {/* 2. Main Two-Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
+      <div className="mx-auto max-w-5xl space-y-4">
         {/* LEFT COLUMN: Permanent AI Discovery Assistant */}
         <aside
-          className={`lg:sticky lg:top-20 lg:h-[calc(100vh-6rem)] lg:flex lg:flex-col rounded-2xl border border-border bg-card p-4 shadow-xs overflow-hidden ${
-            mobileAssistantOpen ? "fixed inset-4 z-50 flex flex-col bg-card shadow-2xl" : "hidden"
+          className={`rounded-2xl border border-border bg-card p-4 shadow-xs overflow-hidden ${
+            mobileAssistantOpen ? "flex flex-col max-h-[70vh]" : "hidden"
           }`}
         >
           {/* Assistant Header */}
@@ -701,7 +557,7 @@ export function CreateDiscoveryPage() {
           {/* Active Context Badges */}
           <div className="flex items-center gap-1.5 py-2 border-b border-border/60 text-[10px] text-muted-foreground overflow-x-auto">
             <span className="rounded-md border border-border bg-muted/30 px-1.5 py-0.5 font-medium text-foreground shrink-0">
-              Workspace: PlaneByte
+              Discovery setup
             </span>
             <span className="rounded-md border border-border bg-muted/30 px-1.5 py-0.5 font-medium text-foreground shrink-0">
               ICP: {selectedIcpName || "All ICPs"}
@@ -725,7 +581,7 @@ export function CreateDiscoveryPage() {
                 <div
                   className={`rounded-xl p-3 leading-relaxed ${
                     m.role === "user"
-                      ? "bg-primary text-primary-foreground font-medium"
+                      ? "bg-slate-800 text-white font-medium dark:bg-slate-200 dark:text-slate-950"
                       : "border border-border/80 bg-muted/20 text-foreground"
                   }`}
                 >
@@ -871,30 +727,7 @@ export function CreateDiscoveryPage() {
         {/* RIGHT COLUMN: Main Discovery Configuration (5 Logical Sections) */}
         <main className="space-y-6 min-w-0">
           {/* Section Navigation Tabs */}
-          <nav
-            aria-label="Configuration sections"
-            className="flex items-center gap-1 border-b border-border overflow-x-auto pb-1 text-xs"
-          >
-            {[
-              { id: "section-objective", label: "1. Objective" },
-              { id: "section-keywords", label: "2. Keywords & Criteria" },
-              { id: "section-sources", label: "3. Sources" },
-              { id: "section-filters", label: "4. Advanced Filters" },
-              { id: "section-review", label: "5. Review & Run" },
-            ].map((sec) => (
-              <button
-                key={sec.id}
-                type="button"
-                onClick={() => {
-                  const el = document.getElementById(sec.id);
-                  if (typeof el?.scrollIntoView === "function") el.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors font-medium whitespace-nowrap cursor-pointer"
-              >
-                {sec.label}
-              </button>
-            ))}
-          </nav>
+
 
           {/* SECTION 1: Discovery Objective */}
           <section
@@ -1197,13 +1030,14 @@ export function CreateDiscoveryPage() {
                         checked={isSelected}
                         onChange={() => toggleSource(sId)}
                         className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                        disabled={!isSelected&&!(["Available","Connected"].includes(source.state))}
                         aria-label={`Toggle ${source.name}`}
                       />
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/60">
-                      <span>{('state' in source && source.state==='configured') || ('configured' in source && source.configured===true) ? 'Ready to search' : 'Standard public API'}</span>
-                      {["reddit", "github", "stack_exchange", "rss", "hacker_news"].includes(sId) && (
+                      <span>{!['Available','Connected'].includes(source.state)?source.state:['atom','rss','discourse'].includes(sId)?(feedQuery.data?.items||[]).some(f=>f.enabled&&f.family===sId&&config.feed_ids?.includes(f.id))?'Feed selected':'Select approved feed':'Available'}</span>
+                      {true && (
                         <button
                           type="button"
                           onClick={() => setConfiguringSource(sId)}
@@ -1222,19 +1056,7 @@ export function CreateDiscoveryPage() {
           </section>
 
           {/* SECTION 4: Advanced Filters */}
-          <section
-            id="section-filters"
-            className="rounded-2xl border border-border bg-card p-5 space-y-4 shadow-xs scroll-mt-20"
-          >
-            <div className="border-b border-border/80 pb-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                Section 4
-              </span>
-              <h2 className="text-base font-semibold text-foreground">Advanced Filters</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Fine-tune result depth, relevance scoring thresholds, and semantic matching.
-              </p>
-            </div>
+          <details id="section-filters" className="rounded-lg border bg-card p-4 space-y-3"><summary className="cursor-pointer font-semibold">Advanced Filters</summary>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Date Range: Ensure YYYY-MM-DD date-only string */}
@@ -1349,8 +1171,8 @@ export function CreateDiscoveryPage() {
                 className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
               />
             </div>
-          </section>
-
+            {config.semantic&&<label className="block text-sm">Relevant offerings<textarea maxLength={500} value={config.offerings} onChange={e=>setConfig({...config,offerings:e.target.value})} className="control block w-full"/></label>}
+          </details>
           {/* SECTION 5: Review & Run */}
           <section
             id="section-review"
@@ -1414,7 +1236,7 @@ export function CreateDiscoveryPage() {
                 {validation.isValid ? (
                   <>
                     <CheckCircle2 size={15} className="shrink-0" />
-                    <span>All pre-flight checks passed. Ready to execute discovery.</span>
+                    <span>Criteria entered. Workspace and source permissions will be checked before starting.</span>
                   </>
                 ) : (
                   <>
@@ -1432,7 +1254,7 @@ export function CreateDiscoveryPage() {
           </section>
 
           {/* Contained Sticky Action Bar (Strictly inside <main>) */}
-          <div className="sticky bottom-0 z-20 mt-6 rounded-xl border border-border bg-card/95 backdrop-blur-xs p-3.5 shadow-lg flex flex-wrap items-center justify-between gap-3">
+          <div className="mt-6 rounded-xl border border-border bg-card/95 backdrop-blur-xs p-3.5 shadow-lg flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs">
               <span
                 className={`h-2 w-2 rounded-full ${
@@ -1440,7 +1262,7 @@ export function CreateDiscoveryPage() {
                 }`}
               />
               <span className="text-muted-foreground font-medium">
-                {validation.isValid ? "Ready to run" : "Setup incomplete"} ·{" "}
+                {validation.isValid ? "Ready for preflight" : "Setup incomplete"} ·{" "}
                 <strong className="text-foreground">{config.keywords.length} keywords</strong>,{" "}
                 <strong className="text-foreground">{(config.sources || []).length} sources</strong>
               </span>

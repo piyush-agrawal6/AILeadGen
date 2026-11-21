@@ -171,6 +171,9 @@ def _build_run_record(row: dict, job_row: dict | None, source_runs: list[dict]) 
     if requests_count is None:
         requests_count = sum(int(sr.get('requests') or 0) for sr in source_runs)
 
+    if not source_runs or any(sr.get('scanned') is None for sr in source_runs):scanned_count=None
+    if not source_runs or any(sr.get('requests') is None for sr in source_runs):requests_count=None
+
     raw_status = (job_row['job_status'] if job_row else None) or 'QUEUED'
     if raw_status in ('COMPLETED', 'COMPLETE'):
         if any(sr.get('status') not in ('COMPLETE', 'NO_RESULTS') for sr in source_runs):
@@ -217,7 +220,8 @@ def _build_run_record(row: dict, job_row: dict | None, source_runs: list[dict]) 
             {
                 'provider': sr['provider'],
                 'status': sr['status'],
-                'scanned': sr.get('scanned') or 0,
+                'scanned': sr.get('scanned'),
+                'duration_ms': sr.get('duration_ms'),
                 'requests': sr.get('requests'),
                 'coverage': sr.get('coverage') or '',
                 'signals_count': len(sr.get('signals') or []),

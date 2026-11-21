@@ -335,8 +335,8 @@ export function DiscoveryRunDetailView({ id }: { id: string }) {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={mutation.isPending}
-                onClick={() => void rerunAsNew()}
+                disabled={mutation.isPending||!run.job_id||run.attempts>=3||!['PARTIAL','FAILED'].includes(run.status)}
+                onClick={async()=>{try{await mutation.mutateAsync({path:`/jobs/${run.job_id}/retry`});await query.refetch();setNotice('Recovery requested for the original discovery.')}catch(e){setErr(e instanceof Error?e.message:'Retry unavailable.')}}
                 className="h-7 text-xs bg-background/80 hover:bg-background border-amber-500/40 text-amber-900 dark:text-amber-100 font-semibold cursor-pointer"
               >
                 Retry Failed Sources
@@ -361,17 +361,17 @@ export function DiscoveryRunDetailView({ id }: { id: string }) {
         </div>
         <div className="rounded-xl border border-border bg-card px-4 py-3">
           <dt className="text-[11px] font-medium text-muted-foreground">Items Scanned</dt>
-          <dd className="mt-0.5 text-lg font-semibold text-foreground tabular-nums">{run.scanned_count}</dd>
+          <dd className="mt-0.5 text-lg font-semibold text-foreground tabular-nums">{run.scanned_count??'Unknown'}</dd>
         </div>
         <div className="rounded-xl border border-border bg-card px-4 py-3">
           <dt className="text-[11px] font-medium text-muted-foreground">Sources Checked</dt>
           <dd className="mt-0.5 text-lg font-semibold text-foreground tabular-nums">
-            {run.source_runs.length || run.sources.length}
+            {run.source_runs.length}
           </dd>
         </div>
         <div className="rounded-xl border border-border bg-card px-4 py-3">
           <dt className="text-[11px] font-medium text-muted-foreground">API Requests</dt>
-          <dd className="mt-0.5 text-lg font-semibold text-foreground tabular-nums">{run.requests_count}</dd>
+          <dd className="mt-0.5 text-lg font-semibold text-foreground tabular-nums">{run.requests_count??'Unknown'}</dd>
         </div>
       </dl>
 
@@ -379,7 +379,7 @@ export function DiscoveryRunDetailView({ id }: { id: string }) {
       <InlineResultsPanel
         discoveryId={run.id}
         signals={run.signals || []}
-        scannedCount={run.scanned_count}
+        scannedCount={run.scanned_count??undefined}
         matchedCount={run.matched_count}
         coverage={run.coverage}
         partialWarning={partialWarning}
@@ -513,7 +513,7 @@ export function DiscoveryRunDetailView({ id }: { id: string }) {
                           {sr.status}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-right tabular-nums text-muted-foreground">{sr.scanned}</td>
+                      <td className="py-2.5 px-3 text-right tabular-nums text-muted-foreground">{sr.scanned??'Unknown'}</td>
                       <td className="py-2.5 px-3 text-right tabular-nums font-semibold text-foreground">{sr.signals_count}</td>
                       <td className="py-2.5 pl-3 pr-5 text-muted-foreground">{sr.coverage || "—"}</td>
                     </tr>

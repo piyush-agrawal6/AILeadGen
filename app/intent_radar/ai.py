@@ -109,10 +109,10 @@ async def draft(c, body):
             'approved_company': profile,
             'previous': body.previous.model_dump(mode='json') if body.previous else None,
             'icp': icp,
-            'available_sources': available_catalog,
+            # The UI catalog includes long help/policy documents. The model needs
+            # executable IDs and supported options, not presentation metadata.
+            'available_sources': [{k:x[k] for k in ('id','name','discovery_modes','filters','configured_sites','ai_analytics_authorized') if k in x} for x in available_catalog],
             'approved_feeds': [{'id': x['id'], 'name': x['name'], 'family': x['family']} for x in configurations(c) if x['enabled']],
-            'recent_runs': context_data.get('recent_runs', [])[:3],
-            'review_preferences': context_data.get('review_preferences', []),
         }
 
         async def produce():
@@ -178,6 +178,7 @@ async def draft(c, body):
         reason = f'{reason} {source_warning}'.strip() if reason else source_warning
     context(c, True, True)
     return {
+        'schema_version': 1,
         'draft': result.model_dump(mode='json'),
         'mode': mode,
         'cached': hit,

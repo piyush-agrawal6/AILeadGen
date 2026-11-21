@@ -756,7 +756,7 @@ export function DiscoveryHistoryView({
                           {run.matched_count} {run.matched_count === 1 ? "match" : "matches"}
                         </div>
                         <div className="text-[10px] text-muted-foreground">
-                          {run.scanned_count} scanned
+                          {run.scanned_count==null?'Scan count unknown':`${run.scanned_count} scanned`}
                         </div>
                       </td>
 

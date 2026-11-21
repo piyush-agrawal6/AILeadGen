@@ -113,6 +113,13 @@ def _prepare_tick():
     # Persisted job ownership is resolved again; no implicit workspace context.
     with db_session() as c:
         eligible,args=eligible_sql('j','created_by')
+        # An expired last attempt cannot be claimed again. Close it without provider work,
+        # including jobs whose creator no longer has permission. Keep committed results.
+        stamp=now()
+        for stale in c.execute("SELECT id,organization_id FROM intelligence_jobs WHERE kind='INTENT_DISCOVER' AND status='RUNNING' AND attempts>=3 AND lease_until<? ORDER BY lease_until LIMIT 10",(stamp,)).fetchall():
+            if c.execute("UPDATE intelligence_jobs SET status='PARTIAL',error_code='FINAL_LEASE_EXPIRED',lease_owner=NULL,lease_until=NULL,completed_at=?,updated_at=? WHERE id=? AND organization_id=? AND status='RUNNING' AND attempts>=3 AND lease_until<?",(stamp,stamp,stale['id'],stale['organization_id'],stamp)).rowcount:
+                c.execute("UPDATE intelligence_job_items SET status='FAILED',error_code='FINAL_LEASE_EXPIRED',updated_at=? WHERE job_id=? AND status IN ('QUEUED','PROCESSING')",(stamp,stale['id']))
+        c.commit()
         kinds="('INTENT_DISCOVER','GROWTH_ANALYZE')" if get_settings().intent_radar_growth_enabled else "('INTENT_DISCOVER')"
         stalled=c.execute("SELECT j.id,j.kind,j.organization_id,j.created_by FROM intelligence_jobs j WHERE j.kind IN "+kinds+" AND j.attempts<3 AND (j.status='QUEUED' OR (j.status='RUNNING' AND j.lease_until<?)) AND "+eligible+" ORDER BY j.created_at,j.id LIMIT 2",[now(),*args]).fetchall()
         for row in stalled:

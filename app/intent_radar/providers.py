@@ -1,4 +1,5 @@
 """Official public HN API only. Recent Ask HN coverage; no historical search claim."""
+import httpx
 import asyncio, hashlib, re, time, warnings
 from datetime import datetime, timezone
 from html import unescape
@@ -39,7 +40,9 @@ def normalize(item, *, content_kind='story', parent_id=None, depth=0):
 class HackerNews:
     async def fetch(self, offset=0, permit=None, feeds=None, comments=False,limit=20,seen_ids=None,use_updates=False):
         if not 0 <= offset <= 180: raise ValueError('Recent source offset is outside the supported window.')
-        deadline = time.monotonic() + 27
+        started = time.monotonic()
+        deadline = started + 24  # leave headroom inside the worker's 28s source deadline
+        interrupted = False
         requests = 0
         max_requests = 22 if (feeds is None or feeds == ['ask']) and not comments and not use_updates else 30
         async with SafeAsyncClient(timeout=4, max_bytes=200000, redirect_limit=0, headers={'User-Agent': 'PlaneByte-IntentRadar/2.0 (public API evidence; no posting)'}) as client:
@@ -49,7 +52,7 @@ class HackerNews:
                     if permit and not permit():raise RuntimeError('The job is no longer authorized or active.')
                     if requests >= max_requests or time.monotonic() >= deadline: raise TimeoutError('Source request budget exhausted.')
                     requests += 1
-                    response = await client.get(BASE + path, allowed_host=HOST)
+                    response = await asyncio.wait_for(client.get(BASE + path, allowed_host=HOST), timeout=max(.001, deadline-time.monotonic()))
                     if response.status_code in (429, 503) and attempt == 0:
                         # Never evade limits; one bounded retry, otherwise record source failure.
                         delay=response.headers.get('Retry-After','1')
@@ -85,35 +88,39 @@ class HackerNews:
             if seen_ids and not comments and not updated_items:ids=[key for key in ids if str(key) not in set(seen_ids)]
             window=max(1,min(20,limit));processed=[]
             results = []
-            for key in ids[offset:offset + window]:
-                if requests>=max_requests and feeds==['ask'] and not comments:raise TimeoutError('Source request budget exhausted.')
-                if time.monotonic() >= deadline or requests>=max_requests: break
-                native=await get(f'item/{key}.json')
-                processed.append(str(key))
-                kind='job' if isinstance(native,dict) and native.get('type')=='job' else 'story'
-                if isinstance(native,dict) and native.get('type')=='job' and 'jobs' in feeds:native={**native,'type':'story'}
-                item = normalize(native, content_kind=kind)
-                if item: results.append(item)
-                if comments and isinstance(native,dict) and item and not item.get('removed'):
-                    for child in (native.get('kids') or [])[:2]:
-                        if requests>=max_requests or time.monotonic()>=deadline:break
-                        reply=await get(f'item/{child}.json')
-                        if isinstance(reply,dict) and reply.get('type')=='comment' and reply.get('parent')==key:
-                            normalized=normalize({**reply,'type':'story','title':item['title']}, content_kind='comment', parent_id=key, depth=1)
-                            if normalized:
-                                normalized['discussion_id']=str(key)
-                                results.append(normalized)
-                            # Bounded depth-2 nested reply traversal within shared request cap
-                            for grandchild in (reply.get('kids') or [])[:1]:
-                                if requests>=max_requests or time.monotonic()>=deadline:break
-                                nested=await get(f'item/{grandchild}.json')
-                                if isinstance(nested,dict) and nested.get('type')=='comment' and nested.get('parent')==child:
-                                    nested_norm=normalize({**nested,'type':'story','title':item['title']}, content_kind='comment', parent_id=child, depth=2)
-                                    if nested_norm:
-                                        nested_norm['discussion_id']=str(key)
-                                        results.append(nested_norm)
-                await asyncio.sleep(.05)
-        return {'items': results, 'requests': requests, 'scanned': len(results), 'next_offset': offset + window if len(ids) > offset + window else None,'cursor':{'seen_ids':list(dict.fromkeys([*processed,*(seen_ids or [])]))[:600],'updates_checked':bool(updated_items)},
+            try:
+                for key in ids[offset:offset + window]:
+                    if requests>=max_requests and feeds==['ask'] and not comments:raise TimeoutError('Source request budget exhausted.')
+                    if time.monotonic() >= deadline or requests>=max_requests:raise TimeoutError('Source window ended.')
+                    native=await get(f'item/{key}.json')
+                    processed.append(str(key))
+                    kind='job' if isinstance(native,dict) and native.get('type')=='job' else 'story'
+                    if isinstance(native,dict) and native.get('type')=='job' and 'jobs' in feeds:native={**native,'type':'story'}
+                    item = normalize(native, content_kind=kind)
+                    if item: results.append(item)
+                    if comments and isinstance(native,dict) and item and not item.get('removed'):
+                        for child in (native.get('kids') or [])[:2]:
+                            if requests>=max_requests or time.monotonic()>=deadline:break
+                            reply=await get(f'item/{child}.json')
+                            if isinstance(reply,dict) and reply.get('type')=='comment' and reply.get('parent')==key:
+                                normalized=normalize({**reply,'type':'story','title':item['title']}, content_kind='comment', parent_id=key, depth=1)
+                                if normalized:
+                                    normalized['discussion_id']=str(key)
+                                    results.append(normalized)
+                                # Bounded depth-2 nested reply traversal within shared request cap
+                                for grandchild in (reply.get('kids') or [])[:1]:
+                                    if requests>=max_requests or time.monotonic()>=deadline:break
+                                    nested=await get(f'item/{grandchild}.json')
+                                    if isinstance(nested,dict) and nested.get('type')=='comment' and nested.get('parent')==child:
+                                        nested_norm=normalize({**nested,'type':'story','title':item['title']}, content_kind='comment', parent_id=child, depth=2)
+                                        if nested_norm:
+                                            nested_norm['discussion_id']=str(key)
+                                            results.append(nested_norm)
+                    await asyncio.sleep(.05)
+            except (TimeoutError, httpx.TimeoutException):
+                if not processed:raise TimeoutError('HN source did not complete an item before the deadline.') from None
+                interrupted=True
+        return {'items': results, 'requests': requests, 'scanned': len(processed)+sum(x.get('discussion_id') is not None for x in results), 'next_offset': offset + len(processed) if len(ids) > offset + len(processed) else None, **({'status':'PARTIAL','errors':['HN_WINDOW_INCOMPLETE']} if interrupted else {}),'cursor':{'seen_ids':list(dict.fromkeys([*processed,*(seen_ids or [])]))[:600],'updates_checked':bool(updated_items)},
                 'coverage': 'Bounded official Firebase v0 '+', '.join(feeds)+' feeds; maximum '+str(max_requests)+' requests, bounded nested comments (depth<=2) when requested, incremental updates support. No historical/full-text search.'}
 
 def catalog(c=None):

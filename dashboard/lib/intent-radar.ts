@@ -182,7 +182,8 @@ export interface CopilotResponse {
 export interface DiscoverySourceRun {
   provider: string;
   status: string;
-  scanned: number;
+  scanned: number|null;
+  duration_ms?:number|null;
   requests: number | null;
   coverage: string;
   signals_count: number;
@@ -206,8 +207,8 @@ export interface DiscoveryRun {
   sources: SourceId[];
   keywords: string[];
   matched_count: number;
-  scanned_count: number;
-  requests_count: number;
+  scanned_count: number|null;
+  requests_count: number|null;
   coverage: string;
   configuration: IntentSearch;
   strategy: SearchStrategy | null;

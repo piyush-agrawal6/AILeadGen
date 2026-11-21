@@ -12,7 +12,7 @@ vi.mock('@/lib/intelligence',()=>({request:vi.fn().mockResolvedValue({enabled:fa
 vi.mock('@/components/intent-radar/provider',()=>({useRadarMutation:()=>({mutateAsync:state.mutate,mutate:state.mutate,isPending:false}),useRadarRefresh:()=>vi.fn(),useRadarRead:(path:string)=>({data:path==='/settings'?{default_view:'table',topics:[],min_relevance:0,alerts_enabled:true,alert_threshold:85,revision:0}:path.startsWith('/signals/')?state.signal:undefined}),useRadarCapabilities:()=>({data:{can_write:true,can_manage:true,sources:[{name:'Hacker News',state:'Available',coverage:'Recent Ask HN stories only',documentation:'https://github.com/HackerNews/API'}]}})}));
 beforeEach(()=>state.mutate.mockReset());
 it('an explicitly labeled manual draft stays inert until the user confirms a public search',async()=>{
- state.mutate.mockResolvedValueOnce({id:'fixture-job',discovery_id:'disc-1'});
+ state.mutate.mockResolvedValueOnce({executable:true}).mockResolvedValueOnce({id:'fixture-job',discovery_id:'disc-1'});
  render(<DiscoverExperience route="discover/new"/>);
  const kwInput = screen.getByPlaceholderText(/Type keyword/i);
  fireEvent.change(kwInput, { target: { value: 'website' } });

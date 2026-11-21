@@ -300,8 +300,8 @@ describe('P0 Discover Advanced Search, AI Fallback & Signal Cards', () => {
   it('shows unified discovery builder with Advanced Filters and AI assistant', async () => {
     render(wrap(<DiscoverExperience route="discover/new" />));
     expect(screen.getByRole('heading', { name: 'Create Discovery' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Advanced Filters' })).toBeVisible();
-    expect(screen.getByText('Discovery Assistant')).toBeVisible();
+    expect(screen.getByText('Advanced Filters',{exact:true})).toBeVisible();
+    expect(screen.getByRole('button',{name:/Open AI Assistant/i})).toBeVisible();
   });
 
   it('distinguishes Usage Limit Reached from empty results when /discover returns 429', async () => {

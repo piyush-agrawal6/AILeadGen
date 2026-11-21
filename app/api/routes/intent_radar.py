@@ -47,6 +47,17 @@ def capabilities(c=Depends(get_db,scope='function')):
 def source_configs(c=Depends(get_db,scope='function')):
     from app.intent_radar.connectors import configurations
     return {'items':configurations(c)}
+
+@router.post('/discover/preflight')
+def discovery_preflight(body:models.Search,c=Depends(get_db,scope='function')):
+    """Same workspace and configuration checks as creation; never reserve or dispatch."""
+    from app.intent_radar import connectors
+    context(c,True)
+    try:connectors.validate(c,body)
+    except HTTPException as exc:
+        if exc.status_code not in (403,404,409,422):raise
+        return {'executable':False,'issue':exc.detail}
+    return {'executable':True,'issue':None}
 @router.get('/sources/policies')
 def source_policies(c=Depends(get_db,scope='function')):
     context(c)

@@ -214,7 +214,7 @@ def validate(c,q):
     for key in q.sources:
         if key not in states:raise HTTPException(409,f'{key}: Source is not enabled in this workspace.')
         if states[key]['state'] not in ('Available','Connected'):raise HTTPException(409,states[key]['name']+': '+states[key]['state'])
-    if q.semantic and not q.offerings:raise HTTPException(422,'Semantic candidate collection requires explicit relevant offerings.')
+    if q.semantic and not q.offerings.strip():raise HTTPException(422,'Describe the offering to match, or turn off semantic matching to run a keyword search.')
     if q.semantic:context(c,True,True)
     if q.tags and not any(s in q.sources for s in ('stack_exchange','bluesky')):raise HTTPException(422,'Tag search is supported only by Stack Exchange or Bluesky.')
     if q.hn_comments and 'hacker_news' not in q.sources:raise HTTPException(422,'HN comment collection requires Hacker News selection.')

@@ -1,4 +1,4 @@
-import asyncio, hashlib, json, uuid
+import asyncio, hashlib, json, uuid, time
 from datetime import datetime, timezone
 from fastapi import HTTPException
 from app.config.settings import get_settings
@@ -77,9 +77,11 @@ async def process(c,key,job_id=None,lease_owner=None):
             monitor=service.get(c,'monitors',discovery['monitor_id'])
             if monitor['status']!='Active' or monitor['revision']!=discovery['monitor_revision']:raise ExecutionInvalidated('Monitor configuration or status changed.')
         if job_id:
-            from app.intelligence.jobs import owned,valid_lease
-            row=owned(c,job_id)
-            if not valid_lease(row,lease_owner):raise ExecutionInvalidated('Worker lease is no longer active.')
+            # context(c,True) above already rechecked Radar membership and entitlement.
+            # Do not recursively run both permissions stacks again for every item request.
+            from app.intelligence.jobs import valid_lease
+            row=c.execute("SELECT status,lease_owner,lease_until FROM intelligence_jobs WHERE id=? AND organization_id=? AND kind='INTENT_DISCOVER'",(job_id,ctx.organization_id)).fetchone()
+            if not row or not valid_lease(row,lease_owner):raise ExecutionInvalidated('Worker lease is no longer active.')
         for key,value in discovery['source_configs'].items():
             row=c.execute('SELECT configuration_json FROM intent_source_configs WHERE organization_id=? AND id=?',(ctx.organization_id,key)).fetchone()
             if not row or row[0]!=value:raise ExecutionInvalidated('Approved source configuration changed during collection.')
@@ -97,6 +99,7 @@ async def process(c,key,job_id=None,lease_owner=None):
         if discovery['monitor_id']:
             cursor=c.execute('SELECT cursor_json FROM intent_collection_cursors WHERE organization_id=? AND monitor_id=? AND provider=? AND configuration_hash=?',(ctx.organization_id,discovery['monitor_id'],provider,configuration_hash)).fetchone()
             if cursor:query._collection_cursor=json.loads(cursor[0])
+        source_started=time.monotonic()
         provider_start=len(found)
         provider_new_start=new
         provider_new_ids=set(new_ids)
@@ -165,6 +168,7 @@ async def process(c,key,job_id=None,lease_owner=None):
             found=found[:provider_start];new=provider_new_start;new_ids=provider_new_ids
             c.rollback();permit();fence(c,discovery,job_id,lease_owner)
             report={'provider':provider,'status':getattr(exc,'code','TIMED_OUT' if isinstance(exc,TimeoutError) else 'UNAVAILABLE'),'retry_at':getattr(exc,'retry_at',None),'requests':None,'request_count_known':False,'coverage':'Hacker News could not complete this check. No reliable result count is available for this source.' if provider=='hacker_news' and isinstance(exc,TimeoutError) else 'Source did not complete; coverage and exact request count unavailable.'}
+            report['duration_ms']=round((time.monotonic()-source_started)*1000)
             if len(query.sources)==1:
                 c.execute('INSERT INTO intent_source_runs(organization_id,discovery_id,provider,status,result_json,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(organization_id,discovery_id,provider) DO UPDATE SET status=excluded.status,result_json=excluded.result_json,updated_at=excluded.updated_at',(ctx.organization_id,key,provider,report['status'],json.dumps(report),now()))
                 c.commit();raise
@@ -198,6 +202,7 @@ async def process(c,key,job_id=None,lease_owner=None):
                         dedupe_key='source-failure:' + key + ':' + provider,
                         recipient_email=discovery['created_by'],
                     )
+        report['duration_ms']=round((time.monotonic()-source_started)*1000)
         report['new_signal_ids']=[signal_id for signal_id in report.get('signals',[]) if signal_id in new_ids]
         if query.semantic:report['candidates_retained']=len(report.get('signals',[]));report['matched']=0
         reports.append(report)

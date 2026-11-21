@@ -219,7 +219,8 @@ async def _execute(key,db_path):
                 result=await asyncio.wait_for(run_item(c,row,dict(item),configuration),timeout=125 if row['kind'] in ('INTENT_DISCOVER','GROWTH_ANALYZE') else 35)
                 active=owned(c,key)
                 if not valid_lease(active,lease):c.rollback();return
-                c.execute('UPDATE intelligence_job_items SET status=?,result_json=?,error_code=NULL,updated_at=? WHERE id=?',(result.pop('status'),json.dumps(result),now(),item['id']));c.commit()
+                state=result.pop('status');partial=row['kind']=='INTENT_DISCOVER' and result.get('coverage_status')=='PARTIAL'
+                c.execute('UPDATE intelligence_job_items SET status=?,result_json=?,error_code=?,updated_at=? WHERE id=?',('FAILED' if partial else state,json.dumps(result),'SOURCE_CHECK_INCOMPLETE' if partial else None,now(),item['id']));c.commit()
             except Exception as exc:
                 c.rollback();active=owned(c,key)
                 if not valid_lease(active,lease):return

@@ -253,9 +253,10 @@ describe("PlaneByte Intent Radar — Discover Module Redesign", () => {
     expect(screen.getByRole("heading", { name: "Create Discovery" })).toBeVisible();
 
     // LEFT: Permanent AI Assistant
+    fireEvent.click(screen.getByRole("button",{name:/Open AI Assistant/i}));
     expect(screen.getByText("Discovery Assistant")).toBeVisible();
     expect(screen.getByText(/Describe what you want to find. I'll help configure your search./i)).toBeVisible();
-    expect(screen.getByText("Workspace: PlaneByte")).toBeVisible();
+    expect(screen.getByText("Discovery setup")).toBeVisible();
     expect(screen.getByPlaceholderText(/Find teams looking for Postgres alternatives/i)).toBeVisible();
 
     // Quick starter chips
@@ -265,7 +266,7 @@ describe("PlaneByte Intent Radar — Discover Module Redesign", () => {
     expect(screen.getByRole("heading", { name: "Discovery Objective" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Keywords & Search Criteria" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "Research Sources" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Advanced Filters" })).toBeVisible();
+    expect(screen.getByText("Advanced Filters",{exact:true})).toBeVisible();
     expect(screen.getByRole("heading", { name: "Review & Run" })).toBeVisible();
 
     // Contained action bar
@@ -276,21 +277,12 @@ describe("PlaneByte Intent Radar — Discover Module Redesign", () => {
 
   it("Phase 3: AI Assistant receives prompt, generates proposed criteria diff, and applies to form", async () => {
     mocks.mutateAsync.mockResolvedValueOnce({
-      reply: "I've analyzed your objective and proposed criteria updates.",
-      mode: "strategy",
-      strategy: {
-        objective: "Find founders looking for CRM alternatives",
-        keywords: ["CRM alternative", "replace HubSpot", "affordable CRM"],
-        sources: ["hacker_news", "github"],
-        categories: ["Tool / service evaluation", "Problem / pain point"],
-        min_relevance: 65,
-        date_range: "30d",
-      },
-      proposals: [],
+      schema_version:1,mode:'AI-assisted draft',draft:{name:'CRM alternatives',configuration:{keywords:['CRM alternative','replace HubSpot','affordable CRM'],topics:[],phrases:[],excluded:[],offerings:'',categories:['Tool / service evaluation'],sources:['hacker_news','github'],result_limit:20,min_relevance:65},strategy:{objective:'Find founders looking for CRM alternatives'}},
     });
 
     render(wrap(<DiscoverExperience route="discover/new" />));
 
+    fireEvent.click(screen.getByRole("button",{name:/Open AI Assistant/i}));
     const assistantInput = screen.getByPlaceholderText(/Find teams looking for Postgres alternatives/i);
     fireEvent.change(assistantInput, { target: { value: "Find founders seeking CRM alternatives" } });
     fireEvent.submit(assistantInput.closest("form")!);
@@ -317,7 +309,7 @@ describe("PlaneByte Intent Radar — Discover Module Redesign", () => {
   });
 
   it("Phase 4: Run Discovery validates inputs, calls /discover, and routes to run details", async () => {
-    mocks.mutateAsync.mockResolvedValueOnce({
+    mocks.mutateAsync.mockResolvedValueOnce({executable:true}).mockResolvedValueOnce({
       id: "job-new-123",
       discovery_id: "run-new-123",
       status: "QUEUED",

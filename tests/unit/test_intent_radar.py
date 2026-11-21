@@ -371,6 +371,8 @@ def test_official_source_retry_cooldown_request_budget_and_cancellation(monkeypa
     if mode=='retry':
         result=asyncio.run(providers.HackerNews().fetch(permit=permit))
         assert result['requests']==22 and result['scanned']==20
+    elif mode=='budget':
+        result=asyncio.run(providers.HackerNews().fetch(permit=permit));assert len(requests)==22 and result['scanned']==10 and result['status']=='PARTIAL' and result['next_offset']==10 and result['errors']
     else:
-        with pytest.raises({'cooldown':RuntimeError,'budget':TimeoutError,'cancel':discovery.ExecutionInvalidated}[mode]):asyncio.run(providers.HackerNews().fetch(permit=permit))
+        with pytest.raises({'cooldown':RuntimeError,'cancel':discovery.ExecutionInvalidated}[mode]):asyncio.run(providers.HackerNews().fetch(permit=permit))
         assert len(requests)=={'cooldown':1,'budget':22,'cancel':1}[mode]
