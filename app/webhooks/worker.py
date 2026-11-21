@@ -29,6 +29,8 @@ async def deliver(c,endpoint_id,delivery_id,transport=None):
     try:
         latest=service.owned(c,endpoint_id)
         if latest['status']!='ACTIVE' or latest['revision']!=row['revision']:raise HTTPException(409,'Endpoint changed before delivery.')
+        if delivery['topic'] not in json.loads(latest['topics_json']):raise HTTPException(409,'Topic no longer subscribed.')
+        if delivery['topic'] in service.RADAR_TOPICS and not service.radar_delivery_ok(c,json.loads(delivery['body_json'])):raise HTTPException(409,'Event is no longer eligible for delivery.')
         secret=service.open_envelope(row['signing_secret_ciphertext'],**service.envelope(row))['secret']
         body=delivery['body_json'].encode();timestamp=str(int(time.time()))
         headers={'Content-Type':'application/json','User-Agent':'PlaneByte-Webhooks/1.0',

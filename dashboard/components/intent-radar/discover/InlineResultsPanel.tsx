@@ -9,7 +9,6 @@ import {
   Briefcase,
   ChevronLeft,
   ChevronRight,
-  Download,
   ExternalLink,
   Eye,
   FileSearch,
@@ -19,6 +18,7 @@ import {
 } from "lucide-react";
 import type { IntentSignal } from "@/lib/intent-radar";
 import { Button } from "@/components/ui/button";
+import {RadarExport} from '../RadarExport';
 import { EmptyState, ErrorState } from "../ui";
 import { ProviderLogo } from "../provider-logo";
 import { useRadarCapabilities, useRadarMutation, useRadarRead } from "../provider";
@@ -568,39 +568,6 @@ export function InlineResultsPanel({
     }
   }
 
-  function exportData(format: "csv" | "json") {
-    const target = filteredSignals || signals || [];
-    if (!target.length) return;
-
-    if (format === "json") {
-      const blob = new Blob([JSON.stringify(target, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `discover-results-${discoveryId || "run"}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } else {
-      const headers = ["Title", "Source", "Relevance", "Category", "Observed At", "Source URL"];
-      const rows = target.map((s) => [
-        JSON.stringify(s.title || ""),
-        JSON.stringify(s.source || ""),
-        s.score,
-        JSON.stringify(s.category || ""),
-        JSON.stringify(s.observed_at || ""),
-        JSON.stringify(s.source_url || ""),
-      ]);
-      const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `discover-results-${discoveryId || "run"}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-    setActionFeedback(`Exported ${target.length} results as ${format.toUpperCase()}.`);
-  }
 
   const totalCount = matchedCount ?? (signals ? signals.length : signalIds?.length || 0);
   const buyerCount = signals
@@ -639,27 +606,8 @@ export function InlineResultsPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {(filteredSignals?.length || 0) > 0 && (
-              <div className="inline-flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => exportData("csv")}
-                  className="h-8 gap-1 text-xs"
-                  title="Export results as CSV"
-                >
-                  <Download size={12} /> CSV
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => exportData("json")}
-                  className="h-8 gap-1 text-xs"
-                  title="Export results as JSON"
-                >
-                  JSON
-                </Button>
-              </div>
+            {(filteredSignals?.length || (!signals && signalIds?.length) || 0) > 0 && (
+              <RadarExport selection={{dataset:discoveryId?'discovery':'signals',parent:discoveryId||undefined,ids:filteredSignals?.map(s=>s.id)??signalIds}}/>
             )}
             {onRefineWithCopilot && (
               <Button size="sm" variant="outline" onClick={onRefineWithCopilot} className="h-8 gap-1.5 text-xs">

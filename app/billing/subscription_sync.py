@@ -33,7 +33,13 @@ def reconcile_subscription(provider_id,mode,*,checkout_hint=None):
   else:
    matches=c.execute("SELECT * FROM subscription_checkouts WHERE organization_id=? AND provider='creem' AND environment=? AND customer_id=? AND product_id=? AND status IN ('CREATING','PENDING','COMPLETED','REVIEW') ORDER BY created_at DESC LIMIT 2",(org,mode,customer_id,product_id)).fetchall()
    checkout=matches[0] if len(matches)==1 else None
-  if not checkout or checkout['environment']!=mode or checkout['customer_id']!=customer_id or checkout['product_id']!=product_id or not checkout['provider_checkout_id']:raise creem.Rejected('No matching server-created checkout exists.')
+  change=None
+  from app.billing.plan_changes import schema_ready
+  if prior and checkout and schema_ready(c):
+   latest=c.execute('SELECT * FROM subscription_plan_changes WHERE organization_id=? AND environment=? AND contract_id=? ORDER BY created_at DESC,id DESC LIMIT 1',(org,mode,prior['id'])).fetchone()
+   if latest and latest['product_id']==product_id:change=latest
+   elif latest and latest['status'] in ('CONFIRMED','APPLIED'):raise creem.Rejected('Provider product differs from the last authorized change.')
+  if not checkout or checkout['environment']!=mode or checkout['customer_id']!=customer_id or (checkout['product_id']!=product_id and not change) or not checkout['provider_checkout_id']:raise creem.Rejected('No matching server-created checkout exists.')
   checkout=dict(checkout);plan=json.loads(prior['plan_json']) if prior else {**commercial.plan(checkout['plan_code']),'version':commercial.catalog()['version']}
   billing=c.execute('SELECT * FROM subscription_billing_profiles WHERE organization_id=?',(org,)).fetchone()
   from app.config.locations import country
@@ -43,13 +49,16 @@ def reconcile_subscription(provider_id,mode,*,checkout_hint=None):
   if customer.get('id')!=customer_id or customer.get('email','').lower()!=checkout['created_by'] or customer.get('external_id')!=org:raise creem.Rejected('Provider customer ownership differs from the verified workspace.')
   if membership_role(c,checkout['created_by'],org)!='OWNER':raise creem.Rejected('Purchasing workspace owner requires review.')
  remote_checkout=creem.object_mode(creem.get_checkout(checkout['provider_checkout_id'],mode=mode),mode)
- if remote_checkout.get('status')!='completed' or remote_checkout.get('request_id')!=checkout['id'] or ref(remote_checkout.get('subscription'))!=provider_id or ref(remote_checkout.get('customer'))!=customer_id or ref(remote_checkout.get('product'))!=product_id:raise creem.Rejected('Checkout completion and subscription mapping are not confirmed.')
- creem.validate_product(creem.get_product(product_id,mode=mode),plan,checkout['variant'],mode)
+ if remote_checkout.get('status')!='completed' or remote_checkout.get('request_id')!=checkout['id'] or ref(remote_checkout.get('subscription'))!=provider_id or ref(remote_checkout.get('customer'))!=customer_id or ref(remote_checkout.get('product'))!=checkout['product_id']:raise creem.Rejected('Checkout completion and subscription mapping are not confirmed.')
+ target_plan={**commercial.plan(change['plan_code']),'version':commercial.catalog()['version']} if change else plan
+ checked=creem.validate_product(creem.get_product(product_id,mode=mode),target_plan,'paid' if change else checkout['variant'],mode)
+ if checked['id']!=product_id:raise creem.Rejected('Provider product identity differs.')
  if sub.get('collection_method')!='charge_automatically':raise creem.Rejected('Provider recurring authorization is not confirmed.')
  state=sub.get('status')
  if state not in ('active','trialing','scheduled_cancel','canceled','expired','paused','past_due','unpaid'):raise creem.Rejected('Unsupported provider subscription state.')
  start=epoch(sub.get('current_period_start_date'));end=epoch(sub.get('current_period_end_date'));updated=epoch(sub.get('updated_at'))
  if end<=start:raise creem.Rejected('Provider billing period is invalid.')
+ if change and start>=change['effective_at']:plan=target_plan
  trial=checkout['variant']=='trial' and state in ('trialing','scheduled_cancel','canceled') and end-start==access.TRIAL_SECONDS
  if state=='trialing' and not trial:raise creem.Rejected('Provider trial is not the approved 72-hour card trial.')
  transaction=None
@@ -68,8 +77,9 @@ def reconcile_subscription(provider_id,mode,*,checkout_hint=None):
   slot=c.execute('SELECT contract_id FROM subscription_workspace_slots WHERE organization_id=? AND environment=?',(org,mode)).fetchone()
   key=prior['id'] if prior else str(uuid.uuid4())
   if slot and slot['contract_id']!=key:
-   other=c.execute('SELECT status,period_end FROM subscription_contracts WHERE organization_id=? AND id=?',(org,slot['contract_id'])).fetchone()
-   if other and other['period_end'] and other['period_end']>int(time.time()) and other['status'] not in ('expired','refunded','disputed','unpaid'):raise creem.Rejected('A different subscription already owns this workspace period.')
+   if prior:return dict(prior)  # A delayed event for a retired contract cannot reclaim the slot.
+   other=c.execute('SELECT p.status,p.period_end,ch.created_at checkout_created FROM subscription_contracts p JOIN subscription_checkouts ch ON ch.organization_id=p.organization_id AND ch.id=p.checkout_id WHERE p.organization_id=? AND p.id=?',(org,slot['contract_id'])).fetchone()
+   if not other or other['status']!='canceled' or not other['period_end'] or other['period_end']>int(time.time()) or checkout['created_at']<other['checkout_created']:raise creem.Rejected('A different subscription owns this workspace period.')
   stamp=now()
   c.execute("INSERT INTO subscription_billing_profiles(organization_id,country,status,verification_source,verification_reference,verified_at,updated_at) VALUES(?,?,'VERIFIED','CREEM_API',?,?,?) ON CONFLICT(organization_id) DO UPDATE SET country=excluded.country,status=excluded.status,verification_source=excluded.verification_source,verification_reference=excluded.verification_reference,verified_at=excluded.verified_at,updated_at=excluded.updated_at",(org,verified_country,customer_id,stamp,stamp))
   cancel=state in ('scheduled_cancel','canceled');evidence={'subscription_id':provider_id,'checkout_id':remote_checkout['id'],'customer_id':customer_id,'product_id':product_id,'provider_status':state,'collection_method':sub['collection_method'],'verified_country':verified_country,'provider_updated_at':updated,'card_verification_basis':'Creem hosted recurring checkout with provider-confirmed trialing state' if trial else 'Independent paid transaction'}
@@ -85,6 +95,9 @@ def reconcile_subscription(provider_id,mode,*,checkout_hint=None):
    if c.execute('SELECT 1 FROM launch_trial_claims WHERE user_id=? OR company_domain=?',(checkout['created_by'],domain)).fetchone():raise creem.Rejected('A previous trial already consumed eligibility.')
    if not used:c.execute('INSERT INTO subscription_trials(id,user_id,company_domain,organization_id,contract_id,policy_version,starts_at,ends_at) VALUES(?,?,?,?,?,?,?,?)',(str(uuid.uuid4()),checkout['created_by'],domain,org,key,access.POLICY,start,end))
   if transaction:
+   if change and transaction['status']=='paid' and start>=change['effective_at']:
+    c.execute('UPDATE subscription_contracts SET plan_code=?,plan_json=? WHERE id=? AND organization_id=?',(change['plan_code'],json.dumps(plan,sort_keys=True),key,org));c.execute("UPDATE subscription_plan_changes SET status='APPLIED' WHERE id=?",(change['id'],))
+   elif change:c.execute("UPDATE subscription_plan_changes SET status='CONFIRMED' WHERE id=? AND status IN ('REQUESTED','REVIEW')",(change['id'],))
    previous=c.execute("SELECT * FROM subscription_payments WHERE provider='creem' AND environment=? AND payment_id=?",(mode,transaction['id'])).fetchone()
    if previous and any(previous[k]!=v for k,v in {'organization_id':org,'contract_id':key,'amount_minor':transaction['amount_paid'],'currency':'USD','period_start':start,'period_end':end}.items()):raise creem.Rejected('Payment identity conflicts with its original attribution.')
    c.execute("INSERT INTO subscription_payments(provider,environment,payment_id,organization_id,contract_id,amount_minor,currency,status,period_start,period_end,evidence_json,recorded_at) VALUES('creem',?,?,?,?,?,'USD',?,?,?,?,?) ON CONFLICT(provider,environment,payment_id) DO UPDATE SET status=excluded.status,evidence_json=excluded.evidence_json",(mode,transaction['id'],org,key,transaction['amount_paid'],transaction['status'],start,end,json.dumps(transaction,sort_keys=True),stamp))

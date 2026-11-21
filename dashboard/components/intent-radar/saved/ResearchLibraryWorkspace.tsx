@@ -1,4 +1,5 @@
 "use client";
+import {RadarExport} from '../RadarExport';
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -319,6 +320,7 @@ export function ResearchLibraryWorkspace() {
 
   return (
     <div className="space-y-5 pb-12 w-full max-w-none">
+      <RadarExport selection={{dataset:'saved',ids:selectedIds.length?selectedIds:items.map(item=>item.signal_id)}} matchingQuery={new URLSearchParams({sort,search,collection:selectedCollection==='All'?'':selectedCollection}).toString()}/>
       {/* 1. Header with Breadcrumbs, Actions, and Top Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>

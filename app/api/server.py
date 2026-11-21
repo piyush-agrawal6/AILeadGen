@@ -167,6 +167,8 @@ def create_app() -> FastAPI:
     app.include_router(company_discovery.router,prefix="/api")
     from app.api.routes import integrations
     app.include_router(integrations.router,prefix="/api")
+    from app.api.routes import radar_sheets
+    app.include_router(radar_sheets.router,prefix='/api')
     from app.api.routes import account_profile
     app.include_router(account_profile.router,prefix="/api")
     from app.api.routes import developer,public_v1

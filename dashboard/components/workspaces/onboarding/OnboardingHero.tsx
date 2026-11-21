@@ -23,7 +23,7 @@ const HERO_COPY: Record<Exclude<StepKey, 'ready'>, { heading: string; subheading
   },
   plan: {
     heading: 'Choose your plan',
-    subheading: 'Start with a 3-day free trial ($0 today) or subscribe directly to enter Intent Radar.'
+    subheading: 'Review the price and renewal terms before continuing to Creem.'
   }
 };
 
@@ -104,7 +104,7 @@ export function OnboardingHero({
             <p>{copy.subheading}</p>
           </div>
 
-          {canEdit && (
+          {canEdit && view!=='plan' && (
             <div className="flex items-center gap-3 flex-shrink-0 pt-1">
               {saveStatus === 'saving' && (
                 <span role="status" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">

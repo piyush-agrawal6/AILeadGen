@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -25,6 +25,7 @@ import Link from "next/link";
 import { FixedTermPayments } from "@/components/workspaces/fixed-term-payments";
 import {
   SubscriptionPayment,
+  useSubscription,subKey,
   type SubscriptionState,
 } from "@/components/workspaces/subscription-payment";
 
@@ -62,7 +63,7 @@ function resolvePlanStatus(
 ): ResolvedStatus {
   const contract = subState?.contract;
   const sub = usage?.subscription;
-  const isActive = Boolean(subState?.active || (usage?.access.intent_radar && sub));
+  const isActive = subState?.enabled ? subState.active : Boolean(usage?.access.intent_radar && sub);
   const isTrial = Boolean(
     contract?.is_trial ??
       sub?.is_trial ??
@@ -86,6 +87,8 @@ function resolvePlanStatus(
     sub?.entitlement_label ||
     (tierName ? (isTrial ? `${tierName} Trial` : tierName) : usage?.access.kind || "No active plan");
 
+  if(subState?.lifecycle?.pending_checkout&&!isActive)return {label:'Payment pending',tone:'amber',planTitle:'Awaiting verification',isActive:false,isTrial:false,isCanceled:false};
+  if(subState?.lifecycle?.phase==='trial_ended')return {label:'Trial ended',tone:'muted',planTitle:'Trial Ended',isActive:false,isTrial:true,isCanceled:true};
   if (!contract && !sub) {
     if (usage?.access.intent_radar) {
       return {
@@ -271,12 +274,7 @@ export function BillingSection({
   const workspace = useWorkspace();
   const orgId = workspace.data?.active_organization_id || "";
   const usageQuery = useUsage();
-  const subQuery = useQuery({
-    queryKey: ["workspace-subscription", orgId],
-    queryFn: ({ signal }) => request<SubscriptionState>("/billing/subscription", { signal }),
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
+  const subQuery=useSubscription(orgId,!!orgId);
 
   const [busyAction, setBusyAction] = useState<"portal" | "cancel" | "refresh" | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -296,7 +294,7 @@ export function BillingSection({
       : null;
 
   useEffect(() => {
-    if (typeof window === "undefined" || returnedHandled.current) return;
+    if (typeof window === "undefined" || returnedHandled.current || !orgId) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("payment") === "returned") {
       returnedHandled.current = true;
@@ -306,7 +304,7 @@ export function BillingSection({
       void runSubscriptionAction("refresh");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [orgId]);
 
   async function runSubscriptionAction(kind: "portal" | "cancel" | "refresh") {
     setBusyAction(kind);
@@ -317,9 +315,10 @@ export function BillingSection({
         const next = await request<SubscriptionState>("/billing/subscription/refresh", {
           method: "POST",
         });
-        client.setQueryData(["workspace-subscription"], next);
+        client.setQueryData(subKey(orgId), next);
         await usageQuery.refetch();
         setActionNotice("Billing status synchronized with Creem.");
+        const dest=sessionStorage.getItem('billing-return:'+orgId);if(next.active&&dest&&/^\/intent-radar(?:\/[a-z0-9-]+)*$/i.test(dest)){sessionStorage.removeItem('billing-return:'+orgId);window.location.assign(dest);}
       } else if (kind === "portal") {
         const res = await request<{ url?: string }>("/billing/subscription/portal", {
           method: "POST",
@@ -349,7 +348,9 @@ export function BillingSection({
     }
   }
 
-  if (usageQuery.isPending) {
+  if(workspace.isError||(!workspace.isPending&&!orgId))return <p role="alert">Select a workspace to view billing. <Button onClick={()=>void workspace.refetch()}>Retry workspaces</Button></p>;
+  if(subQuery.isError)return <p role="alert">Subscription status unavailable. <Button onClick={()=>void subQuery.refetch()}>Retry billing</Button></p>;
+  if (usageQuery.isPending || subQuery.isPending) {
     return (
       <div className="space-y-4" role="status" aria-label="Loading billing and usage">
         <div className="h-32 rounded-2xl border border-border bg-muted/30 animate-pulse" />
@@ -377,6 +378,7 @@ export function BillingSection({
         <Button variant="outline" size="sm" onClick={() => void usageQuery.refetch()}>
           Retry
         </Button>
+        {subQuery.data?.enabled&&<SubscriptionPayment key={orgId} orgId={orgId}/>}
       </div>
     );
   }
@@ -385,7 +387,7 @@ export function BillingSection({
   const subState = subQuery.data;
   const resolved = resolvePlanStatus(subState, data);
   const contract = subState?.contract;
-  const currentPlanCode = contract?.plan_code || data.subscription?.plan_code || null;
+  const currentPlanCode = resolved.isActive?(subState?.lifecycle?.effective_plan||contract?.plan_code||data.subscription?.plan_code||null):null;
   const catalogPlan = data.commercial.catalog.plans.find(
     (p) => p.code.toLowerCase() === (currentPlanCode || "").toLowerCase()
   );
@@ -393,6 +395,8 @@ export function BillingSection({
   if (activeTab === "plans") {
     return (
       <CommercialPlans
+        key={orgId}
+        workspaceId={orgId}
         data={data.commercial}
         selectedPlan={selectedPlanParam}
         currentPlanCode={currentPlanCode}
@@ -616,7 +620,7 @@ export function BillingSection({
       </section>
 
       {/* Only show checkout onboarding panel when no active subscription exists */}
-      {!resolved.isActive && subState?.enabled && <SubscriptionPayment />}
+      {!resolved.isActive && subState?.enabled && <SubscriptionPayment key={orgId} orgId={orgId} />}
 
       {/* Legacy fixed-term records if present */}
       {!!data.commercial.fixed_term?.items.length && (

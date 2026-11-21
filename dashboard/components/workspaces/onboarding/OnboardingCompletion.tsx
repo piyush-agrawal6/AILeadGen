@@ -36,6 +36,7 @@ export function OnboardingCompletion({
       </div>
 
       <div className="p-6 sm:p-8 space-y-6">
+        <nav className="flex flex-wrap justify-center gap-3 text-sm" aria-label="Completed setup actions"><Link className="control" href="/intent-radar">Go to Dashboard</Link><Link className="control" href="/settings?category=billing&tab=overview">Manage Subscription</Link><Link className="control" href="/settings/company">Edit Business Profile</Link></nav>
         <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
             <dt className="text-muted-foreground flex items-center gap-1.5">

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter,usePathname } from "next/navigation";
+import {CustomerIntegrationsCatalog} from './integrations/CustomerIntegrationsCatalog';
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -20,6 +21,7 @@ import { Button } from "@/components/ui/button";
 
 export function WorkspaceAccessScreen({ access }: { access: ProductAccess }) {
   const router = useRouter();
+  const path=usePathname();
   const client = useQueryClient();
   const workspace = useWorkspace();
   const [resuming, setResuming] = useState(false);
@@ -130,7 +132,7 @@ export function WorkspaceAccessScreen({ access }: { access: ProductAccess }) {
   const Icon = copy.icon;
 
   return (
-    <section
+    <><section
       aria-label="Workspace access status"
       className="mx-auto my-8 max-w-xl rounded-2xl border border-border bg-card p-6 sm:p-7 shadow-sm space-y-5"
     >
@@ -162,6 +164,7 @@ export function WorkspaceAccessScreen({ access }: { access: ProductAccess }) {
         ) : (
           <Link
             href={copy.primaryHref || "/settings?category=billing&tab=plans"}
+            onClick={()=>{if(access.organization_id&&/^\/intent-radar(?:\/[a-z0-9-]+)*$/i.test(path))sessionStorage.setItem('billing-return:'+access.organization_id,path);}}
             className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors"
           >
             <span>{copy.primaryLabel}</span>
@@ -182,6 +185,6 @@ export function WorkspaceAccessScreen({ access }: { access: ProductAccess }) {
           Need help?
         </Link>
       </div>
-    </section>
+    </section>{path==='/intent-radar/integrations'&&radar.onboarding_status==='COMPLETED'&&<CustomerIntegrationsCatalog/>}</>
   );
 }

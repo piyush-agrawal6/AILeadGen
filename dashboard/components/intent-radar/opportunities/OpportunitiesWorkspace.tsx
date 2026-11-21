@@ -1,4 +1,5 @@
 "use client";
+import {RadarExport} from '../RadarExport';
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -372,6 +373,7 @@ export function OpportunitiesWorkspace({ id }: { id?: string } = {}) {
 
   return (
     <div className="ir-page w-full min-w-0 space-y-4">
+      <RadarExport selection={{dataset:'opportunities',ids:items.map(item=>item.id)}} matchingQuery={queryString}/>
       {/* Header */}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-4">
         <div>

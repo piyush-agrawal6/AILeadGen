@@ -126,7 +126,7 @@ def enrich_memberships(c,rows):
     import json
     from app.intent_radar.permissions import availability
     from app.billing import contracts
-    from app.billing.subscription_access import product_grant,enabled as sub_enabled,entitlement_label
+    from app.billing.subscription_access import product_grant,enabled as sub_enabled,entitlement_label,has_contract
     from app.config.settings import get_settings
     enriched=[]
     settings_obj=get_settings()
@@ -199,10 +199,10 @@ def enrich_memberships(c,rows):
         has_profile=bool((prof_row and (prof_row['short_description'] or prof_row['industry'])) or svc_count>0 or (onb_row and (onb_row['profile_completed'] and onb_row['services_completed'])))
         has_icp=bool((setup_row and setup_row['default_icp_id'] and icp_count>0) or icp_count>0 or (onb_row and onb_row['audience_completed']))
         has_research=bool((onb_row and onb_row['preferences_completed']) or setup_prefs.get('geography_confirmed') or setup_prefs.get('research_keywords') or pref_row)
-        has_plan=bool(avail.get('enabled') or not avail.get('subscription_required') or grant or manual_granted)
+        has_plan=bool(grant or not avail.get('subscription_required'))
 
         if onb_status=='COMPLETED':
-            step_checks=[True,True,True,True,has_plan]
+            step_checks=[True,True,True,True,bool(has_plan or has_contract(c,org))]
         else:
             step_checks=[has_business,has_profile,has_icp,has_research,has_plan]
         completed_steps=sum(1 for done in step_checks if done)

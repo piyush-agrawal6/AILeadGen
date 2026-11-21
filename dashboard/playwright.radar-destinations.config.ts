@@ -1,0 +1,5 @@
+import {defineConfig} from '@playwright/test';
+import {randomBytes} from 'node:crypto';
+import base from './playwright.intent-radar.config';
+const servers=Array.isArray(base.webServer)?base.webServer:[];
+export default defineConfig({...base,testDir:'./radar-destinations-e2e',timeout:120000,reporter:'list',outputDir:'../data/artifacts/verification/radar-destinations-browser',webServer:servers.map((s,i)=>({...s,command:i?s.command:s.command.replace('tests.intent_radar_fixture_server','tests.radar_destinations_fixture_server'),env:{...s.env,HEYSOW_E2E_DIST_DIR:'.next-intent-radar-test',AUTH_GOOGLE_ID:'controlled-client',AUTH_GOOGLE_SECRET:'controlled-client-secret',HEYSOW_CUSTOMER_INTEGRATIONS_ENABLED:'true',GOOGLE_SHEETS_REDIRECT_URI:'http://127.0.0.1:13000/acquisition/sheets/callback',HEYSOW_INTEGRATION_ENCRYPTION_KEY:randomBytes(32).toString('base64url')+'=',TRANSACTIONAL_MAIL_ENABLED:'false',SUBSCRIPTION_ONBOARDING_REQUIRED:'false',HEYSOW_ACCESS_PERIODS_ENABLED:'false',HEYSOW_ACCOUNTS_ENABLED:'false',HEYSOW_CUSTOMER_ACCESS_ENABLED:'false',AUTH_URL:'http://127.0.0.1:13000'}}))});

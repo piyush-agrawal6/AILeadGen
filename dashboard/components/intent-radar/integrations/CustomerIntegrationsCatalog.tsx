@@ -24,6 +24,8 @@ import {
   X,
 } from "lucide-react";
 import { SearchInput } from "@/components/ui/search-input";
+import {useRadarRead} from '../provider';
+import type {SheetStatus} from './RadarSheets';
 
 export type IntegrationCategory =
   | "all"
@@ -124,17 +126,18 @@ export const INTEGRATION_CATALOG: IntegrationItem[] = [
     id: "google-sheets",
     name: "Google Sheets",
     category: "spreadsheets",
-    description: "Organize discovered signals and opportunities in collaborative Google spreadsheets.",
-    status: "coming_soon",
-    statusLabel: "Coming Soon",
-    capabilities: ["Live Sheet Sync", "Auto-append Rows", "Team Sharing"],
+    description: "Review a one-way workspace export to an existing spreadsheet.",
+    status: "available",
+    statusLabel: "Available",
+    configHref: "/intent-radar/integrations/sheets",
+    capabilities: ["Reviewed range", "Explicit approval"],
     brandColor: "bg-[#0F9D58]/10 text-[#0F9D58] border-[#0F9D58]/20",
     initials: "GS",
     iconType: "sheet",
   },
   {
     id: "microsoft-excel",
-    name: "Microsoft Excel",
+    name: "Microsoft Excel Online",
     category: "spreadsheets",
     description: "Export market intelligence and discussion datasets directly into Excel Online or desktop.",
     status: "coming_soon",
@@ -148,14 +151,14 @@ export const INTEGRATION_CATALOG: IntegrationItem[] = [
     id: "csv-export",
     name: "CSV Export",
     category: "spreadsheets",
-    description: "Download clean, compliant CSV datasets from any discovery or opportunity table.",
+    description: "Download up to 100 export-permitted records from discovery results.",
     status: "available",
     statusLabel: "Available in Tables",
     capabilities: ["Instant Download", "Grounded Columns", "Custom Reporting"],
     brandColor: "bg-primary/10 text-primary border-primary/20",
     initials: "CSV",
     iconType: "csv",
-    configHref: "/intent-radar/opportunities",
+    configHref: "/intent-radar/discover",
   },
   {
     id: "airtable",
@@ -247,11 +250,13 @@ export const INTEGRATION_CATALOG: IntegrationItem[] = [
   },
 
   // Developer Tools
+  ...(['xlsx','json','pdf'] as const).map(format=>({id:format,name:format==='xlsx'?'Excel (.xlsx)':format.toUpperCase(),category:'spreadsheets' as const,description:'Download permitted workspace evidence. No external account required.',status:'available' as const,statusLabel:'Available',capabilities:['Manual download'],brandColor:'bg-primary/10 text-primary',initials:format,iconType:'sheet' as const,configHref:'/intent-radar/discover'})),
+  {id:'mcp',name:'MCP',category:'developer',description:'Read permitted workspace evidence from a compatible client.',status:'available',statusLabel:'Available',capabilities:['Scoped bearer key'],brandColor:'bg-primary/10 text-primary',initials:'MCP',iconType:'code',configHref:'/settings?category=developer&tab=mcp'},
   {
     id: "developer-api",
     name: "REST API",
     category: "developer",
-    description: "Programmatically query signals, monitors, opportunities, and execute scoped discoveries.",
+    description: "Read authorized signals, monitors, opportunities and discovery history with a scoped workspace key.",
     status: "available",
     statusLabel: "Available",
     capabilities: ["Scoped API Keys", "OpenAPI Spec", "Rate-limited"],
@@ -264,14 +269,14 @@ export const INTEGRATION_CATALOG: IntegrationItem[] = [
     id: "webhooks",
     name: "Webhooks",
     category: "developer",
-    description: "Receive real-time HTTP POST event payloads when high-intent conversations are matched.",
+    description: "Manage signed, identifier-only deliveries for supported event topics.",
     status: "available",
     statusLabel: "Available",
     capabilities: ["Event Subscriptions", "HMAC Signatures", "Retry Delivery"],
     brandColor: "bg-indigo-600/10 text-indigo-600 border-indigo-600/20",
     initials: "WH",
     iconType: "code",
-    configHref: "/settings?category=developer&tab=keys",
+    configHref: "/intent-radar/integrations/webhooks",
   },
 ];
 
@@ -295,6 +300,8 @@ function CategoryIcon({ type }: { type: IntegrationItem["iconType"] }) {
 }
 
 export function CustomerIntegrationsCatalog() {
+  const sheets=useRadarRead<SheetStatus>('/sheets');
+  const availability=useRadarRead<{files:boolean;developer:boolean;mcp:boolean;webhooks:boolean}>('/destinations');
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<IntegrationCategory>("all");
 
@@ -410,7 +417,9 @@ export function CustomerIntegrationsCatalog() {
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((item) => {
-            const isAvailable = item.status === "available";
+            const state=availability.isError?undefined:availability.data;
+            const isAvailable = item.status === 'available' && !!(item.id==='google-sheets'?state?.files&&!sheets.isError&&sheets.data?.configured:item.id==='developer-api'?state?.developer:item.id==='webhooks'?state?.webhooks:item.id==='mcp'?state?.mcp:state?.files);
+            const badge=isAvailable?'Available':item.status==='available'?'Unavailable':'Coming Soon';
             return (
               <div
                 key={item.id}
@@ -434,7 +443,8 @@ export function CustomerIntegrationsCatalog() {
                       }`}
                     >
                       {isAvailable ? <CheckCircle2 size={11} /> : <Clock size={11} />}
-                      <span>{item.statusLabel}</span>
+                      <span>{badge}</span>
+                      {item.id==='google-sheets'&&isAvailable&&<span> · {sheets.data?.health}</span>}
                     </span>
                   </div>
 
@@ -477,7 +487,7 @@ export function CustomerIntegrationsCatalog() {
                       aria-disabled="true"
                       className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-muted/40 text-muted-foreground text-xs font-medium cursor-not-allowed opacity-80"
                     >
-                      <span>Coming Soon</span>
+                      <span>{badge}</span>
                     </button>
                   )}
                 </div>

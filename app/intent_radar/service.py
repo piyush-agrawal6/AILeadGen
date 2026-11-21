@@ -434,7 +434,7 @@ def listing(c,kind,**filters):
             args.extend([org, filters['source']])
         if filters.get('search'):
             qtext = '%'+filters['search'].casefold()+'%'
-            where.append('(LOWER(notes) LIKE ? OR LOWER(next_action) LIKE ? OR LOWER(COALESCE(assigned_to,"")) LIKE ? OR signal_id IN (SELECT id FROM intent_signals WHERE organization_id=? AND (LOWER(title) LIKE ? OR LOWER(excerpt) LIKE ? OR LOWER(source) LIKE ?)))')
+            where.append("(LOWER(notes) LIKE ? OR LOWER(next_action) LIKE ? OR LOWER(COALESCE(assigned_to,'')) LIKE ? OR signal_id IN (SELECT id FROM intent_signals WHERE organization_id=? AND (LOWER(title) LIKE ? OR LOWER(excerpt) LIKE ? OR LOWER(source) LIKE ?)))")
             args.extend([qtext, qtext, qtext, org, qtext, qtext, qtext])
         feedback_rank = "(SELECT " + rank_expression('s') + " FROM intent_signals s WHERE s.id=intent_opportunities.signal_id AND s.organization_id=intent_opportunities.organization_id) DESC"
         order_map = {
@@ -772,12 +772,18 @@ def bookmark(c, key, body=None, remove=False):
     return get(c,'signals',key)
 
 def review(c,key,body):
-    org = context(c,True).organization_id; get(c,'signals',key)
+    org = context(c,True).organization_id; old=get(c,'signals',key)
     if not c.execute('UPDATE intent_signals SET status=?,notes=COALESCE(?,notes),revision=revision+1 WHERE id=? AND organization_id=? AND revision=?',(body.status,body.notes,key,org,body.revision)).rowcount: raise HTTPException(409,'Signal changed; reload before saving.')
     if body.status == 'Saved': bookmark(c,key)
+    emit_review_change(c,key,old['status'],body.status,body.revision+1)
     audit(c,'SIGNAL_REVIEWED',key,{'status':body.status,'notes_updated':body.notes is not None})
     return get(c,'signals',key)
 
+
+def emit_review_change(c,key,old,new,revision):
+    if old==new:return
+    from app.webhooks.service import emit
+    emit(c,'radar.signal.qualified' if new=='Qualified' else 'radar.signal.status_changed',key+':review:'+str(revision),{'signal_id':key})
 
 def bulk_action(c, body):
     """Fast batched bulk signal action avoiding N*60 per-signal query fan-out and proxy timeouts."""
@@ -841,6 +847,7 @@ def bulk_action(c, body):
         )
         updated = len(keys)
         audit(c, 'SIGNAL_BULK_REVIEWED', f'bulk:{len(keys)}', {'status': target_status, 'count': updated})
+        for key in keys:emit_review_change(c,key,by_id[key]['status'],target_status,by_id[key]['revision']+1)
         return {'updated': updated, 'already_existed': 0, 'skipped': [], 'total_requested': len(keys), 'action': body.action}
 
     if body.action == 'opportunity':
@@ -877,11 +884,14 @@ def bulk_action(c, body):
                 continue
             opp_id = str(uuid.uuid5(uuid.NAMESPACE_URL, org + ':intent-opportunity:' + sid))
             reserve_usage(c, {'opportunities': 1}, opp_id)
-            c.execute(
+            inserted=c.execute(
                 'INSERT INTO intent_opportunities(id,organization_id,signal_id,priority,notes,next_action,created_by,created_at,updated_at) '
                 'VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(organization_id,signal_id) DO NOTHING',
                 (opp_id, org, sid, 'High' if item.get('score', 0) >= 75 else 'Medium', '', 'Review context', ctx.actor, stamp, stamp),
-            )
+            ).rowcount
+            if inserted:
+                from app.webhooks.service import emit
+                emit(c,'radar.opportunity.created',opp_id,{'opportunity_id':opp_id})
             c.execute(
                 "UPDATE intent_signals SET status='Reviewed',revision=revision+1 WHERE id=? AND organization_id=? AND status IN ('New','Needs Review','In Review')",
                 (sid, org),
@@ -907,6 +917,9 @@ def opportunity(c,key,body=None,create_body=None):
             from app.api.organization import membership_role
             if not membership_role(c,body.assigned_to,ctx.organization_id): raise HTTPException(404,'Assignee is not an active workspace member.')
         if not c.execute('UPDATE intent_opportunities SET status=?,priority=?,notes=?,next_action=?,assigned_to=?,revision=revision+1,updated_at=? WHERE id=? AND organization_id=? AND revision=?',(body.status,body.priority,body.notes,body.next_action,body.assigned_to,now(),key,ctx.organization_id,body.revision)).rowcount: raise HTTPException(409,'Opportunity changed; reload before saving.')
+        if old['status']!=body.status:
+            from app.webhooks.service import emit
+            emit(c,'radar.opportunity.status_changed',key+':'+str(body.revision+1),{'opportunity_id':key})
     else:
         signal=get(c,'signals',key)
         signal_id = key
@@ -927,6 +940,8 @@ def opportunity(c,key,body=None,create_body=None):
             (key,ctx.organization_id,signal_id,priority,notes,next_action,ctx.actor,now(),now()),
         )
         # Preserve Qualified review history; only advance unreviewed statuses to Reviewed.
+        from app.webhooks.service import emit
+        emit(c,'radar.opportunity.created',key,{'opportunity_id':key})
         c.execute(
             "UPDATE intent_signals SET status='Reviewed',revision=revision+1 WHERE id=? AND organization_id=? AND status IN ('New','Needs Review','In Review')",
             (signal_id,ctx.organization_id),

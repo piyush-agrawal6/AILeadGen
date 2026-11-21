@@ -82,9 +82,10 @@ def test_clean_profile_migration_failure_rolls_back_every_object(postgres,monkey
 def test_clean_profile_refuses_existing_legacy_schema_without_changes(postgres,monkeypatch):
     run_migrations(postgres)
     before=postgres.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+    before_version=postgres.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0]
     monkeypatch.setattr(get_settings(),'lead_engine_available',False)
     with pytest.raises(RuntimeError,match='legacy or unrelated'):intent_profile.migrate(postgres)
-    assert postgres.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0]==51
+    assert postgres.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0]==before_version
     assert postgres.execute('SELECT COUNT(*) FROM users').fetchone()[0]==before
 
 
@@ -235,6 +236,32 @@ def test_clean_growth_discovery_exports_and_isolation(clean_radar,monkeypatch):
 def test_clean_assistant_scoped_history_and_usage(clean_radar,monkeypatch):
     from test_growth_postgres import test_postgres_assistant_real_reservation_private_history_and_recovery as check
     check(clean_radar,monkeypatch)
+
+def test_clean_radar_review_dispatch_and_dataset_matrix(clean_radar,monkeypatch):
+    from urllib.parse import urlsplit,parse_qs
+    import httpx
+    from cryptography.fernet import Fernet
+    from app.acquisition import sheets
+    from app.acquisition.config import AcquisitionSettings
+    from app.integrations import radar_sheets,sheet_exports,service as oauth
+    from app.intent_radar import exports,discovery,models,connectors,service
+    from app.intelligence import jobs
+    from test_intent_radar import source_result
+    c,org,other=clean_radar;s=get_settings();actor='radar-pg@example.test'
+    for k,v in {'heysow_workspace_management_enabled':True,'heysow_customer_integrations_enabled':True,'heysow_integration_encryption_key':Fernet.generate_key().decode()}.items():monkeypatch.setattr(s,k,v)
+    monkeypatch.setattr('app.acquisition.config.settings',lambda:AcquisitionSettings(_env_file=None,AUTH_GOOGLE_ID='offline',AUTH_GOOGLE_SECRET='offline',GOOGLE_SHEETS_REDIRECT_URI='http://localhost/acquisition/sheets/callback'))
+    monkeypatch.setattr(sheets,'token_request',AsyncMock(return_value={'access_token':'offline','refresh_token':'offline','scope':oauth.WRITE_SCOPE,'expires_in':3600}));monkeypatch.setattr(connectors,'fetch',AsyncMock(return_value=source_result()))
+    with workspace_scope(c,actor,org):
+        spec=radar_sheets.oauth_spec();link=oauth.authorize(c,spec=spec,write=True)['authorization_url'];state=parse_qs(urlsplit(link).query)['state'][0];conn=asyncio.run(oauth.connect(c,state,'fixture-code',spec=spec));query=models.Search(keywords=['website']);m=service.save_monitor(c,models.Monitor(name='Controlled monitor',configuration=query,status='Active'));job=discovery.create(c,models.Discovery(configuration=query,monitor_id=m['id']));c.commit();jobs.execute(job['id'])
+        signal=service.listing(c,'signals')['items'][0];service.bookmark(c,signal['id']);op=service.opportunity(c,signal['id']);did=c.execute('SELECT id FROM intent_discoveries WHERE organization_id=?',(org,)).fetchone()[0];c.commit()
+        for dataset,args in [('discovery',{'parent':did}),('monitor',{'parent':m['id']}),('saved',{'list_filters':{'collection':'Inbox'}}),('opportunities',{'list_filters':{'search':'website'}}),('signals',{'ids':[signal['id']]})]:
+            snap=exports.snapshot(c,exports.Selection(dataset=dataset,**args));assert len(snap['records'])==1 and snap['records'][0]['signal_id']==signal['id'];assert exports.serialize(snap,'pdf').startswith(b'%PDF')
+        draft=radar_sheets.Draft(selection=exports.Selection(dataset='opportunities',ids=[op['id']]),spreadsheet='isolated-provider-sheet',sheet='Acceptance',request_id=uuid.uuid4());review=radar_sheets.stage(c,conn['id'],draft);sheet_exports.approve(c,review['id'],review['fingerprint'],'OVERWRITE_REVIEWED_RANGE');c.commit()
+    async def receiver(request):return httpx.Response(200,json={'updatedCells':20})
+    asyncio.run(sheet_exports.execute(review['id'],transport=httpx.MockTransport(receiver)))
+    with workspace_scope(c,actor,org):assert sheet_exports.owned(c,review['id'])['status']=='COMPLETED'
+    with workspace_scope(c,actor,other):
+        with pytest.raises(HTTPException):sheet_exports.owned(c,review['id'])
 
 
 def test_clean_dashboard_summary_and_retention(clean_radar,monkeypatch):

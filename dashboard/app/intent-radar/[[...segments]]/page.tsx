@@ -18,6 +18,8 @@ const routes = [
   'saved',
   'alerts',
   'integrations',
+  'integrations/sheets',
+  'integrations/webhooks',
   'integrations/github/callback',
   'settings',
   'growth',

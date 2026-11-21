@@ -121,9 +121,9 @@ it('SubscriptionPayment clearly labels canceled Starter Trial separately from Pa
   });
 
   expect((await screen.findAllByText('Starter Trial')).length).toBeGreaterThanOrEqual(1);
-  expect(screen.getByText('3-Day Trial')).toBeVisible();
+  expect(screen.getByText(/3-Day Trial/)).toBeVisible();
   expect(screen.getByText('Renewal canceled')).toBeVisible();
-  expect(screen.getByText(/Starter Trial includes 5 searches, 3 AI operations/)).toBeVisible();
+  expect(screen.getByText(/Access through/)).toBeVisible();
   expect(screen.queryByText('Paid Plan')).not.toBeInTheDocument();
 });
 
@@ -155,7 +155,7 @@ it('SubscriptionPayment clearly labels Paid Starter as a Paid Plan', async () =>
   });
 
   expect((await screen.findAllByText('Paid Starter')).length).toBeGreaterThanOrEqual(1);
-  expect(screen.getByText('Paid Plan')).toBeVisible();
+  expect(screen.getByText(/Paid Plan/)).toBeVisible();
   expect(screen.queryByText('3-Day Trial')).not.toBeInTheDocument();
 });
 

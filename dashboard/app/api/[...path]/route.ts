@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 async function forward(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  const started=Date.now();
   const external=process.env.HEYSOW_DEVELOPER_API_ENABLED==='true'&&isDeveloperApiPath(request.nextUrl.pathname);
   const user = external?null:await currentUser();
   if (!external&&!user?.email) return Response.json({ detail: "Sign in to continue." }, { status: 401 });
@@ -47,16 +48,18 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
     const isTimeout =
       err instanceof Error &&
       (err.name === "TimeoutError" || err.name === "AbortError" || err.message.toLowerCase().includes("timeout"));
-    console.error("[api-proxy] Upstream request failed:", request.method, apiPath, err instanceof Error ? `${err.name}: ${err.message}` : err);
+    const correlationId=crypto.randomUUID();
+    console.error('[api-proxy]',{route:'/api/[...path]',method:request.method,category:isTimeout?'timeout':'upstream_failure',durationMs:Date.now()-started,correlationId});
+    const failureHeaders={'x-request-id':correlationId,'cache-control':'private, no-store'};
     if (isTimeout) {
       return Response.json(
         { detail: "Request timed out while waiting for the PlaneByte API. Please retry." },
-        { status: 504 },
+        { status: 504,headers:failureHeaders },
       );
     }
     return Response.json(
       { detail: "Could not reach the PlaneByte API service. Please retry in a moment." },
-      { status: 502 },
+      { status: 502,headers:failureHeaders },
     );
   }
 }

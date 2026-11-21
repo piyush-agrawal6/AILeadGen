@@ -145,7 +145,12 @@ async def process(c,key,job_id=None,lease_owner=None):
                 signal=old['id'] if old else str(uuid.uuid5(uuid.NAMESPACE_URL,ctx.organization_id+':'+('HN' if provider=='hacker_news' else item['source'])+':'+item['source_record_id']))
                 changed=c.execute('INSERT INTO intent_signals(id,organization_id,source,source_record_id,source_url,title,excerpt,observed_at,retrieved_at,category,score,evidence_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(organization_id,source,source_record_id) DO NOTHING',(signal,ctx.organization_id,item['source'],item['source_record_id'],item['source_url'],item['title'],item['excerpt'],item['observed_at'],item['retrieved_at'],item['category'],item['score'],json.dumps(item['evidence']))).rowcount if not old else 0
                 new+=changed
-                if changed:new_ids.add(signal)
+                if changed:
+                    new_ids.add(signal)
+                    from app.intent_radar.opportunity_policy import assess
+                    if assess(dict(item,available=True))['eligible']:
+                        from app.webhooks.service import emit
+                        emit(c,'radar.signal.qualified',signal+':observed',{'signal_id':signal})
                 if signal not in found:found.append(signal)
                 if not changed:
                     c.execute('DELETE FROM intent_rankings WHERE organization_id=? AND signal_id=?',(ctx.organization_id,signal))

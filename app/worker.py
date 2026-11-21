@@ -79,7 +79,12 @@ def _execute_owned(run_id):
 def validate_schema_mode():
     """Excluded legacy workers fail before touching the clean database."""
     if get_settings().database_schema_profile!='intent-radar-v1':return
-    excluded=('LEADENGINE_CUSTOMER_MAILBOX_ID','LEADENGINE_SHEET_EXPORT_ID',
+    sheet_key=os.environ.get('LEADENGINE_SHEET_EXPORT_ID')
+    if sheet_key:
+        try:radar_job=uuid.UUID(sheet_key).version==5
+        except ValueError:radar_job=False
+        if not radar_job:raise SystemExit('Legacy sheet exports are unavailable on the Radar schema.')
+    excluded=('LEADENGINE_CUSTOMER_MAILBOX_ID',
               'LEADENGINE_RUN_ID','LEADENGINE_REPORT_ID')
     mode=os.environ.get('LEADENGINE_AUTOMATION_MODE','')
     if any(os.environ.get(k) for k in excluded) or os.environ.get('LEADENGINE_EMAIL_SYNC')=='1' or (mode and mode not in ('intent-radar-dispatch','webhooks-dispatch','bluesky-jetstream-poll')):

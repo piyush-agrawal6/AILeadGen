@@ -3,6 +3,7 @@ import asyncio
 import hashlib
 import json
 import secrets
+import logging,re
 import uuid
 from datetime import datetime,timedelta,timezone
 from urllib.parse import urlencode,urlsplit
@@ -32,6 +33,16 @@ class ProviderSpec:
     revoked:object=None
 
 SHEETS=ProviderSpec()
+
+class DestinationLogFilter(logging.Filter):
+    """Keep the transport outcome; receiver paths and sheet IDs are customer data."""
+    def filter(self,record):
+        message=record.getMessage()
+        if message.startswith('HTTP Request: '):
+            record.msg=re.sub(r'https?://\S+', '[destination]', message);record.args=()
+        return True
+
+logging.getLogger('httpx').addFilter(DestinationLogFilter())
 
 def require_spec(spec):
     require_enabled()
@@ -142,7 +153,7 @@ def token_value(result,previous=None,*,expected_scope=None,spec=SHEETS):
     previous=previous or {}
     scopes=result.get('scope',previous.get('scope',''))
     expected_scope=expected_scope or previous.get('scope',spec.scope)
-    accepted=(sheets.SCOPE,WRITE_SCOPE) if spec==SHEETS else (spec.scope,)
+    accepted=(sheets.SCOPE,WRITE_SCOPE) if spec.provider==PROVIDER else (spec.scope,)
     if expected_scope not in accepted or not isinstance(scopes,str) or set(scopes.split())!=set(expected_scope.split()):
         raise HTTPException(409,'Google Sheets must grant exactly the permission explicitly requested for this connection.')
     access=result.get('access_token');refresh=result.get('refresh_token') or previous.get('refresh_token')

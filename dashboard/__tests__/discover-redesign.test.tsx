@@ -432,8 +432,9 @@ describe("PlaneByte Intent Radar — Discover Module Redesign", () => {
     expect(await screen.findByText(/into an Opportunity/i)).toBeVisible();
     expect(screen.getByText("Added")).toBeVisible();
 
-    // CSV Export button exists
-    expect(screen.getByRole("button", { name: /CSV/i })).toBeVisible();
-    expect(screen.getByRole("button", { name: /JSON/i })).toBeVisible();
+    const formats=screen.getByRole('combobox',{name:'Export format'});
+    expect(formats).toHaveTextContent('CSV');
+    expect(formats).toHaveTextContent('JSON');
+    expect(screen.getByRole('button',{name:'Export'})).toBeEnabled();
   });
 });

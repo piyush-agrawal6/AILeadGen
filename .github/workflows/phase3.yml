@@ -36,6 +36,9 @@ jobs:
         working-directory: dashboard
       - run: npm run test:e2e
         working-directory: dashboard
+      - name: Verify Radar download and reviewed Sheets delivery (offline providers)
+        run: npx playwright test --config=playwright.radar-destinations.config.ts
+        working-directory: dashboard
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

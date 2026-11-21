@@ -137,6 +137,7 @@ def test_checkout_is_durable_idempotent_and_return_never_activates(subscribed,mo
  c.execute("INSERT INTO subscription_products(provider,environment,plan_code,variant,product_id,price_minor,currency,interval,trial_days,catalog_hash,verified_json,verified_at) VALUES('creem','production','starter','trial','prod_fixture',5900,'USD','every-month',3,?,?,?)",(commercial.catalog()['catalog_sha256'],json.dumps(product),now()));c.commit()
  calls=[]
  def create(method,path,**kw):
+  if method=='GET' and path=='/customers/cust_fixture/subscriptions':return {'items':[],'pagination':{'next_page':None}}
   assert path=='/checkouts' and method=='POST'
   calls.append(kw['body'])
   assert kw['body']['customer']=={'id':'cust_fixture'}
@@ -202,6 +203,7 @@ def test_creem_customer_never_derives_name_from_email_local_part(subscribed,monk
  c.execute("INSERT INTO subscription_products(provider,environment,plan_code,variant,product_id,price_minor,currency,interval,trial_days,catalog_hash,verified_json,verified_at) VALUES('creem','production','starter','trial','prod_fixture',5900,'USD','every-month',3,?,?,?)",(commercial.catalog()['catalog_sha256'],json.dumps(product),now()));c.commit()
  customer_calls=[];checkout_calls=[]
  def req(method,path,**kw):
+  if method=='GET' and path=='/customers/cust_real_name/subscriptions':return {'items':[],'pagination':{'next_page':None}}
   if path=='/customers' and method=='POST':
    customer_calls.append(kw['body'])
    return {'id':'cust_real_name','mode':'prod','email':actor,'external_id':org}

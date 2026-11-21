@@ -130,7 +130,7 @@ def product_grant(c,org):
 def require_product(c,org):
  if not required(c,org):return None
  value=product_grant(c,org)
- if not value:raise HTTPException(402,{'code':'PAYMENT_REQUIRED','message':'Complete Step 5: Choose Your Plan & Payment. A provider-confirmed card trial or verified paid purchase is required. Your saved onboarding and billing controls remain available.'})
+ if not value:raise HTTPException(402,{'code':'PAYMENT_REQUIRED','message':'This action needs an active subscription. Open Settings → Billing & Usage to check payment status or choose a plan. Your workspace data is saved.'})
  return value
 
 def scheduled_sql(org):

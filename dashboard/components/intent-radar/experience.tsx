@@ -11,6 +11,11 @@ import {SavedResearch,AlertsInbox} from './research-experience';
 import {ResearchLibraryWorkspace} from './saved/ResearchLibraryWorkspace';
 import {RadarSettings} from './settings-experience';
 import {CustomerIntegrationsCatalog} from './integrations/CustomerIntegrationsCatalog';
+import {RadarSheets} from './integrations/RadarSheets';
+import {WebhookSettings} from '../workspaces/webhook-settings';
+import {useWorkspace} from '../workspaces/use-workspace';
+import {useRadarRead} from './provider';
+function RadarHooks(){const org=useWorkspace().data?.active_organization_id;const status=useRadarRead<{webhooks:boolean}>('/destinations');return org&&status.data?.webhooks&&!status.isError?<WebhookSettings key={org} workspace={org} radar/>:<p role="status">Webhook management requires an entitled administrator and configured delivery service.</p>}
 import {IntelligenceGraph} from './intelligence-graph';
 import {AssistantPageClient} from '@/components/intelligence/AssistantPageClient';
 import {GrowthExperience} from './growth-experience';
@@ -21,6 +26,8 @@ export function IntentRadarExperience({route}:{route:string}){
  const access=useRadarCapabilities();
  // Static catalog routes — do not need backend radar capabilities
  if(route==='integrations')return <CustomerIntegrationsCatalog/>;
+ if(route==='integrations/sheets')return <RadarSheets/>;
+ if(route==='integrations/webhooks')return <RadarHooks/>;
  if(route==='integrations/github/callback')return <GitHubOAuthCallbackView/>;
  if(access.error)return <ErrorState message={access.error.message} retry={()=>void access.refetch()}/>;
 

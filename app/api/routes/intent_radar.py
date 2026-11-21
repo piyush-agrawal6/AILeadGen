@@ -12,6 +12,30 @@ from app.intent_radar.permissions import context,availability
 
 router=APIRouter(prefix='/intent-radar',tags=['Intent Radar'])
 
+from app.intent_radar import exports as radar_exports
+from fastapi.responses import Response
+
+@router.get('/destinations')
+def destinations(c=Depends(get_db,scope='function')):
+    from app.billing.access_periods import require_current,require_paid_feature
+    from app.config.settings import get_settings
+    ctx=context(c);require_current(c,ctx.organization_id);s=get_settings()
+    try:require_paid_feature(c,ctx.organization_id,'api_requests');developer=s.heysow_developer_api_enabled
+    except HTTPException:developer=False
+    from app.api.organization import membership_role
+    from app.integrations.crypto import cipher
+    from app.webhooks.service import radar_allowed
+    manager=membership_role(c,ctx.actor,ctx.organization_id) in ('OWNER','ADMIN');hooks=False
+    if manager and s.heysow_webhooks_enabled and radar_allowed(c):
+        try:cipher();hooks=True
+        except HTTPException:pass
+    return {'files':membership_role(c,ctx.actor,ctx.organization_id)!='VIEWER','developer':developer,'mcp':developer and s.heysow_mcp_enabled,'webhooks':hooks}
+
+@router.post('/exports/{fmt}')
+def export_records(fmt:radar_exports.FORMATS, body:radar_exports.Selection,c=Depends(get_db,scope='function')):
+    content=radar_exports.serialize(radar_exports.snapshot(c,body),fmt)
+    return Response(content,media_type=radar_exports.MIME[fmt],headers={'Cache-Control':'private, no-store','Content-Disposition':f'attachment; filename="planebyte-{body.dataset}.{fmt}"','X-Content-Type-Options':'nosniff'})
+
 @router.get('/capabilities')
 def capabilities(c=Depends(get_db,scope='function')):
     ctx=context(c)

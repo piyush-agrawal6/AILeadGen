@@ -218,7 +218,7 @@ it('restores all five steps, persistent desktop Copilot and an accessible mobile
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 });
 
-it('resumes completed research at mandatory real billing without a local activation bypass', async () => {
+it('keeps completed research saved and links to billing without granting access', async () => {
   const state = {
     payment: { required: true, active: false },
     progress: { ...progress, status: 'COMPLETED' },
@@ -227,9 +227,9 @@ it('resumes completed research at mandatory real billing without a local activat
     capabilities: { company_analysis: true, icp_recommendations: true }
   };
   mount(state);
-  expect(await screen.findByRole('heading', { name: 'Choose Your Plan & Payment' })).toBeVisible();
+  expect(await screen.findByRole('heading', { name: 'Your reviewed context is saved' })).toBeVisible();
   expect(screen.queryByRole('heading', { name: 'Your workspace is ready' })).not.toBeInTheDocument();
-  expect(mocked.mock.calls.some(([path]) => path === '/billing/subscription')).toBe(true);
+  expect(screen.getByRole('link',{name:'Manage Subscription'})).toHaveAttribute('href','/settings?category=billing&tab=overview');
   expect(mocked.mock.calls.every(([, options]) => !options?.method)).toBe(true);
 });
 

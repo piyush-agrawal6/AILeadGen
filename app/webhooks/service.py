@@ -12,13 +12,33 @@ from app.integrations.crypto import seal,open_envelope,cipher
 from app.platform.context import current,organization
 
 TOPICS=('company.created','contact.created','contact.updated','task.created','task.updated','email.sent','reply.received')
-Topic=Literal['company.created','contact.created','contact.updated','task.created','task.updated','email.sent','reply.received']
+RADAR_TOPICS=('radar.signal.qualified','radar.signal.status_changed','radar.opportunity.created','radar.opportunity.status_changed')
+Topic=Literal['company.created','contact.created','contact.updated','task.created','task.updated','email.sent','reply.received','radar.signal.qualified','radar.signal.status_changed','radar.opportunity.created','radar.opportunity.status_changed']
+
+def radar_access(c):
+    if not get_settings().radar_webhook_events_enabled:raise HTTPException(503,'Radar event delivery is not enabled.')
+    from app.intent_radar.permissions import context
+    from app.billing.access_periods import require_paid_feature
+    ctx=context(c);require_paid_feature(c,ctx.organization_id,'api_requests')
+
+def radar_allowed(c):
+    try:radar_access(c);return True
+    except HTTPException:return False
+
+def radar_delivery_ok(c,payload):
+    from app.intent_radar import service as radar
+    from app.intent_radar.exports import exportable
+    radar_access(c);org=organization();data=payload['data']
+    if 'opportunity_id' in data:
+        row=c.execute('SELECT s.* FROM intent_signals s JOIN intent_opportunities o ON o.organization_id=s.organization_id AND o.signal_id=s.id WHERE o.organization_id=? AND o.id=?',(org,data['opportunity_id'])).fetchone()
+    else:row=c.execute('SELECT * FROM intent_signals WHERE organization_id=? AND id=?',(org,data['signal_id'])).fetchone()
+    return bool(row and exportable(radar.decode(row),radar.preferences(c)['source_retention_days']))
 
 class Endpoint(BaseModel):
     model_config=ConfigDict(extra='forbid',str_strip_whitespace=True)
     name:str=Field(min_length=2,max_length=100)
     url:str=Field(min_length=10,max_length=1000)
-    topics:list[Topic]=Field(min_length=1,max_length=7)
+    topics:list[Topic]=Field(min_length=1,max_length=11)
     revision:int|None=Field(None,ge=1)
     request_id:uuid.UUID=Field(default_factory=uuid.uuid4)
     @field_validator('url')
@@ -52,13 +72,17 @@ def audit(c,key,action):
 
 def listing(c):
     org=manager(c)
+    from app.api.organization import products
     try:cipher();configured=True
     except HTTPException:configured=False
     return {'items':[view(dict(row)) for row in c.execute('SELECT * FROM webhook_endpoints WHERE organization_id=? ORDER BY created_at DESC LIMIT 20',(org,)).fetchall()],
-            'configured':configured,'available_topics':TOPICS,'delivery_semantics':'AT_LEAST_ONCE','max_attempts':5,'max_endpoints':10}
+            'configured':configured,'available_topics':(TOPICS if products(c,org).get('LEADGEN') else ())+ (RADAR_TOPICS if radar_allowed(c) else ()),'delivery_semantics':'AT_LEAST_ONCE','max_attempts':5,'max_endpoints':10}
 
 def save(c,body,key=None):
     org=manager(c);cipher()
+    if any(t in RADAR_TOPICS for t in body.topics):radar_access(c)
+    from app.api.organization import products
+    if any(t in TOPICS for t in body.topics) and not products(c,org).get('LEADGEN'):raise HTTPException(403,'Lead Engine event topics are unavailable.')
     from app.workflows.service import lock
     lock(c);manager(c);stamp=now()
     if key:
@@ -98,12 +122,23 @@ def control(c,key,action,revision):
 
 def emit(c,topic,event_key,data):
     if not get_settings().heysow_webhooks_enabled:return
+    if topic in RADAR_TOPICS and not get_settings().radar_webhook_events_enabled:return
     org=organization();stamp=now()
-    if topic not in TOPICS:raise ValueError('Unsupported webhook topic')
+    if topic not in TOPICS+RADAR_TOPICS:raise ValueError('Unsupported webhook topic')
     # Only identifiers: subscribers use their separately scoped API key for detail.
-    if set(data)-{'business_id','prospect_id','contact_id','task_id','message_id'}:raise ValueError('Unsupported event data')
+    radar=topic in RADAR_TOPICS
+    if radar:
+        field='signal_id' if topic.startswith('radar.signal.') else 'opportunity_id'
+        if set(data)!={field} or str(uuid.UUID(data[field]))!=data[field]:raise ValueError('Invalid Radar event reference')
+    elif set(data)-{'business_id','prospect_id','contact_id','task_id','message_id'}:raise ValueError('Unsupported event data')
     if any(not isinstance(value,(str,int)) or isinstance(value,bool) or len(str(value))>100 for value in data.values()):raise ValueError('Event identifiers must be bounded scalar values')
     payload={'id':str(uuid.uuid5(uuid.NAMESPACE_URL,org+':'+topic+':'+event_key)),'type':topic,'created_at':stamp,'workspace_id':org,'data':data}
+    if radar:
+        if not c.execute("SELECT 1 FROM webhook_endpoints WHERE organization_id=? AND status='ACTIVE' AND topics_json LIKE ? LIMIT 1",(org,'%"'+topic+'"%')).fetchone():return
+        try:
+            if not radar_delivery_ok(c,payload):return
+        except HTTPException:return
+        payload.update(schema_version=1,resource='/api/v1/intent-radar/'+('signals' if field=='signal_id' else 'opportunities')+'/'+data[field])
     encoded=json.dumps(payload,separators=(',',':'),sort_keys=True)
     if len(encoded)>8000:raise ValueError('Webhook event exceeds its budget')
     pending=c.execute("SELECT COUNT(*) FROM webhook_deliveries WHERE organization_id=? AND status IN ('QUEUED','RETRY','DELIVERING')",(org,)).fetchone()[0]

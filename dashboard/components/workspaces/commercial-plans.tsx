@@ -91,12 +91,14 @@ export function CommercialPlans({
   currentPlanCode = null,
   currentIsTrial = false,
   subscriptionState = null,
+  workspaceId,
 }: {
   data: CommercialBilling;
   selectedPlan: PlanCode | null;
   currentPlanCode?: string | null;
   currentIsTrial?: boolean;
   subscriptionState?: SubscriptionState | null;
+  workspaceId?:string;
 }) {
   const [showComparison, setShowComparison] = useState(false);
   const [activeCheckoutPlan, setActiveCheckoutPlan] = useState<PlanCode | null>(
@@ -111,9 +113,8 @@ export function CommercialPlans({
   const requestIdRef = useRef<string>(crypto.randomUUID());
 
   const sub = subscriptionState ?? loadedSub;
-  const hasManageableContract = Boolean(
-    sub?.contract && !['expired'].includes((sub.contract.status || '').toLowerCase())
-  );
+  const hasManageableContract = !!sub?.active;
+  const [changeTarget,setChangeTarget]=useState<PlanCode|null>(null);
 
   async function ensureSubscriptionState(): Promise<SubscriptionState | null> {
     if (sub) return sub;
@@ -144,30 +145,19 @@ export function CommercialPlans({
         return;
       }
 
-      const existingStatus = (currentSub.contract?.status || '').toLowerCase();
-      const hasExistingContract = Boolean(
-        currentSub.contract && existingStatus !== 'expired'
-      );
-
-      // Existing active or canceled-with-remaining-access subscription: route directly to Creem Billing Portal
-      if (hasExistingContract) {
-        const portal = await request<{ url?: string }>('/billing/subscription/portal', {
-          method: 'POST',
-        });
-        if (portal.url) {
-          window.location.assign(portal.url);
-          return;
-        }
-        setCheckoutError(
-          'Your existing Creem subscription is active. Open the Creem Billing Portal from Billing Overview to switch plans without creating a duplicate subscription.'
-        );
+      if(currentSub.lifecycle?.can_change&&currentSub.contract?.plan_code!==planCode){
+        setChangeTarget(planCode);setActiveCheckoutPlan(null);setConsent(false);requestIdRef.current=crypto.randomUUID();return;
+      }
+      if(currentSub.active&&currentSub.contract?.plan_code===planCode&&!currentSub.contract?.is_trial){window.location.assign('/settings?category=billing&tab=overview');return;}
+      if(currentSub.active||currentSub.lifecycle?.can_purchase===false){
+        setCheckoutError('Your existing billing agreement needs management or verification. Open Billing Overview to check status before starting another purchase.');
         return;
       }
 
       // Fresh or expired workspace: open compact direct Creem Checkout confirmation for this exact plan
       requestIdRef.current = crypto.randomUUID();
       setActiveCheckoutPlan(planCode);
-      setUseTrial(Boolean(currentSub.trial_eligible && planCode === 'starter'));
+      setUseTrial(false);
       setConsent(false);
     } catch (e) {
       setCheckoutError(
@@ -203,6 +193,7 @@ export function CommercialPlans({
           method: 'POST',
           body: JSON.stringify({
             plan_code: activeCheckoutPlan,
+            ...(workspaceId?{expected_workspace:workspaceId}:{}),
             variant,
             request_id: requestIdRef.current,
             terms_version: currentSub.terms_version,
@@ -239,6 +230,9 @@ export function CommercialPlans({
   return (
     <div className="space-y-5">
       <section className="space-y-4">
+        {changeTarget&&sub?.contract&&<section className="rounded-xl border bg-card p-4 space-y-3" aria-label="Review plan change"><h3>Change renewal plan to {changeTarget}</h3><p>No charge, credit or refund today. Your current allowances continue until {new Date(sub.contract.period_end*1000).toLocaleDateString()}. At renewal, Creem bills {formatMoney(data.catalog.plans.find(p=>p.code===changeTarget)!.monthly_minor!,data.catalog.list_currency)}/month. New limits begin only after verified payment.</p><label><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/> I accept these recurring terms.</label><Button disabled={!consent||!!busyPlan} onClick={async()=>{setBusyPlan(changeTarget);try{const result=await request<{status:string}>('/billing/subscription/change',{method:'POST',body:JSON.stringify({request_id:requestIdRef.current,expected_contract:sub.contract!.id,expected_period_end:sub.contract!.period_end,plan_code:changeTarget,terms_version:sub.terms_version,accepted_renewal:true})});setCheckoutNotice('Renewal change: '+result.status.toLowerCase()+'. Check Billing Overview for status.');setChangeTarget(null);}catch(e){setCheckoutError((e as Error).message);}finally{setBusyPlan(null);}}}>Confirm renewal plan</Button></section>}
+        {sub?.lifecycle?.pending_change&&<p role="status">Renewal change to {sub.lifecycle.pending_change.plan_code}: {sub.lifecycle.pending_change.status.toLowerCase()}.</p>}
+        {sub?.lifecycle?.pending_checkout&&<p role="status">Checkout pending. {sub.lifecycle.pending_checkout.resume_url&&<a href={sub.lifecycle.pending_checkout.resume_url}>Resume secure checkout</a>} <Link href="/settings?category=billing&tab=overview">Check payment status</Link></p>}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-semibold tracking-tight text-foreground">
@@ -361,7 +355,7 @@ export function CommercialPlans({
                         <>
                           <Loader2 size={13} className="animate-spin" aria-hidden="true" />
                           <span>
-                            {hasManageableContract ? 'Opening Portal…' : 'Preparing…'}
+                            Preparing…
                           </span>
                         </>
                       ) : (
@@ -419,7 +413,7 @@ export function CommercialPlans({
                   type="checkbox"
                   checked={useTrial}
                   onChange={(e) => {
-                    setUseTrial(e.target.checked);
+                    setUseTrial(e.target.checked);setConsent(false);
                     requestIdRef.current = crypto.randomUUID();
                   }}
                   className="accent-primary"

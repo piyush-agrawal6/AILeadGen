@@ -3,6 +3,7 @@ from app.database.access_period_schema import ACCESS_PERIOD_SQL
 from app.database.privacy_request_schema import PRIVACY_REQUEST_SQL
 from app.database.setup_diagnostics_schema import SETUP_DIAGNOSTICS_SQL
 from app.database.source_integration_schema import SOURCE_INTEGRATION_SQL
+from pathlib import Path
 from app.database.commercial_schema import COMMERCIAL_SQL
 from app.database.intent_radar_schema import INTENT_RADAR_SQL
 from app.database.growth_intelligence_schema import GROWTH_SQL
@@ -349,6 +350,8 @@ MIGRATIONS: List[str] = [
     , PRIVACY_REQUEST_SQL
     , SETUP_DIAGNOSTICS_SQL
     , SOURCE_INTEGRATION_SQL
+    , (Path(__file__).with_name('intent_migrations')/'1011_radar_sheet_exports.sql').read_text().split('-- Clean profile identity')[0]
+    , (Path(__file__).with_name('intent_migrations')/'1012_subscription_changes.sql').read_text().split('-- Clean profile identity')[0]
 ]
 
 

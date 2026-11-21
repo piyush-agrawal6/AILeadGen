@@ -99,6 +99,11 @@ def intent_opportunities(status:str=Query('',max_length=30),page:int=Query(1,ge=
     from app.intent_radar import service
     return service.listing(c,'opportunities',page=page,size=page_size,status=status)
 
+@router.get('/intent-radar/opportunities/{key}',dependencies=[Depends(lambda:require('intent:read'))])
+def intent_opportunity_detail(key:UUID,c=Depends(get_db,scope='function')):
+    from app.intent_radar import service
+    return service.get(c,'opportunities',str(key))
+
 @router.get('/intent-radar/icps',dependencies=[Depends(lambda:require('intent:read'))])
 def intent_icps(page:int=Query(1,ge=1,le=10000),c=Depends(get_db,scope='function')):
     from app.intent_radar.permissions import context

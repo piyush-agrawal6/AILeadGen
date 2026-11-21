@@ -6,6 +6,10 @@ from app.billing import creem_events
 router=APIRouter(prefix='/billing',tags=['Subscriptions'])
 
 from app.billing import subscriptions as service
+from app.billing import plan_changes
+
+@router.post('/subscription/change')
+def change(body:plan_changes.Change):return plan_changes.change(body)
 
 @router.get('/subscription')
 def status(c=Depends(get_db,scope='function')):return service.summary(c)
@@ -25,12 +29,11 @@ def refresh(c=Depends(get_db,scope='function')):
  from app.config.settings import get_settings
  from app.accounts.security import limited
  if limited(c,'subscription-refresh',ctx.organization_id,6,60):raise HTTPException(429,'Wait before refreshing the provider again.')
- row=c.execute('SELECT p.provider_id,p.environment FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id WHERE p.organization_id=? AND p.environment=?',(ctx.organization_id,get_settings().creem_environment)).fetchone()
- if not row:
-  from app.billing.creem import Unavailable,Rejected
-  try:service.refresh_checkout(c,ctx.organization_id)
-  except (Unavailable,Rejected):raise HTTPException(502,'The checkout status could not be confirmed. Your setup remains saved; no access was granted.') from None
-  return service.summary(c)
+ from app.billing.creem import Unavailable,Rejected
+ try:service.refresh_checkout(c,ctx.organization_id)
+ except (Unavailable,Rejected):raise HTTPException(502,'The checkout status could not be confirmed. Your setup remains saved; no access was granted.') from None
+ row=c.execute('SELECT p.provider_id,p.environment FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id AND w.environment=p.environment WHERE p.organization_id=? AND p.environment=?',(ctx.organization_id,get_settings().creem_environment)).fetchone()
+ if not row:return service.summary(c)
  c.commit()
  from app.billing.subscription_sync import reconcile_subscription
  from app.billing.creem import Unavailable,Rejected

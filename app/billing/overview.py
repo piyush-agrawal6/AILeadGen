@@ -69,4 +69,9 @@ def overview(c):
     payload={'native_access':native_access,'access':{'kind':access_kind,'is_trial':is_trial,'intent_radar':bool(manual and manual[0] or subscription or paid),'growth_intelligence':bool(s.intent_radar_growth_enabled and (manual and manual[0] or subscription or paid)),'commercial_subscription':bool(paid and not is_trial)},'subscription':subscription_summary,'search_usage':search_breakdown,'usage':items,'provider_usage':actual,'source_requests':sources,'team_seats':counts['seats'],'commercial_pricing_approved':True,'commercial':commercial_data,'live_payments_enabled':False,'sandbox_tools_available':role=='OWNER' and service.test_allowed(org),'billing_timezone':'UTC','unmetered':['Exports are bounded per request; no separate export-plan allowance is claimed.','Commercial reports consume both report and shared AI allowances; Beta access retains independent operator limits.'],'support_url':'mailto:contact@planebyte.com?subject=Workspace%20access%20and%20allowances'}
     if internal_testing_payload:
         payload['internal_testing']=internal_testing_payload
+    from app.billing import subscription_access,subscriptions
+    if subscription_access.required(c,org):
+        life=subscriptions.lifecycle(c,org,ctx.actor)
+        payload['billing_phase']=life['phase'];active=bool(paid)
+        payload['access'].update(intent_radar=active,growth_intelligence=bool(active and s.intent_radar_growth_enabled),kind=life['effective_label'] or ('Trial Ended' if life['phase']=='trial_ended' else 'No active subscription'))
     return payload

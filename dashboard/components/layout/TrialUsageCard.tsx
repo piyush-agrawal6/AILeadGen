@@ -32,6 +32,7 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
   const usageQuery = useUsage();
   const workspace = useWorkspace();
 
+  if(usageQuery.isError||workspace.isError||(!workspace.isPending&&workspace.data&&!workspace.data.active_organization_id))return <div className="mx-3 rounded-lg border p-3 text-xs" role="status">Billing status unavailable. <button onClick={()=>{void workspace.refetch();void usageQuery.refetch();}}>Retry</button> · <Link href="/billing">Billing</Link></div>;
   if (usageQuery.isPending) {
     if (collapsed && !mobile) {
       return (
@@ -51,17 +52,16 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
   const usageData = usageQuery.data;
   const sub = usageData?.subscription;
   const isTrial = Boolean(sub?.is_trial || usageData?.access?.is_trial);
-  const planCode = sub?.plan_code || "starter";
-  const entitlementLabel = sub?.entitlement_label || (isTrial ? "Starter Trial" : "Growth Plan");
+  const entitlementLabel = sub?.entitlement_label || usageData?.access?.kind || 'No active subscription';
 
   // Calculate trial / subscription period
-  const endTimestamp = sub?.trial_end || sub?.period_end || 0;
+  const endTimestamp = (isTrial?sub?.trial_end:sub?.period_end) || 0;
   const nowSec = Math.floor(Date.now() / 1000);
   const secondsRemaining = Math.max(0, endTimestamp - nowSec);
   const daysRemaining = Math.ceil(secondsRemaining / 86400);
 
   // Standard trial duration is typically 7 or 14 days
-  const startTimestamp = sub?.trial_start || (endTimestamp - 14 * 86400);
+  const startTimestamp = sub?.trial_start || sub?.period_start || endTimestamp;
   const totalDurationSec = Math.max(86400, endTimestamp - startTimestamp);
   const totalDays = Math.max(1, Math.round(totalDurationSec / 86400));
   const elapsedSec = Math.max(0, nowSec - startTimestamp);
@@ -72,31 +72,26 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
   const items = usageData?.usage || [];
   const searchAllowance =
     items.find((i) => i.dimension === "plan_searches") ||
-    items.find((i) => i.dimension === "searches") || {
-      used: usageData?.search_usage?.total_searches || 0,
-      limit: 20,
-    };
+    (!sub && usageData?.access?.intent_radar ? items.find((i) => i.dimension === "searches") : undefined);
 
   const aiAllowance =
     items.find((i) => i.dimension === "plan_ai_calls") ||
-    items.find((i) => i.dimension === "ai_calls") || {
-      used: usageData?.provider_usage?.requests || 0,
-      limit: 50,
-    };
+    (!sub && usageData?.access?.intent_radar ? items.find((i) => i.dimension === "ai_calls") : undefined);
 
   const isExpired = isTrial && daysRemaining <= 0 && endTimestamp > 0;
   const isExpiringSoon = isTrial && daysRemaining > 0 && daysRemaining <= 3;
-  const isPaid = !isTrial && Boolean(sub && (sub.status === "active" || sub.status === "trialing"));
+  const isPaid = !isTrial && Boolean(sub && sub.status.toLowerCase()==='active');
   const isCanceled = Boolean(
     sub && (sub.cancel_confirmed_at || (sub as any).canceled_at || (sub as any).cancel_at_period_end)
   );
-  const isLimitReached = searchAllowance.used >= searchAllowance.limit || aiAllowance.used >= aiAllowance.limit;
+  const isLimitReached = (searchAllowance&&searchAllowance.used>=searchAllowance.limit)||(aiAllowance&&aiAllowance.used>=aiAllowance.limit);
+  const searchText=searchAllowance?`${searchAllowance.used} / ${searchAllowance.limit}`:'—',aiText=aiAllowance?`${aiAllowance.used} / ${aiAllowance.limit}`:'—';
 
   // Tooltip content for collapsed mode
   const tooltipContent = (
     <div className="p-2 space-y-1.5 text-xs max-w-[200px]">
       <div className="font-semibold text-foreground flex items-center justify-between">
-        <span>{isTrial ? "Starter Trial" : entitlementLabel}</span>
+        <span>{entitlementLabel}</span>
         {isTrial && isExpired && (
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
             Expired
@@ -104,8 +99,8 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
         )}
       </div>
       <div className="text-[11px] text-muted-foreground space-y-0.5">
-        <div>Searches: {searchAllowance.used} / {searchAllowance.limit}</div>
-        <div>AI requests: {aiAllowance.used} / {aiAllowance.limit}</div>
+        <div>Searches: {searchText}</div>
+        <div>AI requests: {aiText}</div>
       </div>
       <Link
         href="/billing"
@@ -122,7 +117,7 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
         <Tooltip.Trigger asChild>
           <Link
             href="/billing"
-            aria-label={`Subscription: ${isTrial ? "Starter Trial" : entitlementLabel}`}
+            aria-label={`Subscription: ${entitlementLabel}`}
             className="mx-auto my-2.5 flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-xs hover:border-primary/40 hover:bg-muted/50 transition-colors"
           >
             {isExpired ? (
@@ -160,7 +155,7 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
           ) : (
             <Sparkles size={13} className="text-primary shrink-0" />
           )}
-          <span className="truncate">{isTrial ? "Starter Trial" : entitlementLabel}</span>
+          <span className="truncate">{entitlementLabel}</span>
         </div>
 
         {isTrial && isExpired && (
@@ -210,13 +205,13 @@ function TrialUsageCardContent({ collapsed = false, mobile = false }: TrialUsage
         <div className="flex items-center justify-between">
           <span>Discovery searches</span>
           <span className="font-medium text-foreground tabular-nums">
-            {searchAllowance.used} / {searchAllowance.limit}
+            {searchText}
           </span>
         </div>
         <div className="flex items-center justify-between">
           <span>AI requests</span>
           <span className="font-medium text-foreground tabular-nums">
-            {aiAllowance.used} / {aiAllowance.limit}
+            {aiText}
           </span>
         </div>
       </div>

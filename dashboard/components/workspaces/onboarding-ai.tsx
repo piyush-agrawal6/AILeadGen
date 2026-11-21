@@ -109,7 +109,7 @@ function SetupWorkspace({
       }
     }
     if (initial.progress.status === 'COMPLETED') {
-      return initial.payment?.required && !initial.payment.active ? 'plan' : 'ready';
+      return 'ready';
     }
     const s = initial.progress.current_step;
     if (s === 'REVIEW') return 'research';
@@ -859,6 +859,7 @@ function SetupWorkspace({
           pending={pending}
           saveStatus={saveStatus}
           onSelectStep={next => {
+            if(progress.status==='COMPLETED')return;
             setFieldErrors({});
             setError('');
             setView(next);
@@ -881,7 +882,7 @@ function SetupWorkspace({
           </Link>
         </section>
       ) : view === 'ready' ? (
-        <OnboardingCompletion
+          <OnboardingCompletion
           hasVerifiedAccess={hasVerifiedAccess}
           companyName={state.company.name}
           primaryICPName={primaryICPName}
@@ -890,7 +891,7 @@ function SetupWorkspace({
           contract={state.payment?.contract}
         />
       ) : (
-        <div className="ai-onboarding-grid">
+        <div className={view==='plan'?'mx-auto w-full max-w-5xl':'ai-onboarding-grid'}>
           <div className="ai-onboarding-workspace">
             {view === 'welcome' && (
               <Step1Business
@@ -998,8 +999,9 @@ function SetupWorkspace({
             )}
 
             {view === 'plan' && (
-              <section className="ai-card p-6 md:p-8" aria-label="Plan and Payment">
+              <section className="min-w-0 px-1 py-2 sm:px-4" aria-label="Plan and Payment">
                 <SubscriptionPayment
+                  orgId={orgId||''}
                   embedded
                   onActivated={() => {
                     setState(previous => ({ ...previous, payment: { required: true, active: true } }));
@@ -1026,7 +1028,7 @@ function SetupWorkspace({
           </div>
 
           {/* Desktop Persistent Sticky Copilot Column (30-35%, 330-390px) */}
-          <aside className="ai-copilot-container hidden lg:flex" aria-label="PlaneByte Copilot">
+          {view!=='plan'&&<><aside className="ai-copilot-container hidden lg:flex" aria-label="PlaneByte Copilot">
             <CopilotPanel
               companyName={draft.name || state.company.name}
               currentStep={view}
@@ -1096,7 +1098,7 @@ function SetupWorkspace({
                 </Dialog.Content>
               </Dialog.Portal>
             </Dialog.Root>
-          </div>
+          </div></>}
         </div>
       )}
     </div>

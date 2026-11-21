@@ -107,6 +107,7 @@ def job_scope(conn, kind, identifier):
               "company_profile": ("organization_profile_jobs", "created_by"),
               "intelligence": ("intelligence_jobs", "created_by"),
               "webhook": ("webhook_endpoints", "created_by"),
+              "radar_sheet_export": ("radar_sheet_exports", "created_by"),
               "sheet_export": ("organization_sheet_exports", "created_by")}
     if kind not in tables:
         raise ValueError("Unknown workspace job type")

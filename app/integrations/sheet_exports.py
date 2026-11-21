@@ -32,12 +32,22 @@ def connection(c,key,revision=None):
     if revision is not None and row['revision']!=revision:raise HTTPException(409,'The connection changed after review. Prepare a fresh export.')
     return row
 
+def table_for(key):
+    return 'radar_sheet_exports' if uuid.UUID(key).version==5 else 'organization_sheet_exports'
+
 def owned(c,key):
-    service.manager(c);row=c.execute('SELECT * FROM organization_sheet_exports WHERE id=? AND organization_id=?',(key,organization())).fetchone()
+    service.manager(c);table=table_for(key)
+    if table=='radar_sheet_exports':
+        from app.integrations.radar_sheets import admin
+        admin(c)
+    row=c.execute(f'SELECT * FROM {table} WHERE id=? AND organization_id=?',(key,organization())).fetchone()
     if not row:raise HTTPException(404,'Spreadsheet export not found.')
     return dict(row)
 
 def view(row):
+    if 'selection_json' in row:
+        from app.integrations.radar_sheets import describe
+        return describe(row)
     rows=json.loads(row['rows_json'])
     return {name:row[name] for name in ('id','connection_id','list_id','spreadsheet_id','sheet_title','target_range','status','attempts','last_error_code','created_at','expires_at','completed_at')}|{'row_count':len(rows)-1,'columns':rows[0],'preview':rows[1:6],'review_digest':row['fingerprint']}
 
@@ -91,7 +101,10 @@ def approve(c,key,digest,confirmation):
     if row['expires_at']<now():raise HTTPException(409,'Export review expired. Prepare a fresh snapshot.')
     if row['status']=='COMPLETED':return view(row)
     if row['status'] not in ('DRAFT','QUEUED'):raise HTTPException(409,'Review the failed or uncertain outcome before explicitly retrying.')
-    c.execute("UPDATE organization_sheet_exports SET status='QUEUED',updated_at=? WHERE id=? AND organization_id=? AND status='DRAFT'",(now(),key,organization()))
+    if 'selection_json' in row:
+        from app.integrations.radar_sheets import verified_rows
+        verified_rows(c,row)
+    c.execute(f"UPDATE {table_for(key)} SET status='QUEUED',updated_at=? WHERE id=? AND organization_id=? AND status='DRAFT'",(now(),key,organization()))
     service.audit(c,row['connection_id'],'SHEETS_EXPORT_APPROVED');return view(owned(c,key))
 
 def retry(c,key,digest,confirmation):
@@ -101,7 +114,10 @@ def retry(c,key,digest,confirmation):
     if row['status']=='RUNNING' and row['lease_until'] and row['lease_until']>=now():raise HTTPException(409,'The export is still running.')
     if row['status'] not in ('FAILED','UNCERTAIN','RUNNING'):raise HTTPException(409,'Only a failed or uncertain export can be retried.')
     if confirmation!='OVERWRITE_REVIEWED_RANGE' or not secrets.compare_digest(digest,row['fingerprint']):raise HTTPException(409,'Confirm overwriting the same reviewed range before retrying.')
-    c.execute("UPDATE organization_sheet_exports SET status='QUEUED',lease_owner=NULL,lease_until=NULL,updated_at=? WHERE id=? AND organization_id=?",(now(),key,organization()))
+    if 'selection_json' in row:
+        from app.integrations.radar_sheets import verified_rows
+        verified_rows(c,row)
+    c.execute(f"UPDATE {table_for(key)} SET status='QUEUED',lease_owner=NULL,lease_until=NULL,updated_at=? WHERE id=? AND organization_id=?",(now(),key,organization()))
     service.audit(c,row['connection_id'],'SHEETS_EXPORT_RETRY_APPROVED');return view(owned(c,key))
 
 async def write(token,sid,target,rows,transport=None):
@@ -123,28 +139,37 @@ async def write(token,sid,target,rows,transport=None):
 async def execute(key,db_path=None,transport=None):
     service.require_enabled()
     with db_session(db_path) as c:
-        with job_scope(c,'sheet_export',key):
+        table=table_for(key);radar=table=='radar_sheet_exports'
+        with job_scope(c,'radar_sheet_export' if radar else 'sheet_export',key):
             row=owned(c,key);connection(c,row['connection_id'],row['connection_revision'])
-            if row['expires_at']<now():return
+            if row['expires_at']<now():
+                if radar:c.execute("UPDATE radar_sheet_exports SET status='FAILED',last_error_code='REVIEW_EXPIRED',updated_at=? WHERE id=? AND organization_id=? AND status='QUEUED'",(now(),key,organization()))
+                return
             from app.workflows.service import lock
             lock(c)
-            if c.execute("SELECT COUNT(*) FROM organization_sheet_exports WHERE status='RUNNING' AND lease_until>?",(now(),)).fetchone()[0]>=2:return
+            if c.execute(f"SELECT COUNT(*) FROM {table} WHERE status='RUNNING' AND lease_until>?",(now(),)).fetchone()[0]>=2:
+                if radar:c.execute("UPDATE radar_sheet_exports SET status='FAILED',last_error_code='WORKER_CAPACITY',updated_at=? WHERE id=? AND organization_id=? AND status='QUEUED'",(now(),key,organization()))
+                return
             token=secrets.token_hex(16);expiry=(datetime.now(timezone.utc)+timedelta(seconds=60)).isoformat()
-            changed=c.execute("UPDATE organization_sheet_exports SET status='RUNNING',attempts=attempts+1,lease_owner=?,lease_until=?,updated_at=? WHERE id=? AND organization_id=? AND status='QUEUED' AND attempts<3",(token,expiry,now(),key,organization())).rowcount
+            changed=c.execute(f"UPDATE {table} SET status='RUNNING',attempts=attempts+1,lease_owner=?,lease_until=?,updated_at=? WHERE id=? AND organization_id=? AND status='QUEUED' AND attempts<3",(token,expiry,now(),key,organization())).rowcount
             if not changed:return
             c.commit();state='FAILED';error='CONNECTION_UNAVAILABLE';started=False
             try:
                 access,revision=await service.access_token(c,row['connection_id'])
                 connection(c,row['connection_id'],row['connection_revision'])
                 renewed=(datetime.now(timezone.utc)+timedelta(seconds=45)).isoformat()
-                if not c.execute("UPDATE organization_sheet_exports SET lease_until=? WHERE id=? AND organization_id=? AND lease_owner=? AND status='RUNNING'",(renewed,key,organization(),token)).rowcount:return
+                if radar:
+                    from app.integrations.radar_sheets import verified_rows
+                    rows=verified_rows(c,row)
+                else:rows=json.loads(row['rows_json'])
+                if not c.execute(f"UPDATE {table} SET lease_until=? WHERE id=? AND organization_id=? AND lease_owner=? AND status='RUNNING'",(renewed,key,organization(),token)).rowcount:return
                 c.commit()
-                started=True;status,verified=await write(access,row['spreadsheet_id'],row['target_range'],json.loads(row['rows_json']),transport)
+                started=True;status,verified=await write(access,row['spreadsheet_id'],row['target_range'],rows,transport)
                 state='COMPLETED' if verified else 'UNCERTAIN' if 200<=status<300 else 'FAILED';error=None if verified else 'SHEETS_WRITE_UNVERIFIED' if 200<=status<300 else 'SHEETS_HTTP_'+str(status)
             except HTTPException:state='UNCERTAIN' if started else 'FAILED';error='CONNECTION_CHANGED' if started else 'CONNECTION_UNAVAILABLE'
             except (httpx.HTTPError,TimeoutError):state='UNCERTAIN';error='PROVIDER_OUTCOME_UNKNOWN'
             except Exception:state='UNCERTAIN' if started else 'FAILED';error='EXPORT_UNAVAILABLE'
-            c.execute('UPDATE organization_sheet_exports SET status=?,last_error_code=?,updated_at=?,completed_at=?,lease_owner=NULL,lease_until=NULL WHERE id=? AND organization_id=? AND lease_owner=?',(state,error,now(),now() if state=='COMPLETED' else None,key,organization(),token))
+            c.execute(f'UPDATE {table} SET status=?,last_error_code=?,updated_at=?,completed_at=?,lease_owner=NULL,lease_until=NULL WHERE id=? AND organization_id=? AND lease_owner=?',(state,error,now(),now() if state=='COMPLETED' else None,key,organization(),token))
             service.audit(c,row['connection_id'],'SHEETS_EXPORT_'+state)
 
 def cancel(c,key):
@@ -152,7 +177,7 @@ def cancel(c,key):
     row=owned(c,key)
     if row['status']=='RUNNING':raise HTTPException(409,'An in-flight provider write cannot be retracted. Wait for its recorded outcome.')
     if row['status']=='COMPLETED':raise HTTPException(409,'A completed export cannot be retracted.')
-    c.execute("UPDATE organization_sheet_exports SET status='CANCELLED',updated_at=? WHERE id=? AND organization_id=?",(now(),key,organization()))
+    if not c.execute(f"UPDATE {table_for(key)} SET status='CANCELLED',updated_at=? WHERE id=? AND organization_id=? AND status NOT IN ('RUNNING','COMPLETED')",(now(),key,organization())).rowcount:raise HTTPException(409,'Export state changed; refresh history.')
     service.audit(c,row['connection_id'],'SHEETS_EXPORT_CANCELLED');return view(owned(c,key))
 
 _tasks=set()

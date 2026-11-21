@@ -117,7 +117,7 @@ it('keeps provider cancellation and invoice controls visible without product acc
       recurring_authorized: 1
     }
   });
-  expect(await screen.findByRole('button', { name: 'Cancel automatic renewal' })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Billing portal, payment method & invoices' })).toBeVisible();
+  expect(await screen.findByRole('link',{name:'Manage billing'})).toHaveAttribute('href','/settings?category=billing&tab=overview');
+  expect(screen.queryByRole('button',{name:'Cancel automatic renewal'})).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: /Open dashboard/ })).not.toBeInTheDocument();
 });

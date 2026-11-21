@@ -1,24 +1,10 @@
 import {test,expect} from '@playwright/test';
 import {encode} from 'next-auth/jwt';
-import fs from 'node:fs';
-const catalog=JSON.parse(fs.readFileSync(new URL('../../app/billing/commercial_catalog.json',import.meta.url),'utf8'));
-test('saved payment gate and cancellation render on mobile in both themes',async({page,context},info)=>{
- await context.addCookies([{name:'authjs.session-token',value:await encode({token:{sub:'founder@leadengine.example',email:'founder@leadengine.example'},secret:'fixture-session-secret-only-for-local-tests-123456789',salt:'authjs.session-token',maxAge:3600}),url:'http://127.0.0.1:13000',httpOnly:true,sameSite:'Lax'}]);
- const state={enabled:true,required:true,active:false,plans:catalog.plans,terms_version:'planebyte-subscriptions-2026-11-17-v2',can_manage:true,trial_eligible:true,paid_blockers:['Synthetic fixture: merchant acceptance pending'],trial_blockers:['Synthetic fixture: merchant acceptance pending'],contract:null};
- await page.route('**/api/billing/subscription',route=>route.fulfill({json:state}));
- await page.goto('/billing/subscription');
- await expect(page.getByRole('heading',{name:'Choose Your Plan & Payment',exact:true})).toBeVisible();
- await expect(page.getByRole('button',{name:'Continue to secure card trial'})).toBeDisabled();
- await expect(page.getByText('Skip',{exact:true})).toHaveCount(0);
- await page.getByRole('checkbox').check();
- await page.getByLabel('Which paid plan should follow your 72-hour trial?').selectOption('growth');
- await expect(page.getByRole('checkbox')).not.toBeChecked();
- for(const theme of ['light','dark'])for(const width of [1440,768,390,320]){
-  await page.setViewportSize({width,height:900});await page.evaluate(theme=>document.documentElement.classList.toggle('dark',theme==='dark'),theme);
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.screenshot({path:info.outputPath(`payment-${theme}-${width}.png`),fullPage:true});
- }
- await page.unroute('**/api/billing/subscription');
- await page.route('**/api/billing/subscription',route=>route.fulfill({json:{...state,contract:{id:'synthetic-contract',provider:'creem',environment:'test',status:'past_due',plan_code:'starter',period_start:1794890000,period_end:1797482000,cancel_confirmed_at:null}}}));
- await page.reload();await expect(page.getByRole('button',{name:'Cancel automatic renewal'})).toBeVisible();
+test('completed workspace recovers from an ended trial through paid checkout',async({page,context})=>{
+ const email='founder@leadengine.example',origin='http://127.0.0.1:13000';await context.addCookies([{name:'authjs.session-token',value:await encode({token:{sub:email,email},secret:'fixture-session-secret-only-for-local-tests-123456789',salt:'authjs.session-token',maxAge:3600}),url:origin,httpOnly:true,sameSite:'Lax'}]);
+ const w=await (await context.request.get('/api/organization/workspaces')).json();expect(w.active_onboarding_status).toBe('COMPLETED');const b=await(await context.request.get('/api/billing/subscription')).json();expect(b.lifecycle.phase).toBe('trial_ended');expect(b.lifecycle.can_purchase).toBe(true);expect(b.trial_eligible).toBe(false);
+ await page.goto('/intent-radar/integrations');await expect(page).toHaveURL(/\/integrations$/);await expect(page.getByRole('heading',{name:'Integrations',exact:true})).toBeVisible();expect((await context.request.get('/api/intent-radar/overview/summary')).status()).toBe(402);
+ await page.getByRole('link',{name:'Renew or Change Plan'}).click();await page.getByRole('button',{name:'Choose Growth'}).click();await expect(page.getByRole('region',{name:'Direct checkout for Growth'})).toBeVisible();expect(await page.getByRole('checkbox').count()).toBe(1);
+ for(const width of [1440,768,390,320]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect(page.getByRole('button',{name:'Proceed to Creem Checkout'})).toBeVisible();}
+ await page.getByRole('checkbox').check();await page.route('https://checkout.creem.io/test/offline/**',r=>r.fulfill({contentType:'text/html',body:'<h1>Controlled hosted checkout</h1>'}));await page.getByRole('button',{name:'Proceed to Creem Checkout'}).click();await expect(page.getByRole('heading',{name:'Controlled hosted checkout'})).toBeVisible();const pending=await(await context.request.get('/api/billing/subscription')).json();expect(pending.active).toBe(false);expect(pending.lifecycle.pending_checkout.variant).toBe('paid');expect(pending.lifecycle.pending_checkout.plan_code).toBe('growth');
 });

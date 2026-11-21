@@ -1,4 +1,5 @@
 "use client";
+import {RadarExport} from '../RadarExport';
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -527,6 +528,7 @@ function ResearchDetailViewer({
 
         <div className="flex items-center gap-2">
           {/* Export Options */}
+          {research.export_available&&researchId&&<RadarExport selection={{dataset:'growth',parent:researchId}}/>}
           {research.export_available && (
             <div className="flex items-center gap-1">
               <button

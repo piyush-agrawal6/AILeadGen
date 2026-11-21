@@ -1,4 +1,5 @@
 "use client";
+import {RadarExport} from './RadarExport';
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -549,6 +550,7 @@ export function SignalsWorkspace() {
 
   return (
     <div className="ir-page space-y-5">
+      <RadarExport selection={{dataset:'signals',ids:selected.length?selected:rows.map(s=>s.id)}} matchingQuery={apiQueryString}/>
       <PageHeading
         title="Intent Signals"
         description="Triage public conversations, evaluate commercial intent with evidence, and promote qualified signals into opportunities."

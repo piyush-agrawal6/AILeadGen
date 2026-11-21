@@ -29,7 +29,7 @@ async def structured(instruction,payload,schema,**kwargs):
         quote={'source_id':'S1','quote':'Synthetic Browser Engineering builds Custom applications for Software teams.'}
         return autofill.Extraction(fields=[{'field':'name','value':'Synthetic Browser Engineering','evidence':[quote]},{'field':'description','value':quote['quote'],'evidence':[quote]},{'field':'products_services','value':[{'name':'Custom applications'}],'evidence':[quote]}])
     if issubclass(schema,builder.Suggestions):
-        return schema(candidates=[builder.Candidate(draft={'name':name,'criteria':{'company':{'industries':['Software']},'contact':{'job_titles':['CTO']},'intent':{'business_needs':[need],'pain_points':['delivery bottlenecks'],'exclusions':['recruitment']}}},reason='Synthetic fixture recommendation based on the approved offering.',assumptions=['Suggested audience; no actual customer relationship established.']) for name,need in [('Product engineering teams','Custom applications'),('Software studios','Product modernization'),('Workflow teams','Workflow automation'),('Analytics teams','Analytics integration'),('Mobile teams','Mobile applications')]])
+        return schema(candidates=[builder.Candidate(draft={'name':name,'criteria':{'company':{'industries':['Software']},'contact':{'job_titles':['CTO']},'intent':{'business_needs':[need],'buying_signals':['Publicly comparing engineering partners for '+need],'pain_points':['delivery bottlenecks'],'exclusions':['recruitment']}}},reason='Synthetic fixture recommendation based on the approved offering.',assumptions=['Suggested audience; no actual customer relationship established.']) for name,need in [('Product engineering teams','Custom applications'),('Software studios','Product modernization'),('Workflow teams','Workflow automation'),('Analytics teams','Analytics integration'),('Mobile teams','Mobile applications')]])
     if schema is Advice:return Advice(answer='Review the suggested business needs before choosing an audience.',source_fields=['description'])
     raise AssertionError('Unexpected isolated onboarding provider schema')
 ai.provider=lambda c=None:SimpleNamespace(structured=structured,last_provider='SYNTHETIC',last_model='SYNTHETIC-browser-fixture',last_usage={})
@@ -38,3 +38,8 @@ with db_session() as c:
     # Explicit fixture enrollment. Production onboarding never grants a product.
     c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id=? AND product='INTENT_RADAR'",(org,))
     select_workspace(c,'cofounder@leadengine.example',org)
+    from app.billing.subscription_schema import EVENT_SQL,CONTRACT_SQL
+    from app.billing import subscription_access
+    from pydantic import SecretStr
+    c.executescript(EVENT_SQL+CONTRACT_SQL);settings.subscription_onboarding_required=True;settings.creem_environment='test';settings.billing_test_workspaces=org;settings.creem_test_api_key=SecretStr('offline-fixture');settings.subscription_terms_version=subscription_access.POLICY
+    subscription_access.enroll(c,'cofounder@leadengine.example',org)

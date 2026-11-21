@@ -47,10 +47,6 @@ def workspaces(request:Request,c=Depends(get_db,scope='function')):
     state=resolve(c,request.state.user_email)
     from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
     from app.platform.workspaces import enrich_memberships
-    if state:
-        from app.billing.subscription_access import required,product_grant
-        if required(c,state['organization_id']) and not product_grant(c,state['organization_id']):
-            state={**state,'onboarding_status':'IN_PROGRESS'}
     return {'items':enrich_memberships(c,memberships(c,request.state.user_email)),'active_organization_id':state['organization_id'] if state else None,'active_onboarding_status':state['onboarding_status'] if state else None,'active_onboarding_deferred':bool(state and state.get('onboarding_deferred')),'active_is_internal':bool(state and state['organization_id']==PLANEBYTE_ORGANIZATION_ID)}
 
 @router.get('/products')

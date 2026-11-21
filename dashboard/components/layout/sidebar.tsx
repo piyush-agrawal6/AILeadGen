@@ -267,10 +267,8 @@ export function Sidebar({
         )}
       </nav>
 
-      {/* Trial & Real Usage Card */}
-      <TrialUsageCard collapsed={collapsed} mobile={mobile} />
-
       <nav aria-label="Workspace settings" className="shell-nav shell-nav-bottom">
+        <TrialUsageCard collapsed={collapsed} mobile={mobile} />
         {management && (
           <SidebarSetupShortcut
             path={path}

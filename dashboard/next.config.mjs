@@ -8,7 +8,7 @@ const nextConfig = {
   distDir: process.env.HEYSOW_E2E_DIST_DIR || '.next',
   // OAuth callbacks contain short-lived grant codes; keep their URLs out of
   // development request logs without hiding ordinary application diagnostics.
-   logging: { incomingRequests: { ignore: [/\/reset-password/, /\/api\/auth\//, /\/acquisition\/sheets\/callback/, /\/settings\/integrations\/gmail-callback/] } },
+   logging: { incomingRequests: { ignore: [/\/reset-password/, /\/api\/auth\//, /\/acquisition\/sheets\/callback/, /\/intent-radar\/integrations\/sheets\/callback/, /\/settings\/integrations\/gmail-callback/] } },
   turbopack: { root: path.dirname(fileURLToPath(import.meta.url)) },
   images: {
     unoptimized: true,

@@ -51,6 +51,10 @@ def get_subscription(key,**kw):return request('GET','/subscriptions',params={'su
 def get_customer(key,**kw):return request('GET','/customers',params={'customer_id':identifier(key,'cust_')},**kw)
 def get_transaction(key,**kw):return request('GET','/transactions',params={'transaction_id':identifier(key,'tran_')},**kw)
 
+def verify_replacement_customer(customer_id,mode,prior_id=None):
+ page=request('GET','/customers/'+identifier(customer_id,'cust_')+'/subscriptions',mode=mode,params={'page_size':100});items=page.get('items') if isinstance(page,dict) else None
+ if not isinstance(items,list) or not isinstance(page.get('pagination'),dict) or page['pagination'].get('next_page') or any(not isinstance(i,dict) or i.get('status')!='canceled' for i in items) or prior_id and not any(i.get('id')==prior_id for i in items):raise Rejected('Existing agreements require review before checkout.')
+
 def hosted_url(value):
  if not isinstance(value,str) or len(value)>2048:raise Rejected('Invalid Creem hosted URL.')
  u=urlsplit(value)

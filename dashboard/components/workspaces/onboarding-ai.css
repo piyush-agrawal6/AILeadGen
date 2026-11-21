@@ -25,7 +25,7 @@
   z-index: -2;
   background:
     linear-gradient(180deg, transparent 0%, hsl(var(--background)) 94%),
-    linear-gradient(110deg, #fff0e6 0%, #fceaf4 46%, #eeebff 100%);
+    linear-gradient(115deg, #f7faff 0%, #f2f6ff 58%, #eeedff 100%);
 }
 
 .pb-onb-hero::after {
@@ -57,7 +57,7 @@
 }
 
 .pb-onb-hero-inner {
-  max-width: 1440px;
+  max-width: 1280px;
   margin: 0 auto;
 }
 
