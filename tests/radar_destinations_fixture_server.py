@@ -23,7 +23,9 @@ sheets.read_with_token=read
 # The normal worker refuses network in test mode. Inject only its HTTP transport.
 import httpx
 write=sheet_exports.write
-async def write_fixture(token,sid,target,rows,transport=None):
+async def write_fixture(token,sid,target,rows,transport=None,*,verify_read=False):
     assert sid=='controlled-sheet-id' and token=='offline-access'
-    return await write(token,sid,target,rows,httpx.MockTransport(lambda req:httpx.Response(200,json={'updatedCells':sum(map(len,rows))})))
+    def response(req):
+        return httpx.Response(200,json={'values':rows} if req.method=='GET' else {'updatedCells':sum(map(len,rows))})
+    return await write(token,sid,target,rows,httpx.MockTransport(response),verify_read=verify_read)
 sheet_exports.write=write_fixture

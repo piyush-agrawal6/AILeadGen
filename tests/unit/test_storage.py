@@ -19,8 +19,11 @@ def test_local_storage_round_trip(tmp_path):
 def test_private_r2_contract(tmp_path):
     source=tmp_path/"file.csv";source.write_text("csv")
     client=Mock();client.get_object.return_value={"Body":BytesIO(b"csv")}
+    client.head_object.return_value={'ContentLength':3,'ContentType':'text/csv'}
     storage=R2ArtifactStorage(client)
     storage.put("campaigns/test/runs/1/leads.csv",source,"text/csv")
     assert "ACL" not in client.upload_file.call_args.kwargs["ExtraArgs"]
     assert client.upload_file.call_args.kwargs["ExtraArgs"]["CacheControl"]=="private, no-store"
     assert storage.get("campaigns/test/runs/1/leads.csv").read()==b"csv"
+    client.head_object.return_value['ContentLength']=2
+    with pytest.raises(IOError,match='metadata differs'):storage.put('campaigns/test/runs/1/leads.csv',source,'text/csv')

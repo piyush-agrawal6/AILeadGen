@@ -115,36 +115,15 @@ describe("Settings Restructuring & Customer Integrations (Master Prompt 10)", ()
     
     // Header & description
     expect(screen.getByRole("heading", { name: "Integrations" })).toBeInTheDocument();
-    expect(screen.getByText(/Connect your favorite tools and bring Intent Radar insights/i)).toBeInTheDocument();
-
-    // Category filter tabs
-    expect(screen.getByRole("tab", { name: /All Integrations/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /CRM/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Spreadsheets/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Automation/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Collaboration/i })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /Developer Tools/i })).toBeInTheDocument();
-
-    // Key integrations present
-    expect(screen.getByText("HubSpot")).toBeInTheDocument();
-    expect(screen.getByText("Salesforce")).toBeInTheDocument();
     expect(screen.getByText("Google Sheets")).toBeInTheDocument();
-    expect(screen.getByText("Slack")).toBeInTheDocument();
-    expect(screen.getByText("Zapier")).toBeInTheDocument();
     expect(screen.getByText("REST API")).toBeInTheDocument();
-
-    // Truthful statuses: Unbuilt integrations have "Coming Soon" badges
-    const comingSoonBadges = screen.getAllByText("Coming Soon");
-    expect(comingSoonBadges.length).toBeGreaterThanOrEqual(10);
-
-    // Filter by CRM
-    fireEvent.click(screen.getByRole("tab", { name: /CRM/i }));
-    expect(screen.getByText("HubSpot")).toBeInTheDocument();
-    expect(screen.getByText("Salesforce")).toBeInTheDocument();
-    expect(screen.getByText("Pipedrive")).toBeInTheDocument();
-    expect(screen.getByText("Zoho CRM")).toBeInTheDocument();
-    expect(screen.getByText("Freshsales")).toBeInTheDocument();
+    // Unverified or unavailable destinations must not expose a connect action.
+    expect(screen.queryByRole('link',{name:/Connect: Google Sheets/})).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox',{name:'Category'}),{target:{value:'CRM'}});
+    expect(screen.getByText(/HubSpot · Not available/)).toBeInTheDocument();
     expect(screen.queryByText("Google Sheets")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Search integrations'),{target:{value:'no-match'}});
+    expect(screen.getByRole('status')).toHaveTextContent('No matching integrations.');
   });
 
   it("includes Integrations in the sidebar navigation under Intelligence", () => {

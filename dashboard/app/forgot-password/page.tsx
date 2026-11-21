@@ -1,3 +1,4 @@
+import {challengeSiteKey} from '@/lib/server/turnstile';
 import {AccountForm} from '@/components/auth/account-form';
 import {recoverAccount} from '../account-actions';
 import {serverEnv} from '@/lib/server/env';
@@ -27,7 +28,7 @@ export default function ForgotPassword() {
       summary={serverEnv().accounts?"Recover your PlaneByte password or get help with Google sign-in and workspace access.":"PlaneByte uses verified Google OAuth for enterprise authentication. Review the scenarios below to resolve common access, invitation, or account issues."}
       activeTab="help"
     >
-      {serverEnv().accounts&&<section className="mb-8 max-w-md"><h2 className="text-lg font-semibold mb-3">Recover your PlaneByte password</h2><AccountForm action={recoverAccount} kind="recovery"/></section>}
+      {serverEnv().accounts&&<section className="mb-8 max-w-md"><h2 className="text-lg font-semibold mb-3">Recover your PlaneByte password</h2><AccountForm action={recoverAccount} kind="recovery" challengeKey={challengeSiteKey()}/></section>}
       <section className="space-y-6">
         <div>
           <h2 className="text-lg font-semibold text-foreground tracking-tight mb-1">

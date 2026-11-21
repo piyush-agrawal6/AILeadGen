@@ -39,13 +39,26 @@ class R2ArtifactStorage:
         settings = get_settings()
         self.bucket = settings.r2_bucket_name
         if client is None:
+            if not re.fullmatch(r'https://[a-f0-9]{32}\.r2\.cloudflarestorage\.com/?',settings.r2_endpoint):
+                raise ValueError('Expected an HTTPS Cloudflare R2 account endpoint')
+            if not all((self.bucket,settings.r2_access_key_id,settings.r2_secret_access_key)):
+                raise ValueError('Incomplete R2 S3 configuration')
             import boto3
             from botocore.config import Config
-            client = boto3.client("s3", endpoint_url=settings.r2_endpoint, aws_access_key_id=settings.r2_access_key_id, aws_secret_access_key=settings.r2_secret_access_key, region_name=settings.r2_region, config=Config(connect_timeout=10, read_timeout=30, retries={"max_attempts":2}))
+            client = boto3.client("s3", endpoint_url=settings.r2_endpoint, aws_access_key_id=settings.r2_access_key_id, aws_secret_access_key=settings.r2_secret_access_key, region_name=settings.r2_region, config=Config(signature_version='s3v4',connect_timeout=10, read_timeout=30, retries={"mode":"standard","total_max_attempts":3}))
         self.client = client
 
     def put(self, key, source, content_type):
+        size=Path(source).stat().st_size
+        if size>64*1024*1024:raise ValueError('Artifact exceeds the upload limit')
         self.client.upload_file(str(source), self.bucket, validate_key(key), ExtraArgs={"ContentType":content_type, "CacheControl":"private, no-store"})
+        info=self.stat(key)
+        if info['size']!=size or info['content_type']!=content_type:
+            raise IOError('Stored artifact metadata differs from upload')
+
+    def stat(self,key):
+        result=self.client.head_object(Bucket=self.bucket,Key=validate_key(key))
+        return {'size':result['ContentLength'],'content_type':result['ContentType']}
 
     def get(self, key):
         return self.client.get_object(Bucket=self.bucket, Key=validate_key(key))["Body"]

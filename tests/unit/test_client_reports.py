@@ -122,6 +122,7 @@ def test_pdf_r2_upload_is_private_and_mime_typed(tmp_path,monkeypatch):
     from app.storage import R2ArtifactStorage
     client=Mock();storage=R2ArtifactStorage(client=client)
     source=tmp_path/'report.pdf';source.write_bytes(b'%PDF-test')
+    client.head_object.return_value={'ContentLength':source.stat().st_size,'ContentType':'application/pdf'}
     key='prospects/example/reports/version-one.pdf'
     storage.put(key,source,'application/pdf')
     assert client.upload_file.call_args.args==(str(source),storage.bucket,key)
@@ -147,4 +148,3 @@ def test_reports_and_scans_share_existing_dispatch_capacity(ready_client,monkeyp
     with db_session() as conn:assert conn.execute('SELECT status,execution_name FROM client_reports WHERE id=?',(report['id'],)).fetchone()['execution_name'] is None
     dispatch_queued()
     assert dispatch.call_count==1
-

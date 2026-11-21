@@ -120,7 +120,7 @@ def retry(c,key,digest,confirmation):
     c.execute(f"UPDATE {table_for(key)} SET status='QUEUED',lease_owner=NULL,lease_until=NULL,updated_at=? WHERE id=? AND organization_id=?",(now(),key,organization()))
     service.audit(c,row['connection_id'],'SHEETS_EXPORT_RETRY_APPROVED');return view(owned(c,key))
 
-async def write(token,sid,target,rows,transport=None):
+async def write(token,sid,target,rows,transport=None,*,verify_read=False):
     if get_settings().app_env=='test' and transport is None:raise HTTPException(503,'Provider writes are disabled in offline tests.')
     # Fixed provider host/path; RAW prevents imported text from becoming formulas.
     async with asyncio.timeout(30):
@@ -134,7 +134,25 @@ async def write(token,sid,target,rows,transport=None):
                     if len(raw)>32000:return status,False
                 try:result=json.loads(raw)
                 except (ValueError,UnicodeError):return status,False
-                return status,isinstance(result,dict) and result.get('updatedCells')==sum(len(row) for row in rows)
+                counted=isinstance(result,dict) and result.get('updatedCells')==sum(len(row) for row in rows)
+            if not counted or not verify_read:return status,counted
+            # A write receipt isn't an independent read. A failed or divergent GET after PUT is uncertain.
+            async with client.stream('GET','https://sheets.googleapis.com/v4/spreadsheets/'+quote(sid,safe='')+'/values/'+quote(target,safe=''),params={'valueRenderOption':'UNFORMATTED_VALUE','majorDimension':'ROWS'},headers={'Authorization':'Bearer '+token}) as check:
+                if check.status_code!=200:return status,False
+                raw=bytearray()
+                async for chunk in check.aiter_bytes():
+                    raw.extend(chunk)
+                    if len(raw)>2_000_000:return status,False
+                try:actual=json.loads(raw)['values']
+                except (KeyError,TypeError,ValueError):return status,False
+                if not isinstance(actual,list) or len(actual)>len(rows):return status,False
+                for i,expected in enumerate(rows):
+                    cells=actual[i] if i<len(actual) else []
+                    if not isinstance(cells,list) or len(cells)>len(expected):return status,False
+                    # The values API omits trailing blanks. Never coerce numbers or booleans to strings.
+                    cells=cells+['']*(len(expected)-len(cells))
+                    if json.dumps(cells,ensure_ascii=False)!=json.dumps(expected,ensure_ascii=False):return status,False
+                return status,True
 
 async def execute(key,db_path=None,transport=None):
     service.require_enabled()
@@ -164,7 +182,7 @@ async def execute(key,db_path=None,transport=None):
                 else:rows=json.loads(row['rows_json'])
                 if not c.execute(f"UPDATE {table} SET lease_until=? WHERE id=? AND organization_id=? AND lease_owner=? AND status='RUNNING'",(renewed,key,organization(),token)).rowcount:return
                 c.commit()
-                started=True;status,verified=await write(access,row['spreadsheet_id'],row['target_range'],rows,transport)
+                started=True;status,verified=await write(access,row['spreadsheet_id'],row['target_range'],rows,transport,verify_read=True) if radar else await write(access,row['spreadsheet_id'],row['target_range'],rows,transport)
                 state='COMPLETED' if verified else 'UNCERTAIN' if 200<=status<300 else 'FAILED';error=None if verified else 'SHEETS_WRITE_UNVERIFIED' if 200<=status<300 else 'SHEETS_HTTP_'+str(status)
             except HTTPException:state='UNCERTAIN' if started else 'FAILED';error='CONNECTION_CHANGED' if started else 'CONNECTION_UNAVAILABLE'
             except (httpx.HTTPError,TimeoutError):state='UNCERTAIN';error='PROVIDER_OUTCOME_UNKNOWN'

@@ -1,5 +1,21 @@
 import {test,expect} from '@playwright/test';
 import {encode} from 'next-auth/jwt';
+
+test('connection directory stays usable at supported widths',async({page,context},info)=>{
+  const email='founder@leadengine.example',url='http://127.0.0.1:13000';
+  await context.addCookies([{name:'authjs.session-token',value:await encode({token:{sub:email,email},secret:'fixture-session-secret-only-for-local-tests-123456789',salt:'authjs.session-token',maxAge:3600}),url,httpOnly:true}]);
+  await page.goto('/intent-radar/integrations');
+  for(const width of [1440,1024,768,390,320]){
+    await page.setViewportSize({width,height:900});
+    await expect(page.getByRole('link',{name:/Google Sheets/})).toBeVisible();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.screenshot({path:info.outputPath(`integrations-${width}.png`)});
+  }
+  await page.getByRole('combobox',{name:'Category'}).selectOption('Automation');
+  await expect(page.getByRole('heading',{name:'Google Sheets'})).toHaveCount(0);
+  await page.getByRole('combobox',{name:'Category'}).selectOption('All');
+  await page.getByLabel('Search integrations').fill('absent-name');await expect(page.getByText('No matching integrations.')).toBeVisible();
+});
 test('workspace downloads a file and approves a fixed-range export',async({page,context})=>{
   const email='founder@leadengine.example',url='http://127.0.0.1:13000';
   await context.addCookies([{name:'authjs.session-token',value:await encode({token:{sub:email,email},secret:'fixture-session-secret-only-for-local-tests-123456789',salt:'authjs.session-token',maxAge:3600}),url,httpOnly:true}]);
