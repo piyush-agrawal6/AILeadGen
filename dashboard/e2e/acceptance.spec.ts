@@ -18,7 +18,7 @@ test('real local fixture campaign remains shared and linked across operations AP
 test('requested workspace limits save through the authenticated production proxy without activation',async({page,context})=>{
  await session(context);await page.goto('/settings/limits');
  for(const [label,value] of [['Daily qualified lead target','500'],['Daily email target','500'],['Hourly email limit','50'],['Daily email limit','500'],['Follow-up days','3'],['Automation timezone','Asia/Kolkata']])await page.getByLabel(label,{exact:true}).fill(value);
- await page.getByRole('button',{name:'Save Limits',exact:true}).click();await expect(page.getByRole('status')).toContainText('Outreach limits saved');await page.reload();await expect(page.getByLabel('Hourly email limit',{exact:true})).toHaveValue('50');await expect(page.getByLabel('Daily email limit',{exact:true})).toHaveValue('500');
+ await page.getByRole('button',{name:'Save Limits',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Outreach limits saved'})).toBeVisible();await page.reload();await expect(page.getByLabel('Hourly email limit',{exact:true})).toHaveValue('50');await expect(page.getByLabel('Daily email limit',{exact:true})).toHaveValue('500');
  const targets=await(await context.request.get('/api/automation/targets')).json();expect(targets.max_hour).toBe(50);expect(targets.max_day).toBe(500);
  const safety=await(await context.request.get('/api/workflow/safety')).json();expect(safety.sending_enabled).not.toBe(true);
 });

@@ -68,7 +68,15 @@ jobs:
         working-directory: dashboard
       - run: npm run test:e2e
         working-directory: dashboard
+        env:
+          # This suite exercises legacy Lead Engine pages against a new local database.
+          LEAD_ENGINE_AVAILABLE: 'true'
+          DATABASE_BACKEND: sqlite
+          DATABASE_URL: ''
       - name: Required release journeys on the built candidate (isolated providers)
+        env:
+          DATABASE_BACKEND: sqlite
+          DATABASE_URL: ''
         run: |
           set -eu
           for journey in accounts workspace subscription onboarding destinations; do
