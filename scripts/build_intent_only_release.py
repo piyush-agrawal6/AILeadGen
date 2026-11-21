@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 def main():
     os.umask(0o077);revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     folder=ROOT/'data/artifacts/staging'/('intent-only-'+revision[:10]);folder.mkdir(parents=True,exist_ok=False,mode=0o700)
-    with tarfile.open(fileobj=io.BytesIO(subprocess.check_output(['git','archive','--format=tar','HEAD','app','scripts'],cwd=ROOT))) as source:source.extractall(folder,filter='data')
+    with tarfile.open(fileobj=io.BytesIO(subprocess.check_output(['git','archive','--format=tar','HEAD','app','scripts','requirements.lock'],cwd=ROOT))) as source:source.extractall(folder,filter='data')
     for name,path in [('Dockerfile.api','deploy/Dockerfile.billing-api'),('Dockerfile.worker','deploy/Dockerfile.billing-worker'),('cloudbuild.yaml','deploy/cloudbuild.billing-patch.yaml')]:
         (folder/name).write_bytes(subprocess.check_output(['git','show','HEAD:'+path],cwd=ROOT))
     (folder/'.gcloudignore').write_text('__pycache__\n**/__pycache__\n*.pyc\n.env\n**/.env*\n')

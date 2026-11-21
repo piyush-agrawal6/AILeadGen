@@ -1,6 +1,10 @@
 FROM asia-south1-docker.pkg.dev/querryside/leadengine/api@sha256:d40e4e54263bc9d37a1be2a24bc068453358cb318279dd86b18ddbb80f36cf4f
 ARG SOURCE_REV
 LABEL org.opencontainers.image.revision=$SOURCE_REV
+USER root
+COPY requirements.lock /opt/leadengine/requirements.lock
+RUN grep -E '^(dnspython|opentelemetry-api|pyasn1|pypdf|soupsieve)==' /opt/leadengine/requirements.lock >/tmp/security.lock && test "$(wc -l </tmp/security.lock)" -eq 5 && python -m pip install --no-deps --only-binary=:all: --no-cache-dir -r /tmp/security.lock && rm /tmp/security.lock
+USER 10001:10001
 COPY --chown=10001:10001 app /opt/leadengine/app
 COPY --chown=10001:10001 scripts /opt/leadengine/scripts
 RUN python -c "import jwt, websockets, openpyxl, reportlab; from app.database.migrations import MIGRATIONS; from app.database.intent_profile import migrations; assert len(MIGRATIONS) == 54 and migrations()[-1][0] == 1012"
