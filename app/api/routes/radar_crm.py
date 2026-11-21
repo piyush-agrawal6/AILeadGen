@@ -3,6 +3,7 @@ from fastapi import APIRouter,Depends
 from app.api.dependencies import get_db
 from app.api.routes.integrations import Code
 from app.integrations import hubspot,service
+from app.intent_radar import actions,crm_actions
 
 router=APIRouter(prefix='/intent-radar/hubspot',tags=['Radar CRM'])
 db=Depends(get_db,scope='function')
@@ -27,3 +28,13 @@ async def pipelines(key:UUID,c=db):return await hubspot.pipelines(c,str(key))
 
 @router.post('/connections/{key}/match')
 async def match(key:UUID,body:hubspot.Match,c=db):return await hubspot.match(c,str(key),body)
+
+@router.post('/actions',status_code=201)
+async def prepare(body:crm_actions.Draft,c=db):return await crm_actions.prepare(c,body)
+
+@router.post('/actions/{key}/approve')
+async def approve(key:UUID,body:actions.Approval,c=db):return await crm_actions.approve(c,str(key),body)
+
+@router.get('/actions/{key}')
+def activity(key:UUID,c=db):
+    ctx,_,_,_=crm_actions.owned(c,str(key));return crm_actions.result(c,ctx.organization_id,str(key))

@@ -11,7 +11,8 @@ def prepare(folder,api,worker):
     for role,base in [('api',api),('worker',worker)]:
         repo='asia-south1-docker.pkg.dev/querryside/leadengine/'+role
         if not re.fullmatch(re.escape(repo)+r'@sha256:[0-9a-f]{64}',base):raise ValueError('An immutable deployed digest for the matching runtime is required')
-        name=repo+':schema1012-bridge-'+rev[:10];names.append(name);dockerfile='Dockerfile.'+role
+        head=max(int(p.name.split('_',1)[0]) for p in (folder/'app/database/intent_migrations').glob('[0-9]*_*.sql'))
+        name=repo+f':schema{head}-bridge-'+rev[:10];names.append(name);dockerfile='Dockerfile.'+role
         (folder/dockerfile).write_text('FROM '+base+'\nLABEL io.planebyte.schema-source="'+rev+'"\nCOPY --chown=10001:10001 app/database/intent_migrations /opt/leadengine/app/database/intent_migrations\nCOPY --chown=10001:10001 app/database/intent_profile.py /opt/leadengine/app/database/intent_profile.py\n')
         steps.append({'name':'gcr.io/cloud-builders/docker','args':['build','-f',dockerfile,'-t',name,'.'],'waitFor':['-']})
     (folder/'cloudbuild.json').write_text(json.dumps({'steps':steps,'images':names}));return names

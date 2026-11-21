@@ -120,11 +120,21 @@ def retry(c,key,digest,confirmation):
     c.execute(f"UPDATE {table_for(key)} SET status='QUEUED',lease_owner=NULL,lease_until=NULL,updated_at=? WHERE id=? AND organization_id=?",(now(),key,organization()))
     service.audit(c,row['connection_id'],'SHEETS_EXPORT_RETRY_APPROVED');return view(owned(c,key))
 
-async def write(token,sid,target,rows,transport=None,*,verify_read=False):
+async def write(token,sid,target,rows,transport=None,*,verify_read=False,before=None):
     if get_settings().app_env=='test' and transport is None:raise HTTPException(503,'Provider writes are disabled in offline tests.')
     # Fixed provider host/path; RAW prevents imported text from becoming formulas.
     async with asyncio.timeout(30):
         async with httpx.AsyncClient(timeout=httpx.Timeout(25,connect=5),follow_redirects=False,trust_env=False,transport=transport) as client:
+            if before is not None:
+                from app.integrations.radar_sheets import cell_hash
+                async with client.stream('GET','https://sheets.googleapis.com/v4/spreadsheets/'+quote(sid,safe='')+'/values/'+quote(target,safe=''),params={'valueRenderOption':'FORMULA','majorDimension':'ROWS'},headers={'Authorization':'Bearer '+token}) as check:
+                    if check.status_code!=200:return check.status_code,False
+                    raw=bytearray()
+                    async for chunk in check.aiter_bytes():
+                        raw.extend(chunk)
+                        if len(raw)>2_000_000:return 412,False
+                    value=json.loads(raw)
+                    if not isinstance(value,dict) or not value.get('range') or cell_hash(value.get('values',[]))!=before:return 412,False
             async with client.stream('PUT','https://sheets.googleapis.com/v4/spreadsheets/'+quote(sid,safe='')+'/values/'+quote(target,safe=''),params={'valueInputOption':'RAW','includeValuesInResponse':'false'},headers={'Authorization':'Bearer '+token},json={'range':target,'majorDimension':'ROWS','values':rows}) as response:
                 status=response.status_code
                 if not 200<=status<300:return status,False
@@ -182,7 +192,7 @@ async def execute(key,db_path=None,transport=None):
                 else:rows=json.loads(row['rows_json'])
                 if not c.execute(f"UPDATE {table} SET lease_until=? WHERE id=? AND organization_id=? AND lease_owner=? AND status='RUNNING'",(renewed,key,organization(),token)).rowcount:return
                 c.commit()
-                started=True;status,verified=await write(access,row['spreadsheet_id'],row['target_range'],rows,transport,verify_read=True) if radar else await write(access,row['spreadsheet_id'],row['target_range'],rows,transport)
+                started=True;status,verified=await write(access,row['spreadsheet_id'],row['target_range'],rows,transport,verify_read=True,before=json.loads(row['selection_json'])['before']) if radar else await write(access,row['spreadsheet_id'],row['target_range'],rows,transport)
                 state='COMPLETED' if verified else 'UNCERTAIN' if 200<=status<300 else 'FAILED';error=None if verified else 'SHEETS_WRITE_UNVERIFIED' if 200<=status<300 else 'SHEETS_HTTP_'+str(status)
             except HTTPException:state='UNCERTAIN' if started else 'FAILED';error='CONNECTION_CHANGED' if started else 'CONNECTION_UNAVAILABLE'
             except (httpx.HTTPError,TimeoutError):state='UNCERTAIN';error='PROVIDER_OUTCOME_UNKNOWN'

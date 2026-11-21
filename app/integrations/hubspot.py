@@ -63,7 +63,7 @@ def spec():
 
 def status(c):
     ctx=enabled(c);row=c.execute("SELECT * FROM radar_crm_connections WHERE organization_id=? AND provider='HUBSPOT'",(ctx.organization_id,)).fetchone()
-    return {'configured':configured(),'connection':service.view(dict(row))|{'portal_id':row['portal_id']} if row else None}
+    return {'configured':configured(),'writes_enabled':bool(row and row['status']=='CONNECTED' and row['portal_id'] in {p.strip() for p in get_settings().radar_hubspot_write_portals.split(',')}),'connection':service.view(dict(row))|{'portal_id':row['portal_id']} if row else None}
 
 
 class Match(BaseModel):
@@ -71,16 +71,18 @@ class Match(BaseModel):
     kind:Literal['contacts','companies','deals']
     value:str=Field(min_length=1,max_length=254)
 
-async def crm_json(method,path,token,body=None):
-    if not re.fullmatch(r'/crm/v3/(pipelines/deals|objects/(contacts|companies|deals)/(search|[1-9][0-9]{0,20}))',path):raise ValueError('Unsupported CRM path')
+async def crm_json(method,path,token,body=None,*,params=None):
+    lookup=re.fullmatch(r'/crm/v3/(pipelines/deals|objects/(contacts|companies|deals)/(search|[1-9][0-9]{0,20}))',path)
+    object_path=re.fullmatch(r'/crm/objects/2026-09/(contacts|companies)(/[1-9][0-9]{0,20})?',path)
+    if not (lookup and method==('POST' if path.endswith('/search') else 'GET') or object_path and (method in ('GET','PATCH') if object_path[2] else method=='POST')):raise ValueError('Unsupported CRM operation')
     if get_settings().app_env=='test':raise HTTPException(503,'CRM network access is disabled in offline tests.')
     try:
         async with httpx.AsyncClient(timeout=10,trust_env=False,follow_redirects=False) as client:
-            async with client.stream(method,'https://api.hubapi.com'+path,headers={'Authorization':'Bearer '+token},json=body) as r:
+            async with client.stream(method,'https://api.hubapi.com'+path,headers={'Authorization':'Bearer '+token},params=params,**({'json':body} if body is not None else {})) as r:
                 if r.status_code in (401,403):raise HTTPException(409,'HubSpot denied access. Check the installed grant and reconnect.')
                 if r.status_code==404:raise HTTPException(404,'CRM record not found.')
                 if r.status_code==429:raise HTTPException(429,'HubSpot rate limit reached. Retry later.')
-                if r.status_code!=200:raise HTTPException(503,'HubSpot is unavailable.')
+                if r.status_code not in (200,201):raise HTTPException(503,'HubSpot is unavailable.')
                 raw=bytearray()
                 async for part in r.aiter_bytes():
                     raw.extend(part)

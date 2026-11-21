@@ -31,7 +31,7 @@ async def inspect(key:UUID,body:dict[str,str],c=db):
 async def stage(key:UUID,body:radar.Draft,c=db):
     radar.admin(c);meta=await google_sheets.metadata(c,str(key),body.spreadsheet)
     if not any(t['title']==body.sheet for t in meta['tabs']):raise HTTPException(422,'Select an existing worksheet.')
-    return radar.stage(c,str(key),body)
+    return await radar.preview(c,str(key),body)
 
 @router.get('/history')
 def history(c=db):

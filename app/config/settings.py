@@ -278,6 +278,7 @@ class Settings(BaseSettings):
     radar_actions_enabled: bool = Field(False,alias='RADAR_ACTIONS_ENABLED')
     radar_hubspot_enabled: bool = Field(False,alias='RADAR_HUBSPOT_ENABLED')
     radar_hubspot_workspaces: str = Field('',alias='RADAR_HUBSPOT_WORKSPACES')
+    radar_hubspot_write_portals: str = Field('',alias='RADAR_HUBSPOT_WRITE_PORTALS')
     radar_hubspot_client_id: str = Field('',alias='RADAR_HUBSPOT_CLIENT_ID')
     radar_hubspot_client_secret: SecretStr = Field(SecretStr(''),alias='RADAR_HUBSPOT_CLIENT_SECRET',repr=False,exclude=True)
     radar_hubspot_redirect_uri: str = Field('',alias='RADAR_HUBSPOT_REDIRECT_URI')

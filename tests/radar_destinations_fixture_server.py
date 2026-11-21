@@ -18,7 +18,9 @@ async def exchange(payload):
     return {'access_token':'offline-access','refresh_token':'offline-refresh','expires_in':3600,'scope':service.WRITE_SCOPE}
 
 async def read(token,path,params):
-    assert token=='offline-access' and path=='controlled-sheet-id'
+    assert token=='offline-access'
+    if path.startswith('controlled-sheet-id/values/'):return {'range':path.split('/values/')[1],'values':[]}
+    assert path=='controlled-sheet-id'
     return {'spreadsheetId':path,'properties':{'title':'QA only'},'sheets':[{'properties':{'title':'QA','gridProperties':{'rowCount':100,'columnCount':20}}}]}
 
 sheets.token_request=exchange
@@ -26,9 +28,10 @@ sheets.read_with_token=read
 # The normal worker refuses network in test mode. Inject only its HTTP transport.
 import httpx
 write=sheet_exports.write
-async def write_fixture(token,sid,target,rows,transport=None,*,verify_read=False):
+async def write_fixture(token,sid,target,rows,transport=None,*,verify_read=False,before=None):
     assert sid=='controlled-sheet-id' and token=='offline-access'
     def response(req):
+        if req.method=='GET' and req.url.params['valueRenderOption']=='FORMULA':return httpx.Response(200,json={'range':target})
         return httpx.Response(200,json={'values':rows} if req.method=='GET' else {'updatedCells':sum(map(len,rows))})
-    return await write(token,sid,target,rows,httpx.MockTransport(response),verify_read=verify_read)
+    return await write(token,sid,target,rows,httpx.MockTransport(response),verify_read=verify_read,before=before)
 sheet_exports.write=write_fixture

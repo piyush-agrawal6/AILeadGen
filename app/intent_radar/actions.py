@@ -47,10 +47,10 @@ def source(c,key):
     return op
 
 
-SELECT='''SELECT a.*,t.status AS task_status,t.completed_at,t.outcome FROM radar_actions a LEFT JOIN radar_followups t ON t.id=a.id AND t.organization_id=a.organization_id'''
+SELECT='''SELECT a.*,t.status AS task_status,t.completed_at,t.outcome,r.state AS execution,r.external_id,r.error_code FROM radar_actions a LEFT JOIN radar_followups t ON t.id=a.id AND t.organization_id=a.organization_id LEFT JOIN radar_destination_receipts r ON r.action_id=a.id AND r.organization_id=a.organization_id'''
 
 def view(row):
-    return {k:row[k] for k in ('id','opportunity_id','kind','status','approved_at','approved_by','created_at','updated_at','digest','task_status','outcome','completed_at')}|{'preview':json.loads(row['payload_json'])}
+    return {k:row[k] for k in ('id','opportunity_id','kind','status','approved_at','approved_by','created_at','updated_at','digest','task_status','outcome','completed_at','execution','external_id','error_code')}|{'preview':json.loads(row['payload_json'])}
 
 def owned(c,org,key):
     row=c.execute(SELECT+' WHERE a.organization_id=? AND a.id=?',(org,key)).fetchone()
@@ -61,7 +61,7 @@ def audit(c,ctx,key,event):
     c.execute("INSERT INTO audit_log(id,actor,action,entity,result,organization_id,created_at) VALUES(?,?,?,?,'SUCCESS',?,?)",(str(uuid.uuid4()),ctx.actor,'RADAR_ACTION_'+event,'radar-action:'+key,ctx.organization_id,now()))
 
 def listing(c,status,limit,offset):
-    ctx=scope(c);query=SELECT+' WHERE a.organization_id=?';args=[ctx.organization_id]
+    ctx=scope(c);manager=membership_role(c,ctx.actor,ctx.organization_id) in ('OWNER','ADMIN');query=SELECT+" WHERE a.organization_id=? AND (a.kind='internal_followup' OR (a.created_by=? AND ?=1))";args=[ctx.organization_id,ctx.actor,int(manager)]
     if status:query+=' AND (a.status=? OR t.status=?)';args.extend([status,status])
     rows=c.execute(query+' ORDER BY a.created_at DESC,a.id DESC LIMIT ? OFFSET ?',(*args,limit+1,offset)).fetchall()
     return {'items':[view(r) for r in rows[:limit]],'has_more':len(rows)>limit}
@@ -81,6 +81,7 @@ def prepare(c,body):
 
 def decide(c,key,choice,body):
     ctx=scope(c,True);org=ctx.organization_id;lock(c,org);row=owned(c,org,key)
+    if row['kind']!='internal_followup':raise HTTPException(409,'Use the approval flow for this destination.')
     if row['created_by']!=ctx.actor:raise HTTPException(403,'Only the reviewing author can approve or cancel this action.')
     if body.digest!=row['digest']:raise HTTPException(409,'Review the exact action first.')
     status='SUCCEEDED' if choice=='approve' else 'CANCELED'
@@ -95,6 +96,7 @@ def decide(c,key,choice,body):
 
 def complete(c,key,body):
     ctx=scope(c,True);org=ctx.organization_id;lock(c,org);row=owned(c,org,key)
+    if row['kind']!='internal_followup':raise HTTPException(409,'External actions require provider confirmation.')
     if ctx.actor!=json.loads(row['payload_json'])['owner'] and membership_role(c,ctx.actor,org) not in ('OWNER','ADMIN'):raise HTTPException(403,'Only the assignee or an administrator can complete this task.')
     if row['task_status']=='DONE' and row['outcome']==body.note:return view(row)
     if row['task_status']!='OPEN':raise HTTPException(409,'No open follow-up for this action.')

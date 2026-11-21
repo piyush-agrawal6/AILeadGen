@@ -256,12 +256,13 @@ def test_clean_radar_review_dispatch_and_dataset_matrix(clean_radar,monkeypatch)
         signal=service.listing(c,'signals')['items'][0];service.bookmark(c,signal['id']);op=service.opportunity(c,signal['id']);did=c.execute('SELECT id FROM intent_discoveries WHERE organization_id=?',(org,)).fetchone()[0];c.commit()
         for dataset,args in [('discovery',{'parent':did}),('monitor',{'parent':m['id']}),('saved',{'list_filters':{'collection':'Inbox'}}),('opportunities',{'list_filters':{'search':'website'}}),('signals',{'ids':[signal['id']]})]:
             snap=exports.snapshot(c,exports.Selection(dataset=dataset,**args));assert len(snap['records'])==1 and snap['records'][0]['signal_id']==signal['id'];assert exports.serialize(snap,'pdf').startswith(b'%PDF')
-        draft=radar_sheets.Draft(selection=exports.Selection(dataset='opportunities',ids=[op['id']]),spreadsheet='isolated-provider-sheet',sheet='Acceptance',request_id=uuid.uuid4());review=radar_sheets.stage(c,conn['id'],draft);sheet_exports.approve(c,review['id'],review['fingerprint'],'OVERWRITE_REVIEWED_RANGE');c.commit()
+        draft=radar_sheets.Draft(selection=exports.Selection(dataset='opportunities',ids=[op['id']]),spreadsheet='isolated-provider-sheet',sheet='Acceptance',request_id=uuid.uuid4());review=radar_sheets.stage(c,conn['id'],draft,prior=[],expected_target="'Acceptance'!A1:J2");sheet_exports.approve(c,review['id'],review['fingerprint'],'OVERWRITE_REVIEWED_RANGE');c.commit()
     cells=[]
     async def receiver(request):
         if request.method=='PUT':
             cells.extend(json.loads(request.content)['values'])
             return httpx.Response(200,json={'updatedCells':sum(map(len,cells))})
+        if request.method=='GET' and request.url.params['valueRenderOption']=='FORMULA':return httpx.Response(200,json={'range':review['target_range'],'values':cells})
         assert request.method=='GET' and cells
         return httpx.Response(200,json={'values':cells})
     asyncio.run(sheet_exports.execute(review['id'],transport=httpx.MockTransport(receiver)))

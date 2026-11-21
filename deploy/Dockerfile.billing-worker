@@ -7,4 +7,4 @@ RUN grep -E '^(dnspython|opentelemetry-api|pyasn1|pypdf|soupsieve)==' /opt/leade
 USER 10001:10001
 COPY --chown=10001:10001 app /opt/leadengine/app
 COPY --chown=10001:10001 scripts /opt/leadengine/scripts
-RUN python -c "import jwt, websockets, openpyxl, reportlab; from app.database.migrations import MIGRATIONS; from app.database.intent_profile import migrations; assert len(MIGRATIONS) == 56 and migrations()[-1][0] == 1014"
+RUN python -c "import jwt, websockets, openpyxl, reportlab; from app.database.migrations import MIGRATIONS; from app.database.intent_profile import migrations; assert len(MIGRATIONS) == 57 and migrations()[-1][0] == 1015"

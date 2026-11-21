@@ -2,6 +2,8 @@
 import hashlib
 import os
 import re
+import time
+import httpx
 from uuid import uuid4
 
 import boto3
@@ -23,6 +25,13 @@ def verify(env):
         if meta['ContentLength']!=len(body) or meta['ContentType']!='application/json':raise RuntimeError('Metadata mismatch')
         with client.get_object(Bucket=bucket,Key=key)['Body'] as stream:
             if hashlib.sha256(stream.read(256)).digest()!=hashlib.sha256(body).digest():raise RuntimeError('Checksum mismatch')
+        signed=client.generate_presigned_url('get_object',Params={'Bucket':bucket,'Key':key},ExpiresIn=15)
+        # The URL is a bearer credential: never return it or log HTTP request details.
+        with httpx.Client(timeout=8,follow_redirects=False,trust_env=False) as http:
+            private=http.get(signed.split('?',1)[0]);assert private.status_code in (400,401,403)
+            download=http.get(signed);assert download.status_code==200 and download.content==body
+            time.sleep(17)
+            assert http.get(signed).status_code==403,'Expired synthetic URL unexpectedly accepted'
     finally:
         client.delete_object(Bucket=bucket,Key=key)
     try:client.head_object(Bucket=bucket,Key=key)

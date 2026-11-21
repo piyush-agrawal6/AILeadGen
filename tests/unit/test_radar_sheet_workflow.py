@@ -17,6 +17,13 @@ def test_write_receipt_without_matching_cells_is_uncertain():
     result=asyncio.run(sheet_exports.write('offline','controlled-sheet-id',"'Demo'!A1:A1",[['expected']],httpx.MockTransport(response),verify_read=True))
     assert result==(200,False)
 
+def test_changed_sheet_preimage_stops_before_put():
+    calls=[]
+    def response(req):
+        calls.append(req.method);return httpx.Response(200,json={'range':"'QA'!A1:A1",'values':[['edited after approval']]})
+    status,ok=asyncio.run(sheet_exports.write('offline','controlled-sheet-id',"'QA'!A1:A1",[['approved']],httpx.MockTransport(response),verify_read=True,before=radar_sheets.cell_hash([])))
+    assert status==412 and not ok and calls==['GET']
+
 def test_review_write_once_and_reject_changed_evidence(workspace,monkeypatch):
     c,org,other,path=workspace;monkeypatch.setattr(get_settings(),'intent_radar_stage','Beta')
     c.execute("UPDATE organization_onboarding SET status='COMPLETED' WHERE organization_id=?",(org,));c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id=? AND product='INTENT_RADAR'",(org,));c.commit()
@@ -25,17 +32,18 @@ def test_review_write_once_and_reject_changed_evidence(workspace,monkeypatch):
         monkeypatch.setattr(sheets,'token_request',AsyncMock(return_value=TOKENS|{'scope':service.WRITE_SCOPE}))
         conn=asyncio.run(service.connect(c,state,'review-code'));key=str(uuid.uuid4());s=example()
         c.execute('INSERT INTO intent_signals(id,organization_id,source,source_record_id,source_url,title,excerpt,observed_at,retrieved_at,category,score,evidence_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(key,org,s['source'],s['source_record_id'],s['source_url'],'A title','A quote',s['observed_at'],s['observed_at'],'Discussion',2,'{}'))
-        body=radar_sheets.Draft(selection=Selection(dataset='signals',ids=[key]),spreadsheet='disposable-test-sheet',sheet='Reviews',request_id=uuid.uuid4());j=radar_sheets.stage(c,conn['id'],body);assert j['row_count']==1 and j['target_range']=="'Reviews'!A1:J2";c.commit()
+        body=radar_sheets.Draft(selection=Selection(dataset='signals',ids=[key]),spreadsheet='disposable-test-sheet',sheet='Reviews',request_id=uuid.uuid4());j=radar_sheets.stage(c,conn['id'],body,prior=[],expected_target="'Reviews'!A1:J2");assert j['row_count']==1 and j['target_range']=="'Reviews'!A1:J2";c.commit()
         sheet_exports.approve(c,j['id'],j['fingerprint'],'OVERWRITE_REVIEWED_RANGE');c.commit();calls=[]
         def receiver(req):
             calls.append(req)
             if req.method=='GET':
                 assert req.url.path==calls[0].url.path
-                return httpx.Response(200,json={'values':json.loads(calls[0].content)['values']})
+                if req.url.params['valueRenderOption']=='FORMULA':return httpx.Response(200,json={'range':j['target_range']})
+                return httpx.Response(200,json={'values':json.loads(calls[1].content)['values']})
             assert req.method=='PUT' and req.url.params['valueInputOption']=='RAW';return httpx.Response(200,json={'updatedCells':20})
         for _ in range(2):asyncio.run(sheet_exports.execute(j['id'],path,httpx.MockTransport(receiver)))
-        assert [req.method for req in calls]==['PUT','GET'] and sheet_exports.owned(c,j['id'])['status']=='COMPLETED'
-        pending=radar_sheets.stage(c,conn['id'],body.model_copy(update={'request_id':uuid.uuid4()}));c.execute("UPDATE intent_signals SET title='Changed' WHERE id=?",(key,));c.commit()
+        assert [req.method for req in calls]==['GET','PUT','GET'] and sheet_exports.owned(c,j['id'])['status']=='COMPLETED'
+        pending=radar_sheets.stage(c,conn['id'],body.model_copy(update={'request_id':uuid.uuid4()}),prior=[],expected_target="'Reviews'!A1:J2");c.execute("UPDATE intent_signals SET title='Changed' WHERE id=?",(key,));c.commit()
         with pytest.raises(HTTPException,match='Evidence changed'):sheet_exports.approve(c,pending['id'],pending['fingerprint'],'OVERWRITE_REVIEWED_RANGE')
     with workspace_scope(c,OWNER,other):
         with pytest.raises(HTTPException):sheet_exports.owned(c,j['id'])
