@@ -336,7 +336,15 @@ export function DiscoveryRunDetailView({ id }: { id: string }) {
                 size="sm"
                 variant="outline"
                 disabled={mutation.isPending||!run.job_id||run.attempts>=3||!['PARTIAL','FAILED'].includes(run.status)}
-                onClick={async()=>{try{await mutation.mutateAsync({path:`/jobs/${run.job_id}/retry`});await query.refetch();setNotice('Recovery requested for the original discovery.')}catch(e){setErr(e instanceof Error?e.message:'Retry unavailable.')}}
+                onClick={async () => {
+                  try {
+                    await mutation.mutateAsync({ path: `/jobs/${run.job_id}/retry` });
+                    await query.refetch();
+                    setNotice('Recovery requested for the original discovery.');
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : 'Retry unavailable.');
+                  }
+                }}
                 className="h-7 text-xs bg-background/80 hover:bg-background border-amber-500/40 text-amber-900 dark:text-amber-100 font-semibold cursor-pointer"
               >
                 Retry Failed Sources
