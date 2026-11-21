@@ -1,0 +1,45 @@
+# Combined destinations release — 2026-11-21
+
+## Decision
+
+**PARTIAL implementation; NO-GO for unrestricted external execution.** Serving baseline last independently checked: `01fe746d9976e829456e14c91965f75bd7c26613`, Vercel `dpl_Hh6VecpenwUvHNEvXqoAdZy4Rdyc`, `leadengine-api-00210-yif` 100%, worker generation 98, clean schema 1012. Read-only inspection found the active owner grant. No payment, grant edit, Netlify deployment, DNS or WAF change was performed.
+
+Combined engineering source `feature/combined-destinations-20261121` merged `7f8b831` onto the verified Discovery release. Merge `5682f300e0` retained the newer Discovery handlers and frontend route types. `0eff3eff37` added the CRM receipt journal and destination preimages. `9b58c16640ae47976319cdf8d345344c23d2d3f8` added separate consent/execution switches, an opportunity brief and private response handling. Previous feature-only CI did not exercise the production-source job.
+
+## Acceptance matrix
+
+| Item | Implementation on combined branch | Local / controlled test | Independent provider result | Production availability / open gate |
+|---|---|---|---|---|
+| Action Center | Opportunity → evidence brief, review, internal task, assign/complete, manual outcome and audit; approved contacts/companies, file and sheet selection | Real internal API/browser workflow; duplicate approval, changed source, foreign workspace tests | No external outcome inferred from task completion | Not live at baseline. External threads do not yet have a general-purpose retry worker. |
+| HubSpot OAuth | Existing app 62975250, registered HTTPS callback; state tied to actor/workspace/revision, v3 exchange and introspection, encrypted refresh, portal binding, scoped local disconnect | Offline token contract, replay and foreign-workspace denial | Real install, refresh and portal uninstall outstanding | Owner-only pilot connection switch; separate portal allowlist controls writes. |
+| HubSpot contacts | Exact known email; create/link/update fixed properties, server-bound digest, pre-write lookup, durable attempt and independent GET | Shared executor tested with fault injection | No live contact | No customer writes enabled |
+| HubSpot companies | Exact supplied domain, preview existing properties, create/link/update, verify returned ID/fields | Mock company success, timeout/unknown, read-back retry, no duplicate and foreign denial | No live company | No customer writes enabled |
+| Deals | Read actual pipelines/stages and search by record ID | Read adapter only | Not accepted | Deal creation, mutation, association and reconciliation outstanding |
+| Tasks / notes / inbound sync | Internal follow-up is distinct from HubSpot activity | No external acceptance | None | Not supported for customer execution |
+| Sheets OAuth | Workspace vault, fixed callback, sensitive spreadsheet scope | Isolated consent/callback path | No live consent | Existing deployment pilot-restricted; public verification pending |
+| Sheets export / read-back | Action Center passes opportunity selection to existing export. Signed-in manager previews exact worksheet/start row, destination contents and outgoing cells. Only a digest of previous values is stored. Worker rereads formulas/values before RAW PUT; independent GET compares exact typed cell values. | Tested GET→PUT→GET; changed baseline stops before PUT; duplicate dispatch, evidence revocation, workspace isolation. | No live disposable range yet | Separate preview and write allowlists; re-review required for old drafts. Google values API does not provide an atomic compare-and-swap against other simultaneous editors. Custom column mapping outstanding. |
+| File exports | Existing bounded serializers and authorization, accessible from Action Center | Existing file-format and signed-in download regressions | Not a third-party provider | Baseline downloads live; new handoff not yet live |
+| R2 | Legacy binding preserved. New private PDF versions can use a separate reports binding; authenticated streaming remains the application download strategy. | Routing and metadata verification covered; no bucket migration | **Production bucket PASS:** unique synthetic object, conditional PUT, HEAD, checksum GET, unsigned denied, signed GET worked then expired (403), exact DELETE and final 404 | SDK acceptance does not prove an actual saved Radar report download through the production application. New persistent routing remains gated. |
+| Turnstile | Public email signup/recovery only; server-side hostname/action/success validation; bounded/fail-closed | Six offline tests; existing access gates retained | Real Siteverify rejected invalid token with `invalid-input-response`; documented test credentials returned success | No valid production human challenge exercised; enforcement off |
+| Cloudflare DNS / CDN / security | Read-only audit, application private-cache corrections | HTTPS/HSTS observed; unsigned API 401, callback 307; candidate early responses add `private, no-store` and `Vary: Cookie` | Public NS matched Elliot/Nina; DS published (algorithm 13); two MX records | DNS-only origins. No evidence here of proxied WAF protection, zone settings changes or full DNSSEC chain validation. |
+| Analytics | No candidate SaaS beacon enabled | No live receipt | None | Privacy-safe SaaS beacon and independent receipt outstanding. Marketing website is outside this change. |
+| Customer webhooks | Existing signed four-topic outbox, retries and receiver validation | Prior controlled HTTPS delivery, 503 then 204 | No fresh approved Action Center endpoint delivery | Scheduler `leadengine-webhooks-dispatch` **PAUSED**, five-minute schedule. Manual payload approval/destination adapter outstanding. |
+
+## Engineering and release evidence
+
+- Production root `.env` values were inspected in memory by name/presence only. R2 access is S3-compatible; no general zone-administration token requested. Callback configuration in a local file is not evidence of a live runtime binding.
+- Additive migrations: 1013 internal actions/follow-ups, 1014 HubSpot vault/state, 1015 durable external receipts. Restored the verified Discovery database into an isolated PostgreSQL database; migrated **1012→1015**, repeated zero, verified schema fingerprint and identical counts/content digests for **140** previous tables. No production migration at this checkpoint.
+- `crm_actions.py` checks membership, entitlement, pilot workspace, installed connection revision, approved portal, opportunity revision, request ID, original author and exact digest. A provider timeout is uncertain; another approval does not resubmit it. Once the remote ID is known, reconciliation only reads. Queue insertion never counts as HubSpot success.
+- `0eff3eff37` browser matrix: **49 passed** (29 legacy + 1 account + 11 workspace + 1 subscription + 2 onboarding + 5 destinations). On `9b58c16640`: TypeScript passed, **296 Vitest passed**, 8 targeted CRM/action/Sheets tests passed. Hosted [feature run 44895696085](https://github.com/piyush-agrawal6/AILeadGen/actions/runs/44895696085) was in progress when first inspected.
+- No broad public CRM installation is inferred from Marketplace distribution. Scope manifest: `oauth` plus `crm.objects.contacts.read/write`, `crm.objects.companies.read/write`, `crm.objects.deals.read/write` (each read and write is a distinct scope). Notes, tasks, custom properties and deal changes need scope and live-portal verification before presentation.
+- Release rollback must retain schema-1015 readers before migration. Keep last known-good Discovery frontend and backend images; do not revert customer data. Leave new R2 writes disabled until the retained-reader rollback is validated. Disable external destination flags independently; do not delete vaults, history or files. Turnstile has a separate rollout flag. No DNS rollback is necessary.
+
+## Owner participation
+
+No payment, grant change or replacement credentials. Once compatible **pilot callbacks** are serving:
+
+1. From the verified development workspace open `https://app.planebyte.com/intent-radar/integrations/hubspot`, choose **Connect HubSpot**, install into the designated **test** portal, then **Verify portal access**. Confirm that portal is the authorized disposable-record destination before an external write is enabled. Do not send tokens or codes.
+2. At `https://app.planebyte.com/intent-radar/integrations/sheets`, choose **Authorize Google Sheets writes** with a consenting Google OAuth test user. Select an owned disposable sheet and worksheet; inspect the exact range and existing cells. Approve only that range. Read-back, duplicate retry and disconnect are engineering acceptance steps after consent.
+3. A real production Turnstile widget success requires a normal browser challenge on a controlled entry point after staged activation. No Cloudflare DNS/security permission is needed for these tests.
+
+Remaining engineering work is separate from consent. See also `INTENT_RADAR_ACTION_CENTER_INTEGRATIONS_RELEASE.md` for earlier baseline tests, environment mappings and scope restrictions.
