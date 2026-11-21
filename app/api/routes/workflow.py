@@ -7,6 +7,7 @@ from app.database.repositories import BusinessRepository
 from app.database.prospects import ProspectRepository
 
 router = APIRouter(tags=["Collaboration"])
+users_router = APIRouter(tags=["Collaboration"])
 Status = Literal['NEW','SHORTLISTED','READY_TO_CONTACT','CONTACTED','FOLLOW_UP','REPLIED','MEETING','PROPOSAL','WON','LOST','NOT_INTERESTED','DO_NOT_CONTACT']
 
 
@@ -39,7 +40,7 @@ def require_prospect(conn, lead_id, actor, organization=None):
     return row[0] or repo.observe(business, created_by=actor, organization=organization)
 
 
-@router.get("/users")
+@users_router.get("/users")
 def users(request: Request, conn=Depends(get_db,scope='function')):
     from app.platform.context import organization
     org=organization(request.state.organization_id)

@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     razorpay_test_plan_id_starter:str=''
     razorpay_test_plan_id_growth:str=''
     razorpay_test_plan_id_scale:str=''
+    lead_engine_public_enabled:bool=False
     lead_engine_available:bool=False
 
     intent_radar_stage:Literal['Disabled','Internal Preview','Beta']=Field('Disabled',alias='INTENT_RADAR_STAGE')
