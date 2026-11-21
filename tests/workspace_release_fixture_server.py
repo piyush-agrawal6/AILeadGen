@@ -10,6 +10,10 @@ settings=get_settings();path=Path(settings.database_path).resolve()
 assert settings.app_env=='test' and settings.lead_engine_available and not path.exists() and path.is_relative_to(Path(__file__).resolve().parents[1]/'data/e2e') and os.environ.get('EMAIL_SENDING_ENABLED')=='false'
 with db_session() as c:
     run_migrations(c)
+    # Legacy SQLite fixtures install the recurring-provider tables separately.
+    # Explicit account selection reads these to rule out conflicting obligations.
+    from app.billing.subscription_schema import EVENT_SQL,CONTRACT_SQL
+    c.executescript(EVENT_SQL+CONTRACT_SQL)
     actor='founder@leadengine.example'
     base=create_organization(c,actor,'Browser QA Workspace')['organization_id']
     c.execute("UPDATE organization_products SET enabled=1 WHERE organization_id=? AND product IN ('LEADGEN','INTENT_RADAR')",(base,))

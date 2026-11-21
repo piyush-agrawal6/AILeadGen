@@ -98,12 +98,16 @@ test('explicit workspace creation selects its own new profile and retains the or
  await session(context);
  const original=await(await context.request.get('/api/organization/workspaces')).json();
  await page.goto('/settings/workspaces');await page.getByRole('button',{name:'Create Workspace',exact:true}).click();await page.getByLabel('Workspace / company name').fill('Controlled New Workspace');
+ if(process.env.SHARED_BILLING_ACCOUNTS_ENABLED==='true'){
+  const selector=page.getByRole('combobox',{name:/Billing account/});await expect(selector).toHaveValue('');await selector.selectOption('independent');
+ }
  await page.getByRole('button',{name:'Create & Continue',exact:true}).click();
  await expect(page).toHaveURL(/\/onboarding$/);
  await page.goto('/settings/company');await page.getByRole('button',{name:'Edit Profile',exact:true}).first().click();
  await expect(page.locator('#company-name')).toHaveValue('Controlled New Workspace');
  const workspaces=await(await context.request.get('/api/organization/workspaces')).json();
  expect(workspaces.items).toHaveLength(original.items.length+1);expect(workspaces.active_organization_id).not.toBe(original.active_organization_id);
+ if(process.env.SHARED_BILLING_ACCOUNTS_ENABLED==='true')expect(workspaces.items.find((i:{organization_id:string})=>i.organization_id===workspaces.active_organization_id).billing_account).toMatchObject({id:workspaces.active_organization_id,shared:false});
  const denied=await context.request.get('/api/operations/dashboard');expect(denied.status()).toBe(403);expect((await denied.json()).code).toBe('ONBOARDING_INCOMPLETE');
  await page.getByRole('button',{name:'Workspace: Controlled New Workspace',exact:true}).click();await page.getByRole('menuitemradio',{name:original.items.find((item:{organization_id:string})=>item.organization_id===original.active_organization_id).name,exact:true}).click();
  await expect(page).toHaveURL(/\/intent-radar$/);
