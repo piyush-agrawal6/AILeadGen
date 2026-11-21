@@ -19,7 +19,9 @@ def reserve(c,amounts,operation_id):
     if set(amounts)-set((*contracts.METERED,'opportunities')):raise ValueError('Unknown usage dimension.')
     from app.billing.accounts import operation
     from app.billing.accounts import anchor
-    account=anchor(c,org);lock(c,account);billing_org,billing_op=operation(c,org,operation_id)
+    account=anchor(c,org);lock(c,account)
+    if account!=anchor(c,org):raise HTTPException(409,'Billing account changed. Retry the workspace operation.')
+    billing_org,billing_op=operation(c,org,operation_id)
     from app.billing.subscription_access import setup_contract
     row=setup_contract(c,org,amounts,operation_id)
     if row is None:
