@@ -19,6 +19,10 @@ def test_one_contract_shared_idempotent_debits_and_private_billing(subscribed,mo
         for _ in range(2):assert usage.reserve(c,{'searches':3},'same-request');usage.settle(c,'same-request');c.commit()
         with pytest.raises(HTTPException,match='exhausted'):usage.reserve(c,{'searches':1},'over-limit')
         c.rollback();assert c.execute('SELECT COUNT(*) FROM subscription_contracts WHERE organization_id=?',(child,)).fetchone()[0]==0
+        with monkeypatch.context() as paused:
+            paused.setattr(s,'shared_billing_accounts_enabled',False)
+            with pytest.raises(HTTPException) as denied:subscriptions.owner(c)
+            assert denied.value.status_code==409
     other=create_organization(c,actor,'Independent billing account')['organization_id'];c.commit()
     assert shared.anchor(c,other)==other and not access.product_grant(c,other)
     with workspace_scope(c,actor,other):

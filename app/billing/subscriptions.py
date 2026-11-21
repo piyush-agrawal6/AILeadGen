@@ -44,10 +44,7 @@ def owner(c):
  ctx=current()
  if membership_role(c,ctx.actor,ctx.organization_id)!='OWNER':raise HTTPException(403,'Only the active workspace owner can manage subscriptions.')
  from app.billing import accounts
- if accounts.enabled():
-  account=accounts.anchor(c,ctx.organization_id)
-  if account!=ctx.organization_id:raise HTTPException(409,'Manage the existing subscription from the billing account’s primary workspace.')
-  if not accounts.admin(c,account,ctx.actor):raise HTTPException(403,'Billing account administrator required.')
+ accounts.guard_purchase(c,ctx.organization_id,ctx.actor)
  return ctx
 
 def trial_available(c,actor):

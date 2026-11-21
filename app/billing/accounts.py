@@ -17,6 +17,15 @@ def anchor(c,org):
 def admin(c,account,actor):
     return membership_role(c,actor,account)=='OWNER' and bool(c.execute('SELECT 1 FROM billing_account_admins WHERE account_id=? AND user_id=?',(account,actor)).fetchone())
 
+def guard_purchase(c,org,actor):
+    """Financial mutations fail closed for attached workspaces even during flag rollback."""
+    if not enabled():
+        head=c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] or 0
+        if head<(1016 if head>=1000 else 58):return
+    link=c.execute('SELECT account_id FROM billing_workspace_links WHERE workspace_id=?',(org,)).fetchone()
+    if not link or link[0]!=org:raise HTTPException(409,'Manage the existing subscription from the billing account’s primary workspace.')
+    if enabled() and not admin(c,org,actor):raise HTTPException(403,'Billing account administrator required.')
+
 def register(c,workspace,actor,account=None):
     if not enabled():
         head=c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] or 0

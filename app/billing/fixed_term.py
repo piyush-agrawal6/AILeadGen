@@ -122,7 +122,7 @@ def create(body):
     s=get_settings()
     with db_session() as c:
         ctx=manager(c)
-        if accounts.enabled() and (accounts.anchor(c,ctx.organization_id)!=ctx.organization_id or not accounts.admin(c,ctx.organization_id,ctx.actor)):raise HTTPException(403,'Manage purchases from the billing account’s primary workspace.')
+        accounts.guard_purchase(c,ctx.organization_id,ctx.actor)
         from app.billing.subscription_access import required
         if required(c,ctx.organization_id):
             raise HTTPException(409,'Use Step 5 with verified provider routing. New India purchases require approved INR pricing and PayU merchant acceptance; the historical USD purchase path cannot bypass those checks.')
