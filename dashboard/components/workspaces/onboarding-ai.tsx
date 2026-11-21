@@ -114,7 +114,8 @@ function SetupWorkspace({
 
   const [view, setView] = useState<StepKey>(initialView);
   const [draft, setDraft] = useState<CompanyFields>(() => {
-    const saved = companyDraft(initial.company);
+    const saved = initial.private_draft?.profile || companyDraft(initial.company);
+    if(initial.private_draft_revision!==undefined)return saved;
     if (typeof window === 'undefined') return saved;
     try {
       const raw = window.sessionStorage.getItem(draftStorageKey(orgId));
@@ -129,10 +130,12 @@ function SetupWorkspace({
     return saved;
   });
   const [objective, setObjective] = useState(
-    initial.progress.objectives.find(v => OBJECTIVES.some(([id]) => id === v)) || 'UNDERSTAND_CUSTOMER_NEEDS'
+    initial.private_draft?.objective || initial.progress.objectives.find(v => OBJECTIVES.some(([id]) => id === v)) || 'UNDERSTAND_CUSTOMER_NEEDS'
   );
   const [website, setWebsite] = useState(() => {
+    if(initial.private_draft)return initial.private_draft.website;
     if (initial.company.website) return initial.company.website;
+    if(initial.private_draft_revision!==undefined)return '';
     if (typeof window === 'undefined') return '';
     try {
       const raw = window.sessionStorage.getItem(draftStorageKey(orgId));
@@ -147,6 +150,7 @@ function SetupWorkspace({
   });
 
   const [pending, setPending] = useState(false);
+  const [draftRevision,setDraftRevision]=useState(initial.private_draft_revision);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -192,7 +196,7 @@ function SetupWorkspace({
 
   // Persist unsaved draft in sessionStorage per workspace so refresh preserves user edits
   useEffect(() => {
-    if (typeof window === 'undefined' || !orgId) return;
+    if (typeof window === 'undefined' || !orgId || draftRevision!==undefined) return;
     try {
       window.sessionStorage.setItem(
         draftStorageKey(orgId),
@@ -201,7 +205,7 @@ function SetupWorkspace({
     } catch {
       // ignore storage quota
     }
-  }, [orgId, state.company.version, website, draft]);
+  }, [orgId, state.company.version, website, draft,draftRevision]);
 
   const companyId = progress.preferences.company_review_id;
   const icpId = progress.preferences.icp_review_id;
@@ -857,6 +861,7 @@ function SetupWorkspace({
           onSkip={() => void skipOnboarding()}
         />
       )}
+      {draftRevision!==undefined&&progress.can_edit&&['welcome','company'].includes(view)&&<div className="mx-auto w-full max-w-3xl text-right"><Button variant="outline" disabled={pending} onClick={()=>void perform(async()=>{const res=await api<{revision:number}>('/private-draft',{revision:draftRevision,profile_version:state.company.version,profile:draft,website,objective},'PUT');setDraftRevision(res.revision);setNotice('Private draft saved. You can return after signing in.');setSaveStatus('saved')})}>Save draft</Button></div>}
 
       {!progress.can_edit ? (
         <section className="ai-card max-w-2xl mx-auto my-12 text-center p-8 space-y-3">

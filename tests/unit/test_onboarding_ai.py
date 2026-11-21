@@ -48,6 +48,18 @@ def start(http,**patch):
     body={'revision':0,'website':'https://example.com','objective':'UNDERSTAND_CUSTOMER_NEEDS','request_id':str(uuid.uuid4()),**patch}
     response=http.post(BASE+'/analyze',headers=OWNER,json=body);assert response.status_code==202,response.text
     return body,response.json()
+
+def test_private_draft_survives_new_request_rejects_stale_tab_and_foreign_scope(setup_client,monkeypatch):
+    http,_,_,s,org,other=setup_client;monkeypatch.setattr(s,'shared_billing_accounts_enabled',True)
+    data={'revision':0,'profile_version':None,'profile':{'name':'Private offering draft'},'website':'','objective':'RESEARCH_MARKETS'}
+    path=BASE+'/private-draft?expected_workspace='+org
+    assert http.put(path,headers=OWNER,json=data).json()=={'revision':1}
+    assert http.put(path,headers=OWNER,json=data).json()=={'revision':1}
+    assert http.put(path,headers=OWNER,json={**data,'website':'https://different.example.com'}).status_code==409
+    assert http.get(BASE+'/assistant-context',headers=OWNER).json()['private_draft']['profile']['name']=='Private offering draft'
+    assert http.get(BASE+'/assistant-context',headers={'x-le-user':'admin@example.test'}).json()['private_draft'] is None
+    assert http.put(BASE+'/private-draft?expected_workspace='+other,headers=OWNER,json=data).status_code==409
+    assert http.put(path,headers={'x-le-user':'viewer@example.test'},json=data).status_code==403
 def approve(http,progress=None):
     state=http.get(BASE+'/assistant-context',headers=OWNER).json();profile=state['company']
     fields={k:v for k,v in profile.items() if k not in ('organization_id','onboarding_status','can_edit')}

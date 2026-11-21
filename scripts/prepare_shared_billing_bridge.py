@@ -39,7 +39,7 @@ from app.database import intent_profile as p
 from app.billing.rollback_guard import freeze,freeze_creation
 from fastapi import HTTPException
 with db_session() as c:
- p.migrate(c);assert p.verify(c)==1016 and p.assert_fresh(c)['structure_verified']
+ p.migrate(c);assert p.verify(c)==1017 and p.assert_fresh(c)['structure_verified']
  for f in (lambda:freeze(c,'unlinked'),lambda:freeze_creation(c)):
   try:f()
   except HTTPException as e:assert e.status_code==503

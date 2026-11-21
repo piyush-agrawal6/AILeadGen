@@ -27,9 +27,10 @@ def guard_purchase(c,org,actor):
     if enabled() and not admin(c,org,actor):raise HTTPException(403,'Billing account administrator required.')
 
 def register(c,workspace,actor,account=None):
-    if not enabled():
-        head=c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] or 0
-        if head<(1016 if head>=1000 else 58):return
+    head=c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] or 0
+    if head<(1016 if head>=1000 else 58):
+        if account is not None:raise HTTPException(503,'Shared billing requires the account schema upgrade.')
+        return  # Independent pre-upgrade workspace; migration backfills its own account.
     stamp=now()
     if account is None:
         account=workspace;c.execute('INSERT INTO workspace_billing_accounts(id,created_at) VALUES(?,?)',(account,stamp));c.execute('INSERT INTO billing_account_admins(account_id,user_id) VALUES(?,?)',(account,actor))

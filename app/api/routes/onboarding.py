@@ -50,6 +50,10 @@ from app.platform.company_discovery_dispatch import launch
 def assisted_state(c=Depends(get_db,scope='function')):
     return assisted.state(c)
 
+@router.put('/private-draft')
+def private_draft(body:assisted.PrivateDraft,c=Depends(get_db,scope='function')):
+    return assisted.save_private_draft(c,body)
+
 @router.post('/analyze',status_code=202)
 def analyze(body:assisted.Start,tasks:BackgroundTasks,c=Depends(get_db,scope='function')):
     result=assisted.analyze(c,body)

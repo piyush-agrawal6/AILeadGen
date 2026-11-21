@@ -87,6 +87,8 @@ export type PaymentContract = {
 };
 
 export type State = {
+  private_draft_revision?:number;
+  private_draft?:{profile:CompanyFields;objective:string;website:string}|null;
   payment?: { required: boolean; active: boolean; contract?: PaymentContract | null };
   sources?: SourceStatus[];
   progress: Progress;

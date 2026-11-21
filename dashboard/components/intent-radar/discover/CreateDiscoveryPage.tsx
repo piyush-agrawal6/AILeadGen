@@ -95,14 +95,18 @@ export function CreateDiscoveryPage() {
   const [dateAnchor]=useState(()=>Date.now());
 
   let savedSearchId: string | null = null;
+  let fromSetup=false;
   try {
     const sp = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
     savedSearchId = sp?.get("saved_search_id") || null;
+    fromSetup=sp?.get('from')==='onboarding'&&!savedSearchId;
   } catch {
     // ignore
   }
 
   const access = useRadarCapabilities();
+  const setupDefaults=useRadarRead<{discovery_keywords?:string[];discovery_excluded?:string[];default_icp_id?:string|null}>('/settings',fromSetup);
+  const prefilled=useRef(false);
   const mutation = useRadarMutation();
   const feedQuery=useRadarRead<{items:{id:string;family:SourceId;enabled:boolean}[]}>('/sources/configurations');
   const attempt=useRef<{payload:string;id:string}|null>(null);
@@ -172,6 +176,10 @@ export function CreateDiscoveryPage() {
 
   // Pre-load from Saved Search or Preload Key
   useEffect(() => {
+    if(fromSetup){
+      if(!prefilled.current&&setupDefaults.data){prefilled.current=true;const prefs=setupDefaults.data;setConfig(v=>({...v,keywords:v.keywords.length?v.keywords:prefs.discovery_keywords||[],excluded:v.excluded.length?v.excluded:prefs.discovery_excluded||[]}));setSelectedIcpId(v=>v||prefs.default_icp_id||'');}
+      return;
+    }
     if (savedSearchQuery.data) {
       const item = savedSearchQuery.data;
       setName(item.name || "Saved Search Discovery");
@@ -204,7 +212,7 @@ export function CreateDiscoveryPage() {
     } catch {
       // ignore
     }
-  }, [savedSearchQuery.data]);
+  }, [savedSearchQuery.data,fromSetup,setupDefaults.data]);
 
   // Ensure default sources if empty
   useEffect(() => {

@@ -14,6 +14,25 @@ from app.platform.company_autofill import FieldName
 
 RADAR_OBJECTIVES={'RESEARCH_MARKETS','UNDERSTAND_CUSTOMER_NEEDS','MONITOR_BUYING_CONTEXT','MONITOR_COMPETITORS','EXPLORE_OPPORTUNITIES'}
 class Strict(BaseModel):model_config=ConfigDict(extra='forbid',str_strip_whitespace=True)
+class PrivateDraft(Strict):
+    revision:int=Field(ge=0)
+    profile_version:str|None=Field(None,max_length=100)
+    profile:CompanyFields
+    website:str=Field('',max_length=600)
+    objective:setup.Objective
+
+def save_private_draft(c,body):
+    from app.billing.accounts import enabled
+    from app.database.prospects import now
+    if not enabled():raise HTTPException(404,'Private setup drafts are unavailable.')
+    org=organization();actor=current().actor;require_role(c,actor,org,('OWNER','ADMIN'));editable(c)
+    if read_profile(c)['version']!=body.profile_version:raise HTTPException(409,'Company details changed. Reload before saving the draft.')
+    data=body.model_dump_json(exclude={'revision','profile_version'});stamp=now()
+    if len(data.encode())>24000:raise HTTPException(422,'Shorten the setup draft before saving.')
+    row=c.execute('SELECT revision,draft_json,profile_version FROM onboarding_private_drafts WHERE organization_id=? AND actor=?',(org,actor)).fetchone()
+    if row and row['draft_json']==data and row['profile_version']==body.profile_version:return {'revision':row['revision']}
+    if (row['revision'] if row else 0)!=body.revision:raise HTTPException(409,'Another tab saved a newer draft. Reload to review it.')
+    c.execute('INSERT INTO onboarding_private_drafts(organization_id,actor,revision,profile_version,draft_json,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(organization_id,actor) DO UPDATE SET revision=excluded.revision,profile_version=excluded.profile_version,draft_json=excluded.draft_json,updated_at=excluded.updated_at',(org,actor,body.revision+1,body.profile_version,data,stamp));return {'revision':body.revision+1}
 class Start(Strict):
     revision:int=Field(ge=0)
     website:str=Field(max_length=600)
@@ -140,6 +159,10 @@ def state(c):
     from app.billing.subscription_access import required,product_grant
     from app.config.settings import get_settings
     settings=get_settings()
+    if settings.shared_billing_accounts_enabled and saved['can_edit'] and saved['status']!='COMPLETED':
+        row=c.execute('SELECT revision,profile_version,draft_json FROM onboarding_private_drafts WHERE organization_id=? AND actor=?',(organization(),current().actor)).fetchone()
+        result['private_draft_revision']=row['revision'] if row else 0
+        result['private_draft']=json.loads(row['draft_json']) if row and row['profile_version']==company['version'] else None
     if settings.subscription_onboarding_required:
         grant=product_grant(c,organization());active=bool(grant)
         contract=None
