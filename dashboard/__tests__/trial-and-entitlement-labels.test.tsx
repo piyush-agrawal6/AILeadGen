@@ -85,7 +85,7 @@ function mountSubscription(value: SubscriptionState) {
   mockedRequest.mockResolvedValue(value);
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}>
-      <SubscriptionPayment />
+      <SubscriptionPayment orgId="fixture-workspace" />
     </QueryClientProvider>
   );
 }

@@ -37,7 +37,7 @@ function mount(value = data) {
   mocked.mockResolvedValue(value);
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}>
-      <SubscriptionPayment embedded />
+      <SubscriptionPayment embedded orgId="fixture-workspace" />
     </QueryClientProvider>
   );
 }
@@ -67,10 +67,12 @@ it('does not initiate checkout when consent is missing or a path is blocked', as
 it('selecting a paid plan clears earlier recurring consent and forwards explicit real customer name', async () => {
   mocked.mockImplementation(async (path, options) => {
     if (path === '/billing/subscription') {
+      expect(options?.expectedWorkspace).toBe('fixture-workspace');
       return { ...data, paid_blockers: [], trial_blockers: [], country_verified: true, provider: 'creem' };
     }
     if (path === '/billing/subscription/checkout') {
       const body = JSON.parse(String(options?.body));
+      expect(body.expected_workspace).toBe('fixture-workspace');
       expect(body.customer_name).toBe('Piyush Agrawal');
       expect(body.plan_code).toBe('growth');
       expect(body.variant).toBe('paid');
@@ -81,7 +83,7 @@ it('selecting a paid plan clears earlier recurring consent and forwards explicit
 
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}>
-      <SubscriptionPayment embedded />
+      <SubscriptionPayment embedded orgId="fixture-workspace" />
     </QueryClientProvider>
   );
 
