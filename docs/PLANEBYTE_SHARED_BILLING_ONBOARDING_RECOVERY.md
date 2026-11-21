@@ -27,6 +27,11 @@ The navigation rail has three milestones; website review is part of business set
 
 ## Open release gates
 
+**1017 rollback images:** [Cloud Build `acd30be7-2139-4110-8bf1-47b20bfc79f4`](https://console.cloud.google.com/cloud-build/builds/acd30be7-2139-4110-8bf1-47b20bfc79f4?project=querryside) succeeded on the `c50dd7728d` bridge inputs. Both images passed the clean PostgreSQL schema and rollback-fence checks. The following are immutable rollback artifacts, not forward release images:
+
+- `asia-south1-docker.pkg.dev/querryside/leadengine/api@sha256:547af11ddd2cbd74d0763ae0bbe99483d93db789e24a535521730e8c2260b826`
+- `asia-south1-docker.pkg.dev/querryside/leadengine/worker@sha256:2f58aba6bb0c1364a0d53ec8f3ac954690a2eca1315016f429dfab71d3c0329e`
+
 **Schema 1017 checkpoint:** A fresh local restore of the restricted 1015 backup applied 1016 and 1017, a second run applied zero migrations, and content digests and counts of all 145 prior application tables matched. On the populated 1017 restore, only SyntaxWars was attached. Four historical reserved setup-token entries remained. The specialized previous-runtime bridge source denied linked workspace requests and persisted company-profile worker scopes with 503, froze creation, and still admitted the independent workspace. These checks did not change production.
 
 1017 adds explicit **Save draft**, keyed by actor and workspace, with revision conflicts and base-profile checks. It restores explicitly saved business drafts on return. The discovery handoff opens an editable proposal using saved ICP, terms and exclusions. Before/after desktop/mobile images are in `docs/evidence/shared-billing-onboarding/`; the captures predate the private-draft and handoff changes. The workspace list now counts the three business milestones independently of plan status. A completed workspace without coverage has no next setup step. An attached workspace cannot claim a separate trial. Full flag-enabled, exact-source and signed-in deployment acceptance are still required.

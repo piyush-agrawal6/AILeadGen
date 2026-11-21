@@ -1,5 +1,6 @@
 import {test,expect,type BrowserContext,type Page,type TestInfo} from '@playwright/test';
 import {encode} from 'next-auth/jwt';
+import {createInFixtureAccount} from '../workspace-e2e/create-in-fixture-account';
 const origin='http://127.0.0.1:13000';
 async function session(c:BrowserContext,email='cofounder@leadengine.example'){await c.addCookies([{name:'authjs.session-token',value:await encode({token:{sub:email,email},secret:'fixture-session-secret-only-for-local-tests-123456789',salt:'authjs.session-token',maxAge:3600}),url:origin,httpOnly:true,sameSite:'Lax'}]);}
 
@@ -21,7 +22,7 @@ test('owner reviews AI setup; saved business answers survive activation and paym
 });
 test('failed analysis leaves an editable manual form and completed users can open their workspace',async({page,context})=>{
  await session(context,'founder@leadengine.example');await page.goto('/intent-radar');await expect(page).toHaveURL(/\/intent-radar$/);
- expect((await context.request.post('/api/organization/workspaces',{headers:{origin},data:{name:'Isolated recovery workspace',request_id:crypto.randomUUID()}})).status()).toBe(201);
+ await createInFixtureAccount(context,'Isolated recovery workspace','PlaneByte');
  await page.goto('/onboarding');await page.getByLabel('Company website',{exact:true}).fill('https://example.com/failure');await page.getByRole('button',{name:'Analyze my website'}).click();await expect(page.getByText('Analysis did not complete',{exact:true}).first()).toBeVisible({timeout:45000});
  await page.getByRole('button',{name:/Back to your business/}).click();await page.getByRole('button',{name:'Set up manually'}).click();await page.getByLabel('Company name',{exact:true}).fill('Offline Engineering');await page.getByLabel('Company description',{exact:true}).fill('Custom workflow engineering for software companies.');
  if(!await page.getByLabel('Product or service name',{exact:true}).count())await page.getByRole('button',{name:/Add.*(service|offering|product)/i}).click();await page.getByLabel('Product or service name',{exact:true}).first().fill('Application engineering');await page.getByRole('button',{name:'Save business profile & continue'}).click();await expect(page.getByRole('heading',{name:'Choose your ideal customers'})).toBeVisible();
