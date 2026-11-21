@@ -97,6 +97,7 @@ function SetupWorkspace({
     if (typeof window !== 'undefined') {
       const requested = new URLSearchParams(window.location.search).get('step');
       if (requested && (['welcome', 'company', 'icp', 'research', 'plan'] as const).includes(requested as 'welcome' | 'company' | 'icp' | 'research' | 'plan')) {
+        if (requested==='plan'&&initial.payment?.active)return 'ready';
         if (initial.progress.status !== 'COMPLETED' || requested === 'plan') {
           return requested as StepKey;
         }
@@ -207,8 +208,11 @@ function SetupWorkspace({
     }
   }, [orgId, state.company.version, website, draft,draftRevision]);
 
-  const companyId = progress.preferences.company_review_id;
-  const icpId = progress.preferences.icp_review_id;
+  const [invalidReviews,setInvalidReviews]=useState<Set<string>>(new Set());
+  const websiteGeneration=useRef(0);
+  const currentReview=(key:string|null)=>key&&!invalidReviews.has(key)?key:null;
+  const companyId = currentReview(progress.preferences.company_review_id);
+  const icpId = currentReview(progress.preferences.icp_review_id);
 
   const companyReview = useQuery({
     queryKey: ['onboarding-review', orgId, companyId],
@@ -442,6 +446,7 @@ function SetupWorkspace({
   }
 
   async function analyze() {
+    const generation=websiteGeneration.current;
     const websiteErr = validateWebsiteField(website, true);
     if (websiteErr) {
       const errs = { welcome_website: websiteErr };
@@ -461,6 +466,7 @@ function SetupWorkspace({
         request_id: id('website:' + normWebsite)
       });
       progressSaved(result.progress);
+      if(generation!==websiteGeneration.current){setInvalidReviews(prior=>new Set([...prior,result.review.id]));return;}
       client.setQueryData(['onboarding-review', orgId, result.review.id], result.review);
       deadline.current = Date.now() + 120000;
       setView('company');
@@ -674,7 +680,7 @@ function SetupWorkspace({
         {
           ...values,
           current_step: 'COMPANY',
-          preferences: { ...values.preferences, setup_mode: 'MANUAL' }
+          preferences: { ...values.preferences, setup_mode: 'MANUAL',company_review_id:companyId,icp_review_id:icpId }
         },
         'PUT'
       );
@@ -898,7 +904,14 @@ function SetupWorkspace({
                 onWebsiteChange={val => {
                   clearFieldError('welcome_website');
                   clearFieldError('website');
-                  if(val!==website){adviceParent.current=null;adviceMsgId.current='';setAdviceKey('');setMessages([]);setChatPending(false);}
+                  if(val!==website){
+                    websiteGeneration.current++;
+                    setInvalidReviews(prior=>new Set([...prior,...[companyId,icpId].filter((x):x is string=>!!x)]));
+                    adviceParent.current=null;adviceMsgId.current='';setAdviceKey('');setMessages([]);setChatPending(false);
+                    setSelectedFields([]);setCandidates([]);setSelected([]);
+                    // Drop unapproved fields supplied by the previous review, preserving user edits.
+                    setDraft(prev=>{const base=companyDraft(state.company);for(const k of manuallyEditedRef.current)Object.assign(base,{[k]:prev[k]});return {...base,website:val}});
+                  }
                   setWebsite(val);
                 }}
                 onWebsiteBlur={err => {

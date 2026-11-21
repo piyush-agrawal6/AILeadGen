@@ -44,12 +44,8 @@ def test_secondary_workspace_isolation_and_creem_grant_without_manual_grant(isol
     c.execute("UPDATE organization_onboarding SET status='COMPLETED' WHERE organization_id=?", (org1,))
     c.execute("DELETE FROM subscription_requirements WHERE organization_id=?", (org1,))
 
-    # Workspace 2 (Syntaxwars) created by same owner
-    res2 = workspaces.create_workspace(
-        c,
-        owner,
-        workspaces.WorkspaceCreate(name="Syntaxwars", request_id=uuid.uuid4()),
-    )
+    # Independent existing workspace, with its own historical provider relationship.
+    res2 = create_organization(c, owner, "Syntaxwars")
     org2 = str(res2["organization_id"])
     assert org2 != org1
 

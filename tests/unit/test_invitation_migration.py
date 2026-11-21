@@ -25,6 +25,9 @@ def test_invitation_upgrade_preserves_existing_workspace_and_restores_snapshot(t
 
 
 def test_creation_ledger_upgrade_preserves_invitation_and_restores_schema19(tmp_path,monkeypatch):
+    from app.config.settings import get_settings
+    # Reproduce the historical schema-19 runtime, before billing accounts existed.
+    monkeypatch.setattr(get_settings(),'shared_billing_accounts_enabled',False)
     from app.platform.context import workspace_scope
     from app.platform.invitations import create,InviteCreate
     from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID as internal

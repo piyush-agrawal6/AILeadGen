@@ -35,6 +35,8 @@ def _seed_workspace(c, org_id: str, actor: str, *, role: str = "OWNER"):
         "INSERT INTO organization_onboarding(organization_id,status,current_step,created_at,updated_at) VALUES(?,'COMPLETED','COMPLETE',?,?)",
         (org_id, ts, ts),
     )
+    from app.billing.accounts import register
+    register(c,org_id,actor)
     c.execute(
         "INSERT INTO organization_products(organization_id,product,enabled,created_at,updated_at) VALUES(?,'INTENT_RADAR',1,?,?)",
         (org_id, ts, ts),
@@ -414,4 +416,3 @@ def test_postgres_sql_translation_escapes_literal_percent_for_signals_high_inten
     # Every literal '%' in LIKE patterns must be doubled to '%%' so psycopg never throws ProgrammingError
     stripped = translated.replace("%s", "").replace("%%", "")
     assert "%" not in stripped
-

@@ -87,7 +87,11 @@ def capacity(c,org,dimension,count,*,incoming=None):
     if dimension not in contracts.CAPACITY:raise ValueError('Unknown capacity dimension.')
     from app.billing import accounts
     account=accounts.anchor(c,org);lock(c,account);access_periods.require_current(c,org);row=contracts.active(c,org)
-    if row and accounts.enabled():count=accounts.capacity_used(c,account,dimension,incoming=incoming,pending=True,all_monitors=bool(row.get('is_trial')))
+    if row and accounts.enabled():
+        pooled=accounts.capacity_used(c,account,dimension,incoming=incoming,pending=True,all_monitors=bool(row.get('is_trial')))
+        # Preserve stricter server-side workspace capacity checks. Named seat
+        # admission is different: the same person counts once across workspaces.
+        count=pooled if incoming is not None else max(count,pooled)
     if row and count>=contracts.snapshot(row)['limits'][dimension]:raise HTTPException(429,'Monthly plan '+dimension.replace('_',' ')+' capacity exhausted.')
     if row and row.get('internal_testing') and row.get('base_limits') and count>=row['base_limits'].get(dimension,0):
         from app.billing.subscription_access import record_internal_testing_audit

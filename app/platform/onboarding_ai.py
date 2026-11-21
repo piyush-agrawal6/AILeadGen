@@ -171,7 +171,8 @@ def state(c):
         elif active:
             try:
                 from app.billing.subscription_access import is_trial_contract,entitlement_label
-                row=c.execute('SELECT p.plan_code,p.status,p.provider,p.period_start,p.period_end,p.trial_start,p.trial_end,p.next_charge_at,p.cancel_confirmed_at FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id WHERE p.organization_id=? AND p.environment=?',(organization(),settings.creem_environment)).fetchone()
+                from app.billing.accounts import anchor
+                row=c.execute('SELECT p.plan_code,p.status,p.provider,p.period_start,p.period_end,p.trial_start,p.trial_end,p.next_charge_at,p.cancel_confirmed_at FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id WHERE p.organization_id=? AND p.environment=?',(anchor(c,organization()),settings.creem_environment)).fetchone()
                 if row:
                     contract=dict(row)
                     contract['is_trial']=is_trial_contract(row)
@@ -203,14 +204,18 @@ def analyze(c,body):
     if body.objective not in RADAR_OBJECTIVES:raise HTTPException(422,'Choose an Intent Radar research objective.')
     review=reviews.create(c,reviews.DiscoveryCreate(website=body.website,use_ai=True,request_id=body.request_id))
     prefs={**saved['preferences'],'setup_mode':'AI','company_review_id':review['id']}
+    if saved['preferences'].get('company_review_id')!=review['id']:prefs['icp_review_id']=None
     progress=saved if saved['preferences'].get('company_review_id')==review['id'] and saved['objectives']==[body.objective] else update(c,saved,objectives=[body.objective],preferences=prefs,current_step='COMPANY')
     return {'review':review,'progress':progress}
 
 def company(c,body):
     saved=editable(c,body.revision)
     if body.objective not in RADAR_OBJECTIVES:raise HTTPException(422,'Choose an Intent Radar research objective.')
+    prefs=dict(saved['preferences'])
+    if body.profile.review_id and str(body.profile.review_id)!=prefs.get('company_review_id'):raise HTTPException(409,'Business analysis changed. Review the current website before applying suggestions.')
     profile=save_profile(c,body.profile)
-    progress=update(c,saved,objectives=[body.objective],services=profile['products_services'],current_step='ICP')
+    if profile['version']!=body.profile.version:prefs['icp_review_id']=None
+    progress=update(c,saved,objectives=[body.objective],services=profile['products_services'],preferences=prefs,current_step='ICP')
     return {'company':profile,'progress':progress}
 
 def recommendations(c,body):

@@ -21,6 +21,10 @@ jobs:
           live=$(curl --fail --silent --show-error https://app.planebyte.com/release.json | python -c 'import sys,json,re; s=json.load(sys.stdin)["source_commit"]; assert re.fullmatch("[0-9a-f]{40}",s); print(s)')
           python scripts/check_release_candidate.py --deployed-source "$live" --destination data/artifacts/staging/candidate
   verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        shared_accounts: ['false', 'true']
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -32,6 +36,7 @@ jobs:
         options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       APP_ENV: test
+      SHARED_BILLING_ACCOUNTS_ENABLED: ${{ matrix.shared_accounts }}
       DATABASE_URL: postgresql://postgres:test-only@localhost:5432/leadengine
       RUN_POSTGRES_TESTS: '1'
     steps:
@@ -71,6 +76,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: browser-diagnostics
+          name: browser-diagnostics-sharing-${{ matrix.shared_accounts }}
           retention-days: 3
           path: data/artifacts/verification/ci-browser/${{ github.sha }}

@@ -23,6 +23,14 @@ test('owner reviews AI setup; saved business answers survive activation and paym
 test('failed analysis leaves an editable manual form and completed users can open their workspace',async({page,context})=>{
  await session(context,'founder@leadengine.example');await page.goto('/intent-radar');await expect(page).toHaveURL(/\/intent-radar$/);
  await createInFixtureAccount(context,'Isolated recovery workspace','PlaneByte');
+ if(process.env.SHARED_BILLING_ACCOUNTS_ENABLED==='true'){
+  await page.goto('/onboarding');const website=page.getByLabel('Company website',{exact:true});await website.fill('https://example.com/draft');await page.getByRole('button',{name:'Save draft',exact:true}).click();await expect(page.getByText(/Private draft saved/)).toBeVisible();
+  const list=await (await context.request.get('/api/organization/workspaces')).json();const originId=list.active_organization_id,otherId=list.items.find((i:{name:string})=>i.name==='PlaneByte').organization_id;
+  const second=await context.newPage();await second.goto('/settings/workspaces');
+  const select=(id:string)=>second.evaluate(async id=>(await fetch('/api/organization/active',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({organization_id:id})})).status,id);
+  expect(await select(otherId)).toBe(200);const stale=await page.evaluate(async id=>(await fetch('/api/organization/onboarding/assistant-context?expected_workspace='+id)).status,originId);expect(stale).toBe(409);
+  expect(await select(originId)).toBe(200);await second.close();await page.reload();await expect(website).toHaveValue('https://example.com/draft');
+ }
  await page.goto('/onboarding');await page.getByLabel('Company website',{exact:true}).fill('https://example.com/failure');await page.getByRole('button',{name:'Analyze my website'}).click();await expect(page.getByText('Analysis did not complete',{exact:true}).first()).toBeVisible({timeout:45000});
  await page.getByRole('button',{name:/Back to your business/}).click();await page.getByRole('button',{name:'Set up manually'}).click();await page.getByLabel('Company name',{exact:true}).fill('Offline Engineering');await page.getByLabel('Company description',{exact:true}).fill('Custom workflow engineering for software companies.');
  if(!await page.getByLabel('Product or service name',{exact:true}).count())await page.getByRole('button',{name:/Add.*(service|offering|product)/i}).click();await page.getByLabel('Product or service name',{exact:true}).first().fill('Application engineering');await page.getByRole('button',{name:'Save business profile & continue'}).click();await expect(page.getByRole('heading',{name:'Choose your ideal customers'})).toBeVisible();
