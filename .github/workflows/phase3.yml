@@ -62,31 +62,15 @@ jobs:
       - run: .venv/bin/python -m pytest -q
       - run: npm ci
         working-directory: dashboard
-      - run: npm run typecheck && npm run lint && npm test && HEYSOW_E2E_DIST_DIR=.next-workflow-test npm run build
+      - run: npm run typecheck && npm run lint && npm test
         working-directory: dashboard
       - run: npx playwright install --with-deps chromium
         working-directory: dashboard
-      - run: npm run test:e2e
-        working-directory: dashboard
-        env:
-          # This suite exercises legacy Lead Engine pages against a new local database.
-          LEAD_ENGINE_AVAILABLE: 'true'
-          DATABASE_BACKEND: sqlite
-          DATABASE_URL: ''
-      - name: Required release journeys on the built candidate (isolated providers)
-        env:
-          DATABASE_BACKEND: sqlite
-          DATABASE_URL: ''
-        run: |
-          set -eu
-          for journey in accounts workspace subscription onboarding destinations; do
-            PLANEBYTE_RELEASE_DIST=.next-workflow-test PLANEBYTE_RELEASE_JOURNEY="$journey" npx playwright test --config=playwright.release.config.ts
-          done
-        working-directory: dashboard
+      - name: Build and test all six browser suites on this checkout
+        run: bash scripts/verify_browser_matrix.sh
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: browser-diagnostics
-          path: |
-            dashboard/test-results
-            dashboard/playwright-report
+          retention-days: 3
+          path: data/artifacts/verification/ci-browser/${{ github.sha }}

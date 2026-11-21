@@ -11,6 +11,6 @@ export default defineConfig({
   use:{baseURL:"http://127.0.0.1:13000",viewport:{width:1440,height:900},channel:process.env.LEADENGINE_TEST_BROWSER||(process.platform==="win32"?"chrome":undefined),trace:"retain-on-failure",screenshot:"only-on-failure"},
   webServer:[
     {command:'"'+python+'" -m uvicorn app.api.server:app --host 127.0.0.1 --port 18787',cwd:root,url:"http://127.0.0.1:18787/api/health",timeout:60000,env:{...testEnv,DATABASE_PATH:path.join(root,"data/e2e",runId,"phase3.db"),ARTIFACT_LOCAL_ROOT:path.join(root,"data/e2e",runId,"artifacts")}},
-    {command:"node node_modules/next/dist/bin/next "+(process.env.LEADENGINE_TEST_DEV?"dev":"start")+" -p 13000",cwd:import.meta.dirname,url:"http://127.0.0.1:13000/login",timeout:60000,env:testEnv},
+    {command:"node node_modules/next/dist/bin/next "+(process.env.LEADENGINE_TEST_DEV?"dev":"start")+" -p 13000",cwd:import.meta.dirname,url:"http://127.0.0.1:13000/login",timeout:60000,env:{...testEnv,HEYSOW_E2E_DIST_DIR:process.env.PLANEBYTE_RELEASE_DIST||testEnv.HEYSOW_E2E_DIST_DIR}},
   ],
 });
