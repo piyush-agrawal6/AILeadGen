@@ -41,9 +41,11 @@ it('reviews actual Vertex fields, saves five actual recommendations, answers con
  fireEvent.click(screen.getByRole('button',{name:/Save business profile & continue/}));
  for(const item of real.icpReview.preview.candidates)expect(await screen.findByText(item.draft.name,{exact:true})).toBeVisible();
  expect(saved.description).toMatch(/^Owner-reviewed description:/);
+ fireEvent.click(screen.getByRole('button',{name:'Open AI Copilot'}));
  fireEvent.change(screen.getByRole('textbox',{name:'Ask Copilot about your business'}),{target:{value:'Which saved offerings fit our primary segment?'}});
  fireEvent.click(screen.getByRole('button',{name:'Send question to Copilot'}));
  await waitFor(()=>expect(document.querySelector('.ai-copilot-messages')).toHaveTextContent(real.copilotReview.preview.answer.replace(/\s+/g,' ').trim()));
+ fireEvent.click(screen.getByRole('button',{name:'Close AI Copilot'}));
  fireEvent.click(screen.getByRole('button',{name:/Save ideal customers & continue/}));
  fireEvent.click(await screen.findByRole('button',{name:/Save research setup & continue/}));
  expect(await screen.findByRole('heading',{name:'Choose Your Plan & Payment'})).toBeVisible();

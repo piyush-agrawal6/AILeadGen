@@ -27,12 +27,14 @@ def finalize_operation(c,operation_id):
     from app.billing.contracts import verified_workspace
     org=verified_workspace(c)
     from app.developer.keys import lock
-    lock(c,org)
+    from app.billing.accounts import operation as ledger_operation
+    billing_org,billing_id=ledger_operation(c,org,operation_id);lock(c,billing_org)
     _,reservations_table=access_periods.ledgers(c,org)
-    row=c.execute(f"SELECT state FROM {reservations_table} WHERE organization_id=? AND operation_id=? AND dimension='ai_calls'",(org,operation_id)).fetchone()
+    row=c.execute(f"SELECT state FROM {reservations_table} WHERE organization_id=? AND operation_id=? AND dimension='ai_calls'",(billing_org,billing_id)).fetchone()
     if row and row['state']=='RESERVED':
         prefix='ai-attempt:'+hashlib.sha256(operation_id.encode()).hexdigest()[:32]+':%'
-        attempted=c.execute(f"SELECT 1 FROM {reservations_table} WHERE organization_id=? AND operation_id LIKE ? AND dimension='ai_tokens' AND state<>'RELEASED' LIMIT 1",(org,prefix)).fetchone()
+        if billing_org!=org:_,prefix=ledger_operation(c,org,prefix)
+        attempted=c.execute(f"SELECT 1 FROM {reservations_table} WHERE organization_id=? AND operation_id LIKE ? AND dimension='ai_tokens' AND state<>'RELEASED' LIMIT 1",(billing_org,prefix)).fetchone()
         usage.settle(c,operation_id,release=not bool(attempted),dimensions=('ai_calls',))
 
 @contextmanager
@@ -78,11 +80,13 @@ def complete_attempt(provider,attempt,reported,*,rejected=False):
                 # charge. Future reservations fail against the actual total.
                 from app.billing.contracts import verified_workspace
                 from app.developer.keys import lock
-                org=verified_workspace(c);lock(c,org)
+                org=verified_workspace(c)
                 usage_table,reservations_table=access_periods.ledgers(c,org)
-                row=c.execute(f"SELECT * FROM {reservations_table} WHERE organization_id=? AND operation_id=? AND dimension='ai_tokens'",(org,attempt['id'])).fetchone()
+                from app.billing.accounts import operation as ledger_operation
+                org,op=ledger_operation(c,org,attempt['id']);lock(c,org)
+                row=c.execute(f"SELECT * FROM {reservations_table} WHERE organization_id=? AND operation_id=? AND dimension='ai_tokens'",(org,op)).fetchone()
                 if row and row['state']=='RESERVED' and row['amount']<actual:
-                    c.execute(f"UPDATE {reservations_table} SET amount=? WHERE organization_id=? AND operation_id=? AND dimension='ai_tokens'",(actual,org,attempt['id']))
+                    c.execute(f"UPDATE {reservations_table} SET amount=? WHERE organization_id=? AND operation_id=? AND dimension='ai_tokens'",(actual,org,op))
                     c.execute(f"UPDATE {usage_table} SET reserved=reserved+? WHERE organization_id=? AND contract_id=? AND period_start=? AND dimension='ai_tokens'",(actual-row['amount'],org,row['contract_id'],row['period_start']))
             usage.settle(c,attempt['id'],actual={'ai_tokens':actual})
             attempt['outcome']='REPORTED'

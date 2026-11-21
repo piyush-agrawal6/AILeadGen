@@ -43,6 +43,11 @@ class Action(BaseModel):
 def owner(c):
  ctx=current()
  if membership_role(c,ctx.actor,ctx.organization_id)!='OWNER':raise HTTPException(403,'Only the active workspace owner can manage subscriptions.')
+ from app.billing import accounts
+ if accounts.enabled():
+  account=accounts.anchor(c,ctx.organization_id)
+  if account!=ctx.organization_id:raise HTTPException(409,'Manage the existing subscription from the billing account’s primary workspace.')
+  if not accounts.admin(c,account,ctx.actor):raise HTTPException(403,'Billing account administrator required.')
  return ctx
 
 def trial_available(c,actor):
@@ -85,6 +90,10 @@ def public_contract(row):
 def lifecycle(c,org,actor):
  """The slot identifies the contract. History is never selected by plan name."""
  env=get_settings().creem_environment
+ from app.billing.accounts import anchor
+ if anchor(c,org)!=org:
+  effective=access.product_grant(c,org);dev=effective and effective.get('source_kind')=='COMPLIMENTARY'
+  return {'phase':('complimentary' if dev else 'trial_active' if effective.get('is_trial') else 'paid_active') if effective else 'no_subscription','can_purchase':False,'can_change':False,'pending_change':None,'effective_plan':effective.get('plan_code') if effective else None,'effective_label':effective.get('entitlement_label') if effective else None,'trial_eligible':False,'pending_checkout':None}
  row=c.execute('SELECT p.* FROM subscription_workspace_slots w JOIN subscription_contracts p ON p.id=w.contract_id AND p.organization_id=w.organization_id AND p.environment=w.environment WHERE w.organization_id=? AND w.environment=?',(org,env)).fetchone()
  pending=c.execute("SELECT id,created_by,status,plan_code,variant,checkout_url FROM subscription_checkouts WHERE organization_id=? AND environment=? AND status IN ('CREATING','PENDING','REVIEW') ORDER BY created_at DESC,id LIMIT 1",(org,env)).fetchone()
  grant=access.product_grant(c,org,include_development=False);eligible=trial_available(c,actor);raw=row['status'] if row else None
@@ -109,13 +118,17 @@ def summary(c):
  if not membership_role(c,ctx.actor,ctx.organization_id):raise HTTPException(403,'Active workspace membership required.')
  if not access.enabled():return {'enabled':False,'required':False,'active':False,'plans':commercial.catalog()['plans'],'blockers':['Subscription onboarding is not enabled.']}
  org=ctx.organization_id;s=get_settings();active=access.product_grant(c,org,include_development=False)
+ from app.billing import accounts
+ account=accounts.summary(c,org,ctx.actor) if accounts.enabled() else None
+ if account and account['shared']:
+  life=lifecycle(c,org,ctx.actor);return {'enabled':True,'required':True,'active':bool(active),'covered':bool(access.product_grant(c,org)),'billing_account':account,'workspace_id':org,'provider':'creem','can_manage':False,'trial_eligible':False,'plans':commercial.catalog()['plans'],'contract':None,'checkouts':[],'history':[],'lifecycle':life,'blockers':['This workspace shares billing. Manage the plan in its primary workspace.']}
  row=c.execute('SELECT p.* FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id AND w.environment=p.environment WHERE p.organization_id=? AND p.environment=?',(org,s.creem_environment)).fetchone()
  provider,reason=route(c,org);billing=profile(c,org)
  history=[dict(r) for r in c.execute('SELECT provider,environment,payment_id,amount_minor,currency,status,period_start,period_end,receipt_url,recorded_at FROM subscription_payments WHERE organization_id=? AND environment=? ORDER BY recorded_at DESC,payment_id DESC LIMIT 50',(org,s.creem_environment)).fetchall()]
  return {'enabled':True,'required':access.required(c,org),'active':bool(active),'provider':provider,'country':billing['country'] if billing else None,'country_verified':bool(billing and billing['status']=='VERIFIED' and billing['verified_at']),
-  'workspace_id':org,'account_email':ctx.actor,'customer_name':_real_customer_name(c,ctx.actor),
+  'workspace_id':org,'billing_account':account,'account_email':ctx.actor,'customer_name':_real_customer_name(c,ctx.actor),
   'terms_version':s.subscription_terms_version,'policy_version':access.POLICY,'trial_seconds':access.TRIAL_SECONDS,'trial_limits':access.TRIAL_LIMITS,
-  'trial_eligible':trial_available(c,ctx.actor),'plans':commercial.catalog()['plans'],'can_manage':membership_role(c,ctx.actor,org)=='OWNER',
+  'trial_eligible':trial_available(c,ctx.actor),'plans':commercial.catalog()['plans'],'can_manage':account['can_manage'] if account else membership_role(c,ctx.actor,org)=='OWNER',
   'contract':public_contract(row),'history':history,'lifecycle':lifecycle(c,org,ctx.actor),
   'checkouts':[dict(r) for r in c.execute('SELECT id,provider,environment,plan_code,variant,status,created_at FROM subscription_checkouts WHERE organization_id=? AND environment=? ORDER BY created_at DESC,id DESC LIMIT 10',(org,s.creem_environment)).fetchall()],
   'paid_blockers':blockers(c,org,'paid'),'trial_blockers':blockers(c,org,'trial'),
@@ -134,6 +147,7 @@ def start(body):
   selected=commercial.plan(body.plan_code);provider,_=route(c,org)
   if provider!='creem':raise HTTPException(409,'This provider payment path is not ready.')
   mode=s.creem_environment;lock(c,org)
+  owner(c)  # Recheck account authority after acquiring the finance lock.
   if getattr(c,'backend',None)=='postgres':c.execute('SELECT pg_advisory_xact_lock(hashtext(?))',('subscription-actor:'+ctx.actor,))
   if c.execute("SELECT 1 FROM subscription_checkouts WHERE created_by=? AND organization_id<>? AND environment=? AND status IN ('CREATING','PENDING','REVIEW') LIMIT 1",(ctx.actor,org,mode)).fetchone():raise HTTPException(409,'An existing billing request for this owner needs verification before starting another checkout.')
   if body.variant=='trial':

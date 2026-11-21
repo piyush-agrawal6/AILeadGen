@@ -200,18 +200,21 @@ it('shows ONE single authoritative error banner on worker failure without a comp
   });
   expect(await screen.findAllByText('Analysis did not complete')).toHaveLength(1);
   expect(screen.getAllByText(/worker could not access required storage/)).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button',{name:'Open AI Copilot'}));
   expect(screen.getByText('Needs retry')).toBeVisible();
+  fireEvent.click(screen.getByRole('button',{name:'Close AI Copilot'}));
   expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
   expect(screen.getByRole('textbox', { name: 'Company name' })).toHaveValue('Manual company');
 });
 
-it('restores all five steps, persistent desktop Copilot and an accessible mobile drawer', async () => {
+it('shows three setup milestones and an on-demand keyboard-accessible Copilot', async () => {
   mount({ progress, company: profile, reviews: {}, capabilities: { company_analysis: true, icp_recommendations: true } });
   const rail = await screen.findByRole('navigation', { name: 'Onboarding Progress' });
-  for (const name of ['Your Business', 'Business Profile', 'Ideal Customers', 'Research Setup', 'Plan & Payment']) {
+  for (const name of ['Your business', 'Your ideal customers', 'First discovery']) {
     expect(rail).toHaveTextContent(name);
   }
-  expect(screen.getByRole('complementary')).toHaveClass('ai-copilot-container');
+  expect(rail).not.toHaveTextContent('Plan & Payment');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Open AI Copilot' }));
   expect(await screen.findByRole('dialog', { name: 'PlaneByte AI Copilot' })).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Close AI Copilot' }));
@@ -256,11 +259,13 @@ it('terminates failed Copilot guidance and retries the same owned job without di
     </QueryClientProvider>
   );
   fireEvent.change(await screen.findByRole('textbox', { name: 'Company name' }), { target: { value: 'Unsaved manual edit' } });
+  fireEvent.click(screen.getByRole('button',{name:'Open AI Copilot'}));
   fireEvent.change(screen.getByRole('textbox', { name: 'Ask Copilot about your business' }), { target: { value: 'Explain our offering' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question to Copilot' }));
   expect(await screen.findByText(/stopped early before finishing/i)).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Retry guidance' }));
   expect(await screen.findByText('Reviewed guidance based on the saved engineering offering.')).toBeVisible();
+  fireEvent.click(screen.getByRole('button',{name:'Close AI Copilot'}));
   expect(screen.getByRole('textbox', { name: 'Company name' })).toHaveValue('Unsaved manual edit');
   expect(mocked.mock.calls.filter(([path]) => path.endsWith('/assistant'))).toHaveLength(1);
 });
@@ -292,15 +297,18 @@ it('applies actionable Copilot proposed_updates and allows discarding without si
     </QueryClientProvider>
   );
   fireEvent.change(await screen.findByRole('textbox', { name: 'Company name' }), { target: { value: 'Custom Unsaved Name' } });
+  fireEvent.click(screen.getByRole('button',{name:'Open AI Copilot'}));
   fireEvent.change(screen.getByRole('textbox', { name: 'Ask Copilot about your business' }), { target: { value: 'Make my positioning more specific' } });
   fireEvent.click(screen.getByRole('button', { name: 'Send question to Copilot' }));
   const applyBtn = await screen.findByRole('button', { name: 'Apply positioning statement' });
-  expect(screen.getByRole('textbox', { name: 'Business positioning' })).toHaveValue('');
+  expect(screen.getByRole('textbox', { name: 'Business positioning',hidden:true })).toHaveValue('');
   fireEvent.click(applyBtn);
+  fireEvent.click(screen.getByRole('button',{name:'Discard suggestion: Apply industry'}));
+  expect(screen.queryByRole('button',{name:'Apply industry'})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:'Close AI Copilot'}));
   expect(screen.getByRole('textbox', { name: 'Business positioning' })).toHaveValue('Buyer-intent intelligence that uncovers live B2B demand.');
   expect(screen.getByRole('textbox', { name: 'Company name' })).toHaveValue('Custom Unsaved Name');
-  fireEvent.click(screen.getByRole('button', { name: 'Discard suggestion: Apply industry' }));
-  expect(screen.queryByRole('button', { name: 'Apply industry' })).not.toBeInTheDocument();
+
 });
 
 it('renders Workspace Ready completion screen with 3 next actions and no Copilot panel when billing is verified active', async () => {

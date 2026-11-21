@@ -82,17 +82,23 @@ def record_internal_testing_audit(c,org,grant,*,contract_id,operation_id=None,di
 
 def enabled():return get_settings().subscription_onboarding_required
 def required(c,org):
- return bool(enabled() and c.execute('SELECT 1 FROM subscription_requirements WHERE organization_id=?',(org,)).fetchone())
+ if not enabled():return False
+ from app.billing.accounts import anchor
+ account=anchor(c,org)
+ return account!=org or bool(c.execute('SELECT 1 FROM subscription_requirements WHERE organization_id=?',(org,)).fetchone())
 def enroll(c,actor,org):
  if not enabled():return False
  c.execute('INSERT INTO subscription_requirements(organization_id,registered_by,policy_version,created_at) VALUES(?,?,?,?) ON CONFLICT(organization_id) DO NOTHING',(org,actor,POLICY,now()))
  return True
 
 def has_contract(c,org):
- return bool(enabled() and c.execute('SELECT 1 FROM subscription_workspace_slots WHERE organization_id=? AND environment=?',(org,get_settings().creem_environment)).fetchone())
+ from app.billing.accounts import anchor
+ return bool(enabled() and c.execute('SELECT 1 FROM subscription_workspace_slots WHERE organization_id=? AND environment=?',(anchor(c,org),get_settings().creem_environment)).fetchone())
 
 def active(c,org):
  if not enabled():return None
+ from app.billing.accounts import anchor
+ requested_org=org;org=anchor(c,org)
  s=get_settings();environment=s.creem_environment;stamp=int(time.time())
  if environment=='test' and org not in {x.strip() for x in s.billing_test_workspaces.split(',') if x.strip()}:return None
  row=c.execute('''SELECT p.* FROM subscription_contracts p JOIN subscription_workspace_slots w
@@ -113,7 +119,7 @@ def active(c,org):
  base_limits=dict(saved['limits'])
  result=dict(row)
  result.update(plan_json=json.dumps(saved,sort_keys=True),paid_start=row['period_start'],paid_end=row['period_end'],usage_period_start=row['period_start'],usage_period_end=row['period_end'],mode='live' if environment=='production' else 'test',source_kind='SUBSCRIPTION',status='ACTIVE',provider_status=row['status'],is_trial=trial,entitlement_label=label,base_limits=base_limits,internal_testing=None,catalog_version=saved.get('version',''))
- grant=internal_testing_grant(c,org,result,stamp=stamp)
+ grant=internal_testing_grant(c,org,result,stamp=stamp) if requested_org==org else None
  if grant:
   saved={**saved,'limits':grant['limits']}
   result.update(plan_json=json.dumps(saved,sort_keys=True),usage_period_start=grant['usage_period_start'],usage_period_end=grant['usage_period_end'],internal_testing={'active':True,'expires_at':grant['expires_at'],'limits':grant['limits']})
@@ -128,7 +134,8 @@ def product_grant(c,org,*,include_development=True):
  if value and value['source_kind']=='PAYMENT':return value
  if include_development and enabled():
   from app.billing.owner_starter import active as development
-  return development(c,org)
+  from app.billing.accounts import anchor
+  return development(c,anchor(c,org))
  return None
 
 def require_product(c,org):
@@ -139,6 +146,8 @@ def require_product(c,org):
 
 def scheduled_sql(org):
  if org not in ('m.organization_id','j.organization_id'):raise ValueError('Internal scheduler alias required')
+ from app.billing.accounts import enabled as shared
+ if shared():org='(SELECT billlink.account_id FROM billing_workspace_links billlink WHERE billlink.workspace_id='+org+')'
  s=get_settings();mode=s.creem_environment;stamp=int(time.time());approved=[v.strip() for v in s.billing_test_workspaces.split(',') if v.strip()][:100]
  restriction=''
  if mode=='test':restriction=' AND p.organization_id IN ('+','.join('?' for _ in approved)+')' if approved else ' AND 0=1'
@@ -178,4 +187,5 @@ def setup_contract(c,org,amounts,operation_id):
  parent=prefix+value['job_id']
  if operation_id!=parent and not operation_id.startswith('ai-attempt:'+hashlib.sha256(parent.encode()).hexdigest()[:32]+':'):raise HTTPException(403,'Setup capacity is bound to the owned setup job.')
  if not required(c,org):raise HTTPException(403,'Setup enrollment changed.')
- return {'id':'setup:'+org,'paid_start':0,'paid_end':2147483647,'plan_json':json.dumps({'code':'setup-only','name':'Setup AI budget, not product or trial access','limits':SETUP_LIMITS})}
+ from app.billing.accounts import anchor
+ return {'id':'setup:'+anchor(c,org),'paid_start':0,'paid_end':2147483647,'plan_json':json.dumps({'code':'setup-only','name':'Setup AI budget, not product or trial access','limits':SETUP_LIMITS})}

@@ -33,6 +33,7 @@ class WorkspaceMembership(BaseModel):
     onboarding_total_steps:int|None=None
     next_setup_step:str|None=None
     member_count:int|None=None
+    billing_account:dict|None=None
 
 class WorkspaceList(BaseModel):
     items:list[WorkspaceMembership]
@@ -47,7 +48,7 @@ def workspaces(request:Request,c=Depends(get_db,scope='function')):
     state=resolve(c,request.state.user_email)
     from app.database.organization_schema import PLANEBYTE_ORGANIZATION_ID
     from app.platform.workspaces import enrich_memberships
-    return {'items':enrich_memberships(c,memberships(c,request.state.user_email)),'active_organization_id':state['organization_id'] if state else None,'active_onboarding_status':state['onboarding_status'] if state else None,'active_onboarding_deferred':bool(state and state.get('onboarding_deferred')),'active_is_internal':bool(state and state['organization_id']==PLANEBYTE_ORGANIZATION_ID)}
+    return {'items':enrich_memberships(c,memberships(c,request.state.user_email),request.state.user_email),'active_organization_id':state['organization_id'] if state else None,'active_onboarding_status':state['onboarding_status'] if state else None,'active_onboarding_deferred':bool(state and state.get('onboarding_deferred')),'active_is_internal':bool(state and state['organization_id']==PLANEBYTE_ORGANIZATION_ID)}
 
 @router.get('/products')
 def product_access(request:Request,c=Depends(get_db,scope='function')):

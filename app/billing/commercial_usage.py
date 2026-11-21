@@ -17,7 +17,9 @@ def reserve(c,amounts,operation_id):
     if not isinstance(operation_id,str) or not 1<=len(operation_id)<=200 or not amounts or any(type(v) is not int or v<=0 for v in amounts.values()):
         raise ValueError('A stable bounded operation reservation is required.')
     if set(amounts)-set((*contracts.METERED,'opportunities')):raise ValueError('Unknown usage dimension.')
-    lock(c,org)
+    from app.billing.accounts import operation
+    from app.billing.accounts import anchor
+    account=anchor(c,org);lock(c,account);billing_org,billing_op=operation(c,org,operation_id)
     from app.billing.subscription_access import setup_contract
     row=setup_contract(c,org,amounts,operation_id)
     if row is None:
@@ -26,6 +28,7 @@ def reserve(c,amounts,operation_id):
     # No approved monthly opportunity quota: preserve ordinary saved-record work.
     values={k:v for k,v in amounts.items() if k in contracts.METERED}
     usage_table,reservations_table=access_periods.ledgers(c,org)
+    org,operation_id=billing_org,billing_op
     usage_start=row.get('usage_period_start',row['paid_start'])
     usage_end=row.get('usage_period_end',row['paid_end'])
     limits=contracts.snapshot(row)['limits'];pending=[]
@@ -37,7 +40,10 @@ def reserve(c,amounts,operation_id):
             if previous['contract_id']!=row['id'] or previous['period_start']!=usage_start:
                 raise HTTPException(409,'Released work belongs to a previous subscription period.')
         counter=c.execute(f'SELECT reserved,used FROM {usage_table} WHERE organization_id=? AND contract_id=? AND period_start=? AND dimension=?',(org,row['id'],usage_start,dim)).fetchone()
-        if (counter['reserved']+counter['used'] if counter else 0)+n>limits[dim]:
+        consumed=counter['reserved']+counter['used'] if counter else 0
+        if usage_table=='subscription_setup_usage' and get_settings().shared_billing_accounts_enabled:
+            consumed=c.execute('SELECT COALESCE(SUM(u.used+u.reserved),0) FROM subscription_setup_usage u JOIN billing_workspace_links l ON l.workspace_id=u.organization_id WHERE l.account_id=? AND u.dimension=?',(account,dim)).fetchone()[0]
+        if consumed+n>limits[dim]:
             raise HTTPException(429,'Monthly '+dim.replace('_',' ')+' allowance exhausted. Saved records remain available; review usage or upgrade.')
         pending.append((dim,n,bool(previous)))
     stamp=now()
@@ -52,8 +58,10 @@ def reserve(c,amounts,operation_id):
 
 def settle(c,operation_id,*,actual=None,release=False,dimensions=None):
     """Internal completion only. Release only when no provider work was attempted."""
-    org=contracts.verified_workspace(c);lock(c,org)
+    org=contracts.verified_workspace(c)
+    from app.billing.accounts import operation
     usage_table,reservations_table=access_periods.ledgers(c,org)
+    org,operation_id=operation(c,org,operation_id);lock(c,org)
     rows=c.execute(f'SELECT * FROM {reservations_table} WHERE organization_id=? AND operation_id=? ORDER BY dimension',(org,operation_id)).fetchall()
     if dimensions is not None:
         if not dimensions or set(dimensions)-set(contracts.METERED):raise ValueError('Known settlement dimensions required.')
@@ -73,9 +81,11 @@ def settle(c,operation_id,*,actual=None,release=False,dimensions=None):
         c.execute(f'UPDATE {reservations_table} SET state=?,actual_amount=?,updated_at=? WHERE organization_id=? AND operation_id=? AND dimension=?',('RELEASED' if release else 'COMMITTED',n,now(),org,operation_id,r['dimension']))
     return True
 
-def capacity(c,org,dimension,count):
+def capacity(c,org,dimension,count,*,incoming=None):
     if dimension not in contracts.CAPACITY:raise ValueError('Unknown capacity dimension.')
-    lock(c,org);access_periods.require_current(c,org);row=contracts.active(c,org)
+    from app.billing import accounts
+    account=accounts.anchor(c,org);lock(c,account);access_periods.require_current(c,org);row=contracts.active(c,org)
+    if row and accounts.enabled():count=accounts.capacity_used(c,account,dimension,incoming=incoming,pending=True,all_monitors=bool(row.get('is_trial')))
     if row and count>=contracts.snapshot(row)['limits'][dimension]:raise HTTPException(429,'Monthly plan '+dimension.replace('_',' ')+' capacity exhausted.')
     if row and row.get('internal_testing') and row.get('base_limits') and count>=row['base_limits'].get(dimension,0):
         from app.billing.subscription_access import record_internal_testing_audit

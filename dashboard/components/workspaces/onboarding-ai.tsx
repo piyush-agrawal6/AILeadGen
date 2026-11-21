@@ -42,12 +42,6 @@ import { CopilotPanel } from './onboarding/CopilotPanel';
 import { OnboardingCompletion } from './onboarding/OnboardingCompletion';
 import './onboarding-ai.css';
 
-async function api<T>(path: string, body?: unknown, method = 'POST') {
-  return request<T>('/organization/onboarding' + path, {
-    method,
-    body: body === undefined ? undefined : JSON.stringify(body)
-  });
-}
 
 function draftStorageKey(orgId?: string | null) {
   return orgId ? `planebyte:onboarding-draft:${orgId}` : '';
@@ -58,19 +52,19 @@ export function AIOnboarding() {
   const org = workspace.data?.active_organization_id;
   const query = useQuery({
     queryKey: ['onboarding-ai', org],
-    queryFn: ({ signal }) => request<State>('/organization/onboarding/assistant-context', { signal }),
+    queryFn: ({ signal }) => request<State>('/organization/onboarding/assistant-context', { signal,expectedWorkspace:org||undefined }),
     enabled: !!org,
     retry: false,
     refetchOnWindowFocus: false
   });
 
-  if (query.error) {
+  if (workspace.isError || query.error || (org && query.data?.company.organization_id && query.data.company.organization_id!==org)) {
     return (
       <section className="ai-setup-state" role="alert">
         <AlertCircle size={28} className="text-destructive" />
         <h1 className="text-lg font-semibold">We couldn’t load your saved setup</h1>
         <p className="text-sm text-muted-foreground">Your business data has not changed. Check your connection or retry.</p>
-        <Button onClick={() => void query.refetch()}>Retry setup</Button>
+        <Button onClick={() => void (workspace.isError?workspace.refetch():query.refetch())}>Retry setup</Button>
       </section>
     );
   }
@@ -187,6 +181,10 @@ function SetupWorkspace({
   const adviceParent = useRef<string | null>(null);
   const [adviceKey, setAdviceKey] = useState('');
   const progress = state.progress;
+  async function api<T>(path:string,body?:unknown,method='POST'){
+    if(!orgId)throw Error('Select a workspace before continuing.');
+    return request<T>('/organization/onboarding'+path,{method,expectedWorkspace:orgId,body:body===undefined?undefined:JSON.stringify(body)});
+  }
 
   function id(kind: string) {
     return (requestIds.current[kind] ??= crypto.randomUUID());
@@ -209,8 +207,8 @@ function SetupWorkspace({
   const icpId = progress.preferences.icp_review_id;
 
   const companyReview = useQuery({
-    queryKey: ['onboarding-review', companyId],
-    queryFn: ({ signal }) => request<Review>('/organization/onboarding/reviews/' + companyId, { signal }),
+    queryKey: ['onboarding-review', orgId, companyId],
+    queryFn: ({ signal }) => request<Review>('/organization/onboarding/reviews/' + companyId, { signal,expectedWorkspace:orgId||undefined }),
     enabled: !!companyId,
     retry: false,
     initialData: initial.reviews.company?.id === companyId ? initial.reviews.company : undefined,
@@ -219,8 +217,8 @@ function SetupWorkspace({
   });
 
   const icpReview = useQuery({
-    queryKey: ['onboarding-review', icpId],
-    queryFn: ({ signal }) => request<Review>('/organization/onboarding/reviews/' + icpId, { signal }),
+    queryKey: ['onboarding-review', orgId, icpId],
+    queryFn: ({ signal }) => request<Review>('/organization/onboarding/reviews/' + icpId, { signal,expectedWorkspace:orgId||undefined }),
     enabled: !!icpId,
     retry: false,
     initialData: initial.reviews.icp?.id === icpId ? initial.reviews.icp : undefined,
@@ -229,8 +227,8 @@ function SetupWorkspace({
   });
 
   const adviceReview = useQuery({
-    queryKey: ['onboarding-advice', adviceKey],
-    queryFn: ({ signal }) => request<Review>('/organization/onboarding/reviews/' + adviceKey, { signal }),
+    queryKey: ['onboarding-advice', orgId, adviceKey],
+    queryFn: ({ signal }) => request<Review>('/organization/onboarding/reviews/' + adviceKey, { signal,expectedWorkspace:orgId||undefined }),
     enabled: !!adviceKey,
     retry: false,
     refetchInterval: q =>
@@ -459,7 +457,7 @@ function SetupWorkspace({
         request_id: id('website:' + normWebsite)
       });
       progressSaved(result.progress);
-      client.setQueryData(['onboarding-review', result.review.id], result.review);
+      client.setQueryData(['onboarding-review', orgId, result.review.id], result.review);
       deadline.current = Date.now() + 120000;
       setView('company');
     });
@@ -472,7 +470,7 @@ function SetupWorkspace({
       request_id: fresh ? crypto.randomUUID() : id('icps:' + version)
     });
     progressSaved(result.progress);
-    client.setQueryData(['onboarding-review', result.review.id], result.review);
+    client.setQueryData(['onboarding-review', orgId, result.review.id], result.review);
     deadline.current = Date.now() + 120000;
     setView('icp');
   }
@@ -522,7 +520,7 @@ function SetupWorkspace({
       setState(v => ({ ...v, company: result.company, progress: result.progress }));
       setDraft(companyDraft(result.company));
       setSaveStatus('saved');
-      client.setQueryData(['organization-profile'], result.company);
+      client.setQueryData(['organization-profile',orgId||'default'], result.company);
       void client.invalidateQueries({ queryKey: ['intelligence-graph'] });
       setView('icp');
       setNotice('Business profile saved.');
@@ -612,10 +610,10 @@ function SetupWorkspace({
       if (state.payment?.required) {
         setNotice(
           state.payment.active
-            ? 'Research setup saved. Your verified subscription is already active.'
+            ? 'Research setup saved. Your account covers this workspace.'
             : 'Research setup saved. Choose your trial or plan below to activate Intent Radar.'
         );
-        setView('plan');
+        setView(state.payment.active?'ready':'plan');
       } else {
         setView('ready');
       }
@@ -781,9 +779,10 @@ function SetupWorkspace({
         request_id: crypto.randomUUID()
       });
 
+      if(adviceMsgId.current!==pendingMsgId)return;
       if (res.job) {
         adviceDeadline.current = Date.now() + 120000;
-        client.setQueryData(['onboarding-advice', res.job.id], res.job);
+        client.setQueryData(['onboarding-advice', orgId, res.job.id], res.job);
         setAdviceKey(res.job.id);
       } else {
         setMessages(prev =>
@@ -832,16 +831,7 @@ function SetupWorkspace({
   }
 
   const currentStepNum = ONBOARDING_STEPS.find(s => s.key === view)?.stepNum || 1;
-  const liveSources: SourceStatus[] = state.sources?.length
-    ? state.sources
-    : [
-        { id: 'hacker_news', name: 'Hacker News', state: 'Connected and checked', category: 'Public discussion', coverage: 'Official public API for Ask HN, Show HN, and developer discussions.' },
-        { id: 'stack_exchange', name: 'Stack Exchange', state: 'Available to configure', category: 'Public Q&A', coverage: 'Public engineering and technology Q&A sites.' },
-        { id: 'github', name: 'GitHub', state: 'Permission required', category: 'Developer ecosystem', coverage: 'Public issues, discussions, and optional OAuth repository signals.' },
-        { id: 'bluesky', name: 'Bluesky', state: 'Available to configure', category: 'Public social', coverage: 'Public social posts and live stream discussions.' },
-        { id: 'discourse', name: 'Discourse Forums', state: 'Available to configure', category: 'Community', coverage: 'Approved public developer and industry community feeds.' },
-        { id: 'rss', name: 'Atom / RSS Feeds', state: 'Available to configure', category: 'Publications', coverage: 'Approved publication, research, and engineering feeds.' }
-      ];
+  const liveSources: SourceStatus[] = state.sources || [];
 
   const hasVerifiedAccess = !!(products.data?.intent_radar?.enabled || (state.payment?.required && state.payment?.active));
   const primaryICPName =
@@ -891,7 +881,7 @@ function SetupWorkspace({
           contract={state.payment?.contract}
         />
       ) : (
-        <div className={view==='plan'?'mx-auto w-full max-w-5xl':'ai-onboarding-grid'}>
+        <div className={view==='plan'?'mx-auto w-full max-w-5xl':'mx-auto w-full max-w-3xl space-y-4'}>
           <div className="ai-onboarding-workspace">
             {view === 'welcome' && (
               <Step1Business
@@ -903,6 +893,7 @@ function SetupWorkspace({
                 onWebsiteChange={val => {
                   clearFieldError('welcome_website');
                   clearFieldError('website');
+                  if(val!==website){adviceParent.current=null;adviceMsgId.current='';setAdviceKey('');setMessages([]);setChatPending(false);}
                   setWebsite(val);
                 }}
                 onWebsiteBlur={err => {
@@ -1027,29 +1018,10 @@ function SetupWorkspace({
             )}
           </div>
 
-          {/* Desktop Persistent Sticky Copilot Column (30-35%, 330-390px) */}
-          {view!=='plan'&&<><aside className="ai-copilot-container hidden lg:flex" aria-label="PlaneByte Copilot">
-            <CopilotPanel
-              companyName={draft.name || state.company.name}
-              currentStep={view}
-              messages={messages}
-              onAsk={askAssistant}
-              onApplyUpdate={applyProposedUpdate}
-              onDiscardUpdate={discardProposedUpdate}
-              pending={chatPending}
-              adviceReview={adviceReview.data}
-              onRefreshAdvice={() => void adviceReview.refetch()}
-              onRetryAdvice={() => void retryAdvice()}
-              companyReview={companyReview.data}
-              icpReview={icpReview.data}
-            />
-          </aside>
-
-          {/* Mobile & Tablet Accessible Copilot Drawer */}
-          <div className="lg:hidden">
+          {view!=='plan'&&<><div className="pt-3">
             <button
               type="button"
-              className="ai-mobile-dock-btn"
+              className="control inline-flex items-center gap-2"
               onClick={() => setMobileDrawerOpen(true)}
               aria-label="Open AI Copilot"
             >

@@ -179,7 +179,8 @@ def release_unfinished_report(c,key):
     finalize_operation(c,operation_id)
     from app.billing.access_periods import ledgers
     _,reservations_table=ledgers(c,row['organization_id'])
-    state=c.execute(f"SELECT state FROM {reservations_table} WHERE organization_id=? AND operation_id=? AND dimension='reports'",(row['organization_id'],operation_id)).fetchone()
+    from app.billing.accounts import operation as ledger_operation
+    state=c.execute(f"SELECT state FROM {reservations_table} WHERE organization_id=? AND operation_id=? AND dimension='reports'",ledger_operation(c,row['organization_id'],operation_id)).fetchone()
     if state and state['state']=='RESERVED':settle(c,operation_id,release=True,dimensions=('reports',))
 
 def detail(c,key):

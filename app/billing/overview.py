@@ -36,16 +36,19 @@ def overview(c):
     if paid:
         from app.billing.access_periods import ledgers
         usage_table,_=ledgers(c,org)
+        from app.billing.accounts import anchor,enabled as shared,capacity_used
+        billing_org=anchor(c,org)
         saved=contracts.snapshot(paid)
         usage_start=paid.get('usage_period_start',paid['paid_start'])
         usage_end=paid.get('usage_period_end',paid['paid_end'])
         grant=paid.get('internal_testing')
-        monthly={r['dimension']:dict(r) for r in c.execute(f'SELECT * FROM {usage_table} WHERE organization_id=? AND contract_id=? AND period_start=?',(org,paid['id'],usage_start)).fetchall()}
+        monthly={r['dimension']:dict(r) for r in c.execute(f'SELECT * FROM {usage_table} WHERE organization_id=? AND contract_id=? AND period_start=?',(billing_org,paid['id'],usage_start)).fetchall()}
         period_end=datetime.fromtimestamp(usage_end,timezone.utc).isoformat()
         for definition in commercial.catalog()['limit_definitions']:
             dim=definition['key'];limit=saved['limits'][dim]
             if dim in contracts.CAPACITY:
                 used=counts['active_monitors'] if dim=='monitors' else counts['seats'];reserved=0
+                if shared():used=capacity_used(c,billing_org,dim,all_monitors=is_trial)
                 basis='capacity under temporary internal testing allowance' if grant else 'capacity under 3-day trial terms' if paid.get('is_trial') else 'capacity under saved subscription terms'
             else:
                 value=monthly.get(dim,{})

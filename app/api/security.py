@@ -75,6 +75,8 @@ class InternalAuthenticationMiddleware(BaseHTTPMiddleware):
                 state=org_context.resolve(c,request.state.user_email)
                 request.state.organization=state
                 request.state.organization_id=state['organization_id'] if state else None
+                expected=request.query_params.get('expected_workspace')
+                if expected is not None and expected!=request.state.organization_id:raise HTTPException(409,'Workspace changed. Reload this page before continuing.')
                 request.state.role=None;request.state.audit_id=None
                 if state is not None:
                     request.state.role,request.state.audit_id=begin_in(c,request.state.user_email,request.method,request.url.path,body,state['organization_id'])

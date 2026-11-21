@@ -131,7 +131,7 @@ def create(c,body:InviteCreate):
     from app.billing.usage import capacity_for_workspace
     seats=c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0]
     pending=c.execute("SELECT COUNT(*) FROM workspace_invitations WHERE organization_id=? AND status='PENDING'",(org,)).fetchone()[0]
-    capacity_for_workspace(c,org,'team_members',seats+pending)
+    capacity_for_workspace(c,org,'team_members',seats+pending,incoming=body.email)
     if get_settings().heysow_accounts_enabled and body.email not in get_settings().allowed_emails and not c.execute('SELECT 1 FROM users WHERE id=?',(body.email,)).fetchone():
         from app.accounts.policy import work_email
         try:work_email(body.email)
@@ -170,7 +170,7 @@ def resend(c,key:str):
         from app.billing.usage import capacity_for_workspace
         seats=c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0]
         pending=c.execute("SELECT COUNT(*) FROM workspace_invitations WHERE organization_id=? AND status='PENDING'",(org,)).fetchone()[0]
-        capacity_for_workspace(c,org,'team_members',seats+pending)
+        capacity_for_workspace(c,org,'team_members',seats+pending,incoming=row['email'])
     token=secrets.token_urlsafe(32);stamp=now()
     expiry=(datetime.now(timezone.utc)+timedelta(days=7)).isoformat()
     c.execute(
@@ -252,7 +252,7 @@ def respond(c,actor,body:InviteRespond):
         if membership_role(c,actor,org):raise HTTPException(409,'You are already an active member of this workspace.')
         ensure_user(c,actor)
         from app.billing.usage import capacity_for_workspace
-        capacity_for_workspace(c,org,'team_members',c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0])
+        capacity_for_workspace(c,org,'team_members',c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0],incoming=actor)
         c.execute("INSERT INTO organization_memberships(id,organization_id,user_id,role,status,created_at,updated_at) VALUES(?,?,?,?,'ACTIVE',?,?) ON CONFLICT(organization_id,user_id) DO UPDATE SET role=excluded.role,status='ACTIVE',updated_at=excluded.updated_at",
             (str(uuid.uuid4()),org,actor,row['role'],stamp,stamp))
     c.execute("UPDATE workspace_invitations SET status=?,responded_at=? WHERE id=? AND status='PENDING'",(status,stamp,row['id']))

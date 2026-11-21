@@ -90,7 +90,9 @@ async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
 
 // Share identical reads in flight. Completed values remain owned by React Query.
 const pendingReads = new Map<string, Promise<unknown>>();
-export function request<T>(path: string, options?: RequestInit): Promise<T> {
+export function request<T>(path: string, init?: RequestInit & {expectedWorkspace?:string}): Promise<T> {
+  const {expectedWorkspace,...options}=init||{};
+  if(expectedWorkspace)path+=(path.includes('?')?'&':'?')+'expected_workspace='+encodeURIComponent(expectedWorkspace);
   const method = (options?.method || "GET").toUpperCase();
   if (method !== "GET") {
     pendingReads.clear();
@@ -110,4 +112,3 @@ export function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const label = (value: string) => value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, letter => letter.toUpperCase());
-

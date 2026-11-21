@@ -2,7 +2,7 @@
 import React from 'react';
 import { Check, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ONBOARDING_STEPS, type SaveStatus, type StepKey } from './types';
+import { type SaveStatus, type StepKey } from './types';
 
 const HERO_COPY: Record<Exclude<StepKey, 'ready'>, { heading: string; subheading: string }> = {
   welcome: {
@@ -36,12 +36,14 @@ export function StepProgress({
   currentStepNum: number;
   onSelectStep: (step: StepKey) => void;
 }) {
+  const steps=[{key:'welcome' as const,stepNum:1,title:'Your business'},{key:'icp' as const,stepNum:2,title:'Your ideal customers'},{key:'research' as const,stepNum:3,title:'First discovery'}];
+  const position=currentStepNum<=2?1:Math.min(3,currentStepNum-1);
   return (
     <nav aria-label="Onboarding Progress" className="ai-onboarding-rail-container">
       <ol className="ai-onboarding-rail">
-        {ONBOARDING_STEPS.map(s => {
-          const isCompleted = currentStepNum > s.stepNum;
-          const isCurrent = currentView === s.key;
+        {steps.map(s => {
+          const isCompleted = position > s.stepNum;
+          const isCurrent = currentView===s.key||(currentView==='company'&&s.key==='welcome');
           return (
             <li
               key={s.key}
@@ -64,7 +66,7 @@ export function StepProgress({
                   <span className="ai-rail-text">{s.title}</span>
                 </span>
               </button>
-              {s.stepNum < 5 && <div className="ai-rail-divider" aria-hidden="true" />}
+              {s.stepNum < 3 && <div className="ai-rail-divider" aria-hidden="true" />}
             </li>
           );
         })}
@@ -125,7 +127,7 @@ export function OnboardingHero({
           )}
         </header>
 
-        <StepProgress currentView={view} currentStepNum={currentStepNum} onSelectStep={onSelectStep} />
+        {view!=='plan'&&<StepProgress currentView={view} currentStepNum={currentStepNum} onSelectStep={onSelectStep} />}
       </div>
     </div>
   );

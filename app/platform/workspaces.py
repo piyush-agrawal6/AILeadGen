@@ -17,6 +17,7 @@ class WorkspaceCreate(BaseModel):
     model_config=ConfigDict(extra='forbid')
     name:str=Field(min_length=2,max_length=120)
     request_id:UUID
+    billing_account_id:UUID|None=None
 
     @field_validator('name')
     @classmethod
@@ -40,6 +41,8 @@ def create_workspace(c,actor,body:WorkspaceCreate):
     elif not c.in_transaction:c.execute('BEGIN IMMEDIATE')
     prior=c.execute('SELECT organization_id,requested_name FROM workspace_creation_requests WHERE user_id=? AND request_id=?',(actor,str(body.request_id))).fetchone()
     if prior:
+        from app.billing import accounts
+        if body.billing_account_id and accounts.anchor(c,prior['organization_id'])!=str(body.billing_account_id):raise HTTPException(409,'This request was already used with another billing account.')
         if prior['requested_name']!=body.name:raise HTTPException(409,'This creation request was already used for a different company name.')
         if not membership_role(c,actor,prior['organization_id']):raise HTTPException(404,'Created workspace is no longer available to this account.')
         # Retrying an old request must not switch the user's current workspace.
@@ -47,7 +50,14 @@ def create_workspace(c,actor,body:WorkspaceCreate):
     owned=c.execute("SELECT COUNT(*) FROM organization_memberships WHERE user_id=? AND role='OWNER' AND status='ACTIVE'",(actor,)).fetchone()[0]
     from app.config.settings import get_settings
     if owned>=get_settings().heysow_workspace_creation_limit:raise HTTPException(409,'The current workspace creation safety limit has been reached for this account.')
-    created=create_organization(c,actor,body.name)
+    from app.billing import accounts
+    account=str(body.billing_account_id) if body.billing_account_id else None
+    if account and (not accounts.enabled() or not accounts.admin(c,account,actor)):raise HTTPException(403,'Choose an account you administer.')
+    if not account and accounts.enabled():
+        options=[r[0] for r in c.execute("SELECT a.account_id FROM billing_account_admins a JOIN organization_memberships m ON m.organization_id=a.account_id AND m.user_id=a.user_id AND m.status='ACTIVE' AND m.role='OWNER' JOIN organizations o ON o.id=m.organization_id AND o.status='ACTIVE' WHERE a.user_id=?",(actor,)).fetchall()]
+        if len(options)>1:raise HTTPException(409,'Choose the billing account for this workspace.')
+        account=options[0] if options else None
+    created=create_organization(c,actor,body.name,billing_account=account)
     org=created['organization_id']
     c.execute('INSERT INTO workspace_creation_requests(user_id,request_id,organization_id,requested_name,created_at) VALUES(?,?,?,?,?)',(actor,str(body.request_id),org,body.name,now()))
     select_workspace(c,actor,org)
@@ -122,7 +132,7 @@ def leave_workspace(c,actor,organization_id:str):
     return {'organization_id':organization_id,'left':True,'next_organization_id':next_org}
 
 
-def enrich_memberships(c,rows):
+def enrich_memberships(c,rows,actor=None):
     import json
     from app.intent_radar.permissions import availability
     from app.billing import contracts
@@ -216,8 +226,10 @@ def enrich_memberships(c,rows):
             next_setup_step='plan' if avail.get('subscription_required') and not has_plan else 'research'
 
         member_count=c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0]
+        from app.billing import accounts
         enriched.append({
             **r,
+            'billing_account':accounts.summary(c,org,actor) if actor and accounts.enabled() else None,
             'plan_label':plan_label,
             'plan_status':plan_status,
             'access_state':avail.get('access_state'),

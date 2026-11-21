@@ -122,7 +122,7 @@ def unique_slug(c, name):
     return slug
 
 
-def create_organization(c, email, name, *, setup_method='MANUAL'):
+def create_organization(c, email, name, *, setup_method='MANUAL',billing_account=None):
     """Create an organization, owner membership and onboarding state atomically.
 
     The organization may exist before onboarding finishes (recoverable onboarding),
@@ -156,6 +156,8 @@ def create_organization(c, email, name, *, setup_method='MANUAL'):
               (str(uuid.uuid4()), email, 'ORGANIZATION_CREATED', f'organization:{organization_id}', 'SUCCESS',
                json.dumps({'name': name, 'slug': slug, 'setup_method': setup_method}), organization_id, stamp))
     settings_obj = get_settings()
+    from app.billing.accounts import register
+    register(c,organization_id,email,billing_account)
     if settings_obj.heysow_access_periods_enabled and c.execute("SELECT 1 FROM customer_accounts WHERE user_id=? AND status='ACTIVE' AND verified_at IS NOT NULL",(email,)).fetchone():
         # Every workspace created by a new commercial account stays managed;
         # creating a second workspace cannot recover unrestricted Beta access.

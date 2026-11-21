@@ -141,9 +141,11 @@ def state(c):
     from app.config.settings import get_settings
     settings=get_settings()
     if settings.subscription_onboarding_required:
-        active=bool(product_grant(c,organization()))
+        grant=product_grant(c,organization());active=bool(grant)
         contract=None
-        if active:
+        if grant and grant.get('source_kind')=='COMPLIMENTARY':
+            contract={'plan_code':'starter','provider':'development','status':'complimentary','period_end':grant['paid_end'],'is_trial':False,'entitlement_label':grant['entitlement_label']}
+        elif active:
             try:
                 from app.billing.subscription_access import is_trial_contract,entitlement_label
                 row=c.execute('SELECT p.plan_code,p.status,p.provider,p.period_start,p.period_end,p.trial_start,p.trial_end,p.next_charge_at,p.cancel_confirmed_at FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id WHERE p.organization_id=? AND p.environment=?',(organization(),settings.creem_environment)).fetchone()
@@ -190,7 +192,7 @@ def company(c,body):
 
 def recommendations(c,body):
     saved=editable(c);_review_request(c,saved,body,'icp');profile=read_profile(c)
-    if not profile['version'] or not(profile['description'] or profile['products_services']):raise HTTPException(409,'Review and save your business description or offering first.')
+    if not profile['version'] or not profile['products_services']:raise HTTPException(409,'Save one product or service before generating customer segments, or create a segment manually.')
     job=reviews.create(c,InternalJob(source_kind='ICP_RECOMMENDATIONS',request_id=body.request_id,description=json.dumps({'profile_version':profile['version'],'prompt':body.prompt})))
     progress=saved if saved['preferences'].get('icp_review_id')==job['id'] else update(c,saved,preferences={**saved['preferences'],'icp_review_id':job['id']},current_step='ICP')
     return {'review':job,'progress':progress}
@@ -257,6 +259,7 @@ def ask(c,body):
         if previous['source_kind']!='ONBOARDING_ADVICE' or previous['created_by']!=current().actor:raise HTTPException(404,'Setup conversation not found.')
         if previous['status']!='READY':raise HTTPException(409,'Wait for the previous guidance before asking a follow-up.')
         values=json.loads(previous['input_text']);reply=json.loads(previous['result_json'])
+        if values.get('profile_version')!=profile['version']:raise HTTPException(409,'Your company profile changed. Start a new Copilot question.')
         history.append({'question':values['prompt'][:1500],'answer':reply.get('answer','')[:2400]})
         parent=values.get('parent_review_id')
     inputs={'prompt':body.prompt,'profile_version':profile['version'],'history':list(reversed(history)),'parent_review_id':str(body.parent_review_id) if body.parent_review_id else None,'draft':body.draft.model_dump(mode='json') if body.draft else None,'current_step':body.current_step,'objective':body.objective,'research_keywords':body.research_keywords,'excluded_keywords':body.excluded_keywords,'selected_icp_names':body.selected_icp_names}
