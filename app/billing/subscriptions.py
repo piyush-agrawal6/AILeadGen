@@ -52,6 +52,10 @@ def owner(c):
 
 def trial_available(c,actor):
  from app.accounts.policy import company_domain
+ from app.billing import accounts
+ if accounts.enabled():
+  ctx=current();account=accounts.anchor(c,ctx.organization_id)
+  if c.execute('SELECT 1 FROM subscription_trials WHERE organization_id=? LIMIT 1',(account,)).fetchone() or c.execute("SELECT 1 FROM subscription_checkouts WHERE organization_id=? AND environment=? AND variant='trial' AND status='COMPLETED' LIMIT 1",(account,get_settings().creem_environment)).fetchone():return False
  try:domain=company_domain(actor)
  except ValueError:return False  # A non-qualifying domain restricts the trial, not paid recovery.
  if c.execute('SELECT 1 FROM launch_trial_claims WHERE user_id=? OR company_domain=?',(actor,domain)).fetchone() or c.execute('SELECT 1 FROM subscription_trials WHERE user_id=? OR company_domain=?',(actor,domain)).fetchone():return False

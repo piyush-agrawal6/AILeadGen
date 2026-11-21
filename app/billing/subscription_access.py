@@ -100,7 +100,7 @@ def active(c,org):
  from app.billing.accounts import anchor
  requested_org=org;org=anchor(c,org)
  s=get_settings();environment=s.creem_environment;stamp=int(time.time())
- if environment=='test' and org not in {x.strip() for x in s.billing_test_workspaces.split(',') if x.strip()}:return None
+ if environment=='test' and not {org,requested_org}<={x.strip() for x in s.billing_test_workspaces.split(',') if x.strip()}:return None
  row=c.execute('''SELECT p.* FROM subscription_contracts p JOIN subscription_workspace_slots w
   ON w.organization_id=p.organization_id AND w.contract_id=p.id AND w.environment=p.environment
   WHERE p.organization_id=? AND p.environment=?''',(org,environment)).fetchone()
@@ -187,5 +187,4 @@ def setup_contract(c,org,amounts,operation_id):
  parent=prefix+value['job_id']
  if operation_id!=parent and not operation_id.startswith('ai-attempt:'+hashlib.sha256(parent.encode()).hexdigest()[:32]+':'):raise HTTPException(403,'Setup capacity is bound to the owned setup job.')
  if not required(c,org):raise HTTPException(403,'Setup enrollment changed.')
- from app.billing.accounts import anchor
- return {'id':'setup:'+anchor(c,org),'paid_start':0,'paid_end':2147483647,'plan_json':json.dumps({'code':'setup-only','name':'Setup AI budget, not product or trial access','limits':SETUP_LIMITS})}
+ return {'id':'setup:'+org,'paid_start':0,'paid_end':2147483647,'plan_json':json.dumps({'code':'setup-only','name':'Setup AI budget, not product or trial access','limits':SETUP_LIMITS})}

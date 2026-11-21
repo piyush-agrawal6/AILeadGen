@@ -36,8 +36,9 @@ def summary(c,org,actor):
 def operation(c,org,op):
     account=anchor(c,org)
     from app.billing.subscription_access import in_setup
-    if account!=org and in_setup(org) and c.execute('SELECT 1 FROM subscription_setup_reservations WHERE organization_id=? AND operation_id=? LIMIT 1',(org,op)).fetchone():
-        return org,op  # Keep the original accounting for work admitted before attachment.
+    # Setup jobs keep their original workspace-owned reservation keys, even after
+    # an attachment. The admission limit is summed across the account under its lock.
+    if in_setup(org):return org,op
     # Setup entitlements have job-specific validation. Product usage keys include the
     # originating workspace so a caller cannot reuse another workspace's operation ID.
     if op.startswith('shared-ws:'):raise ValueError('Reserved operation namespace')

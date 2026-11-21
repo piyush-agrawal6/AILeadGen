@@ -35,6 +35,12 @@ def test_ended_trial_to_verified_paid_keeps_trial_history(subscribed,monkeypatch
         remote.update(status='completed',subscription='sub_paid');state.update(id='sub_paid',status='active',product='prod_'+code,current_period_start_date=iso(t),current_period_end_date=iso(t+2678400),last_transaction_id='tran_paid')
         monkeypatch.setattr(creem,'get_subscription',lambda key,**kw:dict(original_sub) if key=='sub_fixture' else dict(state));monkeypatch.setattr(creem,'get_transaction',lambda *a,**kw:{'id':'tran_paid','mode':'prod','customer':'cust_fixture','subscription':'sub_paid','currency':'USD','status':'paid','amount_paid':commercial.plan(code)['monthly_minor'],'period_start':t,'period_end':t+2678400});billing.refresh_checkout(c,org)
         assert access.active(c,org)['plan_code']==code;sync.reconcile_subscription('sub_fixture','production');assert access.active(c,org)['id']!=old['id'];assert c.execute('SELECT COUNT(*) FROM subscription_trials').fetchone()[0]==1
+        from app.platform.workspaces import create_workspace,WorkspaceCreate
+        monkeypatch.setattr(s,'shared_billing_accounts_enabled',True)
+        sibling=create_workspace(c,actor,WorkspaceCreate(name='Second paid-account workspace',request_id=uuid.uuid4(),billing_account_id=org))['organization_id'];c.commit()
+    with workspace_scope(c,actor,sibling):
+        assert access.require_product(c,sibling)['plan_code']==code and billing.summary(c)['lifecycle']['can_purchase'] is False
+        sync.reconcile_subscription('sub_paid','production');assert c.execute('SELECT count(*) FROM subscription_payments').fetchone()[0]==1 and len(calls)==1
 
 def test_paid_change_is_idempotent_and_activates_on_verified_renewal(subscribed,monkeypatch):
     c,s,org,actor,state,p,checkout,_=subscribed;ready(c,s,monkeypatch);t=int(time.time())-5;end=t+2678400
