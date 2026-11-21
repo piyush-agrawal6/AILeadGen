@@ -18,6 +18,20 @@ def epoch(value):
   return int(d.timestamp())
  except (ValueError,TypeError):raise creem.Rejected('Provider billing date is invalid.') from None
 
+def covers_period(transaction,subscription):
+ """Compare both boundaries at the transaction's precision. Never infer coverage from amount alone."""
+ pair=(transaction.get('period_start'),transaction.get('period_end'))
+ if any(type(n) is not int or n<0 for n in pair):return False
+ dates=[subscription.get('current_period_start_date'),subscription.get('current_period_end_date')]
+ seconds=tuple(epoch(d) for d in dates)
+ if pair==seconds:return True  # Existing second-precision provider records.
+ origin=datetime(1970,1,1,tzinfo=timezone.utc);millis=[]
+ for d in dates:
+  delta=datetime.fromisoformat(d.replace('Z','+00:00'))-origin
+  if delta.microseconds%1000:return False
+  millis.append((delta.days*86400+delta.seconds)*1000+delta.microseconds//1000)
+ return pair==tuple(millis)
+
 def reconcile_subscription(provider_id,mode,*,checkout_hint=None):
  sub=creem.object_mode(creem.get_subscription(provider_id,mode=mode),mode)
  if sub.get('id')!=provider_id:raise creem.Rejected('Provider subscription identity differs.')
@@ -66,9 +80,7 @@ def reconcile_subscription(provider_id,mode,*,checkout_hint=None):
   tid=creem.identifier(sub.get('last_transaction_id'),'tran_');transaction=creem.object_mode(creem.get_transaction(tid,mode=mode),mode)
   amount=transaction.get('amount_paid');status=transaction.get('status')
   if ref(transaction.get('subscription'))!=provider_id or ref(transaction.get('customer'))!=customer_id or transaction.get('currency')!='USD' or type(amount) is not int or amount!=plan['monthly_minor'] or status not in ('paid','refunded','partialRefund','chargedBack'):raise creem.Rejected('Independent payment verification did not match the approved plan.')
-  # Transaction periods are epoch seconds in the official API. No local
-  # 30-day approximation replaces a provider's actual calendar-month period.
-  if transaction.get('period_start')!=start or transaction.get('period_end')!=end:raise creem.Rejected('Payment does not cover the provider billing period.')
+  if transaction.get('id')!=tid or not covers_period(transaction,sub):raise creem.Rejected('Payment does not cover the provider billing period.')
   if status in ('refunded','chargedBack'):state='refunded' if status=='refunded' else 'disputed'
  with db_session() as c:
   lock(c,org)

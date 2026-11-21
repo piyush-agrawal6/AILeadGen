@@ -13,6 +13,13 @@ def ready(c,s,monkeypatch):
         c.execute("INSERT INTO subscription_products(provider,environment,plan_code,variant,product_id,price_minor,currency,interval,trial_days,catalog_hash,verified_json,verified_at) VALUES('creem','production',?,'paid',?,?,'USD','every-month',0,?,'{}',?)",(code,'prod_'+code,commercial.plan(code)['monthly_minor'],commercial.catalog()['catalog_sha256'],now()))
     c.commit()
 
+def test_provider_period_precision_does_not_expand_coverage():
+    sub={'current_period_start_date':'2026-11-21T06:28:43.139Z','current_period_end_date':'2026-12-21T06:28:43.139Z'}
+    def matches(a,b):return sync.covers_period({'period_start':a,'period_end':b},sub)
+    assert matches(1795242523139,1797834523139) and matches(1795242523,1797834523)
+    assert not matches(1795242523140,1797834523139) and not matches(1795242523139,1797834523138)
+    assert not matches(1795242523,1797834523139) and not matches('1795242523139',1797834523139)
+
 @pytest.mark.parametrize('code',['starter','growth','scale'])
 def test_ended_trial_to_verified_paid_keeps_trial_history(subscribed,monkeypatch,code):
     c,s,org,actor,state,p,checkout,_=subscribed;ready(c,s,monkeypatch);t=int(time.time());state.update(status='canceled',current_period_start_date=iso(t-259300),current_period_end_date=iso(t-100))
