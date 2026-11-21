@@ -30,6 +30,8 @@ export function WorkspaceAccessScreen({ access }: { access: ProductAccess }) {
   const state = radar.access_state || (radar.onboarding_status !== "COMPLETED" ? "SETUP_REQUIRED" : "RESTRICTED");
   const orgName = workspace.active?.name || "this workspace";
   const isOwner = workspace.active?.role === "OWNER";
+  const account = workspace.active?.billing_account;
+  const canActivate = isOwner && (!account || (account.can_manage && !account.shared));
   const completedSteps = workspace.active?.onboarding_completed_steps ?? 0;
 
   async function continueOnboarding() {
@@ -51,10 +53,10 @@ export function WorkspaceAccessScreen({ access }: { access: ProductAccess }) {
       case "SETUP_REQUIRED":
         return {
           icon: Sparkles,
-          badge: `Setup · ${completedSteps}/5 steps`,
+          badge: `Setup · ${completedSteps}/${workspace.active?.onboarding_total_steps ?? 3} steps`,
           title: `Finish setting up ${orgName}`,
           description:
-            "Complete your workspace profile, ideal customers, and plan selection to unlock Intent Radar. Your progress is saved automatically.",
+            "Review your business, choose your ideal customers, and prepare your first discovery.",
           primaryLabel: resuming ? "Opening setup…" : "Continue Onboarding",
           primaryHref: null as string | null,
           onPrimary: continueOnboarding,
@@ -67,22 +69,22 @@ export function WorkspaceAccessScreen({ access }: { access: ProductAccess }) {
           badge: "Trial available",
           title: `Activate Intent Radar for ${orgName}`,
           description:
-            "Each workspace keeps its own billing, integrations, and data. Start your eligible Starter Trial or select a monthly plan to activate Intent Radar for this workspace.",
-          primaryLabel: isOwner ? "Choose a Plan" : "View Billing Status",
+            "Review trial eligibility and plan options for your billing account.",
+          primaryLabel: canActivate ? "Choose a Plan" : "View Billing Status",
           primaryHref: "/settings?category=billing&tab=plans",
           onPrimary: undefined,
-          secondaryLabel: "Continue Onboarding",
-          secondaryHref: "/onboarding",
+          secondaryLabel: "Manage Workspaces",
+          secondaryHref: "/settings/workspaces",
         };
       case "SUBSCRIPTION_REQUIRED":
         return {
           icon: CreditCard,
           badge: "Activation required",
-          title: `Select a plan for ${orgName}`,
+          title: `No active coverage for ${orgName}`,
           description:
-            "Each PlaneByte workspace requires its own active subscription—plans and trials do not carry over across separate workspaces. Activate a plan to enable Intent Radar here.",
-          primaryLabel: isOwner ? "Choose a Plan" : "View Billing",
-          primaryHref: "/settings?category=billing&tab=plans",
+            `${account?.name || 'Your billing account'} has no active coverage. ${canActivate ? 'Review account billing to activate access.' : 'Ask the billing account administrator to review coverage.'} Your workspace research is saved.`,
+          primaryLabel: canActivate ? "Review account billing" : "View Billing",
+          primaryHref: "/settings?category=billing&tab=overview",
           onPrimary: undefined,
           secondaryLabel: "Switch Workspace",
           secondaryHref: "/settings/workspaces",

@@ -57,8 +57,8 @@ function SidebarSetupShortcut({
   );
   if (!showSetupShortcut) return null;
 
-  const completedSteps = Math.max(0, Math.min(4, workspace.active?.onboarding_completed_steps ?? 0));
-  const totalSteps = workspace.active?.onboarding_total_steps ?? 5;
+  const totalSteps = workspace.active?.onboarding_total_steps ?? 3;
+  const completedSteps = Math.max(0, Math.min(totalSteps, workspace.active?.onboarding_completed_steps ?? 0));
 
   async function openSetup() {
     if (resumingSetup) return;

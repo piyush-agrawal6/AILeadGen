@@ -42,21 +42,23 @@ def _access_state(c, organization_id, row, enabled):
     pending_checkout=None
     if sub_enabled():
         env=settings.creem_environment
+        from app.billing.accounts import anchor
+        account=anchor(c,organization_id)
         contract_row=c.execute(
             '''SELECT p.status,p.period_end,p.trial_start,p.period_start,p.cancel_confirmed_at
                FROM subscription_contracts p JOIN subscription_workspace_slots w
                  ON w.organization_id=p.organization_id AND w.contract_id=p.id AND w.environment=p.environment
                WHERE p.organization_id=? AND p.environment=?''',
-            (organization_id,env),
+            (account,env),
         ).fetchone()
         pending_checkout=c.execute(
             "SELECT id,status FROM subscription_checkouts WHERE organization_id=? AND environment=? AND status IN ('CREATING','PENDING','REVIEW') ORDER BY created_at DESC LIMIT 1",
-            (organization_id,env),
+            (account,env),
         ).fetchone()
     trial_ok=False
     try:
         ctx=current()
-        trial_ok=bool(sub_enabled() and trial_available(c,ctx.actor))
+        trial_ok=bool(sub_enabled() and not sub_active and trial_available(c,ctx.actor,organization_id))
     except Exception:
         trial_ok=False
     c_status=contract_row['status'] if contract_row else None

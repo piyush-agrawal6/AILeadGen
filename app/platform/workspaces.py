@@ -136,7 +136,7 @@ def enrich_memberships(c,rows,actor=None):
     import json
     from app.intent_radar.permissions import availability
     from app.billing import contracts
-    from app.billing.subscription_access import product_grant,enabled as sub_enabled,entitlement_label,has_contract
+    from app.billing.subscription_access import product_grant,enabled as sub_enabled,entitlement_label
     from app.config.settings import get_settings
     enriched=[]
     settings_obj=get_settings()
@@ -209,21 +209,9 @@ def enrich_memberships(c,rows,actor=None):
         has_profile=bool((prof_row and (prof_row['short_description'] or prof_row['industry'])) or svc_count>0 or (onb_row and (onb_row['profile_completed'] and onb_row['services_completed'])))
         has_icp=bool((setup_row and setup_row['default_icp_id'] and icp_count>0) or icp_count>0 or (onb_row and onb_row['audience_completed']))
         has_research=bool((onb_row and onb_row['preferences_completed']) or setup_prefs.get('geography_confirmed') or setup_prefs.get('research_keywords') or pref_row)
-        has_plan=bool(grant or not avail.get('subscription_required'))
-
-        if onb_status=='COMPLETED':
-            step_checks=[True,True,True,True,bool(has_plan or has_contract(c,org))]
-        else:
-            step_checks=[has_business,has_profile,has_icp,has_research,has_plan]
-        completed_steps=sum(1 for done in step_checks if done)
-        step_keys=('welcome','company','icp','research','plan')
-        next_setup_step=None
-        for key,done in zip(step_keys,step_checks):
-            if not done:
-                next_setup_step=key
-                break
-        if onb_status!='COMPLETED' and next_setup_step is None:
-            next_setup_step='plan' if avail.get('subscription_required') and not has_plan else 'research'
+        complete=onb_status=='COMPLETED'
+        completed_steps=3 if complete else sum((has_business and has_profile,has_icp,has_research))
+        next_setup_step=None if complete else ('welcome' if not has_business else 'company' if not has_profile else 'icp' if not has_icp else 'research')
 
         member_count=c.execute("SELECT COUNT(*) FROM organization_memberships WHERE organization_id=? AND status='ACTIVE'",(org,)).fetchone()[0]
         from app.billing import accounts
@@ -235,7 +223,7 @@ def enrich_memberships(c,rows,actor=None):
             'access_state':avail.get('access_state'),
             'onboarding_status':onb_status,
             'onboarding_completed_steps':completed_steps,
-            'onboarding_total_steps':5,
+            'onboarding_total_steps':3,
             'next_setup_step':next_setup_step,
             'member_count':member_count,
         })

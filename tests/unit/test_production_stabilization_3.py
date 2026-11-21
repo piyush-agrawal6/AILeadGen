@@ -112,7 +112,7 @@ def test_workspace_enrichment_reconciles_plan_and_real_onboarding_steps_without_
     owner = "owner@planebyte.com"
     w1 = create_organization(c, owner, "PlaneByte")
     org1 = w1["organization_id"]
-    w2 = workspaces.create_workspace(c, owner, workspaces.WorkspaceCreate(name="Syntaxwars", request_id=uuid.uuid4()))
+    w2 = create_organization(c, owner, "Syntaxwars")  # Independent billing by explicit setup in this fixture.
     org2 = str(w2["organization_id"])
     stamp = now()
     ts = int(time.time())
@@ -153,14 +153,17 @@ def test_workspace_enrichment_reconciles_plan_and_real_onboarding_steps_without_
     pb = by_id[org1]
     assert pb["plan_label"] == "Starter Trial"
     assert pb["plan_status"] == "Canceled · Access remaining"
-    assert pb["onboarding_completed_steps"] == 5
-    assert pb["onboarding_total_steps"] == 5
+    assert pb["onboarding_completed_steps"] == 3
+    assert pb["onboarding_total_steps"] == 3
     assert pb["next_setup_step"] is None
 
     syn = by_id[org2]
     assert syn["plan_label"] == "No active plan"
-    assert syn["onboarding_completed_steps"] == 2
+    assert syn["onboarding_completed_steps"] == 1
     assert syn["next_setup_step"] == "icp"
+    c.execute("UPDATE organization_onboarding SET status='COMPLETED' WHERE organization_id=?",(org2,))
+    uncovered=next(r for r in workspaces.enrich_memberships(c,list_org_memberships(c,owner)) if r['organization_id']==org2)
+    assert uncovered['plan_label']=='No active plan' and uncovered['onboarding_completed_steps']==3 and uncovered['next_setup_step'] is None
 
 
 def test_overview_counts_active_opportunities_accurately(env_db):

@@ -125,7 +125,7 @@ export function WorkspaceSwitcher({
                       <span>·</span>
                       <span>
                         {needsSetup
-                          ? `Setup ${item.onboarding_completed_steps ?? 0}/${item.onboarding_total_steps ?? 5}`
+                          ? `Setup ${item.onboarding_completed_steps ?? 0}/${item.onboarding_total_steps ?? 3}`
                           : item.plan_label || 'Workspace'}
                       </span>
                     </small>

@@ -108,6 +108,11 @@ describe("Production Stabilization & Dashboard 3.0", () => {
               next_setup_step: "icp",
               member_count: 1,
             },
+            {
+              organization_id: 'org-configured',name:'Configured workspace',role:'OWNER',
+              onboarding_status:'COMPLETED',access_state:'SUBSCRIPTION_REQUIRED',plan_label:'Activation required',
+              onboarding_completed_steps:4,onboarding_total_steps:5,next_setup_step:'plan',
+            },
           ],
         } as never;
       }
@@ -117,7 +122,8 @@ describe("Production Stabilization & Dashboard 3.0", () => {
     wrap(<WorkspacesManager />);
     expect(await screen.findByText("Starter Trial")).toBeVisible();
     expect(screen.getByText("Canceled · Access remaining")).toBeVisible();
-    expect(screen.getByText("Complete · 5/5")).toBeVisible();
+    expect(screen.getAllByText("Complete · 5/5")).toHaveLength(2);
+    expect(screen.getAllByRole('button',{name:'Continue setup'})).toHaveLength(1);
     expect(screen.getByText("No active plan")).toBeVisible();
     expect(screen.getByText("Setup · 2/5")).toBeVisible();
     expect(screen.getByRole("button", { name: /Rename PlaneByte/i })).toBeVisible();

@@ -29,55 +29,17 @@ import { Input } from "@/components/ui/input";
 
 function setupMeta(item: Membership): { label: string; tone: string } {
   const done = item.onboarding_completed_steps ?? 0;
-  const total = item.onboarding_total_steps ?? 5;
-  if (item.onboarding_status === "COMPLETED" && done >= total) {
+  const total = item.onboarding_total_steps ?? 3;
+  if (item.onboarding_status === "COMPLETED") {
     return {
       label: `Complete · ${total}/${total}`,
       tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
     };
   }
-  switch (item.access_state) {
-    case "ACTIVE":
-    case "TRIAL_ACTIVE":
-      return {
-        label: `Complete · ${done}/${total}`,
-        tone: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20",
-      };
-    case "CANCELED_REMAINING":
-      return {
-        label: done >= total ? `Complete · ${total}/${total}` : `Setup · ${done}/${total}`,
-        tone: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20",
-      };
-    case "SETUP_REQUIRED":
-      return {
+  return {
         label: `Setup · ${done}/${total}`,
         tone: "bg-primary/10 text-primary border-primary/20",
-      };
-    case "TRIAL_AVAILABLE":
-    case "SUBSCRIPTION_REQUIRED":
-      return {
-        label: `Activation needed · ${done}/${total}`,
-        tone: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20",
-      };
-    case "PAYMENT_PENDING":
-      return {
-        label: "Payment pending",
-        tone: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
-      };
-    case "EXPIRED":
-      return {
-        label: "Expired",
-        tone: "bg-destructive/10 text-destructive border-destructive/20",
-      };
-    default:
-      return {
-        label:
-          item.onboarding_status === "COMPLETED"
-            ? `Complete · ${done}/${total}`
-            : `Setup · ${done}/${total}`,
-        tone: "bg-muted text-muted-foreground border-border",
-      };
-  }
+  };
 }
 
 function onboardingHref(item: Membership): string {
@@ -218,7 +180,7 @@ export function WorkspacesManager() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">Workspaces</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Each workspace maintains separate billing, integrations, company profile, and research data.
+            Workspaces keep their own members, integrations, and research. Workspaces on the same billing account share a plan and its allowances.
           </p>
         </div>
         <Button
@@ -277,10 +239,7 @@ export function WorkspacesManager() {
                 {items.map((item) => {
                   const isActive = item.organization_id === activeId;
                   const meta = setupMeta(item);
-                  const needsSetup =
-                    item.access_state === "SETUP_REQUIRED" ||
-                    item.onboarding_status !== "COMPLETED" ||
-                    (item.onboarding_completed_steps ?? 0) < (item.onboarding_total_steps ?? 5);
+                  const needsSetup = item.onboarding_status !== "COMPLETED";
                   return (
                     <tr key={item.organization_id} className={isActive ? "bg-primary/[0.03]" : "hover:bg-muted/20"}>
                       <td className="px-4 py-3">
@@ -313,6 +272,7 @@ export function WorkspacesManager() {
                         <div className="font-medium text-foreground">
                           {item.plan_label || "No active plan"}
                         </div>
+                        {item.billing_account && <small>Billing account: {item.billing_account.name}</small>}
                         {item.plan_status && item.plan_status !== "Not activated" && (
                           <div className="text-[10px] text-muted-foreground mt-0.5">
                             {item.plan_status}

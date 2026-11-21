@@ -147,12 +147,15 @@ def require_product(c,org):
 def scheduled_sql(org):
  if org not in ('m.organization_id','j.organization_id'):raise ValueError('Internal scheduler alias required')
  from app.billing.accounts import enabled as shared
+ origin=org
  if shared():org='(SELECT billlink.account_id FROM billing_workspace_links billlink WHERE billlink.workspace_id='+org+')'
  s=get_settings();mode=s.creem_environment;stamp=int(time.time());approved=[v.strip() for v in s.billing_test_workspaces.split(',') if v.strip()][:100]
  restriction=''
  if mode=='test':restriction=' AND p.organization_id IN ('+','.join('?' for _ in approved)+')' if approved else ' AND 0=1'
  sql="EXISTS(SELECT 1 FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.organization_id=p.organization_id AND w.contract_id=p.id AND w.environment=p.environment JOIN subscription_payments t ON t.organization_id=p.organization_id AND t.contract_id=p.id AND t.period_start=p.period_start AND t.period_end=p.period_end WHERE p.organization_id="+org+" AND p.environment=? AND p.status IN ('active','scheduled_cancel','canceled') AND p.verified_at IS NOT NULL AND (p.recurring_authorized=1 OR p.cancel_confirmed_at IS NOT NULL) AND p.period_start<=? AND p.period_end>? AND t.status='paid'"+restriction+')'
  args=[mode,stamp,stamp,*(approved if mode=='test' else [])]
+ if mode=='test' and approved and origin!=org:
+  sql='('+sql+' AND '+origin+' IN ('+','.join('?' for _ in approved)+'))';args.extend(approved)
  from app.billing.owner_starter import configured_id,active as development,ISSUED,REVOKED,OWNER
  key=configured_id()
  if key:
