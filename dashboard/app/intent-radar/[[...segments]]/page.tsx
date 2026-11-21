@@ -21,6 +21,7 @@ const routes = [
   'integrations',
   'integrations/sheets',
   'integrations/webhooks',
+  'integrations/hubspot',
   'integrations/github/callback',
   'settings',
   'growth',

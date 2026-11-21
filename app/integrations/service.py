@@ -31,6 +31,8 @@ class ProviderSpec:
     exchange:object=None
     connected:object=None
     revoked:object=None
+    authorize_url:object=None
+    setup_check:object=None
 
 SHEETS=ProviderSpec()
 
@@ -121,7 +123,7 @@ def listing(c):
 def authorize(c,*,write=False,spec=SHEETS):
     from app.acquisition.config import settings
     require_spec(spec);org=manager(c);cipher();config=settings()
-    if not configured():raise HTTPException(503,'Google Sheets needs server configuration.')
+    if not (spec.setup_check or configured)():raise HTTPException(503,'The connection needs server configuration.')
     redirect_uri=spec.redirect_uri if spec.redirect_uri is not None else config.sheets_redirect_uri
     redirect=urlsplit(redirect_uri)
     if redirect.scheme!='https' and not (get_settings().app_env!='production' and redirect.scheme=='http' and redirect.hostname in ('localhost','127.0.0.1')):
@@ -145,6 +147,7 @@ def authorize(c,*,write=False,spec=SHEETS):
     c.execute(f"INSERT INTO {spec.states}(state_hash,organization_id,connection_id,actor,connection_revision,verifier_ciphertext,status,expires_at,created_at,requested_scope) VALUES(?,?,?,?,?,?,'PENDING',?,?,?)",
         (hashlib.sha256(state.encode()).hexdigest(),org,key,actor,revision,seal({'verifier':verifier},**context(row,'OAUTH_STATE')),(datetime.now(timezone.utc)+timedelta(minutes=10)).isoformat(),stamp,scope))
     audit(c,key,'INTEGRATION_AUTHORIZATION_STARTED')
+    if spec.authorize_url:return {'authorization_url':spec.authorize_url(state,scope),'scope':scope}
     return {'authorization_url':'https://accounts.google.com/o/oauth2/v2/auth?'+urlencode({'client_id':config.google_id,'redirect_uri':redirect_uri,'response_type':'code','scope':scope,'access_type':'offline','prompt':'consent','state':state,'code_challenge':challenge,'code_challenge_method':'S256'}),'scope':scope}
 
 
@@ -164,6 +167,10 @@ def token_value(result,previous=None,*,expected_scope=None,spec=SHEETS):
     if ttl<60 or ttl>86400:raise HTTPException(409,'Google Sheets returned an invalid token lifetime.')
     value={'access_token':access,'refresh_token':refresh,'scope':expected_scope,'expires_at':(datetime.now(timezone.utc)+timedelta(seconds=ttl-30)).isoformat()}
     if spec.user_owned:value['identity']=previous.get('identity') if previous else result.get('identity')
+    if spec.provider=='HUBSPOT':
+        portal=result.get('portal_id')
+        if not isinstance(portal,str) or not portal.isascii() or not portal.isdecimal() or previous and portal!=previous.get('portal_id'):raise HTTPException(409,'The CRM portal identity changed.')
+        value['portal_id']=portal
     return value
 
 

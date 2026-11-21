@@ -5,14 +5,17 @@ import {Braces,Download,FileSpreadsheet,Network,Webhook} from 'lucide-react';
 import {SearchInput} from '@/components/ui/search-input';
 import {useRadarRead} from '../provider';
 import type {SheetStatus} from './RadarSheets';
+import type {CrmState} from './HubSpotConnection';
 
 export function CustomerIntegrationsCatalog(){
   const destinations=useRadarRead<{files:boolean;developer:boolean;mcp:boolean;webhooks:boolean}>('/destinations');
   const sheets=useRadarRead<SheetStatus>('/sheets');
+  const crm=useRadarRead<CrmState>('/hubspot');
   const [query,setQuery]=useState(''),[category,setCategory]=useState('All');
   const state=destinations.isError?undefined:destinations.data;
   const sheet=state?.files && !sheets.isError && sheets.data?.configured?sheets.data:undefined;
   const rows=[
+    ...(crm.data?.configured&&!crm.isError?[{name:'HubSpot',icon:Network,category:'CRM',description:'Manage your workspace CRM connection.',status:crm.data.connection?.status==='CONNECTED'?'Connected':crm.data.connection?.status==='REAUTH_REQUIRED'?'Reconnect required':'Not connected',href:'/intent-radar/integrations/hubspot',action:crm.data.connection?.status==='CONNECTED'?'Manage':'Connect'}]:[]),
     {name:'Google Sheets',icon:FileSpreadsheet,category:'Spreadsheets & Export',description:'Write reviewed records to an approved range.',status:sheet?.health||'Restricted',href:sheet?'/intent-radar/integrations/sheets':null,action:sheet?.health==='Not Connected'?'Connect':'Manage'},
     {name:'File exports',icon:Download,category:'Spreadsheets & Export',description:'Download CSV, Excel, PDF or JSON.',status:state?.files?'Available':'Restricted',href:state?.files?'/intent-radar/discover':null,action:'Select records'},
     {name:'Webhooks',icon:Webhook,category:'Automation',description:'Deliver signed events to an authorized endpoint.',status:state?.webhooks?'Available':'Restricted',href:state?.webhooks?'/intent-radar/integrations/webhooks':null,action:'Configure'},
@@ -20,7 +23,7 @@ export function CustomerIntegrationsCatalog(){
     {name:'MCP',icon:Network,category:'Developer',description:'Connect an authorized research client.',status:state?.mcp?'Available':'Restricted',href:state?.mcp?'/settings?category=developer&tab=mcp':null,action:'Configure'},
   ];
   const matches=(name:string,cat:string,desc='')=>(category==='All'||category===cat)&&`${name} ${desc}`.toLowerCase().includes(query.trim().toLowerCase());
-  const visible=rows.filter(r=>matches(r.name,r.category,r.description));const planned=['HubSpot'].filter(n=>matches(n,'CRM'));
+  const visible=rows.filter(r=>matches(r.name,r.category,r.description));const planned=rows.some(r=>r.name==='HubSpot')?[]:['HubSpot'].filter(n=>matches(n,'CRM'));
   return <main className="mx-auto w-full max-w-5xl space-y-5 pb-8">
     <header><h1 className="text-2xl font-semibold tracking-tight">Integrations</h1><p className="mt-1 text-sm text-muted-foreground">Connect tools and manage workspace destinations.</p></header>
     <div className="flex flex-wrap items-end gap-3"><div className="min-w-0 grow"><SearchInput value={query} onChange={e=>setQuery(e.target.value)} onClear={()=>setQuery('')} aria-label="Search integrations" placeholder="Search integrations"/></div><label className="text-xs text-muted-foreground">Category<select className="control mt-1 block max-w-full" value={category} onChange={e=>setCategory(e.target.value)}>{['All','CRM','Spreadsheets & Export','Automation','Developer'].map(c=><option key={c}>{c}</option>)}</select></label></div>

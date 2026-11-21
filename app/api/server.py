@@ -169,6 +169,8 @@ def create_app() -> FastAPI:
     app.include_router(integrations.router,prefix="/api")
     from app.api.routes import radar_sheets
     app.include_router(radar_sheets.router,prefix='/api')
+    from app.api.routes import radar_crm
+    app.include_router(radar_crm.router,prefix='/api')
     from app.api.routes import account_profile
     app.include_router(account_profile.router,prefix="/api")
     from app.api.routes import developer,public_v1
