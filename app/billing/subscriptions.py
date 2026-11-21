@@ -50,7 +50,7 @@ def owner(c):
 def trial_available(c,actor,org=None):
  from app.accounts.policy import company_domain
  from app.billing import accounts
- if accounts.enabled():
+ if accounts.enabled() and accounts.enabled(org or current().organization_id):
   org=org or current().organization_id;account=accounts.anchor(c,org)
   if org!=account or not accounts.admin(c,account,actor):return False
   if c.execute('SELECT 1 FROM subscription_trials WHERE organization_id=? LIMIT 1',(account,)).fetchone() or c.execute("SELECT 1 FROM subscription_checkouts WHERE organization_id=? AND environment=? AND variant='trial' AND status='COMPLETED' LIMIT 1",(account,get_settings().creem_environment)).fetchone():return False
@@ -121,7 +121,7 @@ def summary(c):
  if not access.enabled():return {'enabled':False,'required':False,'active':False,'plans':commercial.catalog()['plans'],'blockers':['Subscription onboarding is not enabled.']}
  org=ctx.organization_id;s=get_settings();active=access.product_grant(c,org,include_development=False)
  from app.billing import accounts
- account=accounts.summary(c,org,ctx.actor) if accounts.enabled() else None
+ account=accounts.summary(c,org,ctx.actor) if accounts.enabled(org) else None
  if account and account['shared']:
   life=lifecycle(c,org,ctx.actor);return {'enabled':True,'required':True,'active':bool(active),'covered':bool(access.product_grant(c,org)),'billing_account':account,'workspace_id':org,'provider':'creem','can_manage':False,'trial_eligible':False,'plans':commercial.catalog()['plans'],'contract':None,'checkouts':[],'history':[],'lifecycle':life,'blockers':['This workspace shares billing. Manage the plan in its primary workspace.']}
  row=c.execute('SELECT p.* FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.contract_id=p.id AND w.organization_id=p.organization_id AND w.environment=p.environment WHERE p.organization_id=? AND p.environment=?',(org,s.creem_environment)).fetchone()

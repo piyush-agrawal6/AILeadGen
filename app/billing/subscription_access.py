@@ -146,9 +146,11 @@ def require_product(c,org):
 
 def scheduled_sql(org):
  if org not in ('m.organization_id','j.organization_id'):raise ValueError('Internal scheduler alias required')
- from app.billing.accounts import enabled as shared
+ from app.billing.accounts import enabled as shared,pilot,PILOT_ACCOUNT,PILOT_CHILD
  origin=org
- if shared():org='(SELECT billlink.account_id FROM billing_workspace_links billlink WHERE billlink.workspace_id='+org+')'
+ if shared():
+  mapped='(SELECT billlink.account_id FROM billing_workspace_links billlink WHERE billlink.workspace_id='+org+')'
+  org=(f"(CASE WHEN {org}='{PILOT_CHILD}' AND {mapped}='{PILOT_ACCOUNT}' THEN {mapped} ELSE {org} END)" if pilot() else mapped)
  s=get_settings();mode=s.creem_environment;stamp=int(time.time());approved=[v.strip() for v in s.billing_test_workspaces.split(',') if v.strip()][:100]
  restriction=''
  if mode=='test':restriction=' AND p.organization_id IN ('+','.join('?' for _ in approved)+')' if approved else ' AND 0=1'

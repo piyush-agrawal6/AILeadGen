@@ -7,6 +7,32 @@ from app.platform.workspaces import create_workspace,WorkspaceCreate
 from app.api.organization import create_organization
 from test_subscription_payment import subscribed,customer,accounts,iso
 
+@pytest.mark.parametrize('enabled,pilot',[(False,False),(True,False),(True,True)])
+def test_workspace_creation_never_infers_an_account(subscribed,monkeypatch,enabled,pilot):
+    c,s,primary,owner,*_=subscribed
+    monkeypatch.setattr(s,'shared_billing_accounts_enabled',enabled);monkeypatch.setattr(s,'shared_billing_owner_pilot',pilot)
+    # One eligible account is the original failed regression. Exercise an unrelated owner too.
+    for actor,existing in [(owner,primary),('unrelated@example.com',create_organization(c,'unrelated@example.com','Unrelated primary')['organization_id'])]:
+        assert shared.admin(c,existing,actor)
+        request=WorkspaceCreate(name='Independent secondary',request_id=uuid.uuid4());new=create_workspace(c,actor,request)['organization_id'];c.commit()
+        assert create_workspace(c,actor,request)['reused']
+        assert c.execute('SELECT account_id FROM billing_workspace_links WHERE workspace_id=?',(new,)).fetchone()[0]==new and new!=existing
+        assert not access.product_grant(c,new)
+    with pytest.raises(HTTPException):create_workspace(c,'unrelated@example.com',WorkspaceCreate(name='Foreign account selection',billing_account_id=primary,request_id=uuid.uuid4()))
+    c.rollback()
+    if pilot or not enabled:
+        with pytest.raises(HTTPException):create_workspace(c,owner,WorkspaceCreate(name='Outside rollout',billing_account_id=primary,request_id=uuid.uuid4()))
+        c.rollback()
+    if pilot:
+        with pytest.raises(HTTPException):shared.attach_empty(c,primary,new,owner,'test operator','Out of scope')
+
+def test_production_flag_is_fail_closed(monkeypatch):
+    from app.config.settings import get_settings
+    s=get_settings();monkeypatch.setattr(s,'app_env','production');monkeypatch.setattr(s,'shared_billing_accounts_enabled',True);monkeypatch.setattr(s,'shared_billing_owner_pilot',False)
+    assert not shared.enabled(shared.PILOT_CHILD)
+    monkeypatch.setattr(s,'shared_billing_owner_pilot',True)
+    assert shared.enabled(shared.PILOT_CHILD) and shared.enabled(shared.PILOT_ACCOUNT) and not shared.enabled(str(uuid.uuid4()))
+
 def test_one_contract_shared_idempotent_debits_and_private_billing(subscribed,monkeypatch):
     c,s,primary,actor,state,*_=subscribed;monkeypatch.setattr(s,'shared_billing_accounts_enabled',True)
     with workspace_scope(c,actor,primary):

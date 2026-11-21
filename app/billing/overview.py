@@ -48,7 +48,7 @@ def overview(c):
             dim=definition['key'];limit=saved['limits'][dim]
             if dim in contracts.CAPACITY:
                 used=counts['active_monitors'] if dim=='monitors' else counts['seats'];reserved=0
-                if shared():used=capacity_used(c,billing_org,dim,all_monitors=is_trial)
+                if shared(org):used=capacity_used(c,billing_org,dim,all_monitors=is_trial)
                 basis='capacity under temporary internal testing allowance' if grant else 'capacity under 3-day trial terms' if paid.get('is_trial') else 'capacity under saved subscription terms'
             else:
                 value=monthly.get(dim,{})

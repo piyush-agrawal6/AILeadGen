@@ -43,7 +43,8 @@ def reserve(c,amounts,operation_id):
                 raise HTTPException(409,'Released work belongs to a previous subscription period.')
         counter=c.execute(f'SELECT reserved,used FROM {usage_table} WHERE organization_id=? AND contract_id=? AND period_start=? AND dimension=?',(org,row['id'],usage_start,dim)).fetchone()
         consumed=counter['reserved']+counter['used'] if counter else 0
-        if usage_table=='subscription_setup_usage' and get_settings().shared_billing_accounts_enabled:
+        from app.billing.accounts import enabled as sharing
+        if usage_table=='subscription_setup_usage' and sharing(org):
             consumed=c.execute('SELECT COALESCE(SUM(u.used+u.reserved),0) FROM subscription_setup_usage u JOIN billing_workspace_links l ON l.workspace_id=u.organization_id WHERE l.account_id=? AND u.dimension=?',(account,dim)).fetchone()[0]
         if consumed+n>limits[dim]:
             raise HTTPException(429,'Monthly '+dim.replace('_',' ')+' allowance exhausted. Saved records remain available; review usage or upgrade.')
@@ -87,7 +88,7 @@ def capacity(c,org,dimension,count,*,incoming=None):
     if dimension not in contracts.CAPACITY:raise ValueError('Unknown capacity dimension.')
     from app.billing import accounts
     account=accounts.anchor(c,org);lock(c,account);access_periods.require_current(c,org);row=contracts.active(c,org)
-    if row and accounts.enabled():
+    if row and accounts.enabled(org):
         pooled=accounts.capacity_used(c,account,dimension,incoming=incoming,pending=True,all_monitors=bool(row.get('is_trial')))
         # Preserve stricter server-side workspace capacity checks. Named seat
         # admission is different: the same person counts once across workspaces.

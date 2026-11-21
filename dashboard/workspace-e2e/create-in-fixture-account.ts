@@ -11,13 +11,7 @@ export async function createInFixtureAccount(context:BrowserContext,name:string,
   const account=target?.billing_account, data={name,request_id:crypto.randomUUID()};
   if(process.env.SHARED_BILLING_ACCOUNTS_ENABLED==='true'){
     expect(account?.can_manage).toBe(true);
-    const choices=new Set(before.items.filter(i=>i.billing_account?.can_manage).map(i=>i.billing_account!.id));
-    if(choices.size>1){
-      const ambiguous=await context.request.post(path,{headers,data});
-      expect(ambiguous.status()).toBe(409);
-      expect(await ambiguous.text()).toContain('Choose the billing account');
-      const after=await memberships();expect(after.items.length).toBe(before.items.length);expect(after.active_organization_id).toBe(before.active_organization_id);
-    }
+    expect(account?.can_select_at_creation).toBe(true);
   }
   const r=await context.request.post(path,{headers,data:{...data,...(account?{billing_account_id:account.id}:{})}});
   expect(r.status(),await r.text()).toBe(201);

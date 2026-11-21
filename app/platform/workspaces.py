@@ -53,10 +53,8 @@ def create_workspace(c,actor,body:WorkspaceCreate):
     from app.billing import accounts
     account=str(body.billing_account_id) if body.billing_account_id else None
     if account and (not accounts.enabled() or not accounts.admin(c,account,actor)):raise HTTPException(403,'Choose an account you administer.')
-    if not account and accounts.enabled():
-        options=[r[0] for r in c.execute("SELECT a.account_id FROM billing_account_admins a JOIN organization_memberships m ON m.organization_id=a.account_id AND m.user_id=a.user_id AND m.status='ACTIVE' AND m.role='OWNER' JOIN organizations o ON o.id=m.organization_id AND o.status='ACTIVE' WHERE a.user_id=?",(actor,)).fetchall()]
-        if len(options)>1:raise HTTPException(409,'Choose the billing account for this workspace.')
-        account=options[0] if options else None
+    # An omitted account always creates an independent singleton, including for
+    # an owner with exactly one administered account. Never infer consent.
     created=create_organization(c,actor,body.name,billing_account=account)
     org=created['organization_id']
     c.execute('INSERT INTO workspace_creation_requests(user_id,request_id,organization_id,requested_name,created_at) VALUES(?,?,?,?,?)',(actor,str(body.request_id),org,body.name,now()))
@@ -217,7 +215,7 @@ def enrich_memberships(c,rows,actor=None):
         from app.billing import accounts
         enriched.append({
             **r,
-            'billing_account':accounts.summary(c,org,actor) if actor and accounts.enabled() else None,
+            'billing_account':accounts.summary(c,org,actor) if actor and accounts.enabled(org) else None,
             'plan_label':plan_label,
             'plan_status':plan_status,
             'access_state':avail.get('access_state'),

@@ -19,7 +19,7 @@ export type Membership = {
   onboarding_total_steps?: number | null;
   next_setup_step?: string | null;
   member_count?: number | null;
-  billing_account?: {id:string;name:string;shared:boolean;can_manage:boolean}|null;
+  billing_account?: {id:string;name:string;shared:boolean;can_manage:boolean;can_select_at_creation?:boolean}|null;
 };
 
 export type WorkspaceSummary = {

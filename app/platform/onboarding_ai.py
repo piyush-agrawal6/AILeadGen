@@ -24,7 +24,7 @@ class PrivateDraft(Strict):
 def save_private_draft(c,body):
     from app.billing.accounts import enabled
     from app.database.prospects import now
-    if not enabled():raise HTTPException(404,'Private setup drafts are unavailable.')
+    if not enabled(organization()):raise HTTPException(404,'Private setup drafts are unavailable.')
     org=organization();actor=current().actor;require_role(c,actor,org,('OWNER','ADMIN'));editable(c)
     if read_profile(c)['version']!=body.profile_version:raise HTTPException(409,'Company details changed. Reload before saving the draft.')
     data=body.model_dump_json(exclude={'revision','profile_version'});stamp=now()
@@ -159,7 +159,8 @@ def state(c):
     from app.billing.subscription_access import required,product_grant
     from app.config.settings import get_settings
     settings=get_settings()
-    if settings.shared_billing_accounts_enabled and saved['can_edit'] and saved['status']!='COMPLETED':
+    from app.billing.accounts import enabled as sharing
+    if sharing(organization()) and saved['can_edit'] and saved['status']!='COMPLETED':
         row=c.execute('SELECT revision,profile_version,draft_json FROM onboarding_private_drafts WHERE organization_id=? AND actor=?',(organization(),current().actor)).fetchone()
         result['private_draft_revision']=row['revision'] if row else 0
         result['private_draft']=json.loads(row['draft_json']) if row and row['profile_version']==company['version'] else None

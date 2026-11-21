@@ -314,6 +314,7 @@ export function BillingSection({
     try {
       if (kind === "refresh") {
         const next = await request<SubscriptionState>("/billing/subscription/refresh", {
+          expectedWorkspace:orgId,
           method: "POST",
         });
         client.setQueryData(subKey(orgId), next);
@@ -322,6 +323,7 @@ export function BillingSection({
         const dest=sessionStorage.getItem('billing-return:'+orgId);if(next.active&&dest&&/^\/intent-radar(?:\/[a-z0-9-]+)*$/i.test(dest)){sessionStorage.removeItem('billing-return:'+orgId);window.location.assign(dest);}
       } else if (kind === "portal") {
         const res = await request<{ url?: string }>("/billing/subscription/portal", {
+          expectedWorkspace:orgId,
           method: "POST",
         });
         if (res.url) {
@@ -331,6 +333,7 @@ export function BillingSection({
         }
       } else if (kind === "cancel") {
         const res = await request<{ status?: string }>("/billing/subscription/cancel", {
+          expectedWorkspace:orgId,
           method: "POST",
           body: JSON.stringify({ request_id: crypto.randomUUID() }),
         });

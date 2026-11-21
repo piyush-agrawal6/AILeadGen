@@ -148,6 +148,7 @@ class Settings(BaseSettings):
     radar_sheets_workspaces:str=Field('',alias='RADAR_SHEETS_WORKSPACES')
     owner_starter_grant_id:str=Field('',alias='OWNER_STARTER_GRANT_ID')
     shared_billing_accounts_enabled:bool=Field(False,alias='SHARED_BILLING_ACCOUNTS_ENABLED')
+    shared_billing_owner_pilot:bool=Field(False,alias='SHARED_BILLING_OWNER_PILOT')
     heysow_mcp_enabled:bool=Field(False,alias='HEYSOW_MCP_ENABLED')
     mcp_allowed_hosts:str=Field('localhost:*,127.0.0.1:*,testserver,leads.planebyte.com',alias='MCP_ALLOWED_HOSTS')
     mcp_allowed_origins:str=Field('http://localhost:*,http://127.0.0.1:*,https://leads.planebyte.com',alias='MCP_ALLOWED_ORIGINS')

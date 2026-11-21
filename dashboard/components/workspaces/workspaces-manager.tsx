@@ -54,9 +54,9 @@ export function WorkspacesManager() {
   const ws = useWorkspace();
 
   const [createOpen, setCreateOpen] = useState(false);
-  const options=Array.from(new Map((ws.data?.items||[]).flatMap(item=>item.billing_account?.can_manage?[[item.billing_account.id,item.billing_account] as const]:[])).values());
+  const options=Array.from(new Map((ws.data?.items||[]).flatMap(item=>item.billing_account?.can_select_at_creation?[[item.billing_account.id,item.billing_account] as const]:[])).values());
   const [selectedAccount,setSelectedAccount]=useState('');
-  const account=selectedAccount||(ws.active?.billing_account?.can_manage?ws.active.billing_account.id:options.length===1?options[0].id:'');
+  const account=options.find(a=>a.id===selectedAccount)?.id;
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
@@ -187,6 +187,7 @@ export function WorkspacesManager() {
           size="sm"
           onClick={() => {
             setNewName("");
+            setSelectedAccount('');
             setCreateError("");
             createReqId.current = null;
             setCreateOpen(true);
@@ -397,7 +398,7 @@ export function WorkspacesManager() {
               </Dialog.Close>
             </div>
             <form onSubmit={(e) => void handleCreate(e)} className="space-y-4">
-              {options.length>0&&<label className="block text-sm">Billing account<select required value={account} onChange={e=>{setSelectedAccount(e.target.value);createReqId.current=null}} className="control mt-1 block w-full"><option disabled value="">Choose an account</option>{options.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select><small>This workspace shares that account’s allowance. Creating it does not start a checkout.</small></label>}
+              {options.length>0&&<label className="block text-sm">Billing account<select required value={selectedAccount} onChange={e=>{setSelectedAccount(e.target.value);createReqId.current=null}} className="control mt-1 block w-full"><option disabled value="">Choose an account</option><option value="independent">Separate billing account</option>{options.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select><small>Choose an existing account to share its allowance, or keep billing separate. No checkout is started.</small></label>}
               <div className="space-y-1.5">
                 <label htmlFor="create-ws-name" className="text-xs font-medium text-foreground">
                   Workspace / company name
