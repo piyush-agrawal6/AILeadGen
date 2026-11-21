@@ -1,9 +1,0 @@
-{
-  "branch": "codex/onboarding-icp-p0-20261118",
-  "ui_baseline": "c54a670ef10a3d0d94273ac56da36ecd116df7e0",
-  "backend_baseline": "cf0e43662fa0e447f609c35a94f10ee1deb6ce11",
-  "source_commit": "74d362f5d354284fd93909002ab93a867073ce6c",
-  "frontend_tree": "6e141bbd585d84e1fbfae650555934c6dcf67327",
-  "deployment_url": "leadengine-24zn3bzm8-piyushagrawal6s-projects.vercel.app",
-  "deployed_at": "2026-11-19T16:53:05Z"
-}
