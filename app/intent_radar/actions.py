@@ -38,7 +38,9 @@ class Outcome(BaseModel):
 
 def scope(c,write=False):
     if not get_settings().radar_actions_enabled:raise HTTPException(404,'Action Center is unavailable.')
-    return persistence_context(c) if write else context(c)
+    ctx=persistence_context(c) if write else context(c)
+    if get_settings().app_env=='production' and ctx.organization_id not in {x.strip() for x in get_settings().radar_action_workspaces.split(',')}:raise HTTPException(404,'Action Center is unavailable.')
+    return ctx
 
 
 def source(c,key):

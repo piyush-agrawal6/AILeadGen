@@ -15,7 +15,7 @@ export function CustomerIntegrationsCatalog(){
   const state=destinations.isError?undefined:destinations.data;
   const sheet=state?.files && !sheets.isError && sheets.data?.configured?sheets.data:undefined;
   const rows=[
-    ...(crm.data?.configured&&!crm.isError?[{name:'HubSpot',icon:Network,category:'CRM',description:'Manage your workspace CRM connection.',status:crm.data.connection?.status==='CONNECTED'?'Connected':crm.data.connection?.status==='REAUTH_REQUIRED'?'Reconnect required':'Not connected',href:'/intent-radar/integrations/hubspot',action:crm.data.connection?.status==='CONNECTED'?'Manage':'Connect'}]:[]),
+    ...(crm.data?.configured&&!crm.isError?[{name:'HubSpot',icon:Network,category:'CRM',description:'Manage your workspace CRM connection.',status:crm.data.health,href:'/intent-radar/integrations/hubspot',action:crm.data.connection?.status==='CONNECTED'?'Manage':'Connect'}]:[]),
     {name:'Google Sheets',icon:FileSpreadsheet,category:'Spreadsheets & Export',description:'Write reviewed records to an approved range.',status:sheet?.health||'Restricted',href:sheet?'/intent-radar/integrations/sheets':null,action:sheet?.health==='Not Connected'?'Connect':'Manage'},
     {name:'File exports',icon:Download,category:'Spreadsheets & Export',description:'Download CSV, Excel, PDF or JSON.',status:state?.files?'Available':'Restricted',href:state?.files?'/intent-radar/discover':null,action:'Select records'},
     {name:'Webhooks',icon:Webhook,category:'Automation',description:'Deliver signed events to an authorized endpoint.',status:state?.webhooks?'Available':'Restricted',href:state?.webhooks?'/intent-radar/integrations/webhooks':null,action:'Configure'},

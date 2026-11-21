@@ -1,6 +1,7 @@
 """Workspace CRM connection. Portal identity is verified by HubSpot before saving or rotating credentials."""
 import json
 import re
+from datetime import datetime,timedelta,timezone
 from typing import Literal
 from pydantic import BaseModel,ConfigDict,Field
 from urllib.parse import urlencode
@@ -56,14 +57,15 @@ async def exchange(payload):
 
 def connected(c,row,value):
     if row['portal_id'] and row['portal_id']!=value['portal_id']:raise HTTPException(409,'Reconnect the original HubSpot portal.')
-    c.execute('UPDATE radar_crm_connections SET portal_id=?,last_success_at=? WHERE id=? AND organization_id=?',(value['portal_id'],now(),row['id'],row['organization_id']))
+    c.execute('UPDATE radar_crm_connections SET portal_id=?,last_success_at=NULL WHERE id=? AND organization_id=?',(value['portal_id'],row['id'],row['organization_id']))
 
 def spec():
     return service.ProviderSpec(provider='HUBSPOT',table='radar_crm_connections',states='radar_crm_oauth_states',scope=SCOPES,redirect_uri=CALLBACK,authorize_url=authorization_url,setup_check=configured,exchange=exchange,connected=connected)
 
 def status(c):
     ctx=enabled(c);row=c.execute("SELECT * FROM radar_crm_connections WHERE organization_id=? AND provider='HUBSPOT'",(ctx.organization_id,)).fetchone()
-    return {'configured':configured(),'writes_enabled':bool(row and row['status']=='CONNECTED' and row['portal_id'] in {p.strip() for p in get_settings().radar_hubspot_write_portals.split(',')}),'connection':service.view(dict(row))|{'portal_id':row['portal_id']} if row else None}
+    healthy=bool(row and row['status']=='CONNECTED' and not row['last_error_code'] and row['last_success_at'] and timedelta(0)<=datetime.now(timezone.utc)-datetime.fromisoformat(row['last_success_at'])<=timedelta(minutes=15))
+    return {'configured':configured(),'health':'Connected' if healthy else 'Reconnect required' if row and row['status']=='REAUTH_REQUIRED' else 'Verification pending' if row and row['status']=='CONNECTED' else 'Not connected','writes_enabled':bool(healthy and row['portal_id'] in {p.strip() for p in get_settings().radar_hubspot_write_portals.split(',')}),'connection':service.view(dict(row))|{'portal_id':row['portal_id']} if row else None}
 
 
 class Match(BaseModel):

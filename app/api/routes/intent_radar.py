@@ -22,6 +22,16 @@ def actions(status:Literal['NEEDS_REVIEW','SUCCEEDED','CANCELED','OPEN','DONE']|
 def prepare_followup(body:action_center.Draft,c=Depends(get_db,scope='function')):
     return action_center.prepare(c,body)
 
+@router.post('/actions/brief/{opportunity_id}')
+async def action_brief(opportunity_id:UUID,c=Depends(get_db,scope='function')):
+    from app.intent_radar.intelligence import analyze
+    from app.intent_radar.source_policy import can_run_ai_analysis
+    action_center.scope(c,True);op=action_center.source(c,str(opportunity_id));signal=op['signal'];allowed,_=can_run_ai_analysis(signal)
+    if not allowed:raise HTTPException(403,'This source does not permit AI analysis.')
+    result=await analyze(c,signal['id'],models.AnalysisRequest());action_center.scope(c,True);latest=action_center.source(c,str(opportunity_id))
+    if latest['revision']!=op['revision'] or not can_run_ai_analysis(latest['signal'])[0]:raise HTTPException(409,'Evidence or permissions changed; reload before reviewing.')
+    return {'mode':result['mode'],'source':signal['source_url'],'summary':result['structured'],'limitation':result['fallback_reason']}
+
 @router.post('/actions/{key}/complete')
 def complete_followup(key:UUID,body:action_center.Outcome,c=Depends(get_db,scope='function')):
     return action_center.complete(c,str(key),body)

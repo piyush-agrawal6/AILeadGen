@@ -10,8 +10,8 @@ export async function proxy(request: NextRequest) {
   const paymentReturn=pathname==='/api/payments/payu-return'&&request.method==='POST';
   const tracking=/^\/t\/[ocu]\/[A-Za-z0-9_-]{43}(?:\.gif)?$/.test(pathname);
   if (!developerApi && !paymentReturn && !tracking && !isPublicBrandAsset(pathname) && !isPublicPage(pathname) && !(pathname==='/api/auth'||pathname.startsWith('/api/auth/')) && !(await currentUser())) {
-    if (pathname.startsWith("/api/")) return NextResponse.json({ detail: "Sign in to continue." }, { status: 401 });
-    return NextResponse.redirect(new URL("/login", request.url));
+    const denied=pathname.startsWith('/api/')?NextResponse.json({detail:'Sign in to continue.'},{status:401}):NextResponse.redirect(new URL('/login',request.url));
+    denied.headers.set('Cache-Control','private, no-store');denied.headers.append('Vary','Cookie');return denied;
   }
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64"); const dev = process.env.NODE_ENV !== "production";
   const billingCheckout=pathname==='/billing/checkout';

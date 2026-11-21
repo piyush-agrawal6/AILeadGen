@@ -101,7 +101,9 @@ def availability(c, organization_id):
         LEFT JOIN organization_products p ON p.organization_id=o.id AND p.product='INTENT_RADAR' WHERE o.id=?""",(organization_id,)).fetchone() if organization_id else None
     enabled=_enabled(c,organization_id,row)
     meta=_access_state(c,organization_id,row,enabled)
-    return {'enabled':enabled,'actions_enabled':enabled and get_settings().radar_actions_enabled,'stage':get_settings().intent_radar_stage,'product':'Intent Radar',**meta}
+    settings=get_settings()
+    actions_allowed=settings.app_env!='production' or organization_id in {x.strip() for x in settings.radar_action_workspaces.split(',')}
+    return {'enabled':enabled,'actions_enabled':enabled and settings.radar_actions_enabled and actions_allowed,'stage':settings.intent_radar_stage,'product':'Intent Radar',**meta}
 
 def context(c, write=False, manager=False):
     ctx=current()

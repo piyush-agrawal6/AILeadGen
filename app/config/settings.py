@@ -276,6 +276,8 @@ class Settings(BaseSettings):
     seo_crawl_max_pages: int = Field(default=30, ge=1, le=30, alias="SEO_CRAWL_MAX_PAGES")
     r2_endpoint: str = Field(default="", alias="R2_ENDPOINT")
     radar_actions_enabled: bool = Field(False,alias='RADAR_ACTIONS_ENABLED')
+    radar_action_workspaces: str = Field('',alias='RADAR_ACTION_WORKSPACES')
+    radar_sheets_write_workspaces:str=Field('',alias='RADAR_SHEETS_WRITE_WORKSPACES')
     radar_hubspot_enabled: bool = Field(False,alias='RADAR_HUBSPOT_ENABLED')
     radar_hubspot_workspaces: str = Field('',alias='RADAR_HUBSPOT_WORKSPACES')
     radar_hubspot_write_portals: str = Field('',alias='RADAR_HUBSPOT_WRITE_PORTALS')

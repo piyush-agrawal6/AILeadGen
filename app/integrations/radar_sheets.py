@@ -37,6 +37,9 @@ def admin(c):
     if c.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0]<(1011 if get_settings().database_schema_profile=='intent-radar-v1' else 53):raise HTTPException(503,'The spreadsheet worker schema is not ready.')
     return ctx
 
+def writes_allowed(ctx):
+    s=get_settings();return s.app_env!='production' or ctx.organization_id in {x.strip() for x in s.radar_sheets_write_workspaces.split(',')}
+
 def status(c):
     ctx=admin(c)
     row=c.execute('SELECT * FROM organization_integrations WHERE organization_id=? AND provider=?',(ctx.organization_id,service.PROVIDER)).fetchone()
@@ -49,7 +52,7 @@ def status(c):
             age=datetime.now(timezone.utc)-datetime.fromisoformat(item['last_success_at']);health='Connected' if timedelta(0)<=age<timedelta(minutes=15) else 'Health Unknown'
     try:oauth_spec();configured=service.configured()
     except HTTPException:configured=False
-    return {'configured':configured,'connection':item,'health':health}
+    return {'configured':configured,'writes_allowed':writes_allowed(ctx),'connection':item,'health':health}
 
 def describe(row):
     return {k:row[k] for k in ('id','status','row_count','sheet_title','target_range','spreadsheet_id','fingerprint','last_error_code','created_at','expires_at','attempts')}
@@ -95,6 +98,7 @@ def stage(c,key,body,*,prior,expected_target):
 
 def verified_rows(c,row):
     ctx=admin(c)
+    if not writes_allowed(ctx):raise HTTPException(403,'This pilot can preview ranges; external writes require separate workspace approval.')
     if row['created_by']!=ctx.actor:raise HTTPException(403,'Only the reviewing administrator can authorize this write.')
     envelope=json.loads(row['selection_json'])
     if envelope.get('version')!=2:raise HTTPException(409,'This review predates destination verification. Prepare a fresh preview.')
