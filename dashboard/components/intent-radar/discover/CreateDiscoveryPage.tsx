@@ -128,6 +128,7 @@ export function CreateDiscoveryPage() {
 
   // 2. Search Criteria
   const [config, setConfig] = useState<IntentSearch>(() => emptyIntentSearch());
+  const offerings=useRadarRead<{items:string[]}>('/discover/offerings',!!config.semantic);
 
   // Input fields for adding chips
   const [keywordInput, setKeywordInput] = useState("");
@@ -154,7 +155,7 @@ export function CreateDiscoveryPage() {
       id: "welcome",
       role: "assistant",
       content:
-        "Hello! I am your Discovery Assistant. Describe the conversations, problems, or buyer signals you want to uncover. I'll automatically formulate keywords, select research sources, and configure filters for your research run.",
+        "Describe the discussions you want to find. Describe the conversations, problems, or buyer signals you want to uncover. I'll automatically formulate keywords, select research sources, and configure filters for your research run.",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
@@ -521,7 +522,7 @@ export function CreateDiscoveryPage() {
       </div>
 
       {/* 2. Main Two-Column Layout */}
-      <div className="mx-auto max-w-5xl space-y-4">
+      <div className="mx-auto w-full min-w-0 max-w-5xl space-y-4">
         {/* LEFT COLUMN: Permanent AI Discovery Assistant */}
         <aside
           className={`rounded-2xl border border-border bg-card p-4 shadow-xs overflow-hidden ${
@@ -688,7 +689,7 @@ export function CreateDiscoveryPage() {
                   type="button"
                   onClick={() => void handleSendAssistant(prompt)}
                   disabled={assistantLoading}
-                  className="rounded-lg border border-border/80 bg-background px-2 py-1 text-[10px] text-muted-foreground hover:border-primary/50 hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer text-left truncate max-w-full"
+                  className="rounded-lg border border-border/80 bg-background px-2 py-1 text-[10px] text-muted-foreground hover:border-primary/50 hover:text-foreground hover:bg-muted/40 transition-colors cursor-pointer text-left whitespace-normal break-words max-w-full"
                   title={prompt}
                 >
                   {prompt}
@@ -1171,7 +1172,7 @@ export function CreateDiscoveryPage() {
                 className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
               />
             </div>
-            {config.semantic&&<label className="block text-sm">Relevant offerings<textarea maxLength={500} value={config.offerings} onChange={e=>setConfig({...config,offerings:e.target.value})} className="control block w-full"/></label>}
+            {config.semantic&&<div className="space-y-2"><label className="block text-sm">Relevant offerings<textarea maxLength={500} value={config.offerings} onChange={e=>setConfig({...config,offerings:e.target.value})} className="control block w-full"/></label>{!!offerings.data?.items.length&&<label className="block text-xs">Use a workspace offering<select className="control block max-w-full" value="" onChange={e=>{if(e.target.value){pushHistory();setConfig({...config,offerings:e.target.value})}}}><option value="">Choose an offering</option>{offerings.data.items.map(x=><option key={x}>{x}</option>)}</select></label>}</div>}
           </details>
           {/* SECTION 5: Review & Run */}
           <section

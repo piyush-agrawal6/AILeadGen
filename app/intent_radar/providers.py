@@ -44,15 +44,18 @@ class HackerNews:
         deadline = started + 24  # leave headroom inside the worker's 28s source deadline
         interrupted = False
         requests = 0
+        slowest_read = 0.0
         max_requests = 22 if (feeds is None or feeds == ['ask']) and not comments and not use_updates else 30
         async with SafeAsyncClient(timeout=4, max_bytes=200000, redirect_limit=0, headers={'User-Agent': 'PlaneByte-IntentRadar/2.0 (public API evidence; no posting)'}) as client:
             async def get(path):
-                nonlocal requests
+                nonlocal requests,slowest_read
                 for attempt in range(2):
+                    check_started=time.monotonic()
                     if permit and not permit():raise RuntimeError('The job is no longer authorized or active.')
                     if requests >= max_requests or time.monotonic() >= deadline: raise TimeoutError('Source request budget exhausted.')
                     requests += 1
                     response = await asyncio.wait_for(client.get(BASE + path, allowed_host=HOST), timeout=max(.001, deadline-time.monotonic()))
+                    slowest_read=max(slowest_read,time.monotonic()-check_started)
                     if response.status_code in (429, 503) and attempt == 0:
                         # Never evade limits; one bounded retry, otherwise record source failure.
                         delay=response.headers.get('Retry-After','1')
@@ -75,8 +78,8 @@ class HackerNews:
                     updates=await get('updates.json')
                     if isinstance(updates,dict) and isinstance(updates.get('items'),list):
                         updated_items=[x for x in updates['items'][:30] if type(x) is int and x>0]
-                except Exception:
-                    pass
+                except (httpx.HTTPError,TimeoutError):
+                    pass  # Optional updates; never swallow permission/lease failures.
             # Round-robin coverage prevents a large feed from hiding selected feeds.
             from itertools import zip_longest
             ids=list(dict.fromkeys(x for group in zip_longest(*batches) for x in group if x is not None))
@@ -86,7 +89,12 @@ class HackerNews:
                 recheck=[x for x in updated_items if str(x) in seen_set][:5]
                 ids=list(dict.fromkeys([*recheck, *ids]))
             if seen_ids and not comments and not updated_items:ids=[key for key in ids if str(key) not in set(seen_ids)]
-            window=max(1,min(20,limit));processed=[]
+            requested=max(1,min(20,limit));processed=[]
+            # A bounded feed *sample*, not a full-text query. Plan root count up front
+            # using the measured first round trip (including the authorization check).
+            # Each root can entail one story and up to four explicitly requested replies.
+            cost=5 if comments else 1
+            window=max(1,min(requested,(max_requests-requests)//cost,int((deadline-time.monotonic()-1)/(cost*max(.05,slowest_read)*1.25))))
             results = []
             try:
                 for key in ids[offset:offset + window]:
@@ -121,7 +129,8 @@ class HackerNews:
                 if not processed:raise TimeoutError('HN source did not complete an item before the deadline.') from None
                 interrupted=True
         return {'items': results, 'requests': requests, 'scanned': len(processed)+sum(x.get('discussion_id') is not None for x in results), 'next_offset': offset + len(processed) if len(ids) > offset + len(processed) else None, **({'status':'PARTIAL','errors':['HN_WINDOW_INCOMPLETE']} if interrupted else {}),'cursor':{'seen_ids':list(dict.fromkeys([*processed,*(seen_ids or [])]))[:600],'updates_checked':bool(updated_items)},
-                'coverage': 'Bounded official Firebase v0 '+', '.join(feeds)+' feeds; maximum '+str(max_requests)+' requests, bounded nested comments (depth<=2) when requested, incremental updates support. No historical/full-text search.'}
+                'planned_roots':window,'requested_root_limit':requested,'processed_roots':len(processed),
+                'coverage': f'Official Firebase v0 {", ".join(feeds)}: checked {len(processed)} of {min(window,len(ids[offset:]))} planned story IDs (requested maximum {requested}). Bounded by measured latency and {max_requests} requests. No historical/full-text search.'}
 
 def catalog(c=None):
     from app.intent_radar.connectors import catalog as describe

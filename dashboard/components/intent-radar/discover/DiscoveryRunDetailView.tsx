@@ -60,7 +60,7 @@ export function DiscoveryRunDetailView({ id }: { id: string }) {
   const router=useRouter();
   const access = useRadarCapabilities();
   const mutation = useRadarMutation();
-  const query = useRadarRead<DiscoveryRun>(`/discoveries/${id}`);
+  const query = useRadarRead<DiscoveryRun>(`/discoveries/${id}`,true,true);
   const icps = useRadarRead<{ items: { id: string; name: string }[] }>("/icps");
 
   const [configOpen, setConfigOpen] = useState(false);
@@ -271,7 +271,7 @@ export function DiscoveryRunDetailView({ id }: { id: string }) {
         </div>
 
         {/* Grouped Compact Actions */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex max-w-full min-w-0 flex-wrap items-center gap-2">
           {access.data?.can_write && (
             <Button size="sm" disabled={mutation.isPending} onClick={() => void rerunAsNew()} className="gap-1.5 text-xs">
               {mutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}

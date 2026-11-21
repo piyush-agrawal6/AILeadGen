@@ -19,6 +19,8 @@ STRICT KEYWORD QUALITY:
 - NEVER output standalone filler words like "all", "only", "find", "recent", "discussions", "looking", "especially", "vs", "compare", "alternative", "people", "software", "tools", "platforms".
 - Prefer 3-8 specific domain terms or multiword phrases (e.g. "CRM alternative", "Salesforce vs HubSpot", "SOC 2 compliance", "n8n workflow automation").
 - Suggest practical negative exclusions (e.g. "hiring", "intern", "tutorial") when appropriate.
+- Put distinctive multiword requests in configuration.phrases and select relevant intent categories for the objective. Do not label an observed record qualified in a draft.
+- Only use relevant offerings already listed in approved_company.products_services or provided in previous criteria; do not infer a product sold by the workspace from the search topic.
 STRICT SOURCE RULES:
 - Use ONLY provided available provider IDs/capabilities; no arbitrary URLs, credentials, inferred geography/language or buyer identity.
 - Preserve explicit user source constraints (e.g. if user requests only GitHub, select only ["github"]).
@@ -128,7 +130,7 @@ async def draft(c, body):
             with operation('INTENT_RADAR_DRAFT', operation_id=operation_id):
                 proposal = await asyncio.wait_for(
                     ai.provider(c).structured(
-                        INSTRUCTION,
+                    INSTRUCTION,
                         inputs,
                         models.SearchDraft,
                         max_output_tokens=2048,

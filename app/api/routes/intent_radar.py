@@ -58,6 +58,11 @@ def discovery_preflight(body:models.Search,c=Depends(get_db,scope='function')):
         if exc.status_code not in (403,404,409,422):raise
         return {'executable':False,'issue':exc.detail}
     return {'executable':True,'issue':None}
+
+@router.get('/discover/offerings')
+def discovery_offerings(c=Depends(get_db,scope='function')):
+    ctx=context(c)
+    return {'items':[r['name'] for r in c.execute('SELECT name FROM organization_services WHERE organization_id=? AND active=1 ORDER BY name LIMIT 20',(ctx.organization_id,)).fetchall()]}
 @router.get('/sources/policies')
 def source_policies(c=Depends(get_db,scope='function')):
     context(c)
