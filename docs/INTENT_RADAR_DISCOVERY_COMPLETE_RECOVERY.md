@@ -1,5 +1,36 @@
 # Discovery recovery — verification record
 
+## Final Discovery-only production release — 2026-11-21
+
+**DEPLOYED:** `01fe746d9976e829456e14c91965f75bd7c26613`. The production-source guard passed, its negative control failed as intended, and [Actions 44891000597](https://github.com/piyush-agrawal6/AILeadGen/actions/runs/44891000597) passed both hosted jobs (1,318 pytest passes, 6 skips, 290 Vitest passes, 47 Playwright passes). Local release matrix: 47/47. No Action Center or Cloudflare feature commit is in this release. The sections below record earlier checkpoints.
+
+| Live component | Independently checked |
+|---|---|
+| Frontend | Vercel `dpl_Hh6VecpenwUvHNEvXqoAdZy4Rdyc`, staged READY with verified manifest; `app.planebyte.com/release.json` returned the exact commit after promotion. |
+| API | `leadengine-api-00210-yif` at 100%; tagged health check and serving health passed. Digest `sha256:48e86f200085bbe4d8cdc6f5aef61c319efd32b56e10326f4f33e804ffc32252`. |
+| Worker | Generation 98; acquisition job generation 53. Both use `sha256:6a28782553d167315b81249fbb7fb06ff92de300c123f62ac5435e8f2167304d`. Cloud Build `c69aaba4-5303-45b6-8680-f2cac02faf65` succeeded with exact `_SOURCE_REV`. |
+| DB and rollback | Fresh backup `discovery-01fe746d99-20261121T094519Z` restored and structurally verified. Schema **1012**, zero migrations needed. Previous compatible targets: API `00208-vox`, worker digest `sha256:2300fe4f6aa0d7752452164cd3f502443c0a665585e0ce9bc858ce9b18769958`, Vercel `dpl_C8GfhmutPLanSYynpGFfve3dZAxM`. Roll back code/alias only. |
+| Access | Signed-in browser requests correlated on the live API revision: Discovery history and approved offerings **200**. Unsigned history **401**. Complimentary owner expiry still **2026-11-28 06:30:36 UTC**. No owner-workspace smoke search was submitted after cutover. |
+
+**Architecture measurements.** Read-only execution `leadengine-worker-dm7sm` in the serving region: 5 Neon `SELECT 1` round trips 60.5–61.6 ms; full permission checks 1.29–1.67 s; official HN 3 roots/4 requests in 7.61 s. The candidate plans its bounded story window using the measured authorization/network cost and requested comment depth, reports the planned window in coverage, retains all authorization checks and reports interruptions as partial. The results page refreshes active runs until terminal. The semantic configuration includes a selector for the workspace's recorded offerings.
+
+**Real sources, release image on Cloud Run → isolated Neon QA database**, one seven-source job: **COMPLETED in 71.82 s**. No synthetic provider responses. Figures below are processed records/API requests and source-phase duration, not the number of qualified buyers:
+
+| Source | Acceptance outcome | Scanned / requests | Source duration |
+|---|---|---:|---:|
+| Hacker News | Working, bounded feed sample | 1 / 2 | 3.66 s |
+| Stack Exchange | Working, approved site | 1 / 1 | 6.43 s |
+| GitHub | Working public issue search, verified zero results | 0 / 1 | 9.65 s |
+| YouTube | Working search and batched metadata; no derived AI approval or comments claimed | 5 / 2 | 14.47 s |
+| Bluesky | Working public search | 7 / 1 | 7.84 s |
+| Atom | Working explicitly approved feed | 10 / 1 | 5.50 s |
+| Discourse | Working explicitly approved feed | 30 / 1 | 6.51 s |
+| Generic RSS/Atom | Unconfigured for owner; no independent feed approval | — | — |
+
+**AI and resilience.** Two successful uncached real drafts: founders/CRM cost and complexity (12.35 s, five specific keywords, four phrases, three categories); security managers/SOC 2, explicitly selecting the QA workspace's offering (12.88 s, five keywords, three phrases, four categories and the exact offering). Both returned empty optional exclusions in these Cloud Run examples; the earlier CRM draft returned four exclusions. A separate SOC 2 attempt was rejected with provider `ValidationError` and returned labeled manual fallback (9.40 s); no automatic re-spend. The approved SOC 2 setup executed to completion in **22.50 s**, HN 16 scanned/20 requests. A controlled actual subprocess kill after the first source checkpoint proved active-lease dedupe, expired-lease recovery at attempt 2, two terminal source rows and unchanged successful-source measurements/IDs. Disposable Cloud Run job and uniquely identified synthetic Neon database removed. No customer database records were removed.
+
+**Browser/UI.** Dedicated Playwright journey creates and runs through the actual API, checks persisted criteria and scanned counts on reload, and captures 1440/1024/768/390/320 widths. The browser source fixture is isolated; the live-provider runs above are a separate proof. Mobile screenshot inspection exposed clipped chat/toolbar controls. Fixed the container width, compact mobile search, wrapping suggestions and results actions, then reran the matrix. Source history/usage on the paying workspace must still be distinguished from synthetic QA counters. The remaining owner-visible write smoke is to run one bounded HN discovery in the live builder; no new login secret, payment, or grant is required. Generic RSS requires an approved third feed family only if desired. External integration acceptance remains separate.
+
 **Production hold.** Recovery branch `fix/discovery-recovery-20261121` starts at the live `a21ec49` baseline, schema 1012. The separate Action Center/Cloudflare implementation and evidence remain on `feature/radar-actions-integrations-20261121` (`7f8b831`). No Discovery migration or production data correction was applied.
 
 ## Request lifecycle and findings
