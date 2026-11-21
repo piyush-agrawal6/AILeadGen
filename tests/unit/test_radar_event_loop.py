@@ -96,7 +96,7 @@ def test_revoked_dispatch_candidate_does_not_starve_other_workspaces(monkeypatch
     from app.intelligence import dispatch
     from app.config.settings import get_settings
     monkeypatch.setattr(get_settings(),'intent_radar_stage','Beta')
-    monkeypatch.setattr(get_settings(),'billing_enabled',False);monkeypatch.setattr(get_settings(),'payu_billing_enabled',False)
+    monkeypatch.setattr(get_settings(),'billing_enabled',False)
     monkeypatch.setattr(schedules,'_prepare_tick',lambda:[{'id':'revoked'},{'id':'authorized'}])
     def verified(item):
         if item['id']=='revoked':raise HTTPException(403,'Membership revoked')

@@ -71,7 +71,7 @@ def reserve(tokens=60000,*,operation_id=None):
     from app.platform.ai_usage import reserve as shared_reserve
     try:shared_reserve('INTENT_ANALYSIS',s.intent_radar_ai_daily_calls,50,'Intent analysis')
     except BaseException:
-        if s.payu_billing_enabled or s.heysow_access_periods_enabled:
+        if s.subscription_onboarding_required or s.heysow_access_periods_enabled:
             from app.billing.ai_accounting import finalize_operation
             with db_session() as c:finalize_operation(c,operation_id)
         raise

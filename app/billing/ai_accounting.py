@@ -39,7 +39,7 @@ def finalize_operation(c,operation_id):
 
 @contextmanager
 def operation(operation_id):
-    scope=Scope(operation_id) if operation_id and (get_settings().payu_billing_enabled or access_periods.enabled()) else None
+    scope=Scope(operation_id) if operation_id and (get_settings().subscription_onboarding_required or access_periods.enabled()) else None
     token=_scope.set(scope)
     try:yield
     finally:

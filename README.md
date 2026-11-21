@@ -1,21 +1,6 @@
-# PlaneByte Lead Engine
+# PlaneByte Intent Radar
 
-A workspace-based B2B prospecting application for discovering companies, reviewing public business information, managing campaigns and preparing customer-owned outreach.
-
-Current flow:
-
-```text
-Discovery providers / reviewed CSV, XLSX or Sheets import
-→ normalization and canonical-company deduplication
-→ bounded public company crawling and contact extraction
-→ company / ICP qualification
-→ campaign and Master Leads
-→ workspace email template → exact preview → guarded outreach
-```
-
-Website crawling supports company context and contacts. It does not run SEO/AEO/GEO assessments, Lighthouse, performance scoring, vulnerability testing or VAPT. Opportunity thresholds and audit PDFs are not qualification or outreach requirements. Contact availability and email send eligibility remain separate from company qualification.
-
-See [prospecting separation and verification](docs/PLANEBYTE_PROSPECTING_SEPARATION.md), [engineering standards](docs/ENGINEERING_STANDARDS_AUDIT.md), [multi-tenancy](docs/MULTI_TENANCY.md) and [module architecture](docs/MODULE_ARCHITECTURE.md). The [legacy engine reference](docs/LEGACY_ENGINE_REFERENCE.md) is historical documentation, not a list of enabled features.
+PlaneByte helps workspaces discover and review public buying signals. The product includes company setup, ICPs, Discovery, monitoring, research, reports and controlled integrations. Creem is the commercial subscription provider. Shared billing is explicit; membership in a workspace is not an entitlement to another account. See [cleanup scope and verification](docs/REPOSITORY_CLEANUP_REPORT.md).
 
 ## Safe local preview
 
@@ -34,4 +19,6 @@ The modular backend uses PostgreSQL in production and isolated SQLite/PostgreSQL
 
 Backend: `.venv/bin/python -m pytest tests`. Frontend: `npm test`, `npm run typecheck`, build and the isolated Playwright configurations in `dashboard/`. Provider tests and live email acceptance are opt-in; ordinary tests must not contact prospects. Exact commands, logs, limits and latest outcomes are recorded in the separation report.
 
-No production deployment, infrastructure changes, data reset or real outreach is part of this cleanup.
+## Build and deployment
+
+Use Python 3.12 with `requirements.lock`. The ASGI entry point is `app.api.server:app`, and Cloud Run jobs use `python -m app.worker`. Production uses the `intent-radar-v1` PostgreSQL lineage; do not bootstrap production from the local preview. The dashboard build uses Node 24 and its checked-in npm lockfile. Follow the [guarded integration and packaging process](docs/PLANEBYTE_PRODUCTION_INTEGRATION.md), including the negative source control, tested backup restore and schema-compatible rollback. A feature branch test result alone is not release authorization.

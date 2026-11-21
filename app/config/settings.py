@@ -56,7 +56,7 @@ class ExportConfig(BaseModel):
 class Settings(BaseSettings):
     # Billing is additive and sandbox-only. Public checkout is fail-closed.
     billing_enabled:bool=False
-    billing_provider:Literal['creem','razorpay','payu']='creem'
+    billing_provider:Literal['creem','razorpay']='creem'
     billing_test_mode:bool=True
     billing_public_checkout_enabled:bool=False
     billing_test_workspaces:str=''
@@ -68,14 +68,6 @@ class Settings(BaseSettings):
     razorpay_test_plan_id_starter:str=''
     razorpay_test_plan_id_growth:str=''
     razorpay_test_plan_id_scale:str=''
-    # Hosted PayU credentials remain server-only. Configuring keys does not
-    # authorize charges, establish recurring capability, or select a currency.
-    payu_billing_enabled:bool=False
-    payu_mode:Literal['test','live']='test'
-    payu_merchant_key:str=Field('',repr=False)
-    payu_merchant_salt:SecretStr=SecretStr('')
-    lead_engine_public_enabled:bool=False
-    # Reversible product availability, independent of preserved paid/manual grants.
     lead_engine_available:bool=False
 
     intent_radar_stage:Literal['Disabled','Internal Preview','Beta']=Field('Disabled',alias='INTENT_RADAR_STAGE')
@@ -210,7 +202,6 @@ class Settings(BaseSettings):
     resend_api_key:SecretStr=Field(SecretStr(''),alias='RESEND_API_KEY',repr=False,exclude=True)
     resend_from_email:str=Field('',max_length=254,alias='RESEND_FROM_EMAIL')
     resend_webhook_secret:SecretStr=Field(SecretStr(''),alias='RESEND_WEBHOOK_SECRET',repr=False,exclude=True)
-    fixed_term_billing_enabled:bool=Field(False,alias='FIXED_TERM_BILLING_ENABLED')
     creem_api_key:SecretStr=Field(SecretStr(''),alias='CREEM_API_KEY',repr=False,exclude=True)
     creem_test_api_key:SecretStr=Field(SecretStr(''),alias='CREEM_TEST_API_KEY',repr=False,exclude=True)
     creem_webhook_secret:SecretStr=Field(SecretStr(''),alias='CREEM_WEBHOOK_SECRET',repr=False,exclude=True)
@@ -232,13 +223,6 @@ class Settings(BaseSettings):
     internal_testing_monitor_executions_limit:int=Field(20,ge=0,le=100,alias='INTERNAL_TESTING_MONITOR_EXECUTIONS_LIMIT')
     internal_testing_reports_limit:int=Field(10,ge=0,le=50,alias='INTERNAL_TESTING_REPORTS_LIMIT')
     internal_testing_api_requests_limit:int=Field(200,ge=0,le=1000,alias='INTERNAL_TESTING_API_REQUESTS_LIMIT')
-    payu_one_time_checkout_enabled:bool=Field(False,alias='PAYU_ONE_TIME_CHECKOUT_ENABLED')
-    payu_charge_currency:str=Field('',pattern=r'^(|USD|INR)$',alias='PAYU_CHARGE_CURRENCY')
-    payu_merchant_capabilities_json:str=Field('{}',alias='PAYU_MERCHANT_CAPABILITIES_JSON')
-    payu_currency_approved:bool=Field(False,alias='PAYU_CURRENCY_APPROVED')
-    payu_tax_policy_json:str=Field('{}',alias='PAYU_TAX_POLICY_JSON')
-    payu_inr_prices_json:str=Field('{}',alias='PAYU_INR_PRICES_JSON')
-    payu_yearly_prices_json:str=Field('{}',alias='PAYU_YEARLY_PRICES_JSON')
     billing_terms_version:str=Field('',max_length=100,alias='BILLING_TERMS_VERSION')
     heysow_public_registration_enabled:bool=Field(False,alias='HEYSOW_PUBLIC_REGISTRATION_ENABLED')
     heysow_invited_registration_enabled:bool=Field(False,alias='HEYSOW_INVITED_REGISTRATION_ENABLED')

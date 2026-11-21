@@ -274,10 +274,3 @@ def test_clean_radar_review_dispatch_and_dataset_matrix(clean_radar,monkeypatch)
 def test_clean_dashboard_summary_and_retention(clean_radar,monkeypatch):
     from test_growth_postgres import test_postgres_overview_summary_matches_scoped_counts_and_retention as check
     check(clean_radar,monkeypatch)
-
-
-def test_clean_fixed_term_payment_race_and_refund_records(clean,monkeypatch):
-    from test_customer_accounts_postgres import test_postgres_fixed_term_fulfillment_race_and_refund_preserves_history as check
-    s=clean[1]
-    monkeypatch.setattr(s,'payu_merchant_capabilities_json',s.payu_merchant_capabilities_json)
-    check(clean[0],monkeypatch)

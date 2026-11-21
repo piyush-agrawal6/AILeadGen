@@ -203,7 +203,7 @@ def authenticate(c,authorization,*,consume=True):
     with workspace_scope(c,row['created_by'],row['organization_id']):
         operation_id=str(uuid.uuid4())
         reserve(c,{'api_requests':1},operation_id)
-        if get_settings().payu_billing_enabled or get_settings().heysow_access_periods_enabled:
+        if get_settings().subscription_onboarding_required or get_settings().heysow_access_periods_enabled:
             from app.billing.commercial_usage import settle
             settle(c,operation_id)
     c.execute('DELETE FROM developer_request_windows WHERE window_start<?',(window-10,));c.execute('UPDATE workspace_api_keys SET last_used_at=? WHERE id=? AND revoked_at IS NULL',(now(),key))

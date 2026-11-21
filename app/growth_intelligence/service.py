@@ -170,7 +170,7 @@ async def process(c,key,job_id,lease):
 def release_unfinished_report(c,key):
     """Known failed/cancelled work only; never release an uncertain AI attempt."""
     from app.config.settings import get_settings
-    if not (get_settings().payu_billing_enabled or get_settings().heysow_access_periods_enabled):return
+    if not (get_settings().subscription_onboarding_required or get_settings().heysow_access_periods_enabled):return
     row=owned(c,key);body=json.loads(row['scope_json'])
     if body['kind']!='REPORT' or row['status']=='COMPLETE':return
     from app.billing.ai_accounting import finalize_operation

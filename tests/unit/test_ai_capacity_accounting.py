@@ -19,7 +19,7 @@ def provider(c,transport):
 def valid(_):
     return httpx.Response(200,json={'usageMetadata':{'promptTokenCount':100,'candidatesTokenCount':20,'thoughtsTokenCount':5},'candidates':[{'finishReason':'STOP','content':{'parts':[{'text':'{"answer":"valid"}'}]}}]})
 
-def totals(c):return {r['dimension']:(r['reserved'],r['used']) for r in c.execute('SELECT * FROM commercial_usage')}
+def totals(c):return {r['dimension']:(r['reserved'],r['used']) for r in c.execute('SELECT * FROM subscription_usage')}
 
 def invoke(c,p,key):
     usage.reserve(c,{'ai_calls':1},key);c.commit()
@@ -34,7 +34,7 @@ def test_success_refunds_unused_tokens_and_idempotent_operation_is_one_call(paid
         assert totals(c)=={'ai_calls':(0,1),'ai_tokens':(0,125)}
         assert invoke(c,p,'one-logical-operation').answer=='valid'
         assert totals(c)=={'ai_calls':(0,1),'ai_tokens':(0,250)}
-        assert c.execute("SELECT COUNT(*) FROM commercial_reservations WHERE dimension='ai_tokens'").fetchone()[0]==2
+        assert c.execute("SELECT COUNT(*) FROM subscription_reservations WHERE dimension='ai_tokens'").fetchone()[0]==2
 
 def test_unknown_timeout_holds_capacity_and_worker_retry_reserves_more(paid):
     c,_,org,*_=paid
@@ -43,7 +43,7 @@ def test_unknown_timeout_holds_capacity_and_worker_retry_reserves_more(paid):
         p=provider(c,timeout)
         for _ in range(2):
             with pytest.raises(AiTransportError):invoke(c,p,'recovered-job')
-        rows=c.execute("SELECT * FROM commercial_reservations WHERE dimension='ai_tokens'").fetchall()
+        rows=c.execute("SELECT * FROM subscription_reservations WHERE dimension='ai_tokens'").fetchall()
         assert len(rows)==2 and all(r['state']=='RESERVED' for r in rows)
         assert totals(c)['ai_tokens']==(sum(r['amount'] for r in rows),0)
         assert totals(c)['ai_calls']==(0,1)

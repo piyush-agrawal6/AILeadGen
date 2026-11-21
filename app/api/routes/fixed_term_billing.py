@@ -12,7 +12,7 @@ def history(c=Depends(get_db,scope='function')):return payment.history(c)
 def quote(plan:str,interval:str='monthly',c=Depends(get_db,scope='function')):
     payment.manager(c);raise HTTPException(410,'New checkout quotes use Creem in Billing & Subscription.')
 @router.post('/organization/billing/access/orders',status_code=201)
-def create(body:payment.Purchase):raise HTTPException(410,'New purchases use Creem. Historical records remain available.')
+def create():raise HTTPException(410,'New purchases use Creem. Historical records remain available.')
 @router.post('/organization/billing/access/orders/{key}/reconcile')
 def reconcile(key:UUID):raise HTTPException(410,'Historical payment reconciliation is available through the protected review workflow.')
 @router.get('/organization/billing/access/orders/{key}/receipt')

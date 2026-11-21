@@ -20,7 +20,7 @@ def eligible_sql(alias,actor=None):
     org=alias+'.organization_id'
     clauses=["EXISTS(SELECT 1 FROM organization_products grant_row WHERE grant_row.organization_id="+org+" AND grant_row.product='INTENT_RADAR' AND grant_row.enabled=1)"]
     args=[]
-    if get_settings().billing_enabled or get_settings().payu_billing_enabled:
+    if get_settings().billing_enabled:
         from app.billing.service import eligibility_sql
         paid,values=eligibility_sql(org)
         clauses[0]='('+clauses[0]+' OR '+paid+')';args.extend(values)
@@ -147,7 +147,7 @@ def _record_tick(count):
 
 
 async def tick():
-    if get_settings().billing_enabled or get_settings().payu_billing_enabled:
+    if get_settings().billing_enabled:
         from app.billing.webhooks import tick as billing_tick
         await asyncio.to_thread(billing_tick,2)
     if get_settings().intent_radar_stage=='Disabled':return

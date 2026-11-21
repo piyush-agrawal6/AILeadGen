@@ -9,7 +9,6 @@ lxml>=5.1.0
 dnspython>=2.9.2
 pydantic>=2.7.0
 pydantic-settings>=2.2.0
-typer[all]>=0.12.3
 rich>=13.7.1
 tenacity>=8.3.0
 rapidfuzz>=3.8.1

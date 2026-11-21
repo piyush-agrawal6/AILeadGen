@@ -18,8 +18,6 @@ def prepare(notification_id=None):
     claimed=[]
     with db_session() as c:
         security.lock(c,'transactional-dispatch')
-        from app.billing.fixed_term import expiry_notices
-        if not notification_id:expiry_notices(c,2)
         c.execute("UPDATE transactional_notifications SET status='CANCELLED',payload_encrypted=NULL,execution_name=NULL,lease_token=NULL,lease_until=NULL,updated_at=? WHERE status IN ('QUEUED','SENDING') AND expires_at<=?",(now(),stamp))
         # An uncertain provider response retains its immutable payload/key for
         # retry. A stale cloud launch is not proof a message was delivered.

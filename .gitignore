@@ -58,3 +58,6 @@ deploy/*-validation.zip
 /.venv
 .vercel
 .env*
+
+# Generated report QA renders (review evidence is retained separately).
+/tmp/pdfs/

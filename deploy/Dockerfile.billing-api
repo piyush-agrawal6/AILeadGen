@@ -2,9 +2,12 @@ FROM asia-south1-docker.pkg.dev/querryside/leadengine/api@sha256:d40e4e54263bc9d
 ARG SOURCE_REV
 LABEL org.opencontainers.image.revision=$SOURCE_REV
 USER root
+# Overlay builds inherit deleted files from the previous runtime unless explicitly removed.
+RUN rm -rf /opt/leadengine/app/cli && rm -f /opt/leadengine/lead_engine.py /opt/leadengine/app/billing/payu.py /opt/leadengine/app/billing/payu_v2.py /opt/leadengine/scripts/install_payu_server_secrets.py /opt/leadengine/scripts/probe_payu_verification.py
 COPY requirements.lock /opt/leadengine/requirements.lock
 RUN grep -E '^(dnspython|opentelemetry-api|pyasn1|pypdf|soupsieve)==' /opt/leadengine/requirements.lock >/tmp/security.lock && test "$(wc -l </tmp/security.lock)" -eq 5 && python -m pip install --no-deps --only-binary=:all: --no-cache-dir -r /tmp/security.lock && rm /tmp/security.lock
 USER 10001:10001
 COPY --chown=10001:10001 app /opt/leadengine/app
 COPY --chown=10001:10001 scripts /opt/leadengine/scripts
 RUN python -c "import jwt, websockets, openpyxl, reportlab; from app.database.migrations import MIGRATIONS; from app.database.intent_profile import migrations; assert len(MIGRATIONS) == 59 and migrations()[-1][0] == 1017"
+RUN python -c "from importlib.util import find_spec; assert all(find_spec(m) is None for m in ('app.billing.payu', 'app.billing.payu_v2', 'app.cli'))"

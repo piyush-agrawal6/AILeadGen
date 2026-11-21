@@ -1230,10 +1230,8 @@ def test_commercial_monthly_atomicity_and_retry_under_postgres(postgres,monkeypa
     from app.database.prospects import now
     c=postgres;run_migrations(c);org=PLANEBYTE_ORGANIZATION_ID
     owner=c.execute('SELECT created_by_user_id FROM organizations WHERE id=?',(org,)).fetchone()[0]
-    settings=get_settings();monkeypatch.setattr(settings,'payu_billing_enabled',True);monkeypatch.setattr(settings,'payu_mode','test');monkeypatch.setattr(settings,'billing_test_workspaces',org)
-    key=str(uuid.uuid4());start=int(time.time())-60;end=start+3600;stamp=now();plan=commercial.plan('starter')
-    c.execute("INSERT INTO commercial_contracts(id,organization_id,provider,mode,provider_subscription_id,plan_code,catalog_version,plan_json,status,mandate_verified,paid_start,paid_end,verified_at,created_at,updated_at) VALUES(?,?,'payu','test',?,'starter',?,?,'ACTIVE',1,?,?,?,?,?)",(key,org,'pg-synthetic-'+key,commercial.catalog()['version'],json.dumps(plan),start,end,stamp,stamp,stamp))
-    c.execute("INSERT INTO commercial_workspace_slots(organization_id,mode,contract_id) VALUES(?,'test',?)",(org,key));c.commit()
+    from tests.creem_quota_fixture import seed
+    settings=get_settings();seed(c,org,owner,monkeypatch)
     barrier=threading.Barrier(2)
     def spend(operation,amount):
         conn=PostgresConnection(settings.database_url,schema=c.schema)
@@ -1249,8 +1247,8 @@ def test_commercial_monthly_atomicity_and_retry_under_postgres(postgres,monkeypa
     assert sorted(results)==['QUOTA','RESERVED']
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda _:spend('same-retry',1),range(2)))
     assert results==['RESERVED','RESERVED']
-    assert c.execute("SELECT reserved FROM commercial_usage WHERE organization_id=? AND dimension='searches'",(org,)).fetchone()[0]==61
-    assert c.execute('SELECT COUNT(*) FROM commercial_reservations WHERE organization_id=?',(org,)).fetchone()[0]==2
+    assert c.execute("SELECT reserved FROM subscription_usage WHERE organization_id=? AND dimension='searches'",(org,)).fetchone()[0]==61
+    assert c.execute('SELECT COUNT(*) FROM subscription_reservations WHERE organization_id=?',(org,)).fetchone()[0]==2
 
 
 def test_commercial_upgrade_preserves_existing_postgres_rows_and_billing_history(postgres,monkeypatch):

@@ -4,7 +4,7 @@ os.environ["APP_ENV"] = "test"
 # Explicit fixture identity keeps migration ownership and the HTTP test actor
 # identical, including checkouts that have no owner .env file.
 os.environ["ALLOWED_USER_EMAILS"] = "fixture-owner@example.test"
-for _flag in ("HEYSOW_ACCOUNTS_ENABLED","HEYSOW_ACCESS_PERIODS_ENABLED","FIXED_TERM_BILLING_ENABLED","PAYU_ONE_TIME_CHECKOUT_ENABLED","TRANSACTIONAL_MAIL_ENABLED"):
+for _flag in ("HEYSOW_ACCOUNTS_ENABLED","HEYSOW_ACCESS_PERIODS_ENABLED","TRANSACTIONAL_MAIL_ENABLED"):
     os.environ[_flag]="false"
 for _secret in ("RESEND_API_KEY","RESEND_WEBHOOK_SECRET"):
     os.environ[_secret]=""

@@ -12,7 +12,7 @@ from app.developer.keys import lock
 
 def reserve(c,amounts,operation_id):
     from app.config.settings import get_settings
-    if not (get_settings().payu_billing_enabled or access_periods.enabled() or get_settings().subscription_onboarding_required):return False
+    if not (access_periods.enabled() or get_settings().subscription_onboarding_required):return False
     org=contracts.verified_workspace(c)
     if not isinstance(operation_id,str) or not 1<=len(operation_id)<=200 or not amounts or any(type(v) is not int or v<=0 for v in amounts.values()):
         raise ValueError('A stable bounded operation reservation is required.')

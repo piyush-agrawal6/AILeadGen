@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "leadengine"
 version = "0.1.0"
-description = "Internal zero-cost B2B lead discovery and qualification engine"
+description = "PlaneByte Intent Radar backend"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -19,7 +19,6 @@ dependencies = [
     "dnspython>=2.6.1",
     "pydantic>=2.7.0",
     "pydantic-settings>=2.2.0",
-    "typer[all]>=0.12.3",
     "rich>=13.7.1",
     "tenacity>=8.3.0",
     "rapidfuzz>=3.8.1",
@@ -40,9 +39,6 @@ dependencies = [
     "reportlab==5.1.0",
     "pypdf==6.21.2",
 ]
-
-[project.scripts]
-leadengine = "app.cli.commands:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

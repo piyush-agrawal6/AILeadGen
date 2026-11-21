@@ -104,7 +104,7 @@ def active(c,org):
  row=c.execute('''SELECT p.* FROM subscription_contracts p JOIN subscription_workspace_slots w
   ON w.organization_id=p.organization_id AND w.contract_id=p.id AND w.environment=p.environment
   WHERE p.organization_id=? AND p.environment=?''',(org,environment)).fetchone()
- if not row or not row['verified_at'] or not row['period_start'] or not row['period_end'] or not row['period_start']<=stamp<row['period_end']:return None
+ if not row or row['provider']!='creem' or not row['verified_at'] or not row['period_start'] or not row['period_end'] or not row['period_start']<=stamp<row['period_end']:return None
  if row['status'] not in ('active','trialing','scheduled_cancel','canceled'):return None
  saved=json.loads(row['plan_json']);trial=is_trial_contract(row);label=entitlement_label(row)
  if row['status']=='canceled' and not row['cancel_confirmed_at']:return None
@@ -113,7 +113,7 @@ def active(c,org):
   claim=c.execute('SELECT * FROM subscription_trials WHERE organization_id=? AND contract_id=?',(org,row['id'])).fetchone()
   if not claim or claim['policy_version']!=POLICY or claim['ends_at']-claim['starts_at']!=TRIAL_SECONDS or claim['starts_at']!=row['period_start'] or claim['ends_at']!=row['period_end']:return None
   saved={**saved,'name':label,'limits':TRIAL_LIMITS,'trial_policy':POLICY}
- elif not c.execute("SELECT 1 FROM subscription_payments WHERE organization_id=? AND contract_id=? AND status='paid' AND period_start=? AND period_end=?",(org,row['id'],row['period_start'],row['period_end'])).fetchone():return None
+ elif not c.execute("SELECT 1 FROM subscription_payments WHERE provider='creem' AND environment=? AND organization_id=? AND contract_id=? AND status='paid' AND period_start=? AND period_end=?",(environment,org,row['id'],row['period_start'],row['period_end'])).fetchone():return None
  else:
   saved={**saved,'name':label}
  base_limits=dict(saved['limits'])
@@ -128,10 +128,6 @@ def active(c,org):
 def product_grant(c,org,*,include_development=True):
  value=active(c,org)
  if value:return value
- # A genuinely verified existing PayU one-time purchase is an allowed paid path.
- from app.billing.access_periods import active as legacy
- value=legacy(c,org)
- if value and value['source_kind']=='PAYMENT':return value
  if include_development and enabled():
   from app.billing.owner_starter import active as development
   from app.billing.accounts import anchor
@@ -154,7 +150,7 @@ def scheduled_sql(org):
  s=get_settings();mode=s.creem_environment;stamp=int(time.time());approved=[v.strip() for v in s.billing_test_workspaces.split(',') if v.strip()][:100]
  restriction=''
  if mode=='test':restriction=' AND p.organization_id IN ('+','.join('?' for _ in approved)+')' if approved else ' AND 0=1'
- sql="EXISTS(SELECT 1 FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.organization_id=p.organization_id AND w.contract_id=p.id AND w.environment=p.environment JOIN subscription_payments t ON t.organization_id=p.organization_id AND t.contract_id=p.id AND t.period_start=p.period_start AND t.period_end=p.period_end WHERE p.organization_id="+org+" AND p.environment=? AND p.status IN ('active','scheduled_cancel','canceled') AND p.verified_at IS NOT NULL AND (p.recurring_authorized=1 OR p.cancel_confirmed_at IS NOT NULL) AND p.period_start<=? AND p.period_end>? AND t.status='paid'"+restriction+')'
+ sql="EXISTS(SELECT 1 FROM subscription_contracts p JOIN subscription_workspace_slots w ON w.organization_id=p.organization_id AND w.contract_id=p.id AND w.environment=p.environment JOIN subscription_payments t ON t.organization_id=p.organization_id AND t.contract_id=p.id AND t.period_start=p.period_start AND t.period_end=p.period_end WHERE p.provider='creem' AND t.provider='creem' AND t.environment=p.environment AND p.organization_id="+org+" AND p.environment=? AND p.status IN ('active','scheduled_cancel','canceled') AND p.verified_at IS NOT NULL AND (p.recurring_authorized=1 OR p.cancel_confirmed_at IS NOT NULL) AND p.period_start<=? AND p.period_end>? AND t.status='paid'"+restriction+')'
  args=[mode,stamp,stamp,*(approved if mode=='test' else [])]
  if mode=='test' and approved and origin!=org:
   sql='('+sql+' AND '+origin+' IN ('+','.join('?' for _ in approved)+'))';args.extend(approved)

@@ -38,7 +38,7 @@ def create(c, body, *, scheduled=False):
         from app.billing.access_periods import managed
         reserve(c,{'searches':1,**({'monitor_executions':1} if body.monitor_id and (scheduled or not managed(c,ctx.organization_id)) else {})},key)
         from app.billing.commercial_usage import settle
-        if get_settings().payu_billing_enabled or get_settings().heysow_access_periods_enabled:settle(c,key)
+        if get_settings().subscription_onboarding_required or get_settings().heysow_access_periods_enabled:settle(c,key)
         c.execute('INSERT INTO intent_discoveries(id,organization_id,created_by,monitor_id,monitor_revision,configuration_json,created_at) VALUES(?,?,?,?,?,?,?)',(key,ctx.organization_id,ctx.actor,str(body.monitor_id) if body.monitor_id else None,monitor['revision'] if body.monitor_id else None,encoded,now()))
         from app.intent_radar import discovery_workspace
         discovery_workspace.record_run_metadata(

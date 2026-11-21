@@ -31,7 +31,6 @@ def active(c, org):
         return None
     s = get_settings()
     stamp = int(time.time())
-    approved = {x.strip() for x in s.billing_test_workspaces.split(',') if x.strip()}
     rows = c.execute("""SELECT p.* FROM access_periods p
         WHERE p.organization_id=? AND p.status='ACTIVE' AND p.verified_at IS NOT NULL
         AND p.paid_start<=? AND p.paid_end>? ORDER BY p.paid_start,p.id LIMIT 2""", (org, stamp, stamp)).fetchall()
@@ -47,11 +46,7 @@ def active(c, org):
         if not claim or row['mode'] != 'trial' or row['plan_code'] != 'trial' or saved.get('limits') != POLICY['limits'] or saved.get('version') != claim['policy_version'] or row['paid_end'] - row['paid_start'] != POLICY['duration_days'] * 86400:
             raise HTTPException(503, 'The saved trial policy requires administrator review.')
     else:
-        order = c.execute("SELECT * FROM payu_access_orders WHERE id=? AND organization_id=? AND status='PAID' AND verified_at IS NOT NULL AND provider_payment_id IS NOT NULL", (row['source_id'], org)).fetchone()
-        if not order or row['mode'] != s.payu_mode or row['mode'] == 'test' and org not in approved:
-            return None
-        if any(row[k] != order[k] for k in ('mode', 'plan_code', 'plan_json')) or row['paid_start'] != order['period_start'] or row['paid_end'] != order['period_end'] or not order['verified_json']:
-            raise HTTPException(503, 'Verified payment access requires administrator review.')
+        return None  # Historical orders are readable, never a commercial grant.
     from app.billing.contracts import snapshot
     snapshot(row)
     # Compatibility for existing customer usage summaries; snapshots stay fixed.
@@ -104,11 +99,8 @@ def scheduled_sql(org):
         raise ValueError('Internal scheduler alias required.')
     if not enabled():
         return '1=1', []
-    s = get_settings(); stamp = int(time.time())
-    approved = [x.strip() for x in s.billing_test_workspaces.split(',') if x.strip()][:100]
-    restriction = '' if s.payu_mode == 'live' else ' AND p.organization_id IN (' + ','.join('?' for _ in approved) + ')' if approved else ' AND 0=1'
-    sql = "(NOT EXISTS(SELECT 1 FROM customer_workspace_access w WHERE w.organization_id=" + org + ") OR EXISTS(SELECT 1 FROM access_periods p JOIN payu_access_orders o ON o.id=p.source_id AND o.organization_id=p.organization_id AND o.mode=p.mode WHERE p.organization_id=" + org + " AND p.source_kind='PAYMENT' AND p.status='ACTIVE' AND o.status='PAID' AND o.verified_at IS NOT NULL AND o.provider_payment_id IS NOT NULL AND p.mode=? AND p.paid_start<=? AND p.paid_end>?" + restriction + '))'
-    args=[s.payu_mode, stamp, stamp, *(approved if s.payu_mode == 'test' else [])]
+    s=get_settings()
+    sql='NOT EXISTS(SELECT 1 FROM customer_workspace_access w WHERE w.organization_id='+org+')';args=[]
     if s.subscription_onboarding_required:
         from app.billing.subscription_access import scheduled_sql as recurring
         extra,values=recurring(org)
