@@ -1,0 +1,19 @@
+{
+  "project": "querryside",
+  "region": "asia-south1",
+  "required_schema_before_promotion": 1012,
+  "restricted_release_defaults": {
+    "RADAR_GOOGLE_SHEETS_REDIRECT_URI": "https://app.planebyte.com/intent-radar/integrations/sheets/callback",
+    "RADAR_SHEETS_WORKSPACES": "",
+    "RADAR_WEBHOOK_EVENTS_ENABLED": "false",
+    "RADAR_WEBHOOK_WORKSPACES": ""
+  },
+  "dispatcher": {
+    "name": "leadengine-webhooks-dispatch",
+    "target_job": "leadengine-worker",
+    "mode": "webhooks-dispatch",
+    "timezone": "Etc/UTC",
+    "schedule": "*/5 * * * *",
+    "state_before_pilot_approval": "PAUSED"
+  }
+}

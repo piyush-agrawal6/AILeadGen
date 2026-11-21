@@ -221,7 +221,7 @@ export function Header({
         </Link>
 
         {workspaceManagementEnabled && (
-          <div className="hidden md:block">
+          <div className="min-w-0 max-md:[&_.workspace-trigger-text]:hidden max-md:[&_.workspace-trigger]:w-8 max-md:[&_.workspace-trigger]:min-w-0 max-md:[&_.workspace-trigger]:p-0">
             <WorkspaceSwitcher
               onSelected={(id) => {
                 const target = workspace.data?.items.find((i) => i.organization_id === id);

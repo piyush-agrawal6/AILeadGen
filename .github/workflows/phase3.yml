@@ -49,7 +49,7 @@ jobs:
       - run: .venv/bin/python -m pytest -q
       - run: npm ci
         working-directory: dashboard
-      - run: npm run typecheck && npm run lint && npm test && npm run build
+      - run: npm run typecheck && npm run lint && npm test && HEYSOW_E2E_DIST_DIR=.next-workflow-test npm run build
         working-directory: dashboard
       - run: npx playwright install --with-deps chromium
         working-directory: dashboard
@@ -59,7 +59,7 @@ jobs:
         run: |
           set -eu
           for journey in accounts workspace subscription onboarding destinations; do
-            PLANEBYTE_RELEASE_JOURNEY="$journey" npx playwright test --config=playwright.release.config.ts
+            PLANEBYTE_RELEASE_DIST=.next-workflow-test PLANEBYTE_RELEASE_JOURNEY="$journey" npx playwright test --config=playwright.release.config.ts
           done
         working-directory: dashboard
       - uses: actions/upload-artifact@v4

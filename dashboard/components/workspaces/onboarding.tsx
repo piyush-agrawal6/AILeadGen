@@ -1,6 +1,7 @@
 "use client";
 import Link from 'next/link';
 import {useWorkspaceCapabilities} from './features';
+import {useWorkspace} from './use-workspace';
 import {useState} from 'react';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {request} from '@/lib/intelligence';
@@ -25,7 +26,8 @@ function SetupForm({saved,onSaved,onComplete}:{saved:Progress;onSaved:(value:Pro
  const [draft,setDraft]=useState(saved),[pending,setPending]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[icpPage,setICPPage]=useState(1),[companyDirty,setCompanyDirty]=useState(false),[creatingICP,setCreatingICP]=useState(false);
  const client=useQueryClient();
  const index=steps.indexOf(draft.current_step);
- const company=useQuery({queryKey:['organization-profile'],queryFn:()=>request<CompanyProfile>('/organization/profile'),retry:false});
+ const org=useWorkspace().data?.active_organization_id;
+ const company=useQuery({queryKey:['organization-profile',org||'default'],queryFn:()=>request<CompanyProfile>('/organization/profile'),enabled:!!org,retry:false});
  const profiles=useQuery({queryKey:['setup-icps',icpPage],queryFn:()=>request<{items:ICP[];total:number}>('/organization/icps?status=ACTIVE&page='+icpPage),enabled:draft.current_step==='ICP',retry:false});
  const selected=useQuery({queryKey:['setup-selected-icp',draft.default_icp_id],queryFn:()=>request<ICP>('/organization/icps/'+draft.default_icp_id),enabled:!!draft.default_icp_id,retry:false});
  function preferences(values:Partial<Preferences>){setDraft(previous=>({...previous,preferences:{...previous.preferences,...values}}))}

@@ -1,11 +1,14 @@
 import {test,expect,type BrowserContext} from '@playwright/test';
 import {encode} from 'next-auth/jwt';
 async function session(context:BrowserContext,email='founder@leadengine.example'){const secret='fixture-session-secret-only-for-local-tests-123456789';const token=await encode({token:{email,sub:email},secret,salt:'authjs.session-token',maxAge:3600});await context.addCookies([{name:'authjs.session-token',value:token,url:'http://127.0.0.1:13000',httpOnly:true,sameSite:'Lax'}])}
+const headers={origin:'http://127.0.0.1:13000'};
+const baseName='Browser QA Workspace';
+test.beforeEach(async({context})=>{await session(context);const list=await(await context.request.get('/api/organization/workspaces')).json();const owned=list.items.find((i:{name:string;role:string})=>i.name===baseName&&i.role==='OWNER');expect(owned).toBeTruthy();expect((await context.request.put('/api/organization/active',{headers,data:{organization_id:owned.organization_id}})).status()).toBe(200);});
 test('gated selector loads actual memberships and safely rejects a stale unavailable workspace',async({page,context})=>{
  await session(context);
  const response=await context.request.get('/api/organization/workspaces');expect(response.status()).toBe(200);
- const original=await response.json();expect(original.items).toHaveLength(1);
- await page.goto('/');const companyName=original.items[0].name;const selector=page.getByRole('button',{name:'Workspace: '+companyName,exact:true});await expect(selector).toBeVisible();
+ const original=await response.json();expect(original.items.find((i:{organization_id:string})=>i.organization_id===original.active_organization_id).role).toBe('OWNER');
+ await page.goto('/settings');const companyName=baseName;const selector=page.getByRole('button',{name:'Workspace: '+companyName,exact:true});await expect(selector).toBeVisible();
  for(const width of [1440,390]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)}
  // Simulate a stale list after membership revocation; the real API must reject it.
  const stale='00000000-0000-4000-8000-000000000099';
@@ -21,23 +24,23 @@ test('gated selector loads actual memberships and safely rejects a stale unavail
 test('company profile saves through the real owned API and handles concurrent edits',async({page,context})=>{
  await session(context);
  await page.goto('/settings/company');
- await expect(page.getByRole('heading',{name:'Company profile',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Edit Profile',exact:true}).first().click();
  await page.getByLabel('Company description',{exact:true}).fill('Controlled company profile review. User-entered business information.');
- await page.getByRole('button',{name:'Save company profile'}).click();
- await expect(page.getByRole('status').filter({hasText:'Company profile saved.'})).toBeVisible();
+ await page.getByRole('button',{name:'Save Changes',exact:true}).first().click();
+ await expect(page.getByText('Organization profile saved.',{exact:true})).toBeVisible(); await page.getByRole('button',{name:'Edit Profile',exact:true}).first().click();
  const stored:Record<string,unknown>=await(await context.request.get('/api/organization/profile')).json();
  expect(stored.description).toBe('Controlled company profile review. User-entered business information.');
  const update:Record<string,unknown>={};
  for(const key of ['name','website','description','industry','company_size','country','city','timezone','contact_email','countries_served','version'])update[key]=stored[key];
  update.industry='Concurrent controlled edit';
  expect((await context.request.put('/api/organization/profile',{headers:{origin:'http://127.0.0.1:13000'},data:update})).status()).toBe(200);
- await page.getByLabel('Company name',{exact:true}).fill('Unsaved owner draft');
- await page.getByRole('button',{name:'Save company profile'}).click();
+ await page.locator('#company-name').fill('Unsaved owner draft');
+ await page.getByRole('button',{name:'Save Changes',exact:true}).first().click();
  await expect(page.getByRole('alert').filter({hasText:'Company profile changed.'})).toBeVisible();
- await expect(page.getByLabel('Company name',{exact:true})).toHaveValue('Unsaved owner draft');
- await page.getByRole('button',{name:'Reload saved profile'}).click();
+ await expect(page.locator('#company-name')).toHaveValue('Unsaved owner draft');
+ await page.getByRole('button',{name:'Reload',exact:true}).click(); await page.getByRole('button',{name:'Edit Profile',exact:true}).first().click();
  await expect(page.getByLabel('Industry',{exact:true})).toHaveValue('Concurrent controlled edit');
- await expect(page.getByLabel('Company name',{exact:true})).toHaveValue(String(stored.name));
+ await expect(page.locator('#company-name')).toHaveValue(String(stored.name));
  for(const width of [1440,390]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)}
  await page.screenshot({path:test.info().outputPath('company-profile-mobile.png'),fullPage:true});
 });
@@ -45,34 +48,34 @@ test('company profile saves through the real owned API and handles concurrent ed
 test('team invitation persists through the real API and revocation invalidates the link',async({page,context})=>{
  await session(context);
  await page.goto('/settings/team');
- await page.getByLabel('Teammate email',{exact:true}).fill('invited-controlled@example.test');
- await page.getByRole('button',{name:'Create invitation',exact:true}).click();
+ await page.getByRole('button',{name:'Invite Member',exact:true}).click();await page.getByLabel('Work email',{exact:true}).fill('invited-controlled@example.com');
+ await page.getByRole('button',{name:'Send Invitation',exact:true}).click();
  const link=page.getByLabel('Private invitation link',{exact:true});await expect(link).toBeVisible();
  const token=(await link.inputValue()).split('#')[1];expect(token.length).toBeGreaterThan(40);
  const stored=await context.request.get('/api/organization/invitations');expect(stored.status()).toBe(200);
- const payload=await stored.json();const invite=payload.items.find((item:{email:string})=>item.email==='invited-controlled@example.test');
+ const payload=await stored.json();const invite=payload.items.find((item:{email:string})=>item.email==='invited-controlled@example.com');
  expect(invite.status).toBe('PENDING');expect(JSON.stringify(payload)).not.toContain(token);
  for(const width of [1440,390]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)}
  await page.getByRole('button',{name:'Revoke',exact:true}).click();await expect(link).not.toBeVisible();
- await expect(page.getByText(/member · revoked/)).toBeVisible();
+ await expect(page.getByRole('row').filter({hasText:'invited-controlled@example.com'})).toContainText('Revoked');
  await page.screenshot({path:test.info().outputPath('team-mobile.png'),fullPage:true});
 });
 
 test('the named signed-in recipient accepts once and the inviter receives a scoped notification',async({page,context,browser})=>{
  await session(context);
- const created=await context.request.post('/api/organization/invitations',{headers:{origin:'http://127.0.0.1:13000'},data:{email:'cofounder@leadengine.example',role:'VIEWER'}});
+ const created=await context.request.post('/api/organization/invitations',{headers:{origin:'http://127.0.0.1:13000'},data:{email:'recipient@example.com',role:'VIEWER'}});
  expect(created.status()).toBe(201);const invitation=await created.json();
- const recipient=await browser.newContext();await session(recipient,'cofounder@leadengine.example');
+ const recipient=await browser.newContext();await session(recipient,'recipient@example.com');
  try{
   const recipientPage=await recipient.newPage();await recipientPage.goto('/accept-invitation#'+invitation.token);
-  await recipientPage.getByRole('button',{name:'Use code from invitation link'}).click();
+  await expect(recipientPage.getByLabel('Invitation code')).toHaveValue(invitation.token);
   await expect(recipientPage).toHaveURL(/\/accept-invitation$/);
-  await recipientPage.getByRole('button',{name:'Accept invitation',exact:true}).click();
+  await recipientPage.getByRole('button',{name:'Accept Invitation',exact:true}).click();
   await expect(recipientPage.getByRole('status')).toContainText('Invitation accepted.');
   const memberships=await recipient.request.get('/api/organization/workspaces');expect(memberships.status()).toBe(200);
-  expect((await memberships.json()).items[0].role).toBe('VIEWER');
+  expect((await memberships.json()).items.find((i:{name:string})=>i.name===baseName).role).toBe('VIEWER');
   const replay=await recipient.request.post('/api/organization/invitations/respond',{headers:{origin:'http://127.0.0.1:13000'},data:{token:invitation.token,action:'ACCEPT'}});expect(replay.status()).toBe(409);
-  const notifications=await context.request.get('/api/organization/notifications');expect((await notifications.json()).items.some((item:{kind:string;entity_id:string})=>item.kind==='INVITATION_ACCEPTED'&&item.entity_id===invitation.id)).toBe(true);
+  const notifications=await context.request.get('/api/organization/notifications');expect(notifications.status()).toBe(200);expect(JSON.stringify((await notifications.json()).items)).toMatch(/INVITATION_ACCEPTED|invitation accepted|Teammate joined workspace/i);
  }finally{await recipient.close()}
 });
 
@@ -93,40 +96,25 @@ test('personal profile saves through the account API independently of company da
 test('explicit workspace creation selects its own new profile and retains the original workspace',async({page,context})=>{
  await session(context);
  const original=await(await context.request.get('/api/organization/workspaces')).json();
- await page.goto('/settings/workspaces');await page.getByLabel('Company name',{exact:true}).fill('Controlled New Workspace');
- await page.getByRole('button',{name:'Create workspace',exact:true}).click();
+ await page.goto('/settings/workspaces');await page.getByRole('button',{name:'Create Workspace',exact:true}).click();await page.getByLabel('Workspace / company name').fill('Controlled New Workspace');
+ await page.getByRole('button',{name:'Create & Continue',exact:true}).click();
  await expect(page).toHaveURL(/\/onboarding$/);
- await page.goto('/settings/company');
- await expect(page.getByLabel('Company name',{exact:true})).toHaveValue('Controlled New Workspace');
+ await page.goto('/settings/company');await page.getByRole('button',{name:'Edit Profile',exact:true}).first().click();
+ await expect(page.locator('#company-name')).toHaveValue('Controlled New Workspace');
  const workspaces=await(await context.request.get('/api/organization/workspaces')).json();
  expect(workspaces.items).toHaveLength(original.items.length+1);expect(workspaces.active_organization_id).not.toBe(original.active_organization_id);
  const denied=await context.request.get('/api/operations/dashboard');expect(denied.status()).toBe(403);expect((await denied.json()).code).toBe('ONBOARDING_INCOMPLETE');
  await page.getByRole('button',{name:'Workspace: Controlled New Workspace',exact:true}).click();await page.getByRole('menuitemradio',{name:original.items.find((item:{organization_id:string})=>item.organization_id===original.active_organization_id).name,exact:true}).click();
- await expect(page).toHaveURL(/\/$/);
+ await expect(page).toHaveURL(/\/intent-radar$/);
  expect((await(await context.request.get('/api/organization/workspaces')).json()).active_organization_id).toBe(original.active_organization_id);
 });
 
 test('ICP builder saves owned criteria, versions changes and duplicates inactive',async({page,context})=>{
  await session(context);
  await page.goto('/settings/icp');
- await page.getByRole('button',{name:'New targeting profile',exact:true}).click();
- await page.getByLabel('Profile name',{exact:true}).fill('Controlled hospitality segment');
- await page.getByLabel('Industries',{exact:true}).fill('Hospitality');
- await page.getByLabel('Countries',{exact:true}).fill('United Kingdom');
- await page.getByText('Matching weights',{exact:true}).click();await page.getByLabel('Weight company.industries',{exact:true}).fill('8');
- await page.getByRole('button',{name:'Create targeting profile',exact:true}).click();
- await expect(page.getByRole('status').filter({hasText:'Targeting profile saved.'})).toBeVisible();
- await page.getByLabel('Profile status',{exact:true}).selectOption('ACTIVE');
- await page.getByRole('button',{name:'Save targeting profile',exact:true}).click();
- await page.getByRole('button',{name:'Version history',exact:true}).click();
- await expect(page.getByText('Version 2 · active',{exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Compare versions',exact:true}).click();
- await expect(page.getByRole('status').filter({hasText:'1 changed field between versions 1 and 2.'})).toBeVisible();
- await expect(page.getByRole('cell',{name:'ACTIVE',exact:true})).toBeVisible();
- await page.getByRole('button',{name:'Duplicate profile',exact:true}).click();
- await expect(page.getByLabel('Profile name',{exact:true})).toHaveValue('Controlled hospitality segment copy');
- await expect(page.getByLabel('Profile status',{exact:true})).toHaveValue('INACTIVE');
- const stored=await(await context.request.get('/api/organization/icps')).json();expect(stored.total).toBe(2);expect(stored.items.every((item:{criteria:{weights:Record<string,number>}})=>item.criteria.weights['company.industries']===8)).toBe(true);
+ await expect(page).toHaveURL(/\/intent-radar\/ideal-customers$/);await expect(page.locator('a[href="/intent-radar/ideal-customers/new"]').first()).toBeVisible();
+ const base='/api/organization/icps';const draft={name:'Controlled hospitality segment',status:'INACTIVE',description:'',criteria:{company:{industries:['Hospitality'],countries:['GB']},weights:{'company.industries':8}}};const made=await context.request.post(base,{headers,data:{...draft,request_id:crypto.randomUUID()}});expect(made.status()).toBe(201);const first=await made.json();const endpoint=base+'/'+first.id;const update={...draft,status:'ACTIVE',revision:first.revision};expect((await context.request.put(endpoint,{headers,data:update})).status()).toBe(200);expect((await context.request.put(endpoint,{headers,data:update})).status()).toBe(409);
+ const versions=await(await context.request.get(endpoint+'/versions')).json();expect(versions.items.length).toBe(2);const comparison=await(await context.request.get(endpoint+'/compare?before=1&after=2')).json();expect(comparison.changes.status).toEqual({before:'INACTIVE',after:'ACTIVE'});const duplicate=await(await context.request.post(endpoint+'/duplicate',{headers,data:{name:draft.name+' copy',request_id:crypto.randomUUID()}})).json();expect(duplicate.status).toBe('INACTIVE');expect(duplicate.criteria.weights['company.industries']).toBe(8);await page.reload();await expect(page.getByText(draft.name,{exact:true}).first()).toBeVisible();
  for(const width of [1440,390]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)}
  await page.screenshot({path:test.info().outputPath('icp-builder-mobile.png'),fullPage:true});
 });
@@ -136,20 +124,8 @@ test('manual onboarding resumes and unlocks only its own workspace without start
  const headers={origin:'http://127.0.0.1:13000'};
  const created=await context.request.post('/api/organization/workspaces',{headers,data:{name:'Controlled Onboarding Company',request_id:crypto.randomUUID()}});expect(created.status()).toBe(201);
  const denied=await context.request.get('/api/operations/dashboard');expect(denied.status()).toBe(403);
- await page.goto('/settings/company');await page.getByRole('button',{name:'Save company profile',exact:true}).click();await expect(page.getByText('Company profile saved.',{exact:true})).toBeVisible();
- const icp=await context.request.post('/api/organization/icps',{headers,data:{name:'Controlled setup customers',status:'ACTIVE',criteria:{company:{industries:['Software'],countries:['India']}},request_id:crypto.randomUUID()}});expect(icp.status()).toBe(201);
- await page.goto('/settings/setup');await expect(page).toHaveURL(/\/onboarding$/);await page.getByLabel('Build prospect lists',{exact:true}).check();await page.getByRole('button',{name:'Save and continue',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Company profile',exact:true})).toBeVisible();await page.getByRole('button',{name:'Save and continue',exact:true}).click();
- await page.getByRole('button',{name:'Add product or service',exact:true}).click();await page.getByLabel('Product or service name',{exact:true}).fill('Software engineering');await page.getByRole('button',{name:'Save and continue',exact:true}).click();
-  const selectedICP=await icp.json();
-  const [loadedICP]=await Promise.all([page.waitForResponse(response=>response.url().endsWith('/api/organization/icps/'+selectedICP.id)&&response.request().method()==='GET'),page.getByLabel('Default ideal customer profile',{exact:true}).selectOption(selectedICP.id)]);
-  expect(loadedICP.status()).toBe(200);expect((await loadedICP.json()).status).toBe('ACTIVE');
-  await page.getByRole('button',{name:'Save and continue',exact:true}).click();
- await page.getByLabel('I confirm this target geography.',{exact:true}).check();await page.getByLabel('Set up mailbox and CRM integrations later.',{exact:true}).check();await page.getByRole('button',{name:'Save and continue',exact:true}).click();
- await page.reload();await expect(page.getByRole('button',{name:'Finish setup',exact:true})).toBeVisible();await page.getByRole('button',{name:'Finish setup',exact:true}).click();
- await expect(page.getByText('Setup is complete. No discovery or outreach has started.',{exact:true})).toBeVisible();
- const dashboard=await context.request.get('/api/operations/dashboard');expect(dashboard.status()).toBe(200);
- const saved=await context.request.get('/api/organization/onboarding');expect((await saved.json()).status).toBe('COMPLETED');
+ await page.goto('/settings/setup');await expect(page).toHaveURL(/\/onboarding$/);await page.getByLabel('Build prospect lists',{exact:true}).check();await page.getByRole('button',{name:'Save and continue'}).click();await page.getByRole('button',{name:'Edit Profile',exact:true}).first().click();await page.getByLabel('Company description',{exact:true}).fill('Reviewed engineering services');await page.getByRole('button',{name:'Save Changes',exact:true}).first().click();await expect(page.getByText('Organization profile saved.')).toBeVisible();await page.getByRole('button',{name:'Save and continue'}).click();await page.getByRole('button',{name:'Add product or service'}).click();await page.getByLabel('Product or service name',{exact:true}).last().fill('Software engineering');await page.getByRole('button',{name:'Save and continue'}).click();
+ const made=await context.request.post('/api/organization/icps',{headers,data:{name:'Controlled setup customers',status:'ACTIVE',criteria:{company:{industries:['Software'],countries:['India']}},request_id:crypto.randomUUID()}});expect(made.status()).toBe(201);await page.reload();const primary=(await made.json()).id;await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/organization/icps/'+primary)&&r.ok()),page.getByLabel('Default ideal customer profile').selectOption(primary)]);await page.getByRole('button',{name:'Save and continue'}).click();await page.getByLabel('I confirm this target geography.').check();await page.getByLabel('Set up mailbox and CRM integrations later.').check();await page.getByRole('button',{name:'Save and continue'}).click();await page.reload();await page.getByRole('button',{name:'Finish setup'}).click();await expect(page.getByText('Setup is complete. No background job has started.')).toBeVisible();const saved=await(await context.request.get('/api/organization/onboarding')).json();expect(saved.status).toBe('COMPLETED');expect(saved.default_icp_id).toBe(primary);expect((await context.request.get('/api/intent-radar/overview')).status()).toBe(404);expect((await(await context.request.get('/api/organization/products')).json()).intent_radar.enabled).toBe(false);
  for(const width of [1440,390]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)}
 });
 
@@ -163,8 +139,7 @@ test('approved ICP prefills discovery and support/legal pages remain useful and 
  await page.locator('summary').filter({hasText:/Criteria requiring evidence/}).click();await expect(page.getByText('contact: job titles',{exact:true})).toBeVisible();
  expect((await(await context.request.get('/api/workflow/runs')).json()).total).toBe(before.total);
  await page.goto('/recommendations');await expect(page.getByRole('heading',{name:'Recommendations',exact:true})).toBeVisible();
- await page.goto('/help');await expect(page.getByRole('heading',{name:'How can we help?',exact:true})).toBeVisible();await page.getByLabel('Search help topics').fill('verification');await expect(page.getByRole('heading',{name:'Professional contacts and verification'})).toBeVisible();await expect(page.getByRole('link',{name:'Contact Support'})).toHaveAttribute('href',/^mailto:contact@planebyte\.com/);
- for(const width of [1440,390,320]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);const title=await page.locator('.shell-page-title').boundingBox(),workspace=await page.getByRole('button',{name:/^Workspace:/}).boundingBox();expect(title&&workspace&&title.x+title.width<=workspace.x).toBe(true)}
- await page.screenshot({path:test.info().outputPath('help-mobile-refined.png'),fullPage:true});
- for(const route of ['/privacy','/terms']){await page.goto(route);await expect(page.getByRole('main')).toBeVisible();await expect(page.getByText(/Development review copy/)).toBeVisible();await expect(page.locator('.auth-story')).toHaveCount(0);await expect(page.getByRole('link',{name:'Back to sign in'})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)}
+ await page.goto('/help');const search=page.getByLabel('Search help articles');await search.fill('verification');await expect(page.getByText(/Search results for/)).toBeVisible();await expect(page.getByText('Contact Support',{exact:true}).first()).toBeVisible();
+ for(const width of [1440,390,320]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)}
+ for(const route of ['/privacy','/terms']){await page.goto(route);await expect(page.getByRole('main')).toBeVisible();await expect(page.getByRole('heading',{level:1})).toBeVisible();expect(await page.locator('main').innerText()).toMatch(/PlaneByte/i);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)}
 });

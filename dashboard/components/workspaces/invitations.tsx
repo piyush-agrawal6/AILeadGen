@@ -241,7 +241,7 @@ export function Invitations() {
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <Input readOnly value={inviteUrl} className="h-8 font-mono text-[11px] bg-card" />
+            <Input readOnly aria-label="Private invitation link" value={inviteUrl} className="h-8 font-mono text-[11px] bg-card" />
             <Button size="sm" variant="outline" onClick={() => void copyLink()} className="h-8 text-xs gap-1.5 shrink-0">
               {copied ? <Check size={13} /> : <Copy size={13} />}
               {copied ? "Copied" : "Copy Link"}
@@ -448,7 +448,7 @@ export function InvitationResponse({
   useEffect(() => {
     if (!initialToken && typeof window !== "undefined") {
       const hashToken = window.location.hash.slice(1).trim();
-      if (hashToken) setToken(hashToken);
+      if (hashToken) {setToken(hashToken);window.history.replaceState(null,'',window.location.pathname+window.location.search);}
     }
   }, [initialToken]);
 
