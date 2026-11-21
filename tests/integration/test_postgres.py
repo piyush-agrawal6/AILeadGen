@@ -1162,66 +1162,6 @@ def test_postgres_reviewed_customer_sheet_export_snapshot_and_worker(owned_postg
     assert exports.owned(c,job['id'])['status']=='COMPLETED' and len(calls)==1
     assert c.execute('SELECT COUNT(*) FROM email_messages').fetchone()[0]==0
 
-def test_billing_cycle_quota_atomicity_under_real_postgres_concurrency(postgres,monkeypatch):
-    import concurrent.futures,json,time,threading
-    from app.billing import catalog,usage
-    from app.platform.context import workspace_scope
-    from app.database.prospects import now
-    c=postgres;run_migrations(c);org=PLANEBYTE_ORGANIZATION_ID
-    owner=c.execute('SELECT created_by_user_id FROM organizations WHERE id=?',(org,)).fetchone()[0]
-    s=get_settings();monkeypatch.setattr(s,'billing_enabled',True);monkeypatch.setattr(s,'billing_test_workspaces',org)
-    key=str(uuid.uuid4());start=int(time.time())-60;end=start+3600;p=catalog.plan('starter');stamp=now()
-    c.execute('INSERT INTO billing_subscriptions(id,organization_id,created_by,mode,request_id,plan_code,plan_json,provider_id,status,current_start,current_end,paid_start,paid_end,next_reconcile_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(key,org,owner,'test',str(uuid.uuid4()),'starter',p.model_dump_json(),'sub_postgresfixture','active',start,end,start,end,stamp,stamp,stamp))
-    c.execute('INSERT INTO billing_workspace_slots(organization_id,mode,subscription_id) VALUES(?,?,?)',(org,'test',key));c.commit()
-    barrier=threading.Barrier(2)
-    def spend(request,amount):
-        conn=PostgresConnection(s.database_url,schema=c.schema)
-        try:
-            with workspace_scope(conn,owner,org):
-                barrier.wait(timeout=15);usage.reserve(conn,{'searches':amount},request);conn.commit();return 'RESERVED'
-        except Exception as error:
-            conn.rollback()
-            from fastapi import HTTPException
-            if isinstance(error,HTTPException) and error.status_code==429:return 'QUOTA'
-            raise
-        finally:conn.close()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-        results=list(pool.map(lambda value:spend(value,15),('operation-a','operation-b')))
-    assert sorted(results)==['QUOTA','RESERVED']
-    assert c.execute("SELECT used FROM billing_usage WHERE organization_id=? AND dimension='searches'",(org,)).fetchone()[0]==15
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda _:spend('same-retry',1),range(2)))
-    assert results==['RESERVED','RESERVED']
-    assert c.execute("SELECT used FROM billing_usage WHERE organization_id=? AND dimension='searches'",(org,)).fetchone()[0]==16
-    assert c.execute('SELECT COUNT(*) FROM billing_reservations WHERE organization_id=?',(org,)).fetchone()[0]==2
-
-def test_billing_pending_history_catchup_and_provider_transaction_release(postgres,monkeypatch):
-    from pydantic import SecretStr
-    from psycopg.pq import TransactionStatus
-    from app.billing import service
-    from app.platform.context import workspace_scope
-    from test_billing import mock_provider
-    c=postgres;run_migrations(c);org=PLANEBYTE_ORGANIZATION_ID
-    owner=c.execute('SELECT created_by_user_id FROM organizations WHERE id=?',(org,)).fetchone()[0]
-    settings=get_settings()
-    for name,value in {'billing_provider':'razorpay','billing_enabled':True,'billing_test_workspaces':org,'billing_test_mode':True,'razorpay_mode':'test','razorpay_key_id':'rzp_test_fixture','razorpay_key_secret':SecretStr('synthetic-api-secret'),'razorpay_test_plan_id_starter':'plan_fixture1'}.items():monkeypatch.setattr(settings,name,value)
-    state,invoice,payment,api,start,end=mock_provider(monkeypatch)
-    with workspace_scope(c,owner,org):
-        row=service.create(c,service.Create(plan_code='starter',request_id=uuid.uuid4(),confirm_test_mode=True))
-        original=api.side_effect
-        def outside_transaction(*args,**kwargs):
-            assert c.raw.info.transaction_status==TransactionStatus.IDLE
-            return original(*args,**kwargs)
-        api.side_effect=outside_transaction
-        state.update(status='pending',paid_count=1,customer_id='cust_fixture1',current_start=end,current_end=end+3600)
-        result=service.reconcile(c,row['id'])
-        assert result['status']=='pending' and not result['settled_current_period'] and result['paid_start'] is None
-        assert not service.active(c,org)
-        saved=c.execute('SELECT organization_id,subscription_id,period_start,period_end FROM billing_payments').fetchone()
-        assert saved['organization_id']==org and saved['subscription_id']==row['id']
-        assert (saved['period_start'],saved['period_end'])==(start,end)
-        service.reconcile(c,row['id'])
-        assert c.execute('SELECT COUNT(*) FROM billing_payments').fetchone()[0]==1
-
 def test_commercial_monthly_atomicity_and_retry_under_postgres(postgres,monkeypatch):
     from fastapi import HTTPException
     import concurrent.futures,json,time,threading

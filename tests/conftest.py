@@ -16,7 +16,7 @@ os.environ['LEAD_ENGINE_AVAILABLE']='true'
 os.environ["UPSTASH_REDIS_REST_URL"] = ""
 os.environ["UPSTASH_REDIS_REST_TOKEN"] = ""
 # Isolated financial tests never inherit live sandbox credentials.
-for _key in ("RAZORPAY_KEY_ID","RAZORPAY_KEY_SECRET","RAZORPAY_WEBHOOK_SECRET"):
+for _key in ("RAZORPAY_WEBHOOK_SECRET",):
     os.environ[_key]=""
 os.environ["BILLING_ENABLED"]="false"
 import pytest

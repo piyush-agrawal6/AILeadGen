@@ -6,7 +6,6 @@ from app.platform.context import current
 from app.api.organization import membership_role,products
 from app.config.settings import get_settings
 from app.database.prospects import now
-from app.billing import service,catalog
 
 def overview(c):
     ctx=current();role=membership_role(c,ctx.actor,ctx.organization_id)
@@ -14,7 +13,6 @@ def overview(c):
     org=ctx.organization_id;s=get_settings();today=now()[:10]
     reset=(datetime.now(timezone.utc).replace(hour=0,minute=0,second=0,microsecond=0)+timedelta(days=1)).isoformat()
     manual=c.execute("SELECT enabled FROM organization_products WHERE organization_id=? AND product='INTENT_RADAR'",(org,)).fetchone()
-    subscription=service.active(c,org) if s.billing_enabled else None
     ai=c.execute('SELECT calls,reserved_tokens FROM intent_analysis_usage WHERE organization_id=? AND day=?',(org,today)).fetchone()
     counts=c.execute("""SELECT (SELECT COUNT(*) FROM intent_discoveries WHERE organization_id=? AND created_at>=?) searches,
       (SELECT COUNT(*) FROM intent_monitors WHERE organization_id=? AND status<>'Archived') monitors,
@@ -23,9 +21,6 @@ def overview(c):
     preferences=c.execute('SELECT configuration_json FROM intent_preferences WHERE organization_id=?',(org,)).fetchone();prefs=json.loads(preferences[0]) if preferences else {}
     limits=[('searches',counts['searches'],s.intent_radar_daily_searches,'Requested searches today',reset,'daily reservation'),('ai_calls',ai['calls'] if ai else 0,min(s.intent_radar_ai_daily_calls,prefs.get('analysis_daily_call_limit',s.intent_radar_ai_daily_calls)),'AI reservations today',reset,'daily reservation'),('ai_tokens',ai['reserved_tokens'] if ai else 0,min(s.intent_radar_ai_daily_tokens,prefs.get('analysis_daily_token_limit',s.intent_radar_ai_daily_tokens)),'AI token capacity reserved',reset,'reserved upper bound; not billed tokens'),('monitors',counts['monitors'],s.intent_radar_monitor_limit,'Stored non-archived monitors',None,'capacity')]
     items=[{'dimension':key,'used':used,'limit':limit,'remaining':max(0,limit-used),'label':label,'resets_at':at,'basis':basis,'enforced':True,'near_limit':used>=limit*.8} for key,used,limit,label,at,basis in limits]
-    if subscription:
-        counters={r['dimension']:r['used'] for r in c.execute('SELECT dimension,used FROM billing_usage WHERE organization_id=? AND subscription_id=? AND period_start=?',(org,subscription['id'],subscription['paid_start'])).fetchall()};plan=json.loads(subscription['plan_json'])
-        for dim in catalog.DIMENSIONS:items.append({'dimension':'plan_'+dim,'used':counters.get(dim,0),'limit':plan['limits'][dim],'remaining':max(0,plan['limits'][dim]-counters.get(dim,0)),'label':'Sandbox plan · '+dim.replace('_',' '),'resets_at':datetime.fromtimestamp(subscription['paid_end'],timezone.utc).isoformat(),'basis':'settled sandbox billing period','enforced':True,'near_limit':counters.get(dim,0)>=plan['limits'][dim]*.8})
     from app.platform.provider_usage import summary
     actual=summary(c)
     sources=[dict(r) for r in c.execute('SELECT provider,reserved_requests FROM intent_source_usage WHERE organization_id=? AND day=?',(org,today)).fetchall()]
@@ -67,9 +62,9 @@ def overview(c):
     fixed=fixed_term.history(c) if role=='OWNER' and c.execute('SELECT 1 FROM payu_access_orders WHERE organization_id=? LIMIT 1',(org,)).fetchone() else None
     payments=[{'provider':'razorpay',**dict(r)} for r in c.execute('SELECT provider_id,mode,amount,currency,status,recorded_at FROM billing_payments WHERE organization_id=? ORDER BY recorded_at DESC,provider_id DESC LIMIT 50',(org,)).fetchall()] if role in ('OWNER','ADMIN') else []
     commercial_data={'catalog':commercial.catalog(),'provider':'creem','checkout_enabled':s.subscription_checkout_enabled,'blockers':[],'historical_payments':payments,**({'fixed_term':fixed} if fixed is not None else {})}
-    access_kind=paid['entitlement_label'] if paid and paid.get('entitlement_label') else 'Seven-day trial' if paid and paid.get('source_kind')=='TRIAL' else 'Fixed-term access' if paid and paid.get('source_kind')=='PAYMENT' else 'Commercial subscription' if paid else 'Expired or unpaid access' if native else 'Approved Beta' if manual and manual[0] else 'Sandbox subscription' if subscription else 'Restricted'
-    subscription_summary={'status':paid['status'],'provider_status':paid.get('provider_status',paid['status']),'mode':paid['mode'],'plan_code':paid.get('plan_code'),'is_trial':is_trial,'entitlement_label':paid.get('entitlement_label'),'period_start':paid['paid_start'],'period_end':paid['paid_end'],'trial_start':paid.get('trial_start'),'trial_end':paid.get('trial_end'),'cancel_confirmed_at':paid.get('cancel_confirmed_at'),'catalog_version':paid['catalog_version']} if paid else {'status':subscription['status'],'mode':'test','period_end':subscription['paid_end']} if subscription else None
-    payload={'native_access':native_access,'access':{'kind':access_kind,'is_trial':is_trial,'intent_radar':bool(manual and manual[0] or subscription or paid),'growth_intelligence':bool(s.intent_radar_growth_enabled and (manual and manual[0] or subscription or paid)),'commercial_subscription':bool(paid and not is_trial)},'subscription':subscription_summary,'search_usage':search_breakdown,'usage':items,'provider_usage':actual,'source_requests':sources,'team_seats':counts['seats'],'commercial_pricing_approved':True,'commercial':commercial_data,'live_payments_enabled':False,'sandbox_tools_available':role=='OWNER' and service.test_allowed(org),'billing_timezone':'UTC','unmetered':['Exports are bounded per request; no separate export-plan allowance is claimed.','Commercial reports consume both report and shared AI allowances; Beta access retains independent operator limits.'],'support_url':'mailto:contact@planebyte.com?subject=Workspace%20access%20and%20allowances'}
+    access_kind=paid['entitlement_label'] if paid and paid.get('entitlement_label') else 'Seven-day trial' if paid and paid.get('source_kind')=='TRIAL' else 'Fixed-term access' if paid and paid.get('source_kind')=='PAYMENT' else 'Commercial subscription' if paid else 'Expired or unpaid access' if native else 'Approved Beta' if manual and manual[0] else 'Restricted'
+    subscription_summary={'status':paid['status'],'provider_status':paid.get('provider_status',paid['status']),'mode':paid['mode'],'plan_code':paid.get('plan_code'),'is_trial':is_trial,'entitlement_label':paid.get('entitlement_label'),'period_start':paid['paid_start'],'period_end':paid['paid_end'],'trial_start':paid.get('trial_start'),'trial_end':paid.get('trial_end'),'cancel_confirmed_at':paid.get('cancel_confirmed_at'),'catalog_version':paid['catalog_version']} if paid else None
+    payload={'native_access':native_access,'access':{'kind':access_kind,'is_trial':is_trial,'intent_radar':bool(manual and manual[0] or paid),'growth_intelligence':bool(s.intent_radar_growth_enabled and (manual and manual[0] or paid)),'commercial_subscription':bool(paid and not is_trial)},'subscription':subscription_summary,'search_usage':search_breakdown,'usage':items,'provider_usage':actual,'source_requests':sources,'team_seats':counts['seats'],'commercial_pricing_approved':True,'commercial':commercial_data,'live_payments_enabled':False,'sandbox_tools_available':False,'billing_timezone':'UTC','unmetered':['Exports are bounded per request; no separate export-plan allowance is claimed.','Commercial reports consume both report and shared AI allowances; Beta access retains independent operator limits.'],'support_url':'mailto:contact@planebyte.com?subject=Workspace%20access%20and%20allowances'}
     if internal_testing_payload:
         payload['internal_testing']=internal_testing_payload
     from app.billing import subscription_access,subscriptions

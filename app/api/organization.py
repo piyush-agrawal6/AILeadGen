@@ -147,7 +147,10 @@ def create_organization(c, email, name, *, setup_method='MANUAL',billing_account
     except Exception:
         pass
     from app.config.settings import get_settings
-    for product, enabled in (('LEADGEN', int(get_settings().lead_engine_public_enabled)), ('INTENT_RADAR', 0), ('SEARCH_VISIBILITY', 0)):
+    initial_products=[('INTENT_RADAR',0),('SEARCH_VISIBILITY',0)]
+    if get_settings().database_schema_profile!='intent-radar-v1':
+        initial_products.append(('LEADGEN',int(get_settings().lead_engine_public_enabled)))
+    for product, enabled in initial_products:
         c.execute("INSERT INTO organization_products(organization_id,product,enabled,created_at,updated_at) "
                   "VALUES(?,?,?,?,?) ON CONFLICT(organization_id,product) DO NOTHING",
                   (organization_id, product, enabled, stamp, stamp))
