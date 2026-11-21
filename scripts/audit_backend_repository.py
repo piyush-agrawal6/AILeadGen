@@ -76,6 +76,12 @@ def inventory(rev, target):
         if protected(path):continue
         if path in deleted: label, action='DELETE','See reviewed deletion groups in the cleanup report'
         elif path.startswith('app/database/'):label, action='RETAIN FOR HISTORY','Preserve database lineage and shared infrastructure'
+        elif path.startswith('tests/') and (Path(path).name.startswith('test_') or Path(path).name=='conftest.py'):
+            label,action='KEEP','Configured pytest testpaths and full PostgreSQL regression on hosted CI'
+        elif path in {'requirements.lock','pyproject.toml','requirements.txt','.nvmrc','.gitignore','.dockerignore','.gcloudignore','.vercelignore','AGENTS.md','README.md','.env.example','release-policy.json'}:
+            label,action='KEEP','Maintained build, packaging, release policy, environment template or operator entry point'
+        elif refs[path]['ci'] and path.startswith(('scripts/','deploy/')):
+            label,action='KEEP','Referenced by CI; release verification requires this interface'
         elif path.startswith(('app/billing/','app/api/','app/platform/')) or path=='app/worker.py':label,action='REFACTOR','Review shared consumers before changing interfaces'
         elif path.startswith(('app/intent_radar/','app/accounts/','app/growth_intelligence/','.github/')):label,action='KEEP','Product or release surface'
         else:label,action='UNRESOLVED','Retain pending operational review'

@@ -3,7 +3,7 @@ ARG SOURCE_REV
 LABEL org.opencontainers.image.revision=$SOURCE_REV
 USER root
 # Overlay builds inherit deleted files from the previous runtime unless explicitly removed.
-RUN rm -rf /opt/leadengine/app/cli && rm -f /opt/leadengine/lead_engine.py /opt/leadengine/app/billing/provider.py /opt/leadengine/scripts/prepare_razorpay_test_plans.py /opt/leadengine/scripts/accept_razorpay_subscription.py /opt/leadengine/scripts/deploy_billing_release.py /opt/leadengine/scripts/deploy_billing_patch.py /opt/leadengine/scripts/accept_billing_production.py /opt/leadengine/app/billing/payu.py /opt/leadengine/app/billing/payu_v2.py /opt/leadengine/scripts/install_payu_server_secrets.py /opt/leadengine/scripts/probe_payu_verification.py
+RUN rm -rf /opt/leadengine/app/cli && rm -f /opt/leadengine/app/audit/lighthouse.py /opt/leadengine/lead_engine.py /opt/leadengine/app/billing/provider.py /opt/leadengine/scripts/prepare_razorpay_test_plans.py /opt/leadengine/scripts/accept_razorpay_subscription.py /opt/leadengine/scripts/deploy_billing_release.py /opt/leadengine/scripts/deploy_billing_patch.py /opt/leadengine/scripts/accept_billing_production.py /opt/leadengine/app/billing/payu.py /opt/leadengine/app/billing/payu_v2.py /opt/leadengine/scripts/install_payu_server_secrets.py /opt/leadengine/scripts/probe_payu_verification.py
 COPY requirements.lock /opt/leadengine/requirements.lock
 RUN grep -E '^(dnspython|opentelemetry-api|pyasn1|pypdf|soupsieve)==' /opt/leadengine/requirements.lock >/tmp/security.lock && test "$(wc -l </tmp/security.lock)" -eq 5 && python -m pip install --no-deps --only-binary=:all: --no-cache-dir -r /tmp/security.lock && rm /tmp/security.lock
 USER 10001:10001

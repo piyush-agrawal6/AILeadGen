@@ -39,13 +39,15 @@ def test_historical_flags_cannot_reenable_assessments_and_runner_exports_general
  with workspace_scope(c,'controlled@example.test',org):
   cid,run=batch(c,org);businesses=[company(run),company(run,2,False)]
   crawler=AsyncMock(side_effect=crawl);monkeypatch.setattr('app.enrichment.crawler.WebsiteCrawler.crawl',lambda self,url: crawler(url))
-  audit=AsyncMock(side_effect=AssertionError('No audit may run'));monkeypatch.setattr('app.audit.lighthouse.run_lighthouse_audit',audit);monkeypatch.setattr('app.audit.quick.perform_quick_audit',Mock(side_effect=AssertionError('No audit may run')))
+  from importlib.util import find_spec
+  assert find_spec('app.audit.lighthouse') is None
+  monkeypatch.setattr('app.audit.quick.perform_quick_audit',Mock(side_effect=AssertionError('No audit may run')))
   runner=PipelineRunner(db_path=path,output_dir=tmp_path/'exports',discovery_coordinator=CandidateCoordinator(businesses,ProcessingOptions(),__import__('app.acquisition.policy',fromlist=['policy']).policy('FILE_IMPORT')))
   result=asyncio.run(runner.run(run.market,run.vertical,run.target,run_id=run.id,enable_lighthouse=True,run_configuration=run.run_configuration))
   assert result.status=='COMPLETED' and result.qualified==2 and result.exported==2
   assert c.execute("SELECT COUNT(*) FROM businesses WHERE processing_status='QUALIFIED'").fetchone()[0]==2
   for table in ('lighthouse_results','opportunity_scores','findings','website_profiles','client_reports'):assert c.execute('SELECT COUNT(*) FROM '+table).fetchone()[0]==0
-  assert crawler.await_count==2;audit.assert_not_called()
+  assert crawler.await_count==2
   from pathlib import Path
   assert Path(result.output_file).exists();text=Path(result.output_file).with_suffix('.csv').read_text();assert 'qualification' in text and 'security_score' not in text
   tags=json.loads(c.execute('SELECT source_tags_json FROM businesses ORDER BY id LIMIT 1').fetchone()[0]);assert tags['company_intelligence']['summary']=='Dental services in Bristol.'

@@ -61,3 +61,6 @@ deploy/*-validation.zip
 
 # Generated report QA renders (review evidence is retained separately).
 /tmp/pdfs/
+
+# Reproducible legacy prospecting response caches; never release local seeds.
+/data/cache/
